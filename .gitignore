@@ -1,0 +1,4 @@
+# Generated Maven output and editor files.
+/target/
+*.class
+.idea/
