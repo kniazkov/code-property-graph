@@ -58,3 +58,5 @@ Graph snapshot = mutable.build();
 Исследование общих синтаксических узлов C, C++, Java, Python и JavaScript: [обзор и документы](docs/research/language-nodes/README.ru.md).
 
 Структура классов узлов и правила API: [согласованные решения](docs/node-model.ru.md).
+
+Новые типизированные узлы рядом с прототипом: [иерархия и примеры](docs/node-hierarchy.ru.md).
