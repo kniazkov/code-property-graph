@@ -1,0 +1,21 @@
+# Compile, test and execute both generated examples. MIT License.
+name: Build and demo
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - run: mvn -B verify
+      - run: bash scripts/demo.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cpg-prototype
+          path: |
+            target/cpg-*.jar
+            target/demo/
