@@ -25,6 +25,7 @@ public final class DotVisualizer {
     public static String toDot(Node root) {
         Writer writer = new Writer();
         root.walk(writer);
+        if (root instanceof Project project) project.flows().forEach(writer::flow);
         return writer.dot.append("}\n").toString();
     }
 
@@ -104,6 +105,27 @@ public final class DotVisualizer {
                 dot.append("  n").append(from).append(" -> n").append(to)
                         .append(" [label=<&#160;ref>, style=dashed, constraint=false];\n");
             }
+        }
+
+        /** Draws analysis overlays after syntax IDs have been assigned. Exits belong only to the CFG. */
+        private void flow(FunctionFlow flow) {
+            String exit = "exit" + id(flow.entry());
+            dot.append("  ").append(exit).append(" [label=\"Exit\", color=\"#008000\"];\n");
+            for (var edge : flow.control()) {
+                String from = "n" + id((Node) edge.from());
+                String to = edge.to() == flow.exit() ? exit : "n" + id((Node) edge.to());
+                flowEdge(from, to, "CFG " + edge.kind().name().toLowerCase(java.util.Locale.ROOT), "#1565c0");
+            }
+            for (var edge : flow.data()) {
+                String label = edge.kind() == FunctionFlow.Dependency.VALUE ? "DFG value" : "DFG def";
+                flowEdge("n" + id(edge.from()), "n" + id(edge.to()), label, "#aa3377");
+            }
+        }
+
+        private void flowEdge(String from, String to, String label, String color) {
+            dot.append("  ").append(from).append(" -> ").append(to)
+                    .append(" [label=<&#160;").append(label).append(">, color=\"").append(color)
+                    .append("\", fontcolor=\"").append(color).append("\", constraint=false];\n");
         }
 
         private int id(Node node) {

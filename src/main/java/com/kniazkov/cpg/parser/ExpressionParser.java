@@ -22,9 +22,11 @@ final class ExpressionParser {
     private int precedence(String op) {
         return switch (op) {
             case "=" -> 0;
-            case "<<" -> language == Language.CPP ? 1 : -1;
-            case "+", "-" -> 2;
-            case "*", "/" -> 3;
+            case "==", "!=" -> 1;
+            case "<", "<=", ">", ">=" -> 2;
+            case "<<" -> language == Language.CPP ? 3 : -1;
+            case "+", "-" -> 4;
+            case "*", "/" -> 5;
             default -> -1;
         };
     }
@@ -49,6 +51,12 @@ final class ExpressionParser {
                 case "*" -> MultiplyExpression.create().setLeft(left).setRight(right);
                 case "/" -> DivideExpression.create().setLeft(left).setRight(right);
                 case "<<" -> ShiftLeftExpression.create().setLeft(left).setRight(right);
+                case "==" -> EqualExpression.create().setLeft(left).setRight(right);
+                case "!=" -> NotEqualExpression.create().setLeft(left).setRight(right);
+                case "<" -> LessExpression.create().setLeft(left).setRight(right);
+                case "<=" -> LessOrEqualExpression.create().setLeft(left).setRight(right);
+                case ">" -> GreaterExpression.create().setLeft(left).setRight(right);
+                case ">=" -> GreaterOrEqualExpression.create().setLeft(left).setRight(right);
                 default -> throw new AssertionError(operator);
             };
         }

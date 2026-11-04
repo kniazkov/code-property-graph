@@ -3,6 +3,7 @@ package com.kniazkov.cpg;
 
 import com.kniazkov.cpg.model.*;
 import com.kniazkov.cpg.analysis.ConsoleNormalizer;
+import com.kniazkov.cpg.analysis.DataFlow;
 import com.kniazkov.cpg.analysis.ConstantFolder;
 import com.kniazkov.cpg.analysis.NameResolver;
 import com.kniazkov.cpg.generation.Source;
@@ -40,9 +41,9 @@ public final class Cpg {
         Project result = root.build();
         if (options.stage() == Stage.PARSED) return result;
         result = NameResolver.resolve(result);
-        if (options.stage() == Stage.RESOLVED) return result;
-        result = ConsoleNormalizer.green(result);
-        return options.stage() == Stage.GREEN ? result : ConstantFolder.fold(result);
+        if (options.stage() != Stage.RESOLVED) result = ConsoleNormalizer.green(result);
+        if (options.stage() == Stage.FOLDED) result = ConstantFolder.fold(result);
+        return DataFlow.analyze(result);
     }
 
     /** Generates one named source string per output file for the selected target language. */
