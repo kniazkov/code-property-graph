@@ -53,17 +53,26 @@ public final class Cpg {
         catch (IOException e) { throw new ParseException(database.toString(), 1, 1, e.getMessage()); }
     }
 
-    /** Parses each translation unit independently; macro operations are retained as inputs only. */
+    /** Parses configurations independently and retains their identities and optional link composition. */
     public static Project read(com.kniazkov.cpg.build.Build build, Options options) {
         if (options.language() != Language.CPP) throw new IllegalArgumentException("Compilation builds require CPP");
-        var root = Project.create();
-        for (var unit : build.units()) {
+        var effectiveUnits = build.units().stream().map(unit -> new com.kniazkov.cpg.build.Build.TranslationUnit(
+                unit.source(), unit.directory(), unit.includes(), unit.macros(),
+                options.cppStandard() != null ? options.cppStandard() : unit.standard() == null ? "c++03" : unit.standard())).toList();
+        var composition = build.composition();
+        if (composition != null && options.cppStandard() != null) {
+            var ids = new ArrayList<String>();
+            for (int i = 0; i < build.units().size(); i++)
+                if (composition.variantIds().contains(build.units().get(i).variantId())) ids.add(effectiveUnits.get(i).variantId());
+            composition = new com.kniazkov.cpg.build.Build.Composition(composition.name(), ids.stream().distinct().toList());
+        }
+        var effectiveBuild = new com.kniazkov.cpg.build.Build(effectiveUnits, composition);
+        var root = Project.create().setBuild(effectiveBuild);
+        for (var unit : effectiveBuild.units()) {
+            if (composition != null && !composition.variantIds().contains(unit.variantId())) continue;
             String file = unit.source().path().toString();
-            String standard = options.cppStandard() != null ? options.cppStandard() : unit.standard();
-            com.kniazkov.cpg.build.CppStandard.require(standard, file);
-            var effective = new com.kniazkov.cpg.build.Build.TranslationUnit(unit.source(), unit.directory(),
-                    unit.includes(), unit.macros(), standard);
-            try { root.addFile(Parser.parse(effective, Files.readString(unit.source().path()))); }
+            com.kniazkov.cpg.build.CppStandard.require(unit.standard(), file);
+            try { root.addFile(Parser.parse(unit, Files.readString(unit.source().path()))); }
             catch (IOException e) { throw new ParseException(file, 1, 1, e.getMessage()); }
         }
         com.kniazkov.cpg.build.CppStandard.require(options.cppStandard(), "empty compilation build");
@@ -75,6 +84,8 @@ public final class Cpg {
         result = NameResolver.resolve(result);
         if (options.stage() != Stage.RESOLVED) result = ConsoleNormalizer.green(result);
         if (options.stage() == Stage.FOLDED) result = ConstantFolder.fold(result);
+        // Transformations deliberately drop annotations; recompute links and build diagnostics.
+        if (options.stage() != Stage.RESOLVED) result = NameResolver.resolve(result);
         return UnreadWrites.analyze(result);
     }
 

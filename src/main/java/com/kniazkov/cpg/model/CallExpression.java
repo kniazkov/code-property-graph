@@ -11,6 +11,11 @@ public final class CallExpression extends Expression {
     private Expression callee;
     private List<Expression> arguments = List.of();
     private CallableDeclaration target;
+    public enum Resolution { UNRESOLVED, RESOLVED, AMBIGUOUS, ODR_CONFLICT }
+    private List<CallableDeclaration> candidates = List.of();
+    private Resolution resolution = Resolution.UNRESOLVED;
+    public List<CallableDeclaration> candidates() { return candidates; }
+    public Resolution resolution() { return resolution; }
 
     private CallExpression() {
     }
@@ -37,7 +42,7 @@ public final class CallExpression extends Expression {
 
     @Override
     public List<Node> references() {
-        return target == null ? List.of() : List.of(target);
+        return List.copyOf(candidates);
     }
 
     @Override
@@ -61,6 +66,8 @@ public final class CallExpression extends Expression {
         builder.callee = context.edge(callee, Expression.class);
         builder.arguments = context.copyAll(arguments, Expression.class);
         builder.target = target == null ? null : context.edge(target, CallableDeclaration.class);
+        builder.candidates = context.copyAll(candidates, CallableDeclaration.class);
+        builder.resolution = resolution;
         return builder;
     }
 
@@ -69,6 +76,18 @@ public final class CallExpression extends Expression {
         private NodeBuilder<? extends Expression> callee;
         private List<NodeBuilder<? extends Expression>> arguments = new ArrayList<>();
         private NodeBuilder<? extends CallableDeclaration> target;
+        private List<NodeBuilder<? extends CallableDeclaration>> candidates = new ArrayList<>();
+        private Resolution resolution = Resolution.UNRESOLVED;
+        public Builder setCandidates(List<? extends NodeBuilder<? extends CallableDeclaration>> values, Resolution status) {
+            candidates = new ArrayList<>(values);
+            resolution = Objects.requireNonNull(status);
+            if (status == Resolution.RESOLVED && candidates.size() != 1
+                    || status == Resolution.UNRESOLVED && !candidates.isEmpty()
+                    || (status == Resolution.AMBIGUOUS || status == Resolution.ODR_CONFLICT) && candidates.size() < 2)
+                throw new IllegalArgumentException("Candidate count does not match resolution status");
+            target = status == Resolution.RESOLVED ? candidates.getFirst() : null;
+            return this;
+        }
 
         private Builder() {
             super(CallExpression.class);
@@ -103,11 +122,15 @@ public final class CallExpression extends Expression {
 
         public Builder setTarget(NodeBuilder<? extends CallableDeclaration> target) {
             this.target = Objects.requireNonNull(target);
+            candidates = new ArrayList<>(List.of(target));
+            resolution = Resolution.RESOLVED;
             return this;
         }
 
         public Builder clearTarget() {
             this.target = null;
+            candidates.clear();
+            resolution = Resolution.UNRESOLVED;
             return this;
         }
 
@@ -121,6 +144,8 @@ public final class CallExpression extends Expression {
             node.callee = context.copy(callee);
             node.arguments = context.copyAll(arguments);
             node.target = target == null ? null : context.copy(target);
+            node.candidates = context.copyAll(candidates);
+            node.resolution = resolution;
         }
     }
 }
