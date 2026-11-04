@@ -32,6 +32,7 @@ final class BuildContext {
             return builder.nodeType().cast(existing);
         }
         T node = builder.newNode();
+        node.origin = builder.origin;
         nodes.put(builder, node);
         builder.fillNode(node, this);
         return node;

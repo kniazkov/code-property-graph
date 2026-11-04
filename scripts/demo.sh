@@ -117,3 +117,29 @@ assert any(pair == [owner_id, exit_id] and label.isdecimal() for pair, label in 
 assert any(pair[1] == exit_id and label.startswith("CFG ") for pair, label in incoming)
 PY
 cp "$work/flow.svg" target/demo/flow.svg
+
+# Verify the distributable JAR includes its JSON runtime and all three output modes compose.
+java -jar "$jar" --from cpp --input examples/cpp --stage folded --out "$work/json-src" --svg "$work/json.svg" --json target/demo/project.json
+python3 - target/demo/project.json <<'PY'
+import json, pathlib, sys
+project = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+nodes = {}
+edges = []
+def visit(item):
+    if isinstance(item, list):
+        for child in item:
+            visit(child)
+    elif isinstance(item, dict):
+        if "id" in item:
+            assert item["id"] not in nodes
+            nodes[item["id"]] = item
+            edges.extend(item.get("edges", ()))
+        for key, value in item.items():
+            if key != "edges":
+                visit(value)
+visit(project)
+assert project["id"] == 0 and sorted(nodes) == list(range(len(nodes)))
+assert all(edge["to"] in nodes for edge in edges)
+assert {"ref", "cfg.entry", "dfg.definition"} <= {edge["kind"] for edge in edges}
+assert pathlib.Path(project["files"][0]["path"]).is_absolute()
+PY
