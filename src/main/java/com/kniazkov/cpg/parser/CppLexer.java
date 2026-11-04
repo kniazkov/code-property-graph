@@ -144,11 +144,20 @@ public final class CppLexer {
                     offset++; kind = quote == '"' ? STRING_LITERAL : CHARACTER_LITERAL;
                 } else if (digit(ch) || (ch == '.' && offset + 1 < input.length() && digit(input.charAt(offset + 1)))) {
                     offset++;
+                    boolean exponentSign = false;
                     while (offset < input.length()) {
                         char next = input.charAt(offset);
-                        if ((next == '+' || next == '-') && (input.charAt(offset - 1) == 'e' || input.charAt(offset - 1) == 'E')) offset++;
-                        else if (digit(next) || next == '.') offset++;
-                        else { int size = nondigit(offset, false); if (size == 0) break; offset += size; }
+                        if ((next == '+' || next == '-') && exponentSign) {
+                            offset++; exponentSign = false;
+                        } else if (digit(next) || next == '.') {
+                            offset++; exponentSign = false;
+                        } else {
+                            int size = nondigit(offset, false);
+                            if (size == 0) break;
+                            // A UCN ending in hexadecimal e/E is one nondigit, not an exponent marker.
+                            exponentSign = size == 1 && (next == 'e' || next == 'E');
+                            offset += size;
+                        }
                     }
                     kind = PP_NUMBER;
                 } else if (nondigit(offset) > 0) {
@@ -186,6 +195,8 @@ public final class CppLexer {
             char ch = input.charAt(at);
             if (ch == '_' || ch >= 'a' && ch <= 'z' || ch >= 'A' && ch <= 'Z') return 1;
             if (ucnStart(at)) return ucnLength(at, identifier);
+            // These three non-basic source characters have valid UCNs, but are not Annex E identifiers.
+            if (!identifier && (ch == '$' || ch == '@' || ch == '`')) return 1;
             if (ch >= 128 && (CppIdentifierCharacters.contains(input.codePointAt(at))
                     || !identifier && input.codePointAt(at) >= 0xa0
                     && !(input.codePointAt(at) >= 0xd800 && input.codePointAt(at) <= 0xdfff))) return Character.charCount(input.codePointAt(at));

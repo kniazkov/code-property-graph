@@ -58,6 +58,34 @@ class CppLexerTest {
         assertTrue(significant("1Ex .5 1E+foo").stream().allMatch(t -> t.kind() == PP_NUMBER));
     }
 
+    @Test void numberExponentSignsFollowGrammarElementsNotUcnHexadecimalDigits() {
+        for (String ucn : List.of("\\u00ce", "\\u00CE", "\\u00de", "\\u03ae", "\\U000000ce", "\\U000000CE")) {
+            for (String sign : List.of("+", "-")) {
+                assertEquals(List.of("1" + ucn, sign, "2"), spellings("1" + ucn + sign + "2"));
+                String raw = "1" + Character.toString(Integer.parseInt(ucn.substring(2), 16));
+                assertEquals(List.of(raw, sign, "2"), spellings(raw + sign + "2"));
+                assertEquals(1 + ucn.length(), significant("1" + ucn + sign + "2").getFirst().range().end().offset());
+                assertEquals(raw.length(), significant(raw + sign + "2").getFirst().range().end().offset());
+                assertEquals(List.of("1" + ucn + "e" + sign + "2"), spellings("1" + ucn + "e" + sign + "2"));
+            }
+        }
+        assertEquals(List.of("1Î", "+", "2"), spellings("1Î+2"));
+        assertEquals(List.of("1e+", "+", "2", "1E-", "-", "2"), spellings("1e++2 1E--2"));
+        var token = significant("1\\u00ce+2").getFirst();
+        assertEquals(PP_NUMBER, token.kind());
+        assertEquals(new SourcePosition(1, 8, 7), token.range().end());
+    }
+
+    @Test void nonBasicAsciiNumberCharactersMatchTheirUcnForms() {
+        for (String spelling : List.of("1$", "1@", "1`", "1\\u0024", "1\\u0040", "1\\u0060")) {
+            var tokens = significant(spelling);
+            assertEquals(1, tokens.size(), spelling);
+            assertEquals(PP_NUMBER, tokens.getFirst().kind(), spelling);
+            assertEquals(spelling, tokens.getFirst().spelling());
+            assertEquals(spelling.length(), tokens.getFirst().range().end().offset());
+        }
+    }
+
     @Test void alternativesKeepSpellingForStringization() {
         var tokens = significant("<% %> <: :> %: %:%: and and_eq bitand bitor compl not not_eq or or_eq xor xor_eq");
         assertEquals(List.of("{", "}", "[", "]", "#", "##", "&&", "&=", "&", "|", "~", "!", "!=", "||", "|=", "^", "^="),

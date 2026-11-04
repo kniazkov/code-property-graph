@@ -28,7 +28,7 @@ class LexicalPhasesIT {
         assertEquals(8, lexical.characterRanges().get(main.logicalStart()).start().column());
         assertEquals(2, lexical.characterRanges().get(main.logicalStart() + 2).start().line());
         assertEquals(1, lexical.characterRanges().get(main.logicalStart() + 2).start().column());
-        assertFalse(lexical.text().contains("@"), "Continued comment must hide the next physical line");
+        assertFalse(lexical.text().contains("@"), "Block comment must hide the next physical line");
         var alternative = lexical.tokens().stream().filter(t -> t.spelling().equals("not_eq")).findFirst().orElseThrow();
         assertEquals("!=", alternative.canonicalSpelling());
         assertEquals(7, alternative.range().start().line());
