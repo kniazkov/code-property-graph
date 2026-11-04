@@ -46,7 +46,24 @@ ns = {"s": "http://www.w3.org/2000/svg"}
 def labels(path):
     root = ET.parse(path).getroot()
     assert root.tag == "{http://www.w3.org/2000/svg}svg"
-    return {text.text for text in root.findall(".//s:text", ns)}
+    for element in root.iter():
+        if element.get("stroke", "none") != "none":
+            assert float(element.get("stroke-width", "1")) == 1
+    colors = {}
+    for group in root.findall(".//s:g[@class='node']", ns):
+        outline = group.find("s:path", ns)
+        assert outline is not None and "C" in outline.get("d", "")
+        texts = group.findall("s:text", ns)
+        colors.setdefault(texts[0].text, set()).add(outline.get("stroke").lower())
+        assert all(float(t.get("font-size")) == 10 for t in texts)
+        assert all(t.get("fill", "").lower() in {"navy", "#000080"} for t in texts[1:])
+    assert colors["IntegerLiteral"] == {"#008000"}
+    assert colors["Project"] == {"#ff0000"}
+    for group in root.findall(".//s:g[@class='edge']", ns):
+        label = group.find("s:text", ns)
+        assert float(label.get("font-size")) == 9
+        assert label.text[0].isspace() and not label.text[1].isspace()
+    return {text.text.strip() for text in root.findall(".//s:text", ns)}
 assert {"Project", "PrintStatement", "ref"} <= labels(sys.argv[1])
 assert "CallExpression" in labels(sys.argv[2])
 assert "PrintStatement" not in labels(sys.argv[2])
