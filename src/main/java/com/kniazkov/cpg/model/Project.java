@@ -25,9 +25,8 @@ public final class Project extends Node {
                 if (callable.body().isPresent()) owners.add(callable);
             }
         });
-        var exits = new java.util.HashSet<FunctionFlow.Exit>();
         for (FunctionFlow flow : copy.flows) {
-            if (!owners.remove(flow.entry()) || !exits.add(flow.exit()))
+            if (!owners.remove(flow.entry()))
                 throw new IllegalArgumentException("Foreign or duplicate function flow");
         }
         if (!owners.isEmpty()) throw new IllegalArgumentException("Missing function flow");

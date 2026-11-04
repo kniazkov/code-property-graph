@@ -3,10 +3,8 @@ package com.kniazkov.cpg.model;
 
 import java.util.*;
 
-/** Per-function analysis over existing snapshot nodes. The only synthetic vertex is its unique exit. */
+/** Per-function analysis over existing snapshot nodes. Its terminal is the exit owned by the entry declaration. */
 public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdge> control, List<DataEdge> data) {
-    /** Flow-only endpoint shared by returns and ordinary fall-through in this function. */
-    public static final class Exit implements FlowVertex {}
 
     public enum Branch { ENTRY, NEXT, TRUE, FALSE, RETURN, BACK }
     public enum Dependency { VALUE, DEFINITION }
@@ -21,14 +19,13 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
 
     public FunctionFlow {
         Objects.requireNonNull(entry);
-        Objects.requireNonNull(exit);
+        if (exit != entry.exit()) throw new IllegalArgumentException("Exit belongs to another callable");
         control = List.copyOf(control);
         data = List.copyOf(data);
         Set<FlowVertex> members = Collections.newSetFromMap(new IdentityHashMap<>());
         entry.walk(new NodeVisitor() {
             @Override public void visit(Node node) { members.add(node); }
         });
-        members.add(exit);
         for (ControlEdge edge : control) {
             if (!members.contains(edge.from()) || !members.contains(edge.to()) || edge.from() == exit)
                 throw new IllegalArgumentException("Invalid control-flow endpoint");

@@ -103,6 +103,17 @@ for label in ("CFG entry", "CFG true", "CFG false"):
     assert labels[label] == {"#1565c0"}, (label, labels)
 for label in ("DFG value", "DFG def"):
     assert labels[label] == {"#aa3377"}, (label, labels)
-assert sum(t.text == "Exit" for t in root.findall(".//s:text", ns)) == 1
+def node_id(label):
+    matches = [g.find("s:title", ns).text for g in root.findall(".//s:g[@class='node']", ns)
+               if g.find("s:text", ns).text == label]
+    assert len(matches) == 1, (label, matches)
+    return matches[0]
+
+exit_id = node_id("Exit")
+owner_id = node_id("MethodDeclaration")
+incoming = [(g.find("s:title", ns).text.split("->"), g.find("s:text", ns).text.strip())
+            for g in root.findall(".//s:g[@class='edge']", ns)]
+assert any(pair == [owner_id, exit_id] and label.isdecimal() for pair, label in incoming)
+assert any(pair[1] == exit_id and label.startswith("CFG ") for pair, label in incoming)
 PY
 cp "$work/flow.svg" target/demo/flow.svg
