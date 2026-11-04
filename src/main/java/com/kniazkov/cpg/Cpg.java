@@ -18,9 +18,14 @@ public final class Cpg {
     /** Last stage to execute. Each stage includes the preceding passes in declaration order. */
     public enum Stage { PARSED, RESOLVED, GREEN, FOLDED }
     /** Selects a single input language for the directory and the stage to publish. */
-    public record Options(Language language, Stage stage) {
+    public record Options(Language language, Stage stage, String cppStandard) {
+        public Options(Language language, Stage stage) { this(language, stage, null); }
         public Options {
             Objects.requireNonNull(stage);
+            if (cppStandard != null) {
+                if (language != Language.CPP) throw new IllegalArgumentException("C++ standard requires CPP input");
+
+            }
             if (language != Language.JAVA && language != Language.CPP)
                 throw new IllegalArgumentException("Input language must be JAVA or CPP");
         }
@@ -34,11 +39,36 @@ public final class Cpg {
         String suffix = options.language() == Language.JAVA ? ".java" : ".cpp";
         try (var paths = Files.list(directory)) {
             for (Path path : paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(suffix)).sorted().toList())
-                root.addFile(Parser.parse(path.toString(), Files.readString(path), options.language()));
+                root.addFile(Parser.parse(path.toString(), Files.readString(path), options.language(), options.cppStandard()));
         } catch (IOException | java.io.UncheckedIOException e) {
             throw new ParseException(directory.toString(), 1, 1, e.getMessage());
         }
-        Project result = root.build();
+        if (options.language() == Language.CPP) com.kniazkov.cpg.build.CppStandard.require(options.cppStandard(), directory.toString());
+        return finish(root.build(), options);
+    }
+
+    /** Reads a compilation database, applying an optional explicit edition override. */
+    public static Project readCompilationDatabase(Path database, Options options) {
+        try { return read(com.kniazkov.cpg.build.CompilationDatabase.read(database), options); }
+        catch (IOException e) { throw new ParseException(database.toString(), 1, 1, e.getMessage()); }
+    }
+
+    /** Parses each translation unit independently; macro operations are retained as inputs only. */
+    public static Project read(com.kniazkov.cpg.build.Build build, Options options) {
+        if (options.language() != Language.CPP) throw new IllegalArgumentException("Compilation builds require CPP");
+        var root = Project.create();
+        for (var unit : build.units()) {
+            String file = unit.source().path().toString();
+            String standard = options.cppStandard() != null ? options.cppStandard() : unit.standard();
+            com.kniazkov.cpg.build.CppStandard.require(standard, file);
+            try { root.addFile(Parser.parse(file, Files.readString(unit.source().path()), Language.CPP, standard)); }
+            catch (IOException e) { throw new ParseException(file, 1, 1, e.getMessage()); }
+        }
+        com.kniazkov.cpg.build.CppStandard.require(options.cppStandard(), "empty compilation build");
+        return finish(root.build(), options);
+    }
+
+    private static Project finish(Project result, Options options) {
         if (options.stage() == Stage.PARSED) return result;
         result = NameResolver.resolve(result);
         if (options.stage() != Stage.RESOLVED) result = ConsoleNormalizer.green(result);

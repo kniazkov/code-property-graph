@@ -1,0 +1,12 @@
+[
+  {
+    "directory": "sources",
+    "file": "a.cpp",
+    "arguments": ["g++", "-std=c++03", "-Iinclude one", "-I", "include two", "-DVALUE=3", "-U", "VALUE", "-D", "VALUE=4", "-c", "a.cpp"]
+  },
+  {
+    "directory": "sources",
+    "file": "b.cpp",
+    "command": "g++ -std=c++11 -I 'include two' -I'include one' -D VALUE=7 -UVALUE -DVALUE=8 -c b.cpp"
+  }
+]

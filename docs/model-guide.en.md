@@ -184,3 +184,36 @@ The Java main parameter name can vary. Coverage describes syntax recognition; fu
 The [C++03 file corpus](e2e.en.md) now checks the public API and packaged CLI against the same ordinary source files, with strict GCC and Clang execution oracles. Its initial coverage is a return literal, arithmetic/console normalization, and an invalid-token diagnostic; it does not extend the supported language surface.
 
 The [SQUARE fixture](../src/test/resources/cpp03/square/README.md) adds a reproducible two-unit macro project and compilation database. Strict native execution verifies 58 before editing and 64 for a hand-written edited oracle. This is fixture preparation only; macro preprocessing, provenance and graph editing are still pending #13–#17.
+
+## C++03 edition and compilation databases
+
+`new Cpg.Options(Language.CPP, stage)` retains the default C++03 behavior.
+The three-argument form accepts `"c++03"` as an explicit override; `null` means
+no override. Only C++03 is supported. Explicit unsupported editions fail even
+for empty input. The existing three-argument `Parser.parse` remains compatible;
+its fourth argument can select the edition.
+
+`CompilationDatabase.read(path)` creates an immutable `Build` in
+`com.kniazkov.cpg.build`. `Cpg.readCompilationDatabase(path, options)` imports
+and parses it; `Cpg.read(build, options)` uses an explicitly constructed build.
+Each `Build.TranslationUnit` records a `PhysicalSource`, working directory,
+ordered `IncludePath` entries and ordered `MacroOperation` define/undefine
+operations, and its command's standard. `IncludeInstance` identifies an
+occurrence separately from physical source and translation-unit context.
+These are input records, not new syntax nodes or claims of implemented macro
+expansion. Header processing is still pending.
+
+The effective standard is the explicit API/CLI override, then the record's last
+`-std`, then C++03. A C++11 database entry fails with its filename unless it is
+overridden; the override does not permit C++11 syntax. `arguments` takes
+precedence over `command`. Command quoting is parsed without launching a shell,
+performing expansion, or reading response files. Unsupported parsing options
+report the entry's filename. Joined/separate `-I`, `-isystem`, `-iquote`, `-D`,
+`-U`, and `-std` forms retain order. Standard output/dependency/diagnostic flags
+are ignored only when explicitly recognized; unsupported flags are rejected.
+
+Relative `directory` is based on the database's directory. Relative `file` and
+include paths are based on that entry's working directory, not the process cwd.
+Folder input remains supported. CLI uses `--compile-commands FILE` instead of
+`--input DIR`, with optional `--cpp-standard c++03`. See the
+[reproducible database fixture](../src/test/resources/cpp03/compilation-database/README.md).

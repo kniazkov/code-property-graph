@@ -2,3 +2,4 @@ return-zero
 arithmetic
 invalid-token
 square
+compilation-database

@@ -15,8 +15,9 @@ public final class Main {
 
     private static final String USAGE = """
         Usage: java -jar cpg.jar --input DIR --from JAVA|CPP [--stage PARSED|RESOLVED|GREEN|FOLDED]
-                    [--to JAVA|CPP --out NEW_DIR] [--svg FILE] [--json FILE]
+                    [--cpp-standard c++03] [--to JAVA|CPP --out NEW_DIR] [--svg FILE] [--json FILE]
         Choose one or more outputs: --out, --svg, --json. Defaults: FOLDED stage, source language as target.
+        Use --compile-commands FILE instead of --input DIR to import a C++ build.
         SVG rendering requires Graphviz dot on PATH.
         """;
 
@@ -42,18 +43,22 @@ public final class Main {
         if (args.length == 4 && !args[0].startsWith("--"))
             args = new String[]{"--from", args[0], "--stage", args[1], "--input", args[2], "--out", args[3]};
         Map<String,String> flags = new HashMap<>();
-        Set<String> allowed = Set.of("--input", "--from", "--stage", "--to", "--out", "--svg", "--json");
+        Set<String> allowed = Set.of("--input", "--from", "--stage", "--to", "--out", "--svg", "--json", "--cpp-standard", "--compile-commands");
         for (int i = 0; i < args.length; i += 2) {
             if (i + 1 >= args.length || !allowed.contains(args[i]) || args[i + 1].startsWith("--")
                     || flags.putIfAbsent(args[i], args[i+1]) != null) throw new IllegalArgumentException(USAGE);
         }
-        if (!flags.containsKey("--from") || !flags.containsKey("--input")
+        if (!flags.containsKey("--from") || (!flags.containsKey("--input") && !flags.containsKey("--compile-commands"))
+                || flags.containsKey("--input") && flags.containsKey("--compile-commands")
                 || !flags.containsKey("--out") && !flags.containsKey("--svg") && !flags.containsKey("--json")
                 || flags.containsKey("--to") && !flags.containsKey("--out")) throw new IllegalArgumentException(USAGE);
         Language from = Language.valueOf(flags.get("--from").toUpperCase(Locale.ROOT));
         Language to = Language.valueOf(flags.getOrDefault("--to", from.name()).toUpperCase(Locale.ROOT));
         Stage stage = Stage.valueOf(flags.getOrDefault("--stage", "FOLDED").toUpperCase(Locale.ROOT));
-        Project project = Cpg.read(Path.of(flags.get("--input")), new Cpg.Options(from, stage));
+        Cpg.Options options = new Cpg.Options(from, stage, flags.get("--cpp-standard"));
+        Project project = flags.containsKey("--compile-commands")
+                ? Cpg.readCompilationDatabase(Path.of(flags.get("--compile-commands")), options)
+                : Cpg.read(Path.of(flags.get("--input")), options);
         project.walk(new NodeVisitor() {
             @Override public void visit(Node node) {
                 for (Diagnostic d : node.diagnostics()) {

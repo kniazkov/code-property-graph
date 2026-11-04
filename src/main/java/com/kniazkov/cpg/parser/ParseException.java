@@ -5,11 +5,13 @@ package com.kniazkov.cpg.parser;
 public final class ParseException extends RuntimeException {
     private static final long serialVersionUID = 1L;
     private final String file;
+    private final String reason;
     private final int line, column;
     public ParseException(String file, int line, int column, String reason) {
         super(file + ":" + line + ":" + column + ": " + reason);
-        this.file = file; this.line = line; this.column = column;
+        this.reason = reason; this.file = file; this.line = line; this.column = column;
     }
+    public String reason() { return reason; }
     public String file() { return file; }
     public int line() { return line; }
     public int column() { return column; }
