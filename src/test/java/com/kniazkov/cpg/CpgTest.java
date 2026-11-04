@@ -99,7 +99,7 @@ class CpgTest {
         Files.writeString(temp.resolve("nested/bad.java"), "bad");
         Files.writeString(temp.resolve("ignored.cpp"), "bad");
         assertEquals(1, read("int x = 1;", Cpg.Stage.PARSED).files().size());
-        Files.writeString(temp.resolve("bad.java"), "class Bad {\npublic static void main(String[] a) { while (1) {} } }");
+        Files.writeString(temp.resolve("bad.java"), "class Bad {\npublic static void main(String[] a) { for (;;) {} } }");
         var e = assertThrows(ParseException.class, () -> read("int x = 1;", Cpg.Stage.PARSED));
         assertEquals("bad.java", e.file());
         assertEquals(2, e.line());

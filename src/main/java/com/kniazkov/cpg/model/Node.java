@@ -9,7 +9,7 @@ import java.util.Objects;
  * Children form an ordered ownership tree. Resolved references may share targets
  * or point back to ancestors. A visitor selects behavior by the concrete node type.
  * The public API observes only completed snapshots. */
-public abstract class Node {
+public abstract non-sealed class Node implements FlowVertex {
     /** Restricts node construction to the model package during snapshot assembly. */
     Node() {
     }
