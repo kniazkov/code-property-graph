@@ -53,7 +53,9 @@ class BuildVariantsTest {
         String json = ProjectJson.encode(unknown).toText("");
         assertEquals(json, ProjectJson.encode(Cpg.read(build, RESOLVED)).toText(""));
         assertTrue(json.contains("candidateIds")); assertTrue(json.contains(serverEngine.variantId()));
-        assertThrows(IllegalArgumentException.class, () -> Cpg.sources(unknown, Language.CPP));
+        var combined = Cpg.sources(unknown, Language.CPP);
+        assertEquals(Files.readString(temp.resolve("engine.cpp")), combined.get("engine.cpp"));
+        assertEquals(2, combined.size());
         assertThrows(IllegalArgumentException.class, () -> unknown.source(Language.CPP));
         for (var pair : List.of(List.of(serverMain, serverEngine), List.of(clientMain, clientEngine))) {
             var composition = new Build.Composition(pair.getFirst().macros().getFirst().operand(),

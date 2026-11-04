@@ -26,8 +26,12 @@ final class BuildVariantsAcceptance {
         assertEquals(ProjectJson.encode(all), ProjectJson.encode(Cpg.readCompilationDatabase(db, OPTIONS)));
         var unknown = cli.runDatabaseJson(db, "--stage", "resolved").expectStatus(0);
         assertEquals(ProjectJson.encode(all), Json.parse(unknown.work().resolve("snapshot.json").toFile()));
-        assertThrows(IllegalArgumentException.class, () -> Cpg.sources(all, Language.CPP));
-        cli.runDatabase(db, "--stage", "resolved").expectStatus(1).expectNoExports();
+        var sharedSources = Cpg.sources(all, Language.CPP);
+        var sharedRun = cli.runDatabase(db, "--stage", "resolved").expectStatus(0);
+        for (String name : List.of("main.cpp", "engine.cpp")) {
+            assertEquals(Files.readString(cli.input.resolve("sources").resolve(name)), sharedSources.get(name));
+            assertEquals(sharedSources.get(name), Files.readString(sharedRun.work().resolve("generated").resolve(name)));
+        }
         var owners = owners(all);
         for (SourceFile file : all.files()) {
             for (CallExpression call : calls(file)) {

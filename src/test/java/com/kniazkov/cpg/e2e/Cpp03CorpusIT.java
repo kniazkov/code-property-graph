@@ -66,6 +66,15 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("shared-headers".equals(settings.getProperty("mode"))) {
+            for (var output : SharedHeaderAcceptance.verify(fixture, work)) {
+                nativePrograms(work, output.original(), "1\n", 0, "-DSERVER");
+                nativePrograms(work, output.original(), "1\n", 0, "-DCLIENT");
+                nativePrograms(work, output.generated(), output.serverOutput(), 0, "-DSERVER");
+                nativePrograms(work, output.generated(), output.clientOutput(), 0, "-DCLIENT");
+            }
+            return;
+        }
         boolean databaseMode = "compilation-database".equals(settings.getProperty("mode"));
         var cli = new CliSandbox(work).directory(databaseMode ? fixture : fixture.resolve("sources"));
         Path sourceInput = databaseMode ? cli.input.resolve("sources") : cli.input;
