@@ -1,7 +1,7 @@
 /* Code Property Graph: Graphviz visualization of typed snapshots. MIT License. */
 package com.kniazkov.cpg.visualization;
 
-import com.kniazkov.cpg.Source;
+import com.kniazkov.cpg.generation.Source;
 import com.kniazkov.cpg.model.*;
 
 import java.io.IOException;
