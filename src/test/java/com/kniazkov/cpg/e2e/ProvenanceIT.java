@@ -84,7 +84,7 @@ class ProvenanceIT {
         var cli = new CliSandbox(temp).directory(Path.of("src/test/resources/cpp03/provenance/sources"));
         var api = Cpg.read(cli.input, new Cpg.Options(Language.CPP, Cpg.Stage.RESOLVED));
         var run = cli.run("cpp", "--stage", "resolved").expectStatus(0);
-        assertEquals(ProjectJson.encode(api), Json.parse(run.work().resolve("snapshot.json").toFile()));
+        com.kniazkov.cpg.SnapshotAssertions.assertEquivalent(ProjectJson.encode(api), Json.parse(run.work().resolve("snapshot.json").toFile()));
         var json = Files.readString(run.work().resolve("snapshot.json"));
         assertTrue(json.contains("\"preprocessing\""));
         assertTrue(json.contains("\"expansionIds\""));

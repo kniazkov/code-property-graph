@@ -51,6 +51,12 @@ def labels(path):
             assert float(element.get("stroke-width", "1")) == 1
     colors = {}
     for group in root.findall(".//s:g[@class='node']", ns):
+        if group.find("s:title", ns).text.startswith("p"):
+            # Preprocessor catalogue/provenance uses purple note-shaped nodes.
+            outline = group.find("s:polygon", ns)
+            assert outline is not None and outline.get("stroke").lower() == "#7b1fa2"
+            assert all(float(t.get("font-size")) == 10 for t in group.findall("s:text", ns))
+            continue
         outline = group.find("s:path", ns)
         assert outline is not None and "C" in outline.get("d", "")
         texts = group.findall("s:text", ns)
@@ -62,7 +68,12 @@ def labels(path):
     for group in root.findall(".//s:g[@class='edge']", ns):
         label = group.find("s:text", ns)
         assert float(label.get("font-size")) == 9
-        assert label.text[0].isspace() and not label.text[1].isspace()
+        endpoints = group.find("s:title", ns).text.split("->")
+        if all(endpoint.startswith("n") for endpoint in endpoints):
+            assert label.text[0].isspace() and not label.text[1].isspace()
+        else:
+            assert label.text and label.text.strip() == label.text
+            assert group.find("s:path", ns).get("stroke").lower() == "#7b1fa2"
     return {text.text.strip() for text in root.findall(".//s:text", ns)}
 assert {"Project", "PrintStatement", "ref"} <= labels(sys.argv[1])
 assert "CallExpression" in labels(sys.argv[2])

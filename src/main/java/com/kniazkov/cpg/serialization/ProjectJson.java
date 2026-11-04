@@ -30,11 +30,13 @@ public final class ProjectJson {
 
     private static final class Export {
         private final boolean compilationBuild;
+        private final Project project;
         private final Map<Node,Integer> ids = new IdentityHashMap<>();
         private final Map<Preprocessing,Integer> units = new IdentityHashMap<>();
         private final Map<Node,List<Edge>> outgoing = new IdentityHashMap<>();
 
         Export(Project project) {
+            this.project = project;
             compilationBuild = project.build().isPresent();
             project.walk(new NodeVisitor() {
                 @Override public void visit(Node n) { ids.put(n, ids.size()); }
@@ -65,12 +67,15 @@ public final class ProjectJson {
             switch (n) {
                 case Project p -> {
                     obj.put("files", nodes(p.files()));
+                    if (!p.externalInputs().isEmpty()) obj.put("externalInputs", nodes(p.externalInputs()));
                     p.build().ifPresent(b -> obj.object("build", v -> {
                         v.array("units", a -> b.units().forEach(u -> a.add(configuration(u))));
                         p.composition().ifPresent(c -> v.object("composition", o -> o.put("name", c.name())
                                 .array("variantIds", a -> a.addAll(c.variantIds()))));
                     }));
                 }
+                case ExternalInput input -> obj.put("key", input.key()).put("role", input.role())
+                        .put("text", input.text()).put("inputs", nodes(input.inputs()));
                 case SourceFile f -> obj.put("path", f.range().map(SourceRange::file)
                                 .orElseGet(() -> Path.of(f.path()).toAbsolutePath().normalize().toString()))
                         .put("language", f.language().name()).put("items", nodes(f.items()));
@@ -144,8 +149,16 @@ public final class ProjectJson {
                     .array("includes", a -> unit.includes().forEach(p -> a.object(v ->
                             v.put("kind", p.kind()).put("path", p.path().toString()))))
                     .array("macros", a -> unit.macros().forEach(m -> a.object(v ->
-                            v.put("define", m.define()).put("operand", m.operand()))));
+                            v.put("define", m.define()).put("operand", m.operand())
+                                    .put("originalArgument", m.originalArgument())
+                                    .array("originalArguments", args -> args.addAll(m.originalArguments())))));
             if (unit.standard() != null) obj.put("standard", unit.standard());
+            var source = unit.configurationSource();
+            obj.object("configurationSource", o -> {
+                o.put("kind", source.kind()).array("arguments", a -> a.addAll(source.arguments()));
+                if (source.database() != null) o.put("database", source.database().toString()).put("entryOrdinal", source.entryOrdinal());
+                if (source.standardOverrideKind() != null) o.put("standardOverrideKind", source.standardOverrideKind());
+            });
             return obj.build();
         }
 
@@ -159,8 +172,39 @@ public final class ProjectJson {
                     .put("spelling", f.spelling()).build();
         }
 
-        private static JsonObject preprocessing(Preprocessing p) {
+        private JsonObject preprocessing(Preprocessing p) {
             return Json.object().put("translationUnit", p.translationUnit())
+                    .array("includeStates", a -> p.includeStates().forEach(s -> a.object(o -> o.put("includeId", s.includeId())
+                            .object("activeDefinitions", values -> s.activeDefinitions().forEach(values::put)))))
+                    .array("definitions", a -> p.definitions().forEach(d -> a.object(o -> {
+                        o.put("id", d.id()).put("name", d.name()).put("functionLike", d.functionLike())
+                                .array("parameters", values -> values.addAll(d.parameters()))
+                                .put("rawReplacement", d.rawReplacement()).put("range", range(d.range()))
+                                .put("includeId", d.includeId()).put("originKind", d.originKind()).put("sourceKey", d.sourceKey());
+                        project.externalInput(d.sourceKey()).ifPresent(input -> o.put("sourceNodeId", ids.get(input)));
+                        o.array("expansionIds", values -> p.expansions().stream().filter(e -> e.definitionId() == d.id()).forEach(e -> values.add(e.id())));
+                        o.array("presenceCheckIds", values -> p.presenceChecks().stream().filter(c -> c.definitionId() != null && c.definitionId() == d.id()).forEach(c -> values.add(c.id())));
+                    })))
+                    .array("branches", a -> p.branches().forEach(b -> a.object(o -> {
+                        o.put("id", b.id()).put("directive", b.directive()).put("rawSource", b.rawSource())
+                                .put("range", range(b.range())).put("directiveRange", range(b.directiveRange()))
+                                .put("includeId", b.includeId()).put("parentActive", b.parentActive())
+                                .put("evaluated", b.evaluated()).put("conditionResult", b.conditionResult()).put("active", b.active())
+                                .put("startToken", b.startToken()).put("endToken", b.endToken());
+                        if (p.configuration() != null) o.put("variantId", p.configuration().variantId());
+                        if (b.parentId() != null) o.put("parentId", b.parentId());
+                    })))
+                    .array("presenceChecks", a -> p.presenceChecks().forEach(c -> a.object(o -> {
+                        o.put("id", c.id()).put("name", c.name()).put("range", range(c.range()))
+                                .put("includeId", c.includeId()).put("present", c.present())
+                                .put("conditionResult", c.conditionResult()).put("branchId", c.branchId());
+                        if (c.definitionId() != null) o.put("definitionId", c.definitionId());
+                    })))
+                    .array("directives", a -> p.directives().forEach(d -> a.object(o -> o.put("kind", d.kind())
+                            .put("rawSource", d.rawSource()).put("range", range(d.range()))
+                            .put("includeId", d.includeId()).put("active", d.active()))))
+                    .array("logicalLocations", a -> p.logicalLocations().forEach(l -> a.object(o -> o.put("range", range(l.range()))
+                            .put("includeId", l.includeId()).put("file", l.file()).put("line", l.line()))))
                     .array("includes", a -> p.includes().forEach(i -> a.object(o -> {
                         o.put("id", i.id()).put("file", i.file());
                         if (i.parentId() != null) o.put("parentId", i.parentId());
@@ -175,7 +219,7 @@ public final class ProjectJson {
                                 .array("replacement", fs -> e.replacement().forEach(f -> fs.add(fragment(f))))
                                 .put("invocation", range(e.invocation()))
                                 .put("includeId", e.includeId()).put("startToken", e.startToken())
-                                .put("endToken", e.endToken());
+                                .put("endToken", e.endToken()).put("definitionId", e.definitionId());
                         if (e.parentId() != null) o.put("parentId", e.parentId());
                         o.array("arguments", args -> e.arguments().forEach(arg -> {
                             var fragments = Json.array();

@@ -1,0 +1,25 @@
+[
+  {
+    "directory": "sources",
+    "file": "main.cpp",
+    "arguments": [
+      "g++",
+      "-std=c++03",
+      "-DDEBUG=0",
+      "-DUNUSED_EXTERNAL=9",
+      "-c",
+      "main.cpp"
+    ]
+  },
+  {
+    "directory": "sources",
+    "file": "aux.cpp",
+    "arguments": [
+      "g++",
+      "-std=c++03",
+      "-DOTHER_UNUSED=5",
+      "-c",
+      "aux.cpp"
+    ]
+  }
+]

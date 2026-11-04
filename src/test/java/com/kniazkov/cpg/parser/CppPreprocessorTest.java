@@ -183,7 +183,7 @@ class CppPreprocessorTest {
     @Test void conditionalGuardsCheckStructureAndSkipInactiveContent() {
         assertEquals("yes", expand("#ifndef MISSING\nyes\n#else\n#include <absent>\n#if unsupported expression\nno\n#endif\n#endif"));
         failure("#else", "Unmatched"); failure("#endif", "Unmatched"); failure("#ifdef X\n", "Unterminated conditional");
-        failure("#if 1\nx\n#endif", "#if expressions");
+        assertEquals("x", expand("#if 1\nx\n#endif"));
     }
     @Test void inactiveNestedConditionalsIgnoreOperandsButKeepTheirStructure() {
         assertEquals("yes", expand("""
@@ -326,6 +326,137 @@ class CppPreprocessorTest {
         assertThrows(UnsupportedOperationException.class, () -> event.operations().clear());
         assertThrows(UnsupportedOperationException.class, () -> event.operations().getFirst().fragments().clear());
         assertThrows(UnsupportedOperationException.class, () -> significant(result).getFirst().expansionIds().clear());
+    }
+
+    @Test void conditionsExpandMacrosButPresenceChecksDoNotExpandValues() {
+        var result = preprocess("""
+                #define UNUSED(x) x
+                #define RETRY_LIMIT 7
+                #if defined(UNUSED) && RETRY_LIMIT > 3
+                selected
+                #elif RETRY_LIMIT / 0
+                wrong
+                #else
+                wrong
+                #endif
+                #ifndef ABSENT
+                other
+                #endif
+                """);
+        assertEquals("selected other", text(result));
+        assertEquals(List.of("RETRY_LIMIT"), result.expansions().stream().map(CppPreprocessor.ExpansionEvent::name).toList());
+        assertEquals(List.of("UNUSED", "ABSENT"), result.presenceChecks().stream().map(CppPreprocessor.PresenceCheck::name).toList());
+        assertTrue(result.presenceChecks().getFirst().present());
+        assertTrue(result.presenceChecks().getLast().conditionResult());
+        assertFalse(result.branches().get(1).evaluated());
+        assertEquals(result.definitions().stream().filter(d -> d.name().equals("RETRY_LIMIT")).findFirst().orElseThrow().id(),
+                result.expansions().getFirst().definitionId());
+    }
+    @Test void skippedGroupsRetainMalformedSyntaxWithoutExpandingOrIncluding() {
+        var result = preprocess("""
+                #if 0
+                #if broken ( / 0
+                #include "absent.h"
+                #define NOT_EXECUTED 8
+                #elif defined(
+                #endif nonsense
+                #else
+                good
+                #endif
+                """);
+        assertEquals("good", text(result));
+        assertTrue(result.expansions().isEmpty()); assertTrue(result.presenceChecks().isEmpty());
+        assertEquals(1, result.includes().size());
+        assertTrue(result.definitions().stream().noneMatch(d -> d.name().equals("NOT_EXECUTED")));
+        assertTrue(result.branches().getFirst().rawSource().contains("#include \"absent.h\""));
+        assertFalse(result.branches().get(1).evaluated());
+        failure("#if 0\n/* unterminated", "comment");
+    }
+    @Test void branchesRetainPartialExpressionsAndOccurrenceSpecificActivity() throws Exception {
+        header("part.h", "#if PICK\n+ 2\n#else\n* 3\n#endif\n");
+        var result = preprocess("#define PICK 1\n1\n#include \"part.h\"\n#undef PICK\n#define PICK 0\n1\n#include \"part.h\"\n");
+        assertEquals("1 + 2 1 * 3", text(result));
+        assertEquals(4, result.branches().size());
+        var first = result.branches().getFirst(); var second = result.branches().get(2);
+        assertTrue(first.active()); assertFalse(second.active());
+        assertNotEquals(first.include().occurrence(), second.include().occurrence());
+        assertTrue(first.rawSource().contains("+ 2"));
+        assertEquals(first.rawSource(), result.sources().get(first.range().file()).substring(first.range().start().offset(), first.range().end().offset()));
+        assertTrue(first.endToken() > first.startToken());
+        assertEquals(second.startToken(), second.endToken());
+    }
+    @Test void definitionsKeepUnusedRedefinedAndRawReplacementAndFinalState() {
+        var result = preprocess("#define RETRY_LIMIT 7\n#define X(a, b) a  /* keep */ + b\n#undef RETRY_LIMIT\n#define RETRY_LIMIT 9\n");
+        var retry = result.definitions().stream().filter(d -> d.name().equals("RETRY_LIMIT")).toList();
+        assertEquals(2, retry.size()); assertNotEquals(retry.get(0).id(), retry.get(1).id());
+        var x = result.definitions().stream().filter(d -> d.name().equals("X")).findFirst().orElseThrow();
+        assertTrue(x.functionLike()); assertEquals(List.of("a", "b"), x.parameters());
+        assertEquals("a  /* keep */ + b", x.rawReplacement());
+        assertEquals(retry.get(1).id(), result.includeStates().getLast().activeDefinitions().get("RETRY_LIMIT"));
+        assertTrue(result.expansions().isEmpty());
+    }
+    @Test void lineControlAndBuiltinsKeepLogicalCoordinatesSeparateFromPhysicalRanges() {
+        var result = preprocess("#define LOCATION __LINE__\n#line 41 \"logical.cpp\"\nLOCATION __FILE__ __cplusplus\n__LINE__\n");
+        assertEquals("41 \"logical.cpp\" 199711L 42", text(result));
+        assertTrue(result.tokens().stream().filter(t -> t.token().spelling().equals("41")).findFirst().orElseThrow().expansionRange().file().endsWith("main.cpp"));
+        assertTrue(result.logicalLocations().stream().anyMatch(l -> l.file().equals("logical.cpp") && l.line() == 41));
+        assertEquals("ok", expand("#if __cplusplus == 199711L && defined(__LINE__) && !defined(__STDC__)\nok\n#endif"));
+        failure("#line 0\nx", "1..32767"); failure("#line 32768\nx", "1..32767");
+        failure("#define __LINE__ 2", "undefined behavior"); failure("#undef defined", "undefined behavior");
+    }
+    @Test void dateAndTimeAreTranslationTimeConstantsAndUnusedCatalogueIsStable() {
+        var unit = unit(List.of(), List.of());
+        var time = java.time.Instant.parse("2020-01-02T03:04:05Z");
+        var result = CppPreprocessor.preprocess(unit, "__DATE__ __TIME__", null, time);
+        assertEquals("\"Jan  2 2020\" \"03:04:05\"", text(result));
+        var early = CppPreprocessor.preprocess(unit, "plain", null, time);
+        var later = CppPreprocessor.preprocess(unit, "plain", null, time.plusSeconds(86400));
+        assertEquals(early.definitions(), later.definitions());
+    }
+    @Test void nullPragmaErrorAndElifStructuresFollowCpp03() {
+        assertEquals("kept", expand("#\n#pragma arbitrary tokens (\n#if 0\n#error not reached\n#elif 2\nkept\n#else\nwrong\n#endif"));
+        failure("#error hello world", "#error hello world");
+        failure("#elif 1", "Unmatched");
+        failure("#if 0\n#else\n#elif 1\n#endif", "Unmatched");
+        failure("#if defined()\n#endif", "Expected macro name");
+        failure("#define D defined\n#if D(X)\n#endif", "Macro-generated defined");
+        assertEquals("yes", expand("#if 1 || 1/0\nyes\n#endif"));
+        assertEquals("yes", expand("#if 0 ? 1/0 : 4\nyes\n#endif"));
+    }
+
+    @Test void lineControlCountsPhysicalNewlinesAndRestoresParentContext() throws Exception {
+        header("logical.h", "#line 80 \"header-name\"\n__LINE__ __FILE__\n");
+        var result = preprocess("#line 20 \"parent-name\"\r#include \"logical.h\"\r__LINE__ __FILE__\r");
+        assertEquals("80 \"header-name\" 21 \"parent-name\"", text(result));
+        assertEquals("3", expand("\n\\\n__LINE__"));
+        var escaped = significant(preprocess("#line 10 \"a\\nb\"\n__FILE__")).getFirst().token();
+        assertFalse(escaped.spelling().contains("\n"));
+        assertEquals(STRING_LITERAL, CppLexer.scan("quoted.cpp", escaped.spelling()).tokens().getFirst().kind());
+        var error = assertThrows(ParseException.class, () -> preprocess("#line 72 \"presumed.cpp\"\n#error stop\n"));
+        assertEquals("presumed.cpp", error.file()); assertEquals(72, error.line());
+        var expressionError = assertThrows(ParseException.class, () -> preprocess("#line 72 \"presumed.cpp\"\n#if 1/0\n#endif\n"));
+        assertEquals("presumed.cpp", expressionError.file()); assertEquals(72, expressionError.line());
+        var macroError = assertThrows(ParseException.class, () -> preprocess("#define ZERO 1/0\n#line 90 \"presumed.cpp\"\n#if ZERO\n#endif\n"));
+        assertEquals("presumed.cpp", macroError.file()); assertEquals(90, macroError.line());
+        assertEquals("\"a\\\\b\"", expand("#line 4 \"a\\\\b\"\n__FILE__"));
+    }
+    @Test void commandLineDefinitionsKeepOperationOrdinalsAndPresenceLinks() {
+        var result = CppPreprocessor.preprocess(unit(List.of(), List.of(
+                new Build.MacroOperation(true, "P=1"), new Build.MacroOperation(false, "P"),
+                new Build.MacroOperation(true, "P=  2 /* raw */ + 3"))), "#ifdef P\nP\n#endif");
+        var definitions = result.definitions().stream().filter(d -> d.name().equals("P")).toList();
+        assertEquals(List.of("1", "3"), definitions.stream().map(CppPreprocessor.Definition::sourceKey).toList());
+        assertEquals("2 /* raw */ + 3", definitions.getLast().rawReplacement());
+        assertEquals(definitions.getLast().id(), result.presenceChecks().getFirst().definitionId());
+        assertEquals(definitions.getLast().id(), result.expansions().getFirst().definitionId());
+    }
+
+    @Test void conditionalMacroExpansionRetainsWhitespaceForStringizationAndFragments() {
+        var result = preprocess("#define DROP(x) 1\n#define MAKE(x) DROP(#x)\n#if MAKE(a b) && defined ( MAKE )\nyes\n#endif");
+        assertEquals("yes", text(result));
+        var make = result.expansions().stream().filter(e -> e.name().equals("MAKE")).findFirst().orElseThrow();
+        assertEquals("\"a b\"", make.operations().getFirst().spelling());
+        assertTrue(make.arguments().getFirst().stream().anyMatch(f -> f.spelling().equals(" ")));
     }
 
 }

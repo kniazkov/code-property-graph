@@ -30,7 +30,8 @@ class CompilationDatabaseTest {
         assertEquals(List.of("-I","-I","-isystem"), unit.includes().stream().map(Build.IncludePath::kind).toList());
         assertEquals(temp.resolve("working dir/two"), unit.includes().get(1).path());
         assertEquals(List.of(new Build.MacroOperation(true,"NAME=1"),
-            new Build.MacroOperation(false,"NAME"), new Build.MacroOperation(true,"NAME=2")), unit.macros());
+            new Build.MacroOperation(false,"NAME"), new Build.MacroOperation(true,"NAME=2")),
+            unit.macros().stream().map(m -> new Build.MacroOperation(m.define(), m.operand())).toList());
         assertEquals("c++03",unit.standard());
         assertThrows(UnsupportedOperationException.class, () -> unit.macros().clear());
     }

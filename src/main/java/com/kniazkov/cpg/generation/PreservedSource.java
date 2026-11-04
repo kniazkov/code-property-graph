@@ -20,7 +20,7 @@ final class PreservedSource {
                     && f.provenance().map(p -> p.unit().configuration() != null).orElse(false))
                 && project.files().stream().anyMatch(f -> {
                     var unit = f.provenance().orElseThrow().unit();
-                    return !unit.expansions().isEmpty() || unit.sources().size() > 1 || hasDirectives(unit);
+                    return !unit.branches().isEmpty() || !unit.expansions().isEmpty() || unit.sources().size() > 1 || hasDirectives(unit);
                 });
     }
 
@@ -157,15 +157,16 @@ final class PreservedSource {
                     p.kind(), root.resolve(base.relativize(p.path())).normalize())).toList();
             var relocated = new com.kniazkov.cpg.build.Build.TranslationUnit(
                     new com.kniazkov.cpg.build.Build.PhysicalSource(source), root,
-                    includes, configuration.macros(), configuration.standard());
-            relocatedRecords.add(new Preprocessing(source.toString(), List.of(), List.of(), List.of(), relocatedSources, relocated));
+                    includes, configuration.macros(), configuration.standard(), configuration.configurationSource());
+            relocatedRecords.add(new Preprocessing(source.toString(), List.of(), List.of(), List.of(), relocatedSources, relocated,
+                    List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), record.translationTime()));
         }
         return parse(relocatedRecords, relocatedSources);
     }
 
     private static Project parse(List<Preprocessing> records, Map<String, String> sources) {
         var project = Project.create();
-        for (var unit : records) project.addFile(Parser.parse(unit.configuration(), sources.get(unit.translationUnit()), sources));
+        for (var unit : records) project.addFile(Parser.parse(unit.configuration(), sources.get(unit.translationUnit()), sources, unit.translationTime()));
         return normalize(project.build());
     }
     private static Project normalize(Project project) { return ConsoleNormalizer.green(NameResolver.resolve(project)); }

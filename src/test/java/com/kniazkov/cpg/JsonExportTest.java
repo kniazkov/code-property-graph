@@ -23,11 +23,15 @@ class JsonExportTest {
         try (var stream = Objects.requireNonNull(getClass().getResourceAsStream("/json/return-zero.json"))) {
             fixture = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         }
-        var expected = Json.parse(fixture.replace("\"FILE_PATH\"", Json.serialize(file.toString())));
+        for (String name : java.util.List.of("__cplusplus", "__FILE__", "__LINE__", "__DATE__", "__TIME__"))
+            fixture = fixture.replace(Json.serialize("PREDEFINED_" + name),
+                    Json.serialize(dir.resolve("<predefined:" + name + ">").toString()));
+        var expected = Json.parse(fixture.replace("\"FILE_PATH\"", Json.serialize(file.toString()))
+                .replace("\"CONFIG_KEY\"", Json.serialize("java-api:" + project.files().getFirst().variantId().orElseThrow())));
         assertEquals(expected, ProjectJson.encode(project));
         Path out = dir.resolve("snapshot.json");
         Main.run("--from", "cpp", "--input", dir.toString(), "--stage", "resolved", "--json", out.toString());
-        assertEquals(expected, Json.parse(out.toFile()));
+        SnapshotAssertions.assertEquivalent(expected, Json.parse(out.toFile()));
         assertThrows(IllegalArgumentException.class, () ->
                 Main.run("--from", "cpp", "--input", dir.toString(), "--json", out.toString()));
     }

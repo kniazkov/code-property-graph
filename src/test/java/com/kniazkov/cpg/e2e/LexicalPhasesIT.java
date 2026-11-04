@@ -39,7 +39,7 @@ class LexicalPhasesIT {
         assertEquals(4, closing.range().end().column());
         assertEquals(11, lexical.eof().line());
         var run = cli.run("cpp", "--stage", "resolved", "--cpp-standard", "c++03").expectStatus(0);
-        assertEquals(ProjectJson.encode(Cpg.read(cli.input, new Cpg.Options(Language.CPP, Cpg.Stage.RESOLVED))),
+        com.kniazkov.cpg.SnapshotAssertions.assertEquivalent(ProjectJson.encode(Cpg.read(cli.input, new Cpg.Options(Language.CPP, Cpg.Stage.RESOLVED))),
                 Json.parse(run.work().resolve("snapshot.json").toFile()));
         var graph = run.snapshot();
         graph.containsNode("{\"kind\":\"NotEqualExpression\"}");
