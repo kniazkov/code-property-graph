@@ -2,7 +2,7 @@
 package com.kniazkov.cpg;
 
 import java.util.*;
-import com.kniazkov.cpg.Graph.*;
+import com.kniazkov.cpg.model.*;
 
 final class Parser {
     private record Token(String text, int line, int column) {}
@@ -56,92 +56,127 @@ final class Parser {
         if (!s.matches("[A-Za-z_$][A-Za-z0-9_$]*") || Set.of("class", "int", "void", "return", "if", "while", "for", "public", "static").contains(s)) fail("Expected identifier");
         pos++; return s;
     }
-    Draft parse() {
-        Draft result = new Draft(Kind.FILE, file);
+    SourceFile.Builder parse() {
+        var result = SourceFile.create().setPath(file).setLanguage(language);
         while (!peek().equals("<eof>")) {
             if (peek().startsWith("#")) {
-                if (language != Language.CPP || !peek().matches("#\\s*include\\s*(<[^>]+>|\"[^\"]+\")\\s*")) fail("Only #include is supported");
-                result.add(new Draft(Kind.INCLUDE, peek())); pos++;
-            } else if (peek().equals("class") || peek().equals("public")) result.add(clazz());
-            else if (language == Language.CPP && peek().equals("int")) {
-                expect("int"); expect("main"); expect("("); expect(")");
-                result.add(new Draft(Kind.METHOD, "int main()", block()));
+                var include = java.util.regex.Pattern.compile("#\\s*include\\s*(?:<([^>]+)>|\"([^\"]+)\")\\s*").matcher(peek());
+                if (language != Language.CPP || !include.matches()) fail("Only #include is supported");
+                boolean system = include.group(1) != null;
+                result.addItem(IncludeDirective.create().setSystem(system).setHeader(include.group(system ? 1 : 2)));
+                pos++;
+            } else if (peek().equals("class") || peek().equals("public")) {
+                result.addItem(clazz());
+            } else if (language == Language.CPP && take("int")) {
+                expect("main"); expect("("); expect(")");
+                result.addItem(FunctionDeclaration.create().setName("main").setReturnType(type("int")).setBody(block()));
             } else fail("Unsupported top-level declaration");
         }
         return result;
     }
-    private Draft clazz() {
+
+    private static NamedType.Builder type(String name) {
+        return NamedType.create().setName(name);
+    }
+
+    private ClassDeclaration.Builder clazz() {
         boolean isPublic = take("public");
         if (isPublic && language == Language.CPP) fail("Unexpected public before class");
-        expect("class"); String name = identifier(); expect("{");
-        Draft node = new Draft(Kind.CLASS, (isPublic ? "public " : "") + name);
+        expect("class");
+        var node = ClassDeclaration.create().setName(identifier());
+        if (isPublic) node.addModifier("public");
+        expect("{");
         if (language == Language.CPP) { expect("public"); expect(":"); }
         while (!take("}")) {
-            if (language == Language.JAVA) expect("public");
+            var method = MethodDeclaration.create();
+            if (language == Language.JAVA) { expect("public"); method.addModifier("public"); }
             expect("static"); expect("void"); expect("main"); expect("(");
-            String signature;
+            method.addModifier("static").setName("main").setReturnType(type("void"));
             if (language == Language.JAVA) {
-                expect("String"); expect("["); expect("]"); String parameter = identifier();
-                signature = "public static void main(String[] " + parameter + ")";
-            } else signature = "static void main()";
-            expect(")"); node.add(new Draft(Kind.METHOD, signature, block()));
+                expect("String"); expect("["); expect("]");
+                method.addParameter(ParameterDeclaration.create().setType(type("String[]")).setName(identifier()));
+            }
+            expect(")");
+            node.addMember(method.setBody(block()));
         }
         if (language == Language.CPP) expect(";");
         return node;
     }
-    private Draft block() {
-        expect("{"); Draft block = new Draft(Kind.BLOCK, "");
+
+    private BlockStatement.Builder block() {
+        expect("{");
+        var block = BlockStatement.create();
         while (!take("}")) {
-            Draft statement;
             if (take("int")) {
-                String name = identifier(); expect("="); statement = new Draft(Kind.DECLARE, name, expression(0));
-            } else if (take("return")) statement = new Draft(Kind.RETURN, "", expression(0));
-            else {
-                Draft lhs = expression(0);
-                if (take("=")) {
-                    if (lhs.kind() != Kind.NAME) fail("Assignment requires a variable");
-                    statement = new Draft(Kind.ASSIGN, "", lhs, expression(0));
-                } else statement = new Draft(Kind.EXPRESSION, "", lhs);
+                String name = identifier();
+                expect("=");
+                block.addItem(VariableDeclaration.create().setName(name).setType(type("int")).setInitializer(expression(0)));
+            } else if (take("return")) {
+                var statement = ReturnStatement.create();
+                if (!peek().equals(";")) statement.setValue(expression(0));
+                block.addItem(statement);
+            } else {
+                block.addItem(ExpressionStatement.create().setExpression(expression(0)));
             }
-            expect(";"); block.add(statement);
+            expect(";");
         }
         return block;
     }
+
     private int precedence(String op) {
-        return switch(op) { case "<<" -> language == Language.CPP ? 1 : -1; case "+", "-" -> 2; case "*", "/" -> 3; default -> -1; };
+        return switch (op) {
+            case "=" -> 0;
+            case "<<" -> language == Language.CPP ? 1 : -1;
+            case "+", "-" -> 2;
+            case "*", "/" -> 3;
+            default -> -1;
+        };
     }
-    private Draft expression(int minimum) {
-        Draft left = primary();
+
+    private NodeBuilder<? extends Expression> expression(int minimum) {
+        var left = primary();
         while (precedence(peek()) >= minimum) {
-            String operator = peek(); int p = precedence(operator); pos++;
-            left = new Draft(Kind.BINARY, operator, left, expression(p + 1));
+            String operator = peek();
+            int priority = precedence(operator);
+            if (operator.equals("=") && !(left instanceof NameExpression.Builder)
+                    && !(left instanceof MemberExpression.Builder<?, ?>)) fail("Assignment requires a writable target");
+            pos++;
+            var right = expression(operator.equals("=") ? priority : priority + 1);
+            left = switch (operator) {
+                case "=" -> AssignmentExpression.create().setTarget(left).setValue(right);
+                case "+" -> AddExpression.create().setLeft(left).setRight(right);
+                case "-" -> SubtractExpression.create().setLeft(left).setRight(right);
+                case "*" -> MultiplyExpression.create().setLeft(left).setRight(right);
+                case "/" -> DivideExpression.create().setLeft(left).setRight(right);
+                case "<<" -> ShiftLeftExpression.create().setLeft(left).setRight(right);
+                default -> throw new AssertionError(operator);
+            };
         }
         return left;
     }
-    private Draft primary() {
-        Draft value;
+
+    private NodeBuilder<? extends Expression> primary() {
+        NodeBuilder<? extends Expression> value;
         if (take("(")) { value = expression(0); expect(")"); }
-        else if (peek().equals("-") || peek().equals("+")) {
-            String op = peek(); pos++;
-            // The signed minimum is accepted without constructing an out-of-range positive literal.
-            if (op.equals("-") && peek().equals("2147483648")) { pos++; value = new Draft(Kind.INTEGER, "-2147483648"); }
-            else value = new Draft(Kind.UNARY, op, primary());
-        } else if (peek().matches("[0-9]+")) {
+        else if (take("-")) {
+            if (take("2147483648")) return IntegerLiteral.create().setValue(Integer.MIN_VALUE);
+            return NegateExpression.create().setOperand(primary());
+        } else if (take("+")) return UnaryPlusExpression.create().setOperand(primary());
+        else if (peek().matches("[0-9]+")) {
             String number = peek();
-            try { Integer.parseInt(number); } catch (NumberFormatException e) { fail("Integer literal outside signed 32-bit range"); }
             if (number.length() > 1 && number.startsWith("0")) fail("Only decimal literals without leading zeros are supported");
-            pos++; value = new Draft(Kind.INTEGER, number);
-        } else value = new Draft(Kind.NAME, identifier());
+            try { value = IntegerLiteral.create().setValue(Integer.parseInt(number)); }
+            catch (NumberFormatException e) { fail("Integer literal outside signed 32-bit range"); throw new AssertionError(); }
+            pos++;
+        } else value = NameExpression.create().setName(identifier());
         while (true) {
-            if (peek().equals(".") || (language == Language.CPP && peek().equals("::"))) {
-                String separator = peek(); pos++;
-                value = new Draft(Kind.MEMBER, separator + identifier(), value);
-            } else if (take("(")) {
-                Draft call = new Draft(Kind.CALL, "", value);
-                if (!take(")")) { do { call.add(expression(0)); } while (take(",")); expect(")"); }
+            if (take(".")) value = DotMemberExpression.create().setReceiver(value).setMember(identifier());
+            else if (language == Language.CPP && take("::")) value = ScopeMemberExpression.create().setReceiver(value).setMember(identifier());
+            else if (take("(")) {
+                var call = CallExpression.create().setCallee(value);
+                if (!take(")")) { do { call.addArgument(expression(0)); } while (take(",")); expect(")"); }
                 value = call;
-            } else break;
+            } else return value;
         }
-        return value;
     }
 }
