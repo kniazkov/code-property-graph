@@ -1,6 +1,7 @@
 /* Code Property Graph: Graphviz visualization of typed snapshots. MIT License. */
 package com.kniazkov.cpg.visualization;
 
+import com.kniazkov.cpg.Source;
 import com.kniazkov.cpg.model.*;
 
 import java.io.IOException;
@@ -82,7 +83,12 @@ public final class DotVisualizer {
 
     private static final class Writer implements NodeVisitor {
         private final Map<Node, Integer> ids = new IdentityHashMap<>();
-        private final StringBuilder dot = new StringBuilder("digraph CPG {\n  node [shape=box];\n");
+        private final StringBuilder dot = new StringBuilder("""
+                digraph CPG {
+                  graph [penwidth=1];
+                  node [shape=box, style=rounded, penwidth=1, fontsize=10];
+                  edge [penwidth=1, fontsize=9];
+                """);
 
         @Override
         public void visit(Node node) {
@@ -91,12 +97,12 @@ public final class DotVisualizer {
             for (Node child : node.children()) {
                 int to = id(child);
                 dot.append("  n").append(from).append(" -> n").append(to)
-                        .append(" [label=\"").append(index++).append("\"];\n");
+                        .append(" [label=<&#160;").append(index++).append(">];\n");
             }
             for (Node target : node.references()) {
                 int to = id(target);
                 dot.append("  n").append(from).append(" -> n").append(to)
-                        .append(" [label=\"ref\", style=dashed, constraint=false];\n");
+                        .append(" [label=<&#160;ref>, style=dashed, constraint=false];\n");
             }
         }
 
@@ -109,18 +115,21 @@ public final class DotVisualizer {
             ids.put(node, id);
             Label label = new Label();
             node.accept(label);
-            String title = node.getClass().getSimpleName();
+            String border = node.languages().equals(Source.SUPPORTED_TARGETS) ? "#008000" : "#ff0000";
+            dot.append("  n").append(id).append(" [color=\"").append(border).append("\", label=<")
+                    .append(node.getClass().getSimpleName());
             if (!label.detail.isEmpty()) {
-                title += "\n" + label.detail;
+                dot.append("<BR/><FONT COLOR=\"#000080\">").append(htmlText(label.detail)).append("</FONT>");
             }
-            dot.append("  n").append(id).append(" [label=\"").append(escape(title)).append("\"];\n");
+            dot.append(">];\n");
             return id;
         }
     }
 
-    private static String escape(String text) {
-        return text.replace("\\", "\\\\").replace("\"", "\\\"")
-                .replace("\r\n", "\n").replace("\r", "\n").replace("\n", "\\n");
+    /** Escapes data for a Graphviz HTML label and preserves its line breaks. */
+    private static String htmlText(String text) {
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\\", "\\\\").replace("\r\n", "\n").replace('\r', '\n').replace("\n", "<BR/>");
     }
 
     private static final class Label implements NodeVisitor {
