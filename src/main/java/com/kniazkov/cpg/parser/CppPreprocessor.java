@@ -58,15 +58,24 @@ public final class CppPreprocessor {
         }
     }
     public record Result(List<ExpandedToken> tokens, List<Build.IncludeInstance> includes,
-            List<ExpansionEvent> expansions) {
-        public Result { tokens = List.copyOf(tokens); includes = List.copyOf(includes); expansions = List.copyOf(expansions); }
-        public Result(List<ExpandedToken> tokens, List<Build.IncludeInstance> includes) { this(tokens, includes, List.of()); }
+            List<ExpansionEvent> expansions, Map<String, String> sources) {
+        public Result { tokens = List.copyOf(tokens); includes = List.copyOf(includes); expansions = List.copyOf(expansions); sources = Collections.unmodifiableMap(new LinkedHashMap<>(sources)); }
+        public Result(List<ExpandedToken> tokens, List<Build.IncludeInstance> includes) { this(tokens, includes, List.of(), Map.of()); }
+        public Result(List<ExpandedToken> tokens, List<Build.IncludeInstance> includes, List<ExpansionEvent> expansions) {
+            this(tokens, includes, expansions, Map.of());
+        }
     }
 
     /** Preprocess supplied root contents using this TU's ordered -D/-U and search paths. */
     public static Result preprocess(Build.TranslationUnit unit, String source) {
         com.kniazkov.cpg.build.CppStandard.require(unit.standard(), unit.source().path().toString());
-        return new Processor(unit).run(source);
+        return new Processor(unit, null).run(source);
+    }
+
+    /** Replays a captured translation unit without consulting the filesystem, including existence checks. */
+    public static Result preprocess(Build.TranslationUnit unit, String source, Map<String, String> sources) {
+        com.kniazkov.cpg.build.CppStandard.require(unit.standard(), unit.source().path().toString());
+        return new Processor(unit, Map.copyOf(sources)).run(source);
     }
 
     // Deliberately only the library header currently modeled by the parser.
@@ -87,6 +96,8 @@ public final class CppPreprocessor {
     }
     private static final class Processor {
         private final Build.TranslationUnit unit;
+        private final Map<String, String> captured = new LinkedHashMap<>();
+        private final Map<String, String> virtualSources;
         private final Map<String, Macro> macros = new LinkedHashMap<>();
         private final List<Build.IncludeInstance> includes = new ArrayList<>();
         private final List<Work> output = new ArrayList<>();
@@ -139,9 +150,9 @@ public final class CppPreprocessor {
                 event.start = event.anchor >= 0 ? event.anchor : parent != null ? parent.start : 0;
                 event.end = event.start;
             }
-            return new Result(tokens, includes, events.stream().map(Event::freeze).toList());
+            return new Result(tokens, includes, events.stream().map(Event::freeze).toList(), captured);
         }
-        Processor(Build.TranslationUnit unit) { this.unit = unit; }
+        Processor(Build.TranslationUnit unit, Map<String, String> sources) { this.unit = unit; this.virtualSources = sources; }
 
         Result run(String source) {
             var root = instance(unit.source().path(), null);
@@ -174,6 +185,8 @@ public final class CppPreprocessor {
             return tokens.stream().filter(t -> t.kind() != EOF).map(t -> new Work(new ExpandedToken(t, include, List.of(), t.range()))).toList();
         }
         void process(Build.IncludeInstance include, String source, int depth) {
+            String previous = captured.putIfAbsent(include.source().path().toString(), source);
+            if (previous != null && !previous.equals(source)) throw error(include, "Physical source changed while preprocessing");
             if (depth > 128) throw error(include, "Include nesting limit exceeded (possible unguarded cycle)");
             List<Work> input;
             try { input = wrap(CppLexer.scan(include.source().path().toString(), source).tokens(), include); }
@@ -294,13 +307,17 @@ public final class CppPreprocessor {
             if ((!quote && !angle) || spec.length() <= 2 || quote && args.size() != 1)
                 throw error(location, "Expected quoted or angle header name after #include");
             String header = spec.substring(1, spec.length() - 1);
+            if (virtualSources != null && Path.of(header).isAbsolute())
+                throw error(location, "Cannot preserve C++ source safely: absolute include is not relocatable: " + header);
             var candidates = new ArrayList<Path>();
             if (quote) candidates.add(parent.source().path().getParent().resolve(header));
             if (quote) for (var path : unit.includes()) if (path.kind().equals("-iquote")) candidates.add(path.path().resolve(header));
             for (String kind : List.of("-I", "-isystem")) for (var path : unit.includes()) if (path.kind().equals(kind)) candidates.add(path.path().resolve(header));
-            for (Path candidate : candidates) if (Files.isRegularFile(candidate)) {
+            for (Path rawCandidate : candidates) {
+                Path candidate = rawCandidate.toAbsolutePath().normalize();
+                if (!(virtualSources == null ? Files.isRegularFile(candidate) : virtualSources.containsKey(candidate.toString()))) continue;
                 var included = instance(candidate, parent);
-                try { process(included, Files.readString(candidate), depth + 1); }
+                try { process(included, virtualSources == null ? Files.readString(candidate) : virtualSources.get(candidate.toString()), depth + 1); }
                 catch (IOException e) { throw error(location, "Cannot read header " + candidate + ": " + e.getMessage()); }
                 return;
             }

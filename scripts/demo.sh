@@ -187,3 +187,22 @@ assert empty["startToken"] == empty["endToken"]
 assert sum(e["name"] == "SQUARE" for e in events) == 2
 PY
 cp "$work/provenance.svg" target/demo/provenance.svg
+
+# Public API macro edit: only first SQUARE right operand changes; expected 58 -> 64.
+mkdir "$work/edit-square-classes"
+javac -cp "$jar" -d "$work/edit-square-classes" examples/cpp03-square/EditSquare.java
+java -cp "$jar:$work/edit-square-classes" EditSquare \
+  src/test/resources/cpp03/square/compile_commands.json "$work/square-edited"
+java -jar "$jar" --from cpp --compile-commands "$work/square-edited/compile_commands.json" \
+  --stage resolved --json "$work/square-reparsed.json"
+cmp src/test/resources/cpp03/square/sources/include/square.h "$work/square-edited/sources/include/square.h"
+cmp src/test/resources/cpp03/square/sources/second.cpp "$work/square-edited/sources/second.cpp"
+for compiler in g++ clang++; do
+  "$compiler" -std=c++03 -pedantic-errors -Isrc/test/resources/cpp03/square/sources/include \
+    src/test/resources/cpp03/square/sources/main.cpp src/test/resources/cpp03/square/sources/second.cpp -o "$work/square-before"
+  test "$("$work/square-before")" = 58
+  "$compiler" -std=c++03 -pedantic-errors -I"$work/square-edited/sources/include" \
+    "$work/square-edited/sources/main.cpp" "$work/square-edited/sources/second.cpp" -o "$work/square-after"
+  test "$("$work/square-after")" = 64
+done
+cp "$work/square-edited/edited.json" target/demo/square-edited.json

@@ -13,8 +13,7 @@ distinct: `a = 3`, `b = 5`, `c = 7`.
 Две единицы трансляции используют один заголовок и два вызова SQUARE. До правки
 ожидается 58, после замены только правого операнда первого раскрытия — 64.
 Файл `expected/edited-main.cpp` задаёт ожидаемый результат будущего редактора,
-а не доказывает его реализацию. Импорт и препроцессор реализованы в #13–#15; происхождение
-и правка графа принимаются в #16–#17.
+и сохраняется как независимый эталон. Полная правка через API теперь проверяется в #17.
 
 From the repository root / Из корня репозитория:
 
@@ -36,11 +35,19 @@ done
 directory. Its `arguments` entries compile each translation unit; link both
 objects to create the executable. No external paths or installed CPG are needed.
 
-The compilation-database corpus now verifies full CLI/API JSON parity, both macro
-expansions, source generation, and strict GCC/Clang execution of original and
-generated programs (58). The edited oracle (64) is still hand-written: graph
-provenance and macro-aware editing remain #16–#17. No tests are skipped.
+The compilation-database corpus now verifies full API/CLI graphs, original and
+generated output 58, then performs the actual ProjectEditor operand replacement
+and verifies generated output 64 under both strict compilers. The independent
+hand-written oracle is retained as an additional check. Header and second.cpp
+are compared byte-for-byte, and packaged CLI reparsing must produce a*b and c*c.
 
-Корпус проверяет API/CLI, JSON, оба раскрытия, генерацию и строгие нативные
-прогоны исходной и сгенерированной программы (58). Эталон 64 остаётся ручным;
-происхождение в графе и редактирование макросов — задачи #16–#17.
+[Manual public-API demo and commands](../../../../../examples/cpp03-square/README.md).
+The same demo runs in scripts/demo.sh; provenance and nested precedence tests
+are in MacroEditingIT. The first vertical milestone is now implemented, not just
+a source fixture. This does not imply full C++03 language/library support.
+
+Корпус проверяет исходный результат 58, настоящую правку графа и результат 64
+в GCC и Clang. Ручной эталон остаётся дополнительной независимой проверкой.
+Заголовок и второй файл сравниваются побайтно; CLI повторно разбирает a*b и c*c.
+Команды демонстрации приведены по ссылке выше. Первая вертикальная веха закрыта;
+полная поддержка языка и библиотеки C++03 этим не заявляется.

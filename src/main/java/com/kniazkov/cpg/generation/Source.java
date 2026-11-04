@@ -45,6 +45,7 @@ public final class Source {
 
     /** Generates named files, adapting supported program entry points when changing languages. */
     public static Map<String,String> files(Project project, Language target) {
+        if (target == Language.CPP && PreservedSource.applicable(project)) return PreservedSource.files(project);
         Source out = new Source(target);
         Map<String,String> files = new LinkedHashMap<>();
         for (SourceFile file : project.files()) {
@@ -78,6 +79,14 @@ public final class Source {
                 throw new IllegalArgumentException("Unsafe or duplicate output name: " + name);
         }
         return Collections.unmodifiableMap(files);
+    }
+
+    /** Validates a relative output path before any filesystem write. */
+    static void requireSafeName(String name) {
+        Path path = Path.of(name);
+        if (name.isBlank() || path.isAbsolute() || !path.normalize().equals(path)
+                || name.contains("\\") || path.startsWith(".."))
+            throw new IllegalArgumentException("Unsafe output name: " + name);
     }
 
     private static void checkWrapper(FunctionDeclaration fn, Project project) {
