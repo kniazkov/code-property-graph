@@ -37,6 +37,16 @@ final class CliSandbox {
 
     /** Always requests both exports, including for negative cases where neither should be created. */
     CliRun run(String language, String... options) throws IOException, InterruptedException {
+        return runInput(language, "--input", input, options);
+    }
+
+    /** Imports a database from a fresh unrelated process working directory. */
+    CliRun runDatabase(Path database, String... options) throws IOException, InterruptedException {
+        return runInput("cpp", "--compile-commands", database, options);
+    }
+
+    private CliRun runInput(String language, String inputFlag, Path source, String... options)
+            throws IOException, InterruptedException {
         Path jar = Path.of(Objects.requireNonNull(System.getProperty("cpg.e2e.jar"), "Run via mvn verify"));
         assertTrue(Files.isRegularFile(jar), () -> "Missing packaged CLI: " + jar);
         Path work = Files.createTempDirectory(workspace, "run-");
@@ -44,7 +54,7 @@ final class CliSandbox {
         String exe = System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java";
         List<String> command = new ArrayList<>(List.of(Path.of(System.getProperty("java.home"), "bin", exe).toString(),
                 "-Dfile.encoding=UTF-8", "-jar", jar.toAbsolutePath().toString(), "--from", language,
-                "--input", input.toString(), "--out", "generated", "--json", "snapshot.json"));
+                inputFlag, source.toString(), "--out", "generated", "--json", "snapshot.json"));
         command.addAll(List.of(options));
         Process child = new ProcessBuilder(command).directory(work.toFile())
                 .redirectOutput(out.toFile()).redirectError(err.toFile()).start();

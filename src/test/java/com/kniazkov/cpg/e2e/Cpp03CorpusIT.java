@@ -59,7 +59,9 @@ class Cpp03CorpusIT {
         var settings = new Properties();
         try (var reader = Files.newBufferedReader(fixture.resolve("scenario.properties"))) { settings.load(reader); }
         Path work = Files.createDirectory(temp.resolve(name));
-        var cli = new CliSandbox(work).directory(fixture.resolve("sources"));
+        boolean databaseMode = "compilation-database".equals(settings.getProperty("mode"));
+        var cli = new CliSandbox(work).directory(databaseMode ? fixture : fixture.resolve("sources"));
+        Path sourceInput = databaseMode ? cli.input.resolve("sources") : cli.input;
         if ("source-fixture".equals(settings.getProperty("mode"))) {
             nativePrograms(work, cli.input, settings.getProperty("stdout"),
                     Integer.parseInt(settings.getProperty("exit")));
@@ -88,9 +90,12 @@ class Cpp03CorpusIT {
             return;
         }
         String stage = Objects.requireNonNull(settings.getProperty("stage"));
-        var options = new Cpg.Options(Language.CPP, Cpg.Stage.valueOf(stage.toUpperCase(Locale.ROOT)));
+        var options = new Cpg.Options(Language.CPP, Cpg.Stage.valueOf(stage.toUpperCase(Locale.ROOT)),
+                databaseMode ? "c++03" : null);
         int status = Integer.parseInt(settings.getProperty("status"));
-        var run = cli.run("cpp", "--stage", stage).expectStatus(status);
+        var run = (databaseMode
+                ? cli.runDatabase(cli.input.resolve("compile_commands.json"), "--stage", stage, "--cpp-standard", "c++03")
+                : cli.run("cpp", "--stage", stage)).expectStatus(status);
         if (status != 0) {
             String diagnostic = settings.getProperty("diagnostic");
             assertTrue(run.stderr().contains(diagnostic), run.stderr());
@@ -99,7 +104,8 @@ class Cpp03CorpusIT {
             assertTrue(error.getMessage().contains(diagnostic), error.getMessage());
             return;
         }
-        var project = Cpg.read(cli.input, options);
+        var project = databaseMode ? Cpg.readCompilationDatabase(cli.input.resolve("compile_commands.json"), options)
+                : Cpg.read(cli.input, options);
         Map<String, String> apiSources = Cpg.sources(project, Language.CPP);
         assertFalse(apiSources.isEmpty(), "API must generate sources");
         try (var paths = Files.walk(run.work().resolve("generated"))) {
@@ -118,7 +124,7 @@ class Cpp03CorpusIT {
                     settings.getProperty("edge.to"));
         String expected = settings.getProperty("stdout");
         int exit = Integer.parseInt(settings.getProperty("exit"));
-        for (Path source : List.of(cli.input, run.work().resolve("generated")))
+        for (Path source : List.of(sourceInput, run.work().resolve("generated")))
             nativePrograms(work, source, expected, exit);
     }
 
