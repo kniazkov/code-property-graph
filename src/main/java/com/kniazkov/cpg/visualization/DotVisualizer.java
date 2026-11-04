@@ -261,6 +261,16 @@ public final class DotVisualizer {
         private String detail = "";
 
         @Override
+        public void visit(Project node) {
+            if (node.hasErrors()) detail = "ERROR: project contains parse errors";
+        }
+
+        @Override
+        public void visit(ErrorExpression node) {
+            detail = "ERROR: " + node.problem().message();
+        }
+
+        @Override
         public void visit(IntegerLiteral node) {
             detail = Integer.toString(node.value());
         }
@@ -308,6 +318,16 @@ public final class DotVisualizer {
         @Override
         public void visit(SourceFile node) {
             detail = node.path();
+            if (node.hasErrors()) detail += "\nERROR: incomplete source";
+            for (ParseProblem problem : node.parseProblems()) {
+                SourceRange range = problem.range();
+                detail += "\n" + range.file() + ":" + range.start().line() + ":" + range.start().column()
+                        + ": " + problem.message();
+            }
+            if (node.stoppedAt().isPresent()) {
+                SourceRange stopped = node.stoppedAt().orElseThrow();
+                detail += "\nstopped at " + stopped.file() + ":" + stopped.start().line() + ":" + stopped.start().column();
+            }
         }
 
         @Override public void visit(ExternalInput node) { detail = node.role() + ": " + node.text(); }

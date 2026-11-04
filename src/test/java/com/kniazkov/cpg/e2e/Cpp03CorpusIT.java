@@ -66,6 +66,10 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("parser-recovery".equals(settings.getProperty("mode"))) {
+            ParserRecoveryAcceptance.verify(fixture, work);
+            return;
+        }
         if ("shared-headers".equals(settings.getProperty("mode"))) {
             for (var output : SharedHeaderAcceptance.verify(fixture, work)) {
                 nativePrograms(work, output.original(), "1\n", 0, "-DSERVER");
@@ -87,8 +91,8 @@ class Cpp03CorpusIT {
                 : cli.run("cpp", "--stage", stage)).expectStatus(status);
         if (status != 0) {
             String diagnostic = settings.getProperty("diagnostic");
-            assertTrue(run.stderr().contains(diagnostic), run.stderr());
-            run.expectNoExports();
+            assertTrue(run.stderr().replaceAll("error \\[[^]]+\\]: ", "").contains(diagnostic), run.stderr());
+            run.diagnosticSnapshot();
             var error = assertThrows(ParseException.class, () -> Cpg.read(cli.input, options));
             assertTrue(error.getMessage().contains(diagnostic), error.getMessage());
             return;

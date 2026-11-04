@@ -41,6 +41,19 @@ public final class Cpg {
 
     /** Reads matching files in name order and returns a complete snapshot at the requested stage. */
     public static Project read(Path directory, Options options) {
+        return read(directory, options, false);
+    }
+
+    /**
+     * Reads C++ units independently, retaining syntax prefixes and parse problems when a unit
+     * cannot be completed. A project with parse errors remains at PARSED even when a later
+     * stage was requested. Java parsing and invalid build configurations remain strict.
+     */
+    public static Project readRecovering(Path directory, Options options) {
+        return read(directory, options, true);
+    }
+
+    private static Project read(Path directory, Options options, boolean recover) {
         var root = Project.create();
         String suffix = options.language() == Language.JAVA ? ".java" : ".cpp";
         try (var paths = Files.list(directory)) {
@@ -49,7 +62,8 @@ public final class Cpg {
                     var unit = new Build.TranslationUnit(new Build.PhysicalSource(path),
                             path.toAbsolutePath().getParent(), List.of(), List.of(), options.cppStandard(),
                             options.configurationSource());
-                    root.addFile(Parser.parse(unit, Files.readString(path)));
+                    String source = Files.readString(path);
+                    root.addFile(recover ? Parser.parseRecovering(unit, source) : Parser.parse(unit, source));
                 } else root.addFile(Parser.parse(path.toString(), Files.readString(path), options.language(), options.cppStandard()));
             }
         } catch (IOException | java.io.UncheckedIOException e) {
@@ -65,8 +79,23 @@ public final class Cpg {
         catch (IOException e) { throw new ParseException(database.toString(), 1, 1, e.getMessage()); }
     }
 
+    /** Reads a valid compilation database while retaining errors in individual C++ units. */
+    public static Project readCompilationDatabaseRecovering(Path database, Options options) {
+        try { return readRecovering(com.kniazkov.cpg.build.CompilationDatabase.read(database), options); }
+        catch (IOException e) { throw new ParseException(database.toString(), 1, 1, e.getMessage()); }
+    }
+
     /** Parses configurations independently and retains their identities and optional link composition. */
     public static Project read(com.kniazkov.cpg.build.Build build, Options options) {
+        return read(build, options, false);
+    }
+
+    /** Parses each configured C++ unit independently and preserves diagnostic snapshots. */
+    public static Project readRecovering(com.kniazkov.cpg.build.Build build, Options options) {
+        return read(build, options, true);
+    }
+
+    private static Project read(com.kniazkov.cpg.build.Build build, Options options, boolean recover) {
         if (options.language() != Language.CPP) throw new IllegalArgumentException("Compilation builds require CPP");
         var effectiveUnits = build.units().stream().map(unit -> new com.kniazkov.cpg.build.Build.TranslationUnit(
                 unit.source(), unit.directory(), unit.includes(), unit.macros(),
@@ -86,7 +115,10 @@ public final class Cpg {
             if (composition != null && !composition.variantIds().contains(unit.variantId())) continue;
             String file = unit.source().path().toString();
             com.kniazkov.cpg.build.CppStandard.require(unit.standard(), file);
-            try { root.addFile(Parser.parse(unit, Files.readString(unit.source().path()))); }
+            try {
+                String source = Files.readString(unit.source().path());
+                root.addFile(recover ? Parser.parseRecovering(unit, source) : Parser.parse(unit, source));
+            }
             catch (IOException e) { throw new ParseException(file, 1, 1, e.getMessage()); }
         }
         com.kniazkov.cpg.build.CppStandard.require(options.cppStandard(), "empty compilation build");
@@ -94,7 +126,9 @@ public final class Cpg {
     }
 
     private static Project finish(Project result, Options options) {
-        if (options.stage() == Stage.PARSED) return result;
+        // Analyses assume complete syntax and may rebuild nodes. Keep partial syntax and
+        // original parser diagnostics intact rather than analyzing an incomplete program.
+        if (options.stage() == Stage.PARSED || result.hasErrors()) return result;
         result = NameResolver.resolve(result);
         if (options.stage() != Stage.RESOLVED) result = ConsoleNormalizer.green(result);
         if (options.stage() == Stage.FOLDED) result = ConstantFolder.fold(result);

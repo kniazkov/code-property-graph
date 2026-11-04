@@ -35,10 +35,42 @@ final class TokenCursor {
 
     Mark start() { return new Mark(range(tokens.get(position)), position); }
     SourcePosition position() { return tokens.get(position).start(); }
+    SourceRange currentRange() { return range(tokens.get(position)); }
+
+    /** Finds a semicolon without crossing a brace or an unbalanced delimiter. Never loops at EOF. */
+    SourceRange recoverInitializer(Mark start) {
+        int parentheses = 0, brackets = 0;
+        for (int index = start.tokenIndex(); index < tokens.size(); index++) {
+            if (tokens.get(index).problem() != null) return null;
+            String text = tokens.get(index).text();
+            if (text.equals("<eof>") || text.equals("{") || text.equals("}")) return null;
+            if (text.equals("(")) parentheses++;
+            else if (text.equals(")") && --parentheses < 0) return null;
+            else if (text.equals("[")) brackets++;
+            else if (text.equals("]") && --brackets < 0) return null;
+            else if (text.equals(";")) {
+                if (parentheses != 0 || brackets != 0) return null;
+                var end = range(tokens.get(index));
+                if (!start.range().file().equals(end.file()) || end.start().offset() < start.range().start().offset()) return null;
+                position = index;
+                return new SourceRange(end.file(), start.range().start(), end.start());
+            }
+        }
+        return null;
+    }
 
     /** Attaches the interval from the first token to the end of the last consumed token. */
     <B extends NodeBuilder<?>> B span(Mark start, B builder) {
-        SourceRange first = start.range(), last = range(tokens.get(position - 1));
+        SourceRange first = start.range();
+        if (position <= start.tokenIndex()) {
+            builder.setRange(new SourceRange(first.file(), first.start(), first.start()));
+            if (preprocessing != null) {
+                int begin = tokens.get(start.tokenIndex()).sourceIndex();
+                builder.setProvenance(new TokenProvenance(preprocessing, begin, begin));
+            }
+            return builder;
+        }
+        SourceRange last = range(tokens.get(position - 1));
         // A syntax node can span included sources. Its primary range must never
         // invent a physical interval across files; full origins are separate.
         if (first.file().equals(last.file()) && last.end().offset() >= first.start().offset())
@@ -53,10 +85,26 @@ final class TokenCursor {
     }
 
     /** Reads the next spelling without consuming it. */
-    String peek() { return tokens.get(position).text(); }
+    String peek() {
+        Token token = tokens.get(position);
+        if (token.problem() != null) throw token.problem();
+        return token.text();
+    }
+
+    /** Unsupported declarations still report their strict-edition violation, not just the leading keyword. */
+    void checkUnsupportedDeclaration() {
+        int braces = 0;
+        for (int index = position; index < tokens.size(); index++) {
+            Token token = tokens.get(index);
+            if (token.problem() != null) throw token.problem();
+            if (token.text().equals("{")) braces++;
+            if (token.text().equals("}")) { if (braces == 0) return; braces--; }
+            if (braces == 0 && token.text().equals(";") || token.text().equals("<eof>")) return;
+        }
+    }
 
     /** Consumes a token already recognized by its caller. */
-    void advance() { position++; }
+    void advance() { if (position < tokens.size() - 1) position++; }
 
     /** Consumes an optional token only if it matches. */
     boolean take(String spelling) {
@@ -81,6 +129,6 @@ final class TokenCursor {
     /** Attaches the current token position to a grammar diagnostic. */
     ParseException error(String reason) {
         Token token = tokens.get(position);
-        return new ParseException(java.nio.file.Path.of(token.file() == null ? file : token.file()).getFileName().toString(), token.start().line(), token.start().column(), reason);
+        return new ParseException(java.nio.file.Path.of(token.file() == null ? file : token.file()).getFileName().toString(), token.start().line(), token.start().column(), reason, range(token));
     }
 }

@@ -119,7 +119,7 @@ class ConditionalCatalogIT {
         assertThrows(com.kniazkov.cpg.parser.ParseException.class, () -> Cpg.read(new Build(List.of(unit)), OPTIONS));
         Files.writeString(main, "#if 1\nint main() { return 0; }\n");
         var run = cli.runDatabase(cli.input.resolve("compile_commands.json"), "--stage", "resolved").expectStatus(1);
-        run.expectNoExports();
+        run.diagnosticSnapshot();
         assertTrue(run.stderr().contains("conditional") || run.stderr().contains("endif"));
     }
 

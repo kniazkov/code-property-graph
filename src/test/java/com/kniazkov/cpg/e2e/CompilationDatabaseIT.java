@@ -76,7 +76,7 @@ class CompilationDatabaseIT {
         var run = cli.runDatabase(db, "--cpp-standard", "c++03").expectStatus(1);
         assertTrue(run.stderr().contains("b.cpp"), run.stderr());
         assertTrue(run.stderr().contains("C++03"), run.stderr());
-        run.expectNoExports();
+        run.diagnosticSnapshot();
         var error = assertThrows(ParseException.class, () -> Cpg.readCompilationDatabase(db, EXPLICIT));
         assertTrue(error.getMessage().contains("b.cpp"));
         assertTrue(error.getMessage().contains("C++03"));

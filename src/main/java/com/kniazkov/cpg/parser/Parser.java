@@ -14,30 +14,39 @@ public final class Parser {
     private final Language language;
     private final TokenCursor tokens;
     private final StatementParser statements;
+    private final ParseRecovery recovery;
 
     private Parser(String file, Language language, java.util.List<Token> input, Preprocessing preprocessing) {
+        this(file, language, input, preprocessing, null);
+    }
+
+    private Parser(String file, Language language, java.util.List<Token> input, Preprocessing preprocessing, ParseRecovery recovery) {
+        this.recovery = recovery;
         this.file = java.nio.file.Path.of(file).toAbsolutePath().normalize().toString();
         this.language = language;
         tokens = new TokenCursor(this.file, input, language, preprocessing);
-        statements = new StatementParser(tokens, new ExpressionParser(tokens, language));
+        statements = new StatementParser(tokens, new ExpressionParser(tokens, language), recovery);
     }
 
-    private static java.util.List<Token> parserTokens(CppPreprocessor.Result result) {
+    private static java.util.List<Token> parserTokens(CppPreprocessor.Result result) { return parserTokens(result, false, null); }
+
+    private static java.util.List<Token> parserTokens(CppPreprocessor.Result result, boolean recovering, ParseException terminalProblem) {
         var tokens = new java.util.ArrayList<Token>();
         for (int index = 0; index < result.tokens().size(); index++) {
             var expanded = result.tokens().get(index);
             var token = expanded.token();
             if (token.kind() == PreprocessingToken.Kind.WHITESPACE || token.kind() == PreprocessingToken.Kind.NEWLINE) continue;
             var range = expanded.expansionRange();
-            if (token.kind() == PreprocessingToken.Kind.OTHER)
-                throw new ParseException(range.file(), range.start().line(), range.start().column(),
-                        "Unsupported character: " + token.spelling());
+            String violation = CppDialect.violation(result.tokens(), index);
+            ParseException problem = violation == null ? null : new ParseException(range.file(), range.start().line(), range.start().column(), violation, range);
+            if (token.kind() == PreprocessingToken.Kind.EOF && terminalProblem != null) problem = terminalProblem;
+            if (problem != null && !recovering) throw problem;
             String spelling = switch (token.kind()) {
                 case EOF -> "<eof>";
                 case HEADER_NAME -> "#include " + token.spelling();
                 default -> token.canonicalSpelling();
             };
-            tokens.add(new Token(spelling, range.start(), range.end(), range.file(), index));
+            tokens.add(new Token(spelling, range.start(), range.end(), range.file(), index, problem));
         }
         return java.util.List.copyOf(tokens);
     }
@@ -69,7 +78,7 @@ public final class Parser {
         }
         try { return new Parser(file, language, new Lexer(java.nio.file.Path.of(file).getFileName().toString(), source).scan(), null).parse(); }
         catch (ParseException e) {
-            if (language == Language.CPP) throw new ParseException(e.file(), e.line(), e.column(), e.reason() + " (C++03)");
+            if (language == Language.CPP) throw new ParseException(e.file(), e.line(), e.column(), e.reason().contains("C++03") ? e.reason() : e.reason() + " (C++03)", e.range().orElse(null));
             throw e;
         }
     }
@@ -98,8 +107,54 @@ public final class Parser {
             parsed.setProvenance(new TokenProvenance(provenance, 0, provenance.tokens().size()));
             return parsed;
         } catch (ParseException e) {
-            throw new ParseException(e.file(), e.line(), e.column(), e.reason() + " (C++03)");
+            throw new ParseException(e.file(), e.line(), e.column(), e.reason().contains("C++03") ? e.reason() : e.reason() + " (C++03)", e.range().orElse(null));
         }
+    }
+
+    /** Parses a diagnostic snapshot, recovering only at reliable expression boundaries. */
+    public static SourceFile.Builder parseRecovering(String file, String source, Language language) {
+        return parseRecovering(file, source, language, null);
+    }
+
+    /** Edition/configuration errors remain exceptions, even in diagnostic mode. */
+    public static SourceFile.Builder parseRecovering(String file, String source, Language language, String standard) {
+        if (language == Language.CPP) {
+            com.kniazkov.cpg.build.CppStandard.require(standard, file);
+            var path = java.nio.file.Path.of(file).toAbsolutePath().normalize();
+            var unit = new com.kniazkov.cpg.build.Build.TranslationUnit(
+                    new com.kniazkov.cpg.build.Build.PhysicalSource(path), path.getParent(), java.util.List.of(), java.util.List.of(), standard);
+            return parseRecovering(unit, source);
+        }
+        if (language != Language.JAVA) throw new IllegalArgumentException("Input language must be JAVA or CPP");
+        if (standard != null) throw new IllegalArgumentException("C++ standard requires CPP input");
+        String path = java.nio.file.Path.of(file).toAbsolutePath().normalize().toString();
+        var recovery = new ParseRecovery(language, java.util.Map.of(path, source));
+        var parsed = new Parser(path, language, new Lexer(path, source).scanRecovering(), null, recovery).parse();
+        parsed.setRange(new SourceRange(path, new SourcePosition(1, 1, 0), ParseRecovery.position(source, source.length())));
+        return parsed;
+    }
+
+    public static SourceFile.Builder parseRecovering(com.kniazkov.cpg.build.Build.TranslationUnit unit, String source) {
+        return parseRecovering(unit, source, null, null);
+    }
+
+    public static SourceFile.Builder parseRecovering(com.kniazkov.cpg.build.Build.TranslationUnit unit, String source,
+            java.util.Map<String, String> sources) {
+        return parseRecovering(unit, source, sources, null);
+    }
+
+    /** Replays the same translation parameters while retaining failures as graph metadata. */
+    public static SourceFile.Builder parseRecovering(com.kniazkov.cpg.build.Build.TranslationUnit unit, String source,
+            java.util.Map<String, String> sources, java.time.Instant translationTime) {
+        String file = unit.source().path().toString();
+        com.kniazkov.cpg.build.CppStandard.require(unit.standard(), file);
+        var prepared = CppPreprocessor.preprocessRecovering(unit, source, sources, translationTime);
+        var provenance = preprocessing(file, prepared.result(), unit);
+        var recovery = new ParseRecovery(Language.CPP, provenance.sources());
+        var parsed = new Parser(file, Language.CPP, parserTokens(prepared.result(), true, prepared.problem()), provenance, recovery).parse();
+        parsed.setProvenance(new TokenProvenance(provenance, 0, provenance.tokens().size()));
+        parsed.setRange(new SourceRange(file, new SourcePosition(1, 1, 0), ParseRecovery.position(source, source.length())));
+        return parsed;
     }
 
     private static Preprocessing.Fragment fragment(CppPreprocessor.Fragment fragment) {
@@ -152,25 +207,35 @@ public final class Parser {
     /** Consumes top-level items until EOF, preserving the order of declarations and includes. */
     private SourceFile.Builder parse() {
         var result = SourceFile.create().setPath(java.nio.file.Path.of(file).getFileName().toString()).setLanguage(language);
-        while (!tokens.peek().equals("<eof>")) {
-            var start = tokens.start();
-            if (tokens.peek().startsWith("#")) {
-                var include = java.util.regex.Pattern.compile("#\\s*include\\s*(?:<([^>]+)>|\"([^\"]+)\")\\s*").matcher(tokens.peek());
-                if (language != Language.CPP || !include.matches()) throw tokens.error("Only #include is supported");
-                boolean system = include.group(1) != null;
-                tokens.advance();
-                result.addItem(tokens.span(start, IncludeDirective.create().setSystem(system).setHeader(include.group(system ? 1 : 2))));
-            } else if (tokens.peek().equals("class") || tokens.peek().equals("public")) {
-                result.addItem(clazz());
-            } else if (language == Language.CPP && tokens.take("int")) {
-                var returnType = tokens.span(start, type("int"));
-                String name = tokens.identifier(); tokens.expect("("); tokens.expect(")");
-                var function = FunctionDeclaration.create().setName(name).setReturnType(returnType);
-                if (!tokens.take(";")) function.setBody(statements.block());
-                result.addItem(tokens.span(start, function));
-            } else throw tokens.error("Unsupported top-level declaration");
+        while (recovery == null || !recovery.stopped()) {
+            try {
+                if (tokens.peek().equals("<eof>")) break;
+                var start = tokens.start();
+                if (tokens.peek().startsWith("#")) {
+                    var include = java.util.regex.Pattern.compile("#\\s*include\\s*(?:<([^>]+)>|\"([^\"]+)\")\\s*").matcher(tokens.peek());
+                    if (language != Language.CPP || !include.matches()) throw tokens.error("Only #include is supported");
+                    boolean system = include.group(1) != null;
+                    tokens.advance();
+                    result.addItem(tokens.span(start, IncludeDirective.create().setSystem(system).setHeader(include.group(system ? 1 : 2))));
+                } else if (tokens.peek().equals("class") || tokens.peek().equals("public")) {
+                    result.addItem(clazz());
+                } else if (language == Language.CPP && tokens.take("int")) {
+                    var returnType = tokens.span(start, type("int"));
+                    String name = tokens.identifier(); tokens.expect("("); tokens.expect(")");
+                    var function = FunctionDeclaration.create().setName(name).setReturnType(returnType);
+                    if (!tokens.take(";")) function.setBody(statements.block());
+                    result.addItem(tokens.span(start, function));
+                } else {
+                    if (language == Language.CPP) tokens.checkUnsupportedDeclaration();
+                    throw tokens.error("Unsupported top-level declaration");
+                }
+            } catch (ParseException error) {
+                if (recovery == null) throw error;
+                recovery.stop(error, tokens.currentRange());
+            }
         }
         result.setRange(new SourceRange(file, new SourcePosition(1, 1, 0), tokens.position()));
+        if (recovery != null) recovery.attach(result);
         return result;
     }
 
@@ -187,26 +252,31 @@ public final class Parser {
         var node = ClassDeclaration.create().setName(tokens.identifier());
         if (isPublic) node.addModifier("public");
         tokens.expect("{");
-        if (language == Language.CPP) { tokens.expect("public"); tokens.expect(":"); }
-        while (!tokens.take("}")) {
-            var methodStart = tokens.start();
-            var method = MethodDeclaration.create();
-            if (language == Language.JAVA) { tokens.expect("public"); method.addModifier("public"); }
-            tokens.expect("static");
-            var typeStart = tokens.start();
-            tokens.expect("void");
-            var returnType = tokens.span(typeStart, type("void")); tokens.expect("main"); tokens.expect("(");
-            method.addModifier("static").setName("main").setReturnType(returnType);
-            if (language == Language.JAVA) {
-                var paramStart = tokens.start();
-                tokens.expect("String"); tokens.expect("["); tokens.expect("]");
-                var paramType = tokens.span(paramStart, type("String[]"));
-                method.addParameter(tokens.span(paramStart, ParameterDeclaration.create().setType(paramType).setName(tokens.identifier())));
+        try {
+            if (language == Language.CPP) { tokens.expect("public"); tokens.expect(":"); }
+            while ((recovery == null || !recovery.stopped()) && !tokens.take("}")) {
+                var methodStart = tokens.start();
+                var method = MethodDeclaration.create();
+                if (language == Language.JAVA) { tokens.expect("public"); method.addModifier("public"); }
+                tokens.expect("static");
+                var typeStart = tokens.start();
+                tokens.expect("void");
+                var returnType = tokens.span(typeStart, type("void")); tokens.expect("main"); tokens.expect("(");
+                method.addModifier("static").setName("main").setReturnType(returnType);
+                if (language == Language.JAVA) {
+                    var paramStart = tokens.start();
+                    tokens.expect("String"); tokens.expect("["); tokens.expect("]");
+                    var paramType = tokens.span(paramStart, type("String[]"));
+                    method.addParameter(tokens.span(paramStart, ParameterDeclaration.create().setType(paramType).setName(tokens.identifier())));
+                }
+                tokens.expect(")");
+                node.addMember(tokens.span(methodStart, method.setBody(statements.block())));
             }
-            tokens.expect(")");
-            node.addMember(tokens.span(methodStart, method.setBody(statements.block())));
+            if (language == Language.CPP && (recovery == null || !recovery.stopped())) tokens.expect(";");
+        } catch (ParseException error) {
+            if (recovery == null) throw error;
+            recovery.stop(error, tokens.currentRange());
         }
-        if (language == Language.CPP) tokens.expect(";");
         return tokens.span(start, node);
     }
 

@@ -1,7 +1,8 @@
 # Unterminated string / Незакрытый литерал
 
-`main.cpp:2:5: Unterminated string literal` is the expected diagnostic. The API
-throws and CLI exits 1 without JSON or generated sources. The failure is lexical,
+`main.cpp:2:5: Unterminated string literal` is the expected diagnostic. The strict API
+throws; since #21 the recovering API retains a diagnostic graph and the CLI exits 1
+with requested JSON/SVG but no generated sources. The failure is lexical,
 not a claim that string expressions are already fully supported by the parser.
 
 ```sh
@@ -12,4 +13,5 @@ java -jar target/cpg-0.0.1-SNAPSHOT.jar --from cpp --stage resolved \
 ```
 
 Ручной CLI намеренно завершается кодом 1. Ожидаемая физическая позиция: строка 2,
-колонка 5. Частичные экспорты запрещены. Корпус сверяет диагностику API и CLI.
+колонка 5. С #21 запрошенные JSON/SVG сохраняются для диагностики, генерация
+исходников запрещена. Корпус сверяет исключение строгого API и диагностику CLI.

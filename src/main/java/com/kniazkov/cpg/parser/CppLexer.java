@@ -48,6 +48,19 @@ public final class CppLexer {
         return new Scanner(file, source).scan();
     }
 
+    /** A lexical prefix ending at the first malformed token; used only by diagnostic parsing. */
+    record Recovery(Result result, ParseException problem) {}
+    static Recovery scanRecovering(String file, String source) {
+        var scanner = new Scanner(file, source);
+        try { return new Recovery(scanner.scan(), null); }
+        catch (ParseException error) {
+            SourcePosition stop = error.range().orElseThrow().start();
+            scanner.tokens.add(new PreprocessingToken(EOF, "", "", new SourceRange(file, stop, stop),
+                    scanner.output.length(), scanner.output.length()));
+            return new Recovery(new Result(scanner.output.toString(), scanner.outputRanges, scanner.tokens, stop), error);
+        }
+    }
+
     private static final class Scanner {
         private final String file;
         private final String input;
@@ -226,7 +239,7 @@ public final class CppLexer {
         private SourceRange range(int start, int end) { return new SourceRange(file, inputRanges.get(start).start(), inputRanges.get(end - 1).end()); }
         private ParseException error(int at, String reason) {
             SourcePosition pos = inputRanges.get(at).start();
-            return new ParseException(file, pos.line(), pos.column(), reason);
+            return new ParseException(file, pos.line(), pos.column(), reason, new SourceRange(file, pos, eof));
         }
     }
     private static boolean digit(char ch) { return ch >= '0' && ch <= '9'; }

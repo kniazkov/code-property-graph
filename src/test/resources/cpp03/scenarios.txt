@@ -11,3 +11,5 @@ provenance
 build-variants
 conditional-catalog
 shared-headers
+parser-recovery
+inactive-extension
