@@ -12,6 +12,10 @@ import java.util.Objects;
 public abstract non-sealed class Node implements FlowVertex {
     /** Restricts node construction to the model package during snapshot assembly. */
     SourceRange origin;
+    TokenProvenance provenance;
+
+    /** Source-token links, separate from syntax children and resolved references. */
+    public final java.util.Optional<TokenProvenance> provenance() { return java.util.Optional.ofNullable(provenance); }
     List<Diagnostic> findings = List.of();
 
     /** Returns all findings for this snapshot in reporting order. Editing discards derived findings. */

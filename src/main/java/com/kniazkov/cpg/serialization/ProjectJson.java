@@ -30,12 +30,14 @@ public final class ProjectJson {
 
     private static final class Export {
         private final Map<Node,Integer> ids = new IdentityHashMap<>();
+        private final Map<Preprocessing,Integer> units = new IdentityHashMap<>();
         private final Map<Node,List<Edge>> outgoing = new IdentityHashMap<>();
 
         Export(Project project) {
             project.walk(new NodeVisitor() {
                 @Override public void visit(Node n) { ids.put(n, ids.size()); }
             });
+            for (SourceFile file : project.files()) file.provenance().ifPresent(p -> units.put(p.unit(), ids.get(file)));
             for (Node n : ids.keySet()) for (Node target : n.references()) edge(n, target, "ref");
             for (var flow : project.flows()) {
                 for (var e : flow.control()) edge((Node)e.from(), (Node)e.to(), "cfg." + lower(e.kind()));
@@ -102,8 +104,15 @@ public final class ProjectJson {
                 case Exit ignored -> { }
                 default -> throw new IllegalStateException("Missing JSON schema for " + n.getClass().getName());
             }
-            n.range().ifPresent(r -> obj.object("range", range ->
-                    range.put("start", position(r.start())).put("end", position(r.end()))));
+            n.range().ifPresent(r -> obj.put("range", range(r)));
+            n.provenance().ifPresent(p -> {
+                Integer sourceFileId = units.get(p.unit());
+                if (sourceFileId == null) throw new IllegalStateException("Provenance unit outside project");
+                obj.object("provenance", v -> v.put("sourceFileId", sourceFileId)
+                        .put("startToken", p.startToken()).put("endToken", p.endToken())
+                        .array("expansionIds", a -> p.expansions().forEach(e -> a.add(e.id()))));
+                if (n instanceof SourceFile) obj.put("preprocessing", preprocessing(p.unit()));
+            });
             if (!n.diagnostics().isEmpty()) {
                 obj.array("diagnostics", a -> n.diagnostics().forEach(d -> a.object(o ->
                         o.put("code", d.code()).put("severity", lower(d.severity())))));
@@ -114,6 +123,46 @@ public final class ProjectJson {
                 obj.array("edges", a -> links.forEach(e -> a.object(o -> o.put("kind", e.kind()).put("to", e.to()))));
             }
             return obj.build();
+        }
+
+        private static JsonObject range(SourceRange r) {
+            return Json.object().put("file", r.file()).put("start", position(r.start()))
+                    .put("end", position(r.end())).build();
+        }
+
+        private static JsonObject fragment(Preprocessing.Fragment f) {
+            return Json.object().put("range", range(f.range())).put("includeId", f.includeId())
+                    .put("spelling", f.spelling()).build();
+        }
+
+        private static JsonObject preprocessing(Preprocessing p) {
+            return Json.object().put("translationUnit", p.translationUnit())
+                    .array("includes", a -> p.includes().forEach(i -> a.object(o -> {
+                        o.put("id", i.id()).put("file", i.file());
+                        if (i.parentId() != null) o.put("parentId", i.parentId());
+                    })))
+                    .array("tokens", a -> p.tokens().forEach(t -> a.object(o -> o
+                            .put("index", t.index()).put("spelling", t.spelling())
+                            .put("spellingRange", range(t.spellingRange()))
+                            .put("expansionRange", range(t.expansionRange())).put("includeId", t.includeId())
+                            .array("expansionIds", ids -> t.expansionIds().forEach(ids::add)))))
+                    .array("expansions", a -> p.expansions().forEach(e -> a.object(o -> {
+                        o.put("id", e.id()).put("name", e.name()).put("definition", range(e.definition()))
+                                .array("replacement", fs -> e.replacement().forEach(f -> fs.add(fragment(f))))
+                                .put("invocation", range(e.invocation()))
+                                .put("includeId", e.includeId()).put("startToken", e.startToken())
+                                .put("endToken", e.endToken());
+                        if (e.parentId() != null) o.put("parentId", e.parentId());
+                        o.array("arguments", args -> e.arguments().forEach(arg -> {
+                            var fragments = Json.array();
+                            arg.forEach(f -> fragments.add(fragment(f)));
+                            args.add(fragments.build());
+                        }));
+                        o.array("operations", ops -> e.operations().forEach(op -> ops.object(v -> v
+                                .put("kind", op.kind()).put("operator", range(op.operator()))
+                                .put("spelling", op.spelling())
+                                .array("fragments", fs -> op.fragments().forEach(f -> fs.add(fragment(f)))))));
+                    }))).build();
         }
 
         private static JsonObject position(SourcePosition p) {

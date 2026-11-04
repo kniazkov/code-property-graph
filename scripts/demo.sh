@@ -130,7 +130,7 @@ def visit(item):
         for child in item:
             visit(child)
     elif isinstance(item, dict):
-        if "id" in item:
+        if "id" in item and "kind" in item:
             assert item["id"] not in nodes
             nodes[item["id"]] = item
             edges.extend(item.get("edges", ()))
@@ -162,3 +162,28 @@ root = ET.parse(work / "warn.svg").getroot()
 badges = [t for t in root.findall(".//s:text", ns) if "unread-write" in (t.text or "")]
 assert len(badges) == 1 and badges[0].get("fill").lower() == "#ad6800"
 PY
+
+# Macro provenance is a separate, switchable SVG layer with physical source links.
+java -jar "$jar" --from cpp --input src/test/resources/cpp03/provenance/sources --stage resolved \
+  --svg "$work/provenance.svg" --json "$work/provenance.json"
+java -jar "$jar" --from cpp --input src/test/resources/cpp03/provenance/sources --stage resolved \
+  --svg "$work/provenance-off.svg" --provenance off
+python3 - "$work" <<'PY'
+import json, pathlib, sys, xml.etree.ElementTree as ET
+work = pathlib.Path(sys.argv[1]); ns = {"s": "http://www.w3.org/2000/svg"}
+root = ET.parse(work / "provenance.svg").getroot()
+texts = [t.text or "" for t in root.findall(".//s:text", ns)]
+assert any("macro SQUARE" in t for t in texts)
+assert any("macros.h:3:" in t for t in texts)
+assert any("main.cpp:5:" in t for t in texts)
+labels = {t.text for e in root.findall(".//s:g[@class='edge']", ns) for t in e.findall("s:text", ns)}
+assert {"origin", "invocation", "definition", "replacement operator", "parent expansion"} <= labels
+plain = ET.parse(work / "provenance-off.svg").getroot()
+assert not any("macro SQUARE" in (t.text or "") for t in plain.findall(".//s:text", ns))
+data = json.loads((work / "provenance.json").read_text())["files"][0]
+events = data["preprocessing"]["expansions"]
+empty = next(e for e in events if e["name"] == "EMPTY")
+assert empty["startToken"] == empty["endToken"]
+assert sum(e["name"] == "SQUARE" for e in events) == 2
+PY
+cp "$work/provenance.svg" target/demo/provenance.svg
