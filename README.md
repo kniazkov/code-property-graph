@@ -53,7 +53,7 @@ DotVisualizer.renderSvg(ready, Path.of("tree.svg"));
 
 `mvn verify` запускает JUnit. `bash scripts/demo.sh` проверяет исполняемый JAR, компиляцию и запуск результатов на обоих языках и SVG через системный dot. Нужны JDK 21, g++, Graphviz, Python 3 и Bash. В CI результаты демонстрации доступны в артефакте `cpg-prototype`.
 
-[Требования](docs/requirements.ru.md) · [Модель узлов](docs/node-model.ru.md) · [Иерархия и Visitor](docs/node-hierarchy.ru.md) · [Сравнение языков](docs/research/language-nodes/README.ru.md)
+[Требования](docs/requirements.ru.md) · [Модель узлов](docs/node-model.ru.md) · [Иерархия и Visitor](docs/node-hierarchy.ru.md) · [Сравнение языков](docs/research/language-nodes/README.ru.md) · [Исходники Ascend C (отложено)](docs/research/ascend-c.ru.md)
 
 
 ## Экспорт JSON
