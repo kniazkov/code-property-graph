@@ -18,7 +18,8 @@ public final class Parser {
     private Parser(String file, String source, Language language) {
         this.file = java.nio.file.Path.of(file).toAbsolutePath().normalize().toString();
         this.language = language;
-        tokens = new TokenCursor(this.file, new Lexer(java.nio.file.Path.of(file).getFileName().toString(), source).scan());
+        tokens = new TokenCursor(this.file, language == Language.CPP ? CppLexer.parserTokens(this.file, source)
+                : new Lexer(java.nio.file.Path.of(file).getFileName().toString(), source).scan(), language);
         statements = new StatementParser(tokens, new ExpressionParser(tokens, language));
     }
 

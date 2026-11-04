@@ -111,3 +111,7 @@
 ### Входная конфигурация (#13)
 
 [CompilationDatabaseIT](src/test/java/com/kniazkov/cpg/e2e/CompilationDatabaseIT.java), [модульные проверки](src/test/java/com/kniazkov/cpg/CompilationDatabaseTest.java) и [корпус](src/test/resources/cpp03/compilation-database/README.md) проверяют C++03 по умолчанию и явно, приоритет над `-std`, `arguments`/`command` без исполнения, пути с пробелами, порядок поиска и `-D`/`-U`, диагностику неподдержанных редакций/ключей и лямбды. Полный JSON API и CLI совпадает. Записи физического файла, единицы и включения разделены во входном API; раскрытие заголовков/макросов и контекстные графы остаются следующими этапами.
+
+### Фазы лексики и физические позиции (#14)
+
+[CppLexer](src/main/java/com/kniazkov/cpg/parser/CppLexer.java) предоставляет фазы 1–3 отдельно от синтаксического парсера: триграфы, однопроходная склейка, пробел вместо комментария, категории preprocessing tokens, альтернативное написание и физическое отображение. [LexicalPhasesIT](src/test/java/com/kniazkov/cpg/e2e/LexicalPhasesIT.java) и [обычный исходник](src/test/resources/cpp03/lexical-phases/README.md) проверяют диапазоны 1:8–2:3 и 8:12–9:3, ссылки и API/CLI, исполнение GCC/Clang. [Незакрытый литерал](src/test/resources/cpp03/unterminated-literal/README.md) проверяет позицию 2:5 и запрет частичных экспортов. Лексическое распознавание не подменяет будущую семантику литералов, выражений и препроцессора.
