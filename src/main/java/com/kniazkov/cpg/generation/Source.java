@@ -19,6 +19,7 @@ public final class Source {
     }
 
     public static String render(Node node, Language target) {
+        if (node instanceof Project project) requireVariantSelection(project);
         if (!languages(node).contains(target)) throw new IllegalArgumentException("Unsupported direct emission to " + target);
         return new Source(target).emit(node, 0);
     }
@@ -43,8 +44,19 @@ public final class Source {
         return Collections.unmodifiableSet(targets);
     }
 
+    /** Alternative configurations cannot be flattened into one physical file. */
+    private static void requireVariantSelection(Project project) {
+        var paths = new HashSet<String>();
+        for (var file : project.files()) {
+            String path = file.range().map(SourceRange::file).orElse(file.path());
+            if (!paths.add(Path.of(path).toAbsolutePath().normalize().toString()))
+                throw new IllegalArgumentException("Multiple build variants for " + path + "; select an explicit build composition before source generation");
+        }
+    }
+
     /** Generates named files, adapting supported program entry points when changing languages. */
     public static Map<String,String> files(Project project, Language target) {
+        requireVariantSelection(project);
         if (target == Language.CPP && PreservedSource.applicable(project)) return PreservedSource.files(project);
         Source out = new Source(target);
         Map<String,String> files = new LinkedHashMap<>();

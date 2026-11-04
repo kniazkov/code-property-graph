@@ -8,6 +8,33 @@ import java.util.Objects;
 /** Root containing source files. */
 public final class Project extends Node {
     private List<SourceFile> files = List.of();
+    private com.kniazkov.cpg.build.Build build;
+
+    public java.util.Optional<com.kniazkov.cpg.build.Build> build() { return java.util.Optional.ofNullable(build); }
+    public java.util.Optional<com.kniazkov.cpg.build.Build.Composition> composition() {
+        return build().map(com.kniazkov.cpg.build.Build::composition);
+    }
+    public List<SourceFile> variants(java.nio.file.Path path) {
+        var normalized = path.toAbsolutePath().normalize();
+        return files.stream().filter(f -> java.nio.file.Path.of(f.range().map(SourceRange::file)
+                .orElse(f.path())).toAbsolutePath().normalize().equals(normalized)).toList();
+    }
+    /** Selects owned variants, clears old call edges and recomputes resolution and flow analyses. */
+    public Project selectBuild(com.kniazkov.cpg.build.Build.Composition composition) {
+        if (build == null) throw new IllegalStateException("Project has no compilation build");
+        var selectedBuild = new com.kniazkov.cpg.build.Build(build.units(), composition);
+        var selected = files.stream().filter(f -> f.variantId().map(composition.variantIds()::contains).orElse(false)).toList();
+        if (selected.size() != composition.variantIds().size())
+            throw new IllegalArgumentException("Requested variant is not present in this snapshot");
+        var context = new EditContext();
+        var root = context.edit(this, Builder.class);
+        walk(new NodeVisitor() {
+            @Override public void visit(CallExpression call) { context.edit(call, CallExpression.Builder.class).clearTarget(); }
+        });
+        root.setFiles(context.copyAll(selected, SourceFile.class)).setBuild(selectedBuild);
+        return com.kniazkov.cpg.analysis.UnreadWrites.analyze(
+                com.kniazkov.cpg.analysis.NameResolver.resolve(root.build()));
+    }
 
     private List<FunctionFlow> flows = List.of();
 
@@ -18,6 +45,7 @@ public final class Project extends Node {
     public Project withFlows(List<FunctionFlow> results) {
         var copy = new Project();
         copy.files = files;
+        copy.build = build;
         copy.flows = List.copyOf(results);
         var owners = new java.util.HashSet<CallableDeclaration>();
         walk(new NodeVisitor() {
@@ -107,12 +135,15 @@ public final class Project extends Node {
         Builder builder = new Builder();
         context.register(this, builder);
         builder.files = context.copyAll(files, SourceFile.class);
+        builder.build = build;
         return builder;
     }
 
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<Project> {
         private List<NodeBuilder<? extends SourceFile>> files = new ArrayList<>();
+        private com.kniazkov.cpg.build.Build build;
+        public Builder setBuild(com.kniazkov.cpg.build.Build value) { build = value; return this; }
 
         private Builder() {
             super(Project.class);
@@ -140,6 +171,7 @@ public final class Project extends Node {
         @Override
         void fillNode(Project node, BuildContext context) {
             node.files = context.copyAll(files);
+            node.build = build;
         }
     }
 }

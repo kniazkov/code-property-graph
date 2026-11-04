@@ -15,6 +15,12 @@ public final class SourceFile extends Node {
     private SourceFile() {
     }
 
+    /** Configuration identity, absent for sources parsed without compilation inputs. */
+    public Optional<String> variantId() {
+        return provenance().map(TokenProvenance::unit).map(Preprocessing::configuration)
+                .map(com.kniazkov.cpg.build.Build.TranslationUnit::variantId);
+    }
+
     public String path() {
         return path;
     }

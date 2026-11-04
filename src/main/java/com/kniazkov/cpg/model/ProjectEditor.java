@@ -12,6 +12,13 @@ public final class ProjectEditor {
     private final Map<NameExpression, Declaration> names = new IdentityHashMap<>();
     private final Map<CallExpression, CallableDeclaration> calls = new IdentityHashMap<>();
 
+    private record Resolution(List<CallableDeclaration> candidates, CallExpression.Resolution status) {}
+    private final Map<CallExpression, Resolution> resolutions = new IdentityHashMap<>();
+    public void resolve(CallExpression call, List<CallableDeclaration> candidates, CallExpression.Resolution status) {
+        requireMember(call); candidates.forEach(this::requireMember);
+        resolutions.put(call, new Resolution(List.copyOf(candidates), status));
+    }
+
     public ProjectEditor(Project source) {
         this.source = Objects.requireNonNull(source);
         source.walk(new NodeVisitor() {
@@ -65,6 +72,8 @@ public final class ProjectEditor {
         var root = context.edit(source, Project.Builder.class);
         names.forEach((use, target) -> context.edit(use, NameExpression.Builder.class).setTarget(context.edge(target, Declaration.class)));
         calls.forEach((use, target) -> context.edit(use, CallExpression.Builder.class).setTarget(context.edge(target, CallableDeclaration.class)));
+        resolutions.forEach((use, value) -> context.edit(use, CallExpression.Builder.class)
+                .setCandidates(context.copyAll(value.candidates(), CallableDeclaration.class), value.status()));
         return root.build();
     }
 }

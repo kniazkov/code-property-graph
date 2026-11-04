@@ -29,11 +29,13 @@ public final class ProjectJson {
     }
 
     private static final class Export {
+        private final boolean compilationBuild;
         private final Map<Node,Integer> ids = new IdentityHashMap<>();
         private final Map<Preprocessing,Integer> units = new IdentityHashMap<>();
         private final Map<Node,List<Edge>> outgoing = new IdentityHashMap<>();
 
         Export(Project project) {
+            compilationBuild = project.build().isPresent();
             project.walk(new NodeVisitor() {
                 @Override public void visit(Node n) { ids.put(n, ids.size()); }
             });
@@ -61,7 +63,14 @@ public final class ProjectJson {
         private JsonObject node(Node n) {
             var obj = Json.object().put("id", ids.get(n)).put("kind", n.getClass().getSimpleName());
             switch (n) {
-                case Project p -> obj.put("files", nodes(p.files()));
+                case Project p -> {
+                    obj.put("files", nodes(p.files()));
+                    p.build().ifPresent(b -> obj.object("build", v -> {
+                        v.array("units", a -> b.units().forEach(u -> a.add(configuration(u))));
+                        p.composition().ifPresent(c -> v.object("composition", o -> o.put("name", c.name())
+                                .array("variantIds", a -> a.addAll(c.variantIds()))));
+                    }));
+                }
                 case SourceFile f -> obj.put("path", f.range().map(SourceRange::file)
                                 .orElseGet(() -> Path.of(f.path()).toAbsolutePath().normalize().toString()))
                         .put("language", f.language().name()).put("items", nodes(f.items()));
@@ -97,13 +106,17 @@ public final class ProjectJson {
                 case PrintStatement p -> obj.put("value", node(p.value()));
                 case ExpressionStatement e -> obj.put("expression", node(e.expression()));
                 case AssignmentExpression a -> obj.put("target", node(a.target())).put("value", node(a.value()));
-                case CallExpression c -> obj.put("callee", node(c.callee())).put("arguments", nodes(c.arguments()));
+                case CallExpression c -> obj.put("callee", node(c.callee())).put("arguments", nodes(c.arguments()))
+                        .put("resolution", lower(c.resolution()))
+                        .array("candidateIds", a -> c.candidates().forEach(candidate -> a.add(ids.get(candidate))));
                 case MemberExpression m -> obj.put("receiver", node(m.receiver())).put("member", m.member());
                 case BinaryExpression b -> obj.put("left", node(b.left())).put("right", node(b.right()));
                 case UnaryExpression u -> obj.put("operand", node(u.operand()));
                 case Exit ignored -> { }
                 default -> throw new IllegalStateException("Missing JSON schema for " + n.getClass().getName());
             }
+            if (compilationBuild && n instanceof SourceFile file)
+                file.variantId().ifPresent(id -> obj.put("variantId", id));
             n.range().ifPresent(r -> obj.put("range", range(r)));
             n.provenance().ifPresent(p -> {
                 Integer sourceFileId = units.get(p.unit());
@@ -122,6 +135,17 @@ public final class ProjectJson {
                 links.sort(Comparator.comparingInt(Edge::group).thenComparing(Edge::kind).thenComparingInt(Edge::to));
                 obj.array("edges", a -> links.forEach(e -> a.object(o -> o.put("kind", e.kind()).put("to", e.to()))));
             }
+            return obj.build();
+        }
+
+        private static JsonObject configuration(com.kniazkov.cpg.build.Build.TranslationUnit unit) {
+            var obj = Json.object().put("variantId", unit.variantId()).put("source", unit.source().path().toString())
+                    .put("directory", unit.directory().toString())
+                    .array("includes", a -> unit.includes().forEach(p -> a.object(v ->
+                            v.put("kind", p.kind()).put("path", p.path().toString()))))
+                    .array("macros", a -> unit.macros().forEach(m -> a.object(v ->
+                            v.put("define", m.define()).put("operand", m.operand()))));
+            if (unit.standard() != null) obj.put("standard", unit.standard());
             return obj.build();
         }
 

@@ -206,3 +206,23 @@ for compiler in g++ clang++; do
   test "$("$work/square-after")" = 64
 done
 cp "$work/square-edited/edited.json" target/demo/square-edited.json
+
+# Select named server/client compositions from one project containing four TU variants.
+mkdir "$work/build-selection-classes"
+javac -cp "$jar" -d "$work/build-selection-classes" examples/cpp03-builds/SelectBuilds.java
+java -cp "$jar:$work/build-selection-classes" SelectBuilds \
+  src/test/resources/cpp03/build-variants/compile_commands.json "$work/selected-builds"
+for variant in server client; do
+  macro=$(printf '%s' "$variant" | tr '[:lower:]' '[:upper:]')
+  for compiler in g++ clang++; do
+    "$compiler" -std=c++03 -pedantic-errors "-D$macro" \
+      "$work/selected-builds/$variant/sources/main.cpp" "$work/selected-builds/$variant/sources/engine.cpp" \
+      -o "$work/selected-builds/$variant/program"
+    "$work/selected-builds/$variant/program" > "$work/selected-builds/$variant/output.txt"
+    test ! -s "$work/selected-builds/$variant/output.txt"
+  done
+  java -jar "$jar" --from cpp --stage resolved \
+    --compile-commands "$work/selected-builds/$variant/compile_commands.json" \
+    --json "$work/selected-builds/$variant/reparsed.json"
+done
+cp "$work/selected-builds/all-variants.json" target/demo/build-variants.json

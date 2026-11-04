@@ -59,6 +59,13 @@ class Cpp03CorpusIT {
         var settings = new Properties();
         try (var reader = Files.newBufferedReader(fixture.resolve("scenario.properties"))) { settings.load(reader); }
         Path work = Files.createDirectory(temp.resolve(name));
+        if ("build-variants".equals(settings.getProperty("mode"))) {
+            for (var variant : BuildVariantsAcceptance.verify(fixture, work))
+                for (Path source : List.of(variant.original(), variant.generated()))
+                    nativePrograms(work, source, settings.getProperty("stdout"),
+                            Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
+            return;
+        }
         boolean databaseMode = "compilation-database".equals(settings.getProperty("mode"));
         var cli = new CliSandbox(work).directory(databaseMode ? fixture : fixture.resolve("sources"));
         Path sourceInput = databaseMode ? cli.input.resolve("sources") : cli.input;
@@ -120,7 +127,7 @@ class Cpp03CorpusIT {
         }
     }
 
-    private static void nativePrograms(Path work, Path source, String expected, int exit) throws Exception {
+    private static void nativePrograms(Path work, Path source, String expected, int exit, String... flags) throws Exception {
         for (String compiler : List.of("g++", "clang++")) {
             Result versionResult = command(List.of(compiler, "--version"), work);
             assertEquals(0, versionResult.status(), compiler + " --version\n" + versionResult.output());
@@ -128,6 +135,7 @@ class Cpp03CorpusIT {
             Path binary = work.resolve(compiler + "-" + source.getFileName()).toAbsolutePath();
             List<String> compile = new ArrayList<>(List.of(compiler, "-std=c++03", "-pedantic-errors",
                     "-I" + source.resolve("include").toAbsolutePath()));
+            compile.addAll(List.of(flags));
             try (var paths = Files.walk(source)) {
                 compile.addAll(paths.filter(p -> p.toString().endsWith(".cpp")).sorted()
                         .map(p -> p.toAbsolutePath().toString()).toList());
