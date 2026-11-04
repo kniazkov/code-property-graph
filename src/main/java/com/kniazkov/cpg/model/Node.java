@@ -27,12 +27,12 @@ public abstract class Node {
 
     /** Renders this fragment in a supported language. Use Cpg.sources for whole-project entry point adaptation. */
     public final String source(Language target) {
-        return com.kniazkov.cpg.Source.render(this, target);
+        return com.kniazkov.cpg.generation.Source.render(this, target);
     }
 
     /** Returns the supported direct emission targets for this subtree. */
     public final java.util.Set<Language> languages() {
-        return com.kniazkov.cpg.Source.languages(this);
+        return com.kniazkov.cpg.generation.Source.languages(this);
     }
 
     /** Dispatches this single node to its concrete overload on the visitor. */
