@@ -33,6 +33,47 @@ public final class Project extends Node {
         return copy;
     }
 
+    /**
+     * Replaces the findings of one rule. When annotations change, copies the snapshot
+     * privately and reconnects its flow edges to the copied nodes before publication.
+     * Ordinary edit/build deliberately discards findings and flow information.
+     */
+    public Project withDiagnostics(String rule, java.util.Map<Node, Diagnostic> findingsByNode) {
+        var pending = new java.util.IdentityHashMap<>(findingsByNode);
+        var annotations = new java.util.IdentityHashMap<Node, List<Diagnostic>>();
+        var changed = new java.util.HashSet<Node>();
+        walk(new NodeVisitor() {
+            @Override public void visit(Node node) {
+                if (node.diagnostics().isEmpty() && !pending.containsKey(node)) return;
+                var updated = new ArrayList<>(node.diagnostics());
+                updated.removeIf(d -> d.code().equals(rule));
+                Diagnostic finding = pending.remove(node);
+                if (finding != null) {
+                    if (!finding.code().equals(rule)) throw new IllegalArgumentException("Unexpected rule code");
+                    updated.add(finding);
+                }
+                if (!updated.equals(node.diagnostics())) changed.add(node);
+                if (!updated.isEmpty()) annotations.put(node, List.copyOf(updated));
+            }
+        });
+        if (!pending.isEmpty()) throw new IllegalArgumentException("Finding outside this project");
+        if (changed.isEmpty()) return this;
+        var edit = new EditContext();
+        var build = new BuildContext();
+        Project copy = build.build(edit.edit(this, Builder.class));
+        java.util.function.Function<Node, Node> copied = n -> build.copy(edit.copy(n));
+        annotations.forEach((node, list) -> copied.apply(node).findings = list);
+        copy.flows = flows.stream().map(flow -> {
+            CallableDeclaration entry = (CallableDeclaration) copied.apply(flow.entry());
+            var control = flow.control().stream().map(e -> new FunctionFlow.ControlEdge(
+                    copied.apply((Node)e.from()), copied.apply((Node)e.to()), e.kind())).toList();
+            var data = flow.data().stream().map(e -> new FunctionFlow.DataEdge(
+                    copied.apply(e.from()), copied.apply(e.to()), e.kind())).toList();
+            return new FunctionFlow(entry, entry.exit(), control, data);
+        }).toList();
+        return copy;
+    }
+
     private Project() {
     }
 

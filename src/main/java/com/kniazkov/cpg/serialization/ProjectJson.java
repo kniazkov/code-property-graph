@@ -104,6 +104,10 @@ public final class ProjectJson {
             }
             n.range().ifPresent(r -> obj.object("range", range ->
                     range.put("start", position(r.start())).put("end", position(r.end()))));
+            if (!n.diagnostics().isEmpty()) {
+                obj.array("diagnostics", a -> n.diagnostics().forEach(d -> a.object(o ->
+                        o.put("code", d.code()).put("severity", lower(d.severity())))));
+            }
             var links = outgoing.get(n);
             if (links != null) {
                 links.sort(Comparator.comparingInt(Edge::group).thenComparing(Edge::kind).thenComparingInt(Edge::to));

@@ -143,3 +143,22 @@ assert all(edge["to"] in nodes for edge in edges)
 assert {"ref", "cfg.entry", "dfg.definition"} <= {edge["kind"] for edge in edges}
 assert pathlib.Path(project["files"][0]["path"]).is_absolute()
 PY
+
+java -jar "$jar" --from java --input examples/unread-write/java --stage resolved \
+  --out "$work/warn-src" --svg "$work/warn.svg" --json "$work/warn.json" 2>"$work/warn.txt"
+javac "$work/warn-src/Demo.java"
+test "$(java -cp "$work/warn-src" Demo)" = 2
+python3 - "$work" <<'PY'
+import json, pathlib, sys, xml.etree.ElementTree as ET
+work = pathlib.Path(sys.argv[1])
+messages = (work / "warn.txt").read_text().splitlines()
+assert len(messages) == 1 and "Demo.java:5:9: warning [unread-write]" in messages[0], messages
+method = json.loads((work / "warn.json").read_text())["files"][0]["items"][0]["members"][0]
+decl, assign, output = method["body"]["items"]
+assert decl["diagnostics"] == [{"code": "unread-write", "severity": "warning"}]
+assert "diagnostics" not in assign["expression"]
+ns = {"s": "http://www.w3.org/2000/svg"}
+root = ET.parse(work / "warn.svg").getroot()
+badges = [t for t in root.findall(".//s:text", ns) if "unread-write" in (t.text or "")]
+assert len(badges) == 1 and badges[0].get("fill").lower() == "#ad6800"
+PY

@@ -12,6 +12,10 @@ import java.util.Objects;
 public abstract non-sealed class Node implements FlowVertex {
     /** Restricts node construction to the model package during snapshot assembly. */
     SourceRange origin;
+    List<Diagnostic> findings = List.of();
+
+    /** Returns all findings for this snapshot in reporting order. Editing discards derived findings. */
+    public final List<Diagnostic> diagnostics() { return findings; }
 
     /** Returns the original text span when this node has source provenance. */
     public final java.util.Optional<SourceRange> range() {

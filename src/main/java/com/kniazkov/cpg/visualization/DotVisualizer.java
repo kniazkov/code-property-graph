@@ -141,6 +141,10 @@ public final class DotVisualizer {
             if (!label.detail.isEmpty()) {
                 dot.append("<BR/><FONT COLOR=\"#000080\">").append(htmlText(label.detail)).append("</FONT>");
             }
+            for (Diagnostic diagnostic : node.diagnostics()) {
+                dot.append("<BR/><FONT COLOR=\"#ad6800\">⚠ ")
+                        .append(htmlText(diagnostic.code())).append("</FONT>");
+            }
             dot.append(">];\n");
             return id;
         }
