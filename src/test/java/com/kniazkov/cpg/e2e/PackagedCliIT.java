@@ -71,13 +71,13 @@ class PackagedCliIT {
         parsed.excludesNode("{\"edges\":[]}");
     }
 
-    @Test void malformedSecondFileFailsWithoutPartialExports() throws Exception {
+    @Test void malformedSecondFileRetainsDiagnosticGraphWithoutSources() throws Exception {
         var cli = new CliSandbox(temp)
                 .source("a.cpp", "int main() { return 0; }")
                 .source("z.cpp", "int main() {\n    @\n}");
         var run = cli.run("cpp").expectStatus(1);
-        assertTrue(run.stderr().contains("z.cpp:2:5: Unsupported character: @"), run.stderr());
-        run.expectNoExports();
+        assertTrue(run.stderr().contains("z.cpp:2:5") && run.stderr().contains("Unsupported character: @"), run.stderr());
+        run.diagnosticSnapshot();
     }
 
     @Test void unsupportedTranslationFailsBeforeWritingAnyOutput() throws Exception {

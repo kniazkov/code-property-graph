@@ -11,6 +11,15 @@ public final class SourceFile extends Node {
     private String path;
     private Language language;
     private List<Node> items = List.of();
+    private List<ParseProblem> parseProblems = List.of();
+    private SourceRange stoppedAt;
+    private boolean containsErrorExpression;
+
+    /** Persistent syntax failures, unlike derived analysis findings. */
+    public List<ParseProblem> parseProblems() { return parseProblems; }
+    /** A zero-length physical position where reliable parsing stopped. */
+    public Optional<SourceRange> stoppedAt() { return Optional.ofNullable(stoppedAt); }
+    public boolean hasErrors() { return stoppedAt != null || !parseProblems.isEmpty() || containsErrorExpression; }
 
     private SourceFile() {
     }
@@ -60,6 +69,8 @@ public final class SourceFile extends Node {
         context.register(this, builder);
         builder.path = path;
         builder.language = language;
+        builder.parseProblems = new ArrayList<>(parseProblems);
+        builder.stoppedAt = stoppedAt;
         builder.items = context.copyAll(items, Node.class);
         return builder;
     }
@@ -68,6 +79,18 @@ public final class SourceFile extends Node {
     public static final class Builder extends NodeBuilder<SourceFile> {
         private String path;
         private Language language = Language.JAVA;
+        private List<ParseProblem> parseProblems = new ArrayList<>();
+        private SourceRange stoppedAt;
+
+        public List<ParseProblem> parseProblems() { return List.copyOf(parseProblems); }
+        public Builder setParseProblems(List<ParseProblem> values) { parseProblems = new ArrayList<>(List.copyOf(values)); return this; }
+        public Builder addParseProblem(ParseProblem value) { parseProblems.add(Objects.requireNonNull(value)); return this; }
+        public Builder setStoppedAt(SourceRange value) {
+            Objects.requireNonNull(value);
+            if (!value.start().equals(value.end())) throw new IllegalArgumentException("Stop position must be zero length");
+            stoppedAt = value;
+            return this;
+        }
         private List<NodeBuilder<? extends Node>> items = new ArrayList<>();
 
         private Builder() {
@@ -115,7 +138,12 @@ public final class SourceFile extends Node {
         void fillNode(SourceFile node, BuildContext context) {
             node.path = requiredText(path, "SourceFile.path");
             node.language = language;
+            node.parseProblems = List.copyOf(parseProblems);
+            node.stoppedAt = stoppedAt;
             node.items = context.copyAll(items);
+            node.walk(new NodeVisitor() {
+                @Override public void visit(ErrorExpression error) { node.containsErrorExpression = true; }
+            });
             for (Node item : node.items) {
                 if (!(item instanceof Declaration) && !(item instanceof IncludeDirective)) {
                     throw new IllegalStateException("File item must be a declaration or include");

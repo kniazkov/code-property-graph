@@ -67,6 +67,7 @@ public final class ProjectJson {
             switch (n) {
                 case Project p -> {
                     obj.put("files", nodes(p.files()));
+                    if (p.hasErrors()) obj.put("hasErrors", true);
                     if (!p.externalInputs().isEmpty()) obj.put("externalInputs", nodes(p.externalInputs()));
                     p.build().ifPresent(b -> obj.object("build", v -> {
                         v.array("units", a -> b.units().forEach(u -> a.add(configuration(u))));
@@ -76,9 +77,15 @@ public final class ProjectJson {
                 }
                 case ExternalInput input -> obj.put("key", input.key()).put("role", input.role())
                         .put("text", input.text()).put("inputs", nodes(input.inputs()));
-                case SourceFile f -> obj.put("path", f.range().map(SourceRange::file)
+                case SourceFile f -> {
+                    obj.put("path", f.range().map(SourceRange::file)
                                 .orElseGet(() -> Path.of(f.path()).toAbsolutePath().normalize().toString()))
                         .put("language", f.language().name()).put("items", nodes(f.items()));
+                    if (f.hasErrors()) obj.put("hasErrors", true);
+                    if (!f.parseProblems().isEmpty()) obj.array("parseProblems", a ->
+                            f.parseProblems().forEach(problem -> a.add(problem(problem))));
+                    f.stoppedAt().ifPresent(position -> obj.put("stoppedAt", range(position)));
+                }
                 case ClassDeclaration c -> obj.put("name", c.name()).array("modifiers", a -> a.addAll(c.modifiers()))
                         .put("members", nodes(c.members()));
                 case CallableDeclaration c -> {
@@ -101,6 +108,7 @@ public final class ProjectJson {
                 case NamedType t -> obj.put("name", t.name());
                 case NameExpression e -> obj.put("name", e.name());
                 case IntegerLiteral i -> obj.put("value", i.value());
+                case ErrorExpression e -> obj.put("problem", problem(e.problem()));
                 case IncludeDirective i -> obj.put("header", i.header()).put("system", i.system());
                 case IfStatement i -> {
                     obj.put("condition", node(i.condition())).put("thenBranch", node(i.thenBranch()));
@@ -165,6 +173,12 @@ public final class ProjectJson {
         private static JsonObject range(SourceRange r) {
             return Json.object().put("file", r.file()).put("start", position(r.start()))
                     .put("end", position(r.end())).build();
+        }
+
+        private static JsonObject problem(ParseProblem p) {
+            return Json.object().put("code", p.code()).put("message", p.message())
+                    .put("range", range(p.range())).put("skippedText", p.skippedText())
+                    .put("recovered", p.recovered()).build();
         }
 
         private static JsonObject fragment(Preprocessing.Fragment f) {

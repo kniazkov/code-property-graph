@@ -19,6 +19,7 @@ public final class Source {
     }
 
     public static String render(Node node, Language target) {
+        requireComplete(node);
         if (node instanceof Project project) requireVariantSelection(project);
         if (!languages(node).contains(target)) throw new IllegalArgumentException("Unsupported direct emission to " + target);
         return new Source(target).emit(node, 0);
@@ -28,6 +29,8 @@ public final class Source {
     public static Set<Language> languages(Node node) {
         EnumSet<Language> targets = EnumSet.copyOf(SUPPORTED_TARGETS);
         node.walk(new NodeVisitor() {
+            @Override public void visit(SourceFile n) { if (n.hasErrors()) targets.clear(); }
+            @Override public void visit(ErrorExpression n) { targets.clear(); }
             @Override public void visit(IncludeDirective n) { targets.remove(Language.JAVA); }
             @Override public void visit(FunctionDeclaration n) { targets.remove(Language.JAVA); }
             @Override public void visit(ScopeMemberExpression n) { targets.remove(Language.JAVA); }
@@ -56,6 +59,7 @@ public final class Source {
 
     /** Generates named files, adapting supported program entry points when changing languages. */
     public static Map<String,String> files(Project project, Language target) {
+        requireComplete(project);
         if (target == Language.CPP && PreservedSource.applicable(project)) return PreservedSource.files(project);
         requireVariantSelection(project);
         Source out = new Source(target);
@@ -91,6 +95,18 @@ public final class Source {
                 throw new IllegalArgumentException("Unsafe or duplicate output name: " + name);
         }
         return Collections.unmodifiableMap(files);
+    }
+
+    /** Invalid snapshots must never reach either replay-based or generated-source emission. */
+    private static void requireComplete(Node node) {
+        node.walk(new NodeVisitor() {
+            @Override public void visit(SourceFile file) {
+                if (file.hasErrors()) throw new IllegalArgumentException("Source generation is blocked by parse errors in " + file.path());
+            }
+            @Override public void visit(ErrorExpression error) {
+                throw new IllegalArgumentException("Source generation is blocked by parse errors: " + error.problem().message());
+            }
+        });
     }
 
     /** Validates a relative output path before any filesystem write. */

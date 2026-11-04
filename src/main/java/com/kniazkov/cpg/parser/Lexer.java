@@ -14,6 +14,7 @@ import java.util.List;
 final class Lexer {
     private final String file;
     private final String source;
+    private final List<Token> tokens = new ArrayList<>();
     private int offset;
     private int line = 1;
     private int column = 1;
@@ -25,7 +26,6 @@ final class Lexer {
 
     /** Consumes this lexer's input once and returns tokens in source order. */
     List<Token> scan() {
-        var tokens = new ArrayList<Token>();
         while (offset < source.length()) {
             int start = offset, startLine = line, startColumn = column;
             char ch = source.charAt(offset);
@@ -41,7 +41,7 @@ final class Lexer {
                 advance();
                 advance();
                 while (offset < source.length() && !source.startsWith("*/", offset)) advance();
-                if (offset == source.length()) throw new ParseException(file, startLine, startColumn, "Unterminated comment");
+                if (offset == source.length()) throw new ParseException(file, startLine, startColumn, "Unterminated comment", new com.kniazkov.cpg.model.SourceRange(file, new SourcePosition(startLine, startColumn, start), position()));
                 advance();
                 advance();
                 continue;
@@ -62,12 +62,22 @@ final class Lexer {
             } else if ("{}()[];=+-*/.,:<>".indexOf(ch) >= 0) {
                 advance();
             } else {
-                throw new ParseException(file, line, column, "Unsupported character: " + ch);
+                throw new ParseException(file, line, column, "Unsupported character: " + ch, new com.kniazkov.cpg.model.SourceRange(file, position(), position()));
             }
             tokens.add(new Token(source.substring(start, offset), new SourcePosition(startLine, startColumn, start), position()));
         }
         tokens.add(new Token("<eof>", position(), position()));
         return List.copyOf(tokens);
+    }
+
+    /** Retains the Java prefix for the same explicit diagnostic entry point. */
+    List<Token> scanRecovering() {
+        try { return scan(); }
+        catch (ParseException error) {
+            var stop = error.range().orElseThrow().start();
+            tokens.add(new Token("<eof>", stop, stop, file, -1, error));
+            return List.copyOf(tokens);
+        }
     }
 
     private SourcePosition position() { return new SourcePosition(line, column, offset); }

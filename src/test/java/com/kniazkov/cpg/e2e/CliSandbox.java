@@ -35,7 +35,7 @@ final class CliSandbox {
         return this;
     }
 
-    /** Always requests both exports, including for negative cases where neither should be created. */
+    /** Requests diagnostic JSON and sources; invalid C++ syntax retains JSON but blocks sources. */
     CliRun run(String language, String... options) throws IOException, InterruptedException {
         return runInput(language, "--input", input, options);
     }
