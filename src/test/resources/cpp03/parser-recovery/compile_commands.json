@@ -1,0 +1,4 @@
+[
+  {"directory":"sources","file":"a.cpp","arguments":["g++","-std=c++03","-DSTOP=3","-c","a.cpp"]},
+  {"directory":"sources","file":"b.cpp","arguments":["g++","-std=c++03","-DVALUE=7","-c","b.cpp"]}
+]

@@ -18,6 +18,8 @@ jobs:
           cache: maven
       - name: Install mandatory C++03 compilers
         run: sudo apt-get update && sudo apt-get install -y g++ clang
+      - name: Install Graphviz for SVG end-to-end checks
+        run: command -v dot || (sudo apt-get update && sudo apt-get install -y graphviz)
       - run: mvn -B verify
       - name: Verify complete C++03 corpus discovery
         run: python3 scripts/check-cpp03-reports.py
@@ -25,8 +27,6 @@ jobs:
         run: |
           mvn -B dependency:build-classpath -Dmdep.includeScope=compile -Dmdep.outputFile=target/javadoc-classpath
           javadoc -classpath "$(cat target/javadoc-classpath)" -quiet -Werror -private -Xdoclint:all,-missing -sourcepath src/main/java -subpackages com.kniazkov.cpg -d target/apidocs
-      - name: Install Graphviz for SVG end-to-end checks
-        run: command -v dot || (sudo apt-get update && sudo apt-get install -y graphviz)
       - run: bash scripts/demo.sh
       - uses: actions/upload-artifact@v4
         with:

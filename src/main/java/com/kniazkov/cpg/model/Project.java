@@ -8,6 +8,8 @@ import java.util.Objects;
 /** Root containing source files. */
 public final class Project extends Node {
     private List<SourceFile> files = List.of();
+    /** True when any translation unit contains a persistent parser error. */
+    public boolean hasErrors() { return files.stream().anyMatch(SourceFile::hasErrors); }
     private List<ExternalInput> externalInputs = List.of();
     public List<ExternalInput> externalInputs() { return externalInputs; }
     /** Resolves provenance to the actual owned node in this snapshot, also after edits. */
@@ -42,8 +44,10 @@ public final class Project extends Node {
             @Override public void visit(CallExpression call) { context.edit(call, CallExpression.Builder.class).clearTarget(); }
         });
         root.setFiles(context.copyAll(selected, SourceFile.class)).setBuild(selectedBuild);
+        Project snapshot = root.build();
+        if (snapshot.hasErrors()) return snapshot;
         return com.kniazkov.cpg.analysis.UnreadWrites.analyze(
-                com.kniazkov.cpg.analysis.NameResolver.resolve(root.build()));
+                com.kniazkov.cpg.analysis.NameResolver.resolve(snapshot));
     }
 
     private List<FunctionFlow> flows = List.of();

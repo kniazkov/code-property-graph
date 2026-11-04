@@ -19,6 +19,7 @@ public final class Main {
         Choose one or more outputs: --out, --svg, --json. Defaults: FOLDED stage, source language as target.
         Use --compile-commands FILE instead of --input DIR to import a C++ build.
         SVG rendering requires Graphviz dot on PATH. Macro provenance is shown by default.
+        C++ parse errors retain diagnostic JSON/SVG, block source generation, and exit nonzero.
         """;
 
     /** Runs the console pipeline and translates argument, parsing and rendering failures into a nonzero exit status. */
@@ -61,8 +62,13 @@ public final class Main {
         Cpg.Options options = new Cpg.Options(from, stage, flags.get("--cpp-standard"),
                 com.kniazkov.cpg.build.Build.ConfigurationSource.cli(Arrays.asList(args)));
         Project project = flags.containsKey("--compile-commands")
-                ? Cpg.readCompilationDatabase(Path.of(flags.get("--compile-commands")), options)
-                : Cpg.read(Path.of(flags.get("--input")), options);
+                ? Cpg.readCompilationDatabaseRecovering(Path.of(flags.get("--compile-commands")), options)
+                : Cpg.readRecovering(Path.of(flags.get("--input")), options);
+        for (SourceFile file : project.files()) for (ParseProblem problem : file.parseProblems()) {
+            SourceRange range = problem.range();
+            System.err.println(range.file() + ":" + range.start().line() + ":" + range.start().column()
+                    + ": error [" + problem.code() + "]: " + problem.message());
+        }
         project.walk(new NodeVisitor() {
             @Override public void visit(Node node) {
                 for (Diagnostic d : node.diagnostics()) {
@@ -74,8 +80,11 @@ public final class Main {
         Path output = flags.containsKey("--out") ? Path.of(flags.get("--out")).toAbsolutePath().normalize() : null;
         Path svg = flags.containsKey("--svg") ? Path.of(flags.get("--svg")).toAbsolutePath().normalize() : null;
         Path json = flags.containsKey("--json") ? Path.of(flags.get("--json")).toAbsolutePath().normalize() : null;
-        Map<String,String> generated = output == null ? Map.of() : Cpg.sources(project, to);
-        if (output != null && Files.exists(output)) throw new IllegalArgumentException("Output directory already exists: " + output);
+        boolean broken = project.hasErrors();
+        // Never invoke any source emitter for an invalid project, including preserved-source
+        // replay. Diagnostic exports are independent of the blocked source output.
+        Map<String,String> generated = output == null || broken ? Map.of() : Cpg.sources(project, to);
+        if (output != null && !broken && Files.exists(output)) throw new IllegalArgumentException("Output directory already exists: " + output);
         var destinations = new ArrayList<Path>();
         for (String name : generated.keySet()) {
             Path destination = output.resolve(name).normalize();
@@ -91,6 +100,8 @@ public final class Main {
             Path destination = destinations.get(i);
             if (Files.exists(destination) || output != null && output.startsWith(destination))
                 throw new IllegalArgumentException("Output conflicts with another file: " + destination);
+            if (broken && output != null && destination.startsWith(output))
+                throw new IllegalArgumentException("Diagnostic export must be outside the blocked source directory: " + destination);
             for (int j = 0; j < i; j++) {
                 Path other = destinations.get(j);
                 if (conflicts(destination, other))
@@ -107,6 +118,8 @@ public final class Main {
             ProjectJson.write(project, json);
             System.out.println("JSON: " + json);
         }
+        if (broken) throw new IllegalArgumentException("Project contains parse errors"
+                + (output == null ? "" : "; source generation is blocked"));
         if (output != null) {
             Files.createDirectories(output);
             for (var entry : generated.entrySet()) {

@@ -19,7 +19,7 @@ Project project = Cpg.read(Path.of("examples/unread-write/java"),
 SourceFile file = project.files().getFirst();
 ```
 
-The example reads a program in which the initial value of `score` is overwritten before a read. The reader processes matching files in filename order, directly inside one directory, for one selected language. A parse failure raises `parser.ParseException` with the file, line and column. A successful call returns a complete immutable project.
+The example reads a program in which the initial value of `score` is overwritten before a read. The reader processes matching files in filename order, directly inside one directory, for one selected language. The strict `Cpg.read` entry point raises `parser.ParseException` with the file, line and column on a parse failure. A successful strict call returns a complete immutable project. For diagnostic snapshots of damaged C++03 input, use the separate [recovering API](#parser-recovery-and-diagnostic-exports-21).
 
 | Stage | What the snapshot contains |
 |---|---|
@@ -174,6 +174,7 @@ This table covers the normal `Cpg.read` entry point. The model also provides cla
 | Control | Blocks, `if`, `if/else`, `while`, `return;`, `return expr;` | Same |
 | Comments and directives | `//`, `/* … */` | Both comment forms; includes, macros and conditional directives (see #15–#19 below) |
 | Console normalization | `System.out.println(x)` | `std::cout << x << std::endl` |
+| Damaged input | Strict failure | Strict `Cpg.read`; opt-in diagnostic recovery with `ErrorExpression` (see #21) |
 
 The Java main parameter name can vary. Coverage describes syntax recognition; full compiler type and semantic checks are outside its scope. Configured C++ headers are expanded; preprocessing coverage is described separately below and does not expand the syntax grammar. General function signatures, constructors, templates, general arrays, strings, `for`, `break` and `continue` are outside the current input grammar.
 
@@ -322,3 +323,36 @@ Pass the complete set of variants to `Cpg.sources(edited, Language.CPP)` when ex
 Identical requirements emit one physical patch. A fragment inactive in a variant imposes no active-syntax requirement, so changing the SERVER return inside an existing `#ifdef SERVER` preserves the CLIENT `#else` bytes and directive boundaries. The generator does not invent a conditional directive to resolve a conflict. Structural edits that would consume preprocessing directives or cannot be represented as safe physical patches are rejected. Final replay still validates all exported variants against the desired syntax using the captured inputs, without rereading original files.
 
 Obtain the entire source map before creating output directories or writing source/JSON/SVG files. `Cpg.sources` is an in-memory operation; the CLI and [public editing example](../examples/cpp03-shared-headers/README.md) perform this validation before their export phase. Canonical and cross-language generation still require a selected composition when competing variants cannot be preserved as one source tree.
+
+
+## Parser recovery and diagnostic exports (#21)
+
+`Cpg.readRecovering(Path, Options)`, `Cpg.readRecovering(Build, Options)` and `Cpg.readCompilationDatabaseRecovering(Path, Options)` retain a diagnostic C++03 snapshot when source parsing fails. The corresponding `Cpg.read` / `readCompilationDatabase` methods remain strict and throw instead of returning a damaged graph. Java parsing remains strict in both facade routes. Invalid compilation settings, unsupported standards/options and translation-unit input I/O failures are not source recovery and still fail without a graph.
+
+```java
+Project project = Cpg.readCompilationDatabaseRecovering(
+        Path.of("src/test/resources/cpp03/parser-recovery/compile_commands.json"),
+        new Cpg.Options(Language.CPP, Cpg.Stage.RESOLVED));
+if (project.hasErrors()) {
+    for (SourceFile file : project.files()) {
+        for (ParseProblem problem : file.parseProblems()) {
+            System.out.println(problem.code() + ": " + problem.message());
+        }
+        file.stoppedAt().ifPresent(System.out::println);
+    }
+}
+```
+
+For one source buffer, the lower-level `Parser.parseRecovering(file, source, language[, standard])` returns a `SourceFile.Builder`; this explicitly selected parser API also supports Java recovery. The configured C++ overload accepts `Build.TranslationUnit` and can replay supplied source contents and translation time. Lexical/preprocessing failures preserve the available token prefix and configuration/provenance, without promising recovery of arbitrary malformed syntax. Missing includes are source diagnostics, not invalid build options.
+
+Each `SourceFile.parseProblems()` is an immutable list of `ParseProblem(code, message, range, skippedText, recovered)`. `range` is a physical `SourceRange`; `skippedText` retains the raw physical fragment rather than reconstructed tokens. If `#line` gives a different logical location, the message retains it as an explicit note without changing the physical range. `recovered` means parsing continued at a known boundary, not that the program became valid. `SourceFile.hasErrors()` and `Project.hasErrors()` expose the error status. `SourceFile.stoppedAt()` is an optional zero-length physical range at the point where that unit stopped. These records persist through ordinary `edit().build()` copying and are separate from derived analysis diagnostics.
+
+Recovery is deliberately narrow. A missing or malformed variable initializer can become an `ErrorExpression` only when the parser reaches its semicolon without crossing a brace, unmatched parentheses/brackets, or a strict-edition violation; the declaration remains and following statements can be parsed. `ErrorExpression.problem()` retains the diagnostic, and the node participates in builders, `children()` traversal and `NodeVisitor` as a leaf expression. For `int x = ;`, its range has zero length immediately before `;` and `skippedText` is empty. For `int x = 1 + ;`, the range starts at the first initializer token and ends immediately before the semicolon, preserving interior and trailing whitespace. For an unrecovered failure, `range` and `skippedText` describe the suffix from the failure position to that physical file’s EOF, while `stoppedAt` identifies just the start. When no reliable boundary exists, the unit stops instead of guessing how to resume; completed top-level declarations and statements inside an opened callable/block, along with collected problems, remain, and other translation units continue under their own build settings. Recovery must consume input, finish the current construct, or stop, including at EOF.
+
+A project with any parse error stays at the `PARSED` result even if `RESOLVED`, `GREEN` or `FOLDED` was requested. Resolution, transformations, CFG, DFG and analysis warnings are skipped for the whole project; usable neighboring syntax is retained, but no sound flow result is claimed. Per-function analysis of complete regions and diagnostic repair after graph editing remain separate planned work (#31 and #43). `Cpg.sources` and the source renderers reject the damaged graph for every target language before returning source text.
+
+The C++ CLI uses the recovering route. It reports physical file/line/column diagnostics, writes requested `--json` and `--svg` diagnostic exports, and exits with status 1. With `--out` also requested, no source directory or files are created. Diagnostic destinations must be separate from the blocked source directory; conflicting destinations fail before writes. Invalid build configuration and Java parse failures still produce no exports. JSON adds `hasErrors: true` to the project and affected files, `parseProblems` to affected files, optional `stoppedAt`, and `problem` to each `ErrorExpression`. A healthy snapshot omits these fields, preserving existing golden snapshots. SVG marks the project error, each affected file and its stop position while showing available nodes from all units.
+
+This does not enable compiler extensions. Active `__attribute__((packed))`, variadic macros, `LL` and binary literals, and raw string literals are rejected in C++03 with a location and construction-specific reason. The attribute is diagnosed at `__attribute__` (column 8 in `struct __attribute__((packed)) ...`), rather than at `struct`. The same declaration in an inactive `#if 0` branch produces no syntax node or syntax error and can be preserved through generation. GCC/Clang dialect support is not implemented.
+
+`ParserRecoveryIT` exercises the packaged CLI, strict/recovering API distinction, zero-length and nonempty skipped fragments, independent translation units, actual JSON/SVG exports, extension boundaries and finite termination. `ParserRecoveryTest` covers model copying and Visitor dispatch; `RecoveryExportTest` covers JSON, DOT and generation guards. The mandatory [parser-recovery](../src/test/resources/cpp03/parser-recovery/README.md) and [inactive-extension](../src/test/resources/cpp03/inactive-extension/README.md) fixtures provide repeatable commands.

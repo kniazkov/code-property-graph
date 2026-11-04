@@ -132,6 +132,26 @@ public final class CppPreprocessor {
         return new Processor(unit, sources == null ? null : Map.copyOf(sources), translationTime).run(source);
     }
 
+    /** Partial preprocessing and its terminal error, for diagnostic parsing only. */
+    record Recovery(Result result, ParseException problem) {}
+    static Recovery preprocessRecovering(Build.TranslationUnit unit, String source, Map<String, String> sources, Instant time) {
+        var processor = new Processor(unit, sources == null ? null : Map.copyOf(sources), time == null ? Instant.now() : time);
+        processor.recovering = true;
+        try { return new Recovery(processor.run(source), null); }
+        catch (ParseException error) {
+            SourceRange range = error.range().orElseGet(() -> new SourceRange(unit.source().path().toString(),
+                    new SourcePosition(1, 1, 0), new SourcePosition(1, 1, 0)));
+            var include = processor.includes.stream().filter(i -> i.source().path().toString().equals(range.file())).findFirst()
+                    .orElse(processor.includes.getFirst());
+            var end = new PreprocessingToken(EOF, "", "", new SourceRange(range.file(), range.start(), range.start()), 0, 0);
+            processor.output.add(new Work(new ExpandedToken(end, include, List.of(), end.range())));
+            for (var arm : processor.branches) if (arm.end < 0) {
+                arm.end = arm.source.length(); arm.endOutput = processor.output.size() - 1;
+            }
+            return new Recovery(processor.finish(), error);
+        }
+    }
+
     // Deliberately only the library header currently modeled by the parser.
     private static final Set<String> OPAQUE_HEADERS = Set.of("iostream");
     private record Macro(long id, String name, List<String> parameters, List<Work> replacement, SourceRange definition, SourceRange fullDefinition) {}
@@ -151,7 +171,7 @@ public final class CppPreprocessor {
     private static final class Arm {
         long id; String directive; SourceRange directiveRange; Build.IncludeInstance include;
         Long parent; boolean parentActive, evaluated, condition, active;
-        String source; int start, end, startOutput, endOutput;
+        String source; int start, end = -1, startOutput, endOutput;
         Branch freeze(int[] bounds) {
             SourceRange range = physicalRange(directiveRange.file(), source, start, end);
             return new Branch(id, directive, source.substring(start, end), range, directiveRange,
@@ -184,6 +204,7 @@ public final class CppPreprocessor {
         private final List<LogicalLocation> logicalLocations = new ArrayList<>();
         private final List<IncludeState> includeStates = new ArrayList<>();
         private final Instant translationTime;
+        private boolean recovering;
         private static final Set<String> BUILTINS = Set.of("__LINE__", "__FILE__", "__DATE__", "__TIME__", "__cplusplus");
         private long occurrence;
         private long expansions;
@@ -247,6 +268,7 @@ public final class CppPreprocessor {
 
         Result run(String source) {
             var root = instance(unit.source().path(), null);
+            if (recovering) captured.put(unit.source().path().toString(), source);
             predefined(root);
             int operationOrdinal = 0;
             for (var operation : unit.macros()) {
@@ -283,8 +305,11 @@ public final class CppPreprocessor {
             String previous = captured.putIfAbsent(file, source);
             if (previous != null && !previous.equals(source)) throw error(include, "Physical source changed while preprocessing");
             if (depth > 128) throw error(include, "Include nesting limit exceeded (possible unguarded cycle)");
-            List<Work> input; SourcePosition eof;
-            try { var scanned = CppLexer.scan(file, source); input = wrap(scanned.tokens(), include); eof = scanned.eof(); }
+            List<Work> input; SourcePosition eof; ParseException lexicalProblem = null;
+            try {
+                var scan = recovering ? CppLexer.scanRecovering(file, source) : new CppLexer.Recovery(CppLexer.scan(file, source), null);
+                input = wrap(scan.result().tokens(), include); eof = scan.result().eof(); lexicalProblem = scan.problem();
+            }
             catch (ParseException e) { throw withChain(e, include); }
             var conditions = new ArrayDeque<Conditional>();
             var pending = new ArrayList<Work>();
@@ -301,7 +326,7 @@ public final class CppPreprocessor {
                 logicalLocations.add(new LogicalLocation(lineRange, include, logicalFile, lineRange.start().line() + lineDelta));
                 boolean active = conditions.isEmpty() || conditions.peek().active();
                 if (!sig.isEmpty() && sig.get(0).text().equals("#")) {
-                    output.addAll(expand(pending)); pending.clear();
+                    output.addAll(expandOutput(pending)); pending.clear();
                     String directive = sig.size() == 1 ? "" : sig.get(1).text();
                     directives.add(new Directive(directive, source.substring(lineStart, lineEnd), lineRange, include, active));
                     if (sig.size() > 1) {
@@ -373,8 +398,10 @@ public final class CppPreprocessor {
                 }
                 i = end + 1;
             }
-            output.addAll(expand(pending));
-            if (!conditions.isEmpty()) throw error(include, "Unterminated conditional directive");
+            output.addAll(expandOutput(pending));
+            if (lexicalProblem != null) throw withChain(lexicalProblem, include);
+            if (!conditions.isEmpty()) throw withChain(new ParseException(file, eof.line(), eof.column(),
+                    "Unterminated conditional directive", new SourceRange(file, eof, eof)), include);
             var active = new LinkedHashMap<String, Long>(); macros.forEach((name, macro) -> active.put(name, macro.id));
             includeStates.add(new IncludeState(include, active));
         }
@@ -535,7 +562,8 @@ public final class CppPreprocessor {
                 if (index >= raw.size()) throw error(name, "Unterminated macro parameter list");
                 if (!raw.get(index).text().equals(")")) {
                     while (true) {
-                        if (index >= raw.size() || !identifier(raw.get(index))) throw error(name, "Expected macro parameter (variadic macros are not C++03)");
+                        if (index >= raw.size() || !identifier(raw.get(index))) throw error(index < raw.size() ? raw.get(index) : name,
+                                "Expected macro parameter (variadic macros are not C++03)");
                         String parameter = raw.get(index++).text();
                         if (parameters.contains(parameter)) throw error(name, "Duplicate macro parameter: " + parameter);
                         parameters.add(parameter); index = next(raw, index);
@@ -544,6 +572,7 @@ public final class CppPreprocessor {
                         index = next(raw, index + 1);
                     }
                 }
+                if (raw.get(index).text().equals("...")) throw error(raw.get(index), "Variadic macros are not C++03");
                 if (!raw.get(index).text().equals(")")) throw error(name, "Expected ')' in macro parameters");
                 index++;
             }
@@ -598,53 +627,62 @@ public final class CppPreprocessor {
             throw error(location, "Header not found: " + header);
         }
 
+        List<Work> expandOutput(List<Work> input) { return expand(input, null, recovering); }
         List<Work> expand(List<Work> input) { return expand(input, null); }
-        List<Work> expand(List<Work> input, Long context) {
+        List<Work> expand(List<Work> input, Long context) { return expand(input, context, false); }
+        List<Work> expand(List<Work> input, Long context, boolean preservePrefix) {
             var work = new ArrayList<>(input);
-            for (int index = 0; index < work.size();) {
-                Work invocation = work.get(index);
-                Macro macro = lookup(invocation);
-                if (macro == null || !identifier(invocation) || invocation.hidden.contains(macro.name)) { index++; continue; }
-                int end = index + 1;
-                List<List<Work>> arguments = List.of(), rawArguments = List.of();
-                Set<String> hide = new HashSet<>(invocation.hidden);
-                if (macro.parameters != null) {
-                    int open = next(work, end);
-                    if (open >= work.size() || !work.get(open).text().equals("(")) { index++; continue; }
-                    var collected = new ArrayList<List<Work>>();
-                    var rawCollected = new ArrayList<List<Work>>();
-                    int level = 0, start = open + 1, close = start;
-                    for (; close < work.size(); close++) {
-                        String text = work.get(close).text();
-                        if (text.equals("(")) level++;
-                        else if (text.equals(")")) { if (level == 0) break; level--; }
-                        else if (text.equals(",") && level == 0) { collected.add(trim(work.subList(start, close))); rawCollected.add(new ArrayList<>(work.subList(start, close))); start = close + 1; }
+            int index = 0;
+            try {
+                while (index < work.size()) {
+                    Work invocation = work.get(index);
+                    Macro macro = lookup(invocation);
+                    if (macro == null || !identifier(invocation) || invocation.hidden.contains(macro.name)) { index++; continue; }
+                    int end = index + 1;
+                    List<List<Work>> arguments = List.of(), rawArguments = List.of();
+                    Set<String> hide = new HashSet<>(invocation.hidden);
+                    if (macro.parameters != null) {
+                        int open = next(work, end);
+                        if (open >= work.size() || !work.get(open).text().equals("(")) { index++; continue; }
+                        var collected = new ArrayList<List<Work>>();
+                        var rawCollected = new ArrayList<List<Work>>();
+                        int level = 0, start = open + 1, close = start;
+                        for (; close < work.size(); close++) {
+                            String text = work.get(close).text();
+                            if (text.equals("(")) level++;
+                            else if (text.equals(")")) { if (level == 0) break; level--; }
+                            else if (text.equals(",") && level == 0) { collected.add(trim(work.subList(start, close))); rawCollected.add(new ArrayList<>(work.subList(start, close))); start = close + 1; }
+                        }
+                        if (close == work.size()) throw error(invocation, "Unterminated invocation of macro " + macro.name);
+                        var finalArgument = trim(work.subList(start, close));
+                        if (!finalArgument.isEmpty() || !collected.isEmpty() || !macro.parameters.isEmpty()) {
+                            collected.add(finalArgument); rawCollected.add(new ArrayList<>(work.subList(start, close)));
+                        }
+                        if (collected.size() != macro.parameters.size()) throw error(invocation, "Macro " + macro.name + " expects " + macro.parameters.size() + " arguments, got " + collected.size());
+                        if (collected.stream().anyMatch(List::isEmpty)) throw error(invocation, "Empty macro argument has undefined behavior in C++03");
+                        hide.retainAll(work.get(close).hidden);
+                        arguments = collected; rawArguments = rawCollected; end = close + 1;
                     }
-                    if (close == work.size()) throw error(invocation, "Unterminated invocation of macro " + macro.name);
-                    var finalArgument = trim(work.subList(start, close));
-                    if (!finalArgument.isEmpty() || !collected.isEmpty() || !macro.parameters.isEmpty()) {
-                        collected.add(finalArgument); rawCollected.add(new ArrayList<>(work.subList(start, close)));
-                    }
-                    if (collected.size() != macro.parameters.size()) throw error(invocation, "Macro " + macro.name + " expects " + macro.parameters.size() + " arguments, got " + collected.size());
-                    if (collected.stream().anyMatch(List::isEmpty)) throw error(invocation, "Empty macro argument has undefined behavior in C++03");
-                    hide.retainAll(work.get(close).hidden);
-                    arguments = collected; rawArguments = rawCollected; end = close + 1;
+                    if (++expansions > 100000) throw error(invocation, "Macro expansion limit exceeded");
+                    hide.add(macro.name);
+                    SourceRange call = invocation.value.expansionRange();
+                    SourceRange last = work.get(end - 1).value.expansionRange();
+                    if (call.file().equals(last.file()) && last.end().offset() >= call.start().offset()) call = new SourceRange(call.file(), call.start(), last.end());
+                    var step = new MacroExpansion(macro.name, macro.definition, call);
+                    List<Long> ancestry = invocation.value.expansionIds();
+                    Long parent = ancestry.isEmpty() ? context : ancestry.getLast();
+                    // Argument tokens may already carry an enclosing replacement's
+                    // ancestry. The invocation doing this prescan is their new parent.
+                    if (context != null && (parent == null || context > parent)) parent = context;
+                    var event = new Event(macro, call, invocation, rawArguments, parent);
+                    List<Work> replacement = substitute(macro, arguments, invocation, step, hide, event);
+                    replacement.addFirst(anchor(event));
+                    work.subList(index, end).clear(); work.addAll(index, replacement);
                 }
-                if (++expansions > 100000) throw error(invocation, "Macro expansion limit exceeded");
-                hide.add(macro.name);
-                SourceRange call = invocation.value.expansionRange();
-                SourceRange last = work.get(end - 1).value.expansionRange();
-                if (call.file().equals(last.file()) && last.end().offset() >= call.start().offset()) call = new SourceRange(call.file(), call.start(), last.end());
-                var step = new MacroExpansion(macro.name, macro.definition, call);
-                List<Long> ancestry = invocation.value.expansionIds();
-                Long parent = ancestry.isEmpty() ? context : ancestry.getLast();
-                // Argument tokens may already carry an enclosing replacement's
-                // ancestry. The invocation doing this prescan is their new parent.
-                if (context != null && (parent == null || context > parent)) parent = context;
-                var event = new Event(macro, call, invocation, rawArguments, parent);
-                List<Work> replacement = substitute(macro, arguments, invocation, step, hide, event);
-                replacement.addFirst(anchor(event));
-                work.subList(index, end).clear(); work.addAll(index, replacement);
+            } catch (ParseException error) {
+                // Only ordinary output may commit a prefix. Argument/directive prescans cannot.
+                if (preservePrefix) output.addAll(work.subList(0, index));
+                throw error;
             }
             return work;
         }
@@ -729,17 +767,20 @@ public final class CppPreprocessor {
                     file = logical.file(); line = logical.line() + range.start().line() - logical.range().start().line(); break;
                 }
             }
-            return withChain(new ParseException(file, line, range.start().column(), reason), include);
+            return withChain(new ParseException(file, line, range.start().column(), reason, range), include);
         }
         ParseException error(Build.IncludeInstance include, String reason) {
             return withChain(error(include.source().path().toString(), reason), include);
         }
-        ParseException error(String file, String reason) { return new ParseException(file, 1, 1, reason); }
+        ParseException error(String file, String reason) {
+            var start = new SourcePosition(1, 1, 0);
+            return new ParseException(file, 1, 1, reason, new SourceRange(file, start, start));
+        }
         ParseException withChain(ParseException error, Build.IncludeInstance include) {
             var chain = new ArrayList<String>();
             for (var cursor = include; cursor != null; cursor = cursor.parent()) chain.add(cursor.source().path().toString());
             Collections.reverse(chain);
-            return new ParseException(error.file(), error.line(), error.column(), error.reason() + " [include chain: " + String.join(" -> ", chain) + "]");
+            return new ParseException(error.file(), error.line(), error.column(), error.reason() + " [include chain: " + String.join(" -> ", chain) + "]", error.range().orElse(null));
         }
     }
     private static boolean identifier(Work token) {

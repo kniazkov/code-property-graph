@@ -33,6 +33,16 @@ record CliRun(Path work, int status, String stdout, String stderr) {
                     Files.readString(dir.resolve(entry.getKey())).replace("\r\n", "\n"), entry.getKey());
     }
 
+    /** Invalid C++ syntax retains a readable diagnostic graph, never generated sources. */
+    JsonSnapshot diagnosticSnapshot() throws Exception {
+        expectStatus(1);
+        assertTrue(Files.notExists(work.resolve("generated")), "Unexpected generated source directory");
+        assertTrue(Files.isRegularFile(work.resolve("snapshot.json")), "Missing diagnostic JSON snapshot");
+        var snapshot = JsonSnapshot.read(work.resolve("snapshot.json"));
+        snapshot.containsNode("{\"kind\":\"Project\",\"hasErrors\":true}");
+        return snapshot;
+    }
+
     void expectNoExports() {
         assertTrue(Files.notExists(work.resolve("generated")), "Unexpected generated source directory");
         assertTrue(Files.notExists(work.resolve("snapshot.json")), "Unexpected JSON snapshot");

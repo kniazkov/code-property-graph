@@ -82,7 +82,7 @@ class PreprocessorIT {
     @Test void missingHeaderReportsTheWholeIncludeChainWithoutExports() throws Exception {
         var cli = new CliSandbox(temp).directory(Path.of("src/test/resources/cpp03/missing-header/sources"));
         var run = cli.run("cpp", "--stage", "resolved").expectStatus(1);
-        run.expectNoExports();
+        run.diagnosticSnapshot();
         var error = assertThrows(ParseException.class, () -> Cpg.read(cli.input, OPTIONS));
         for (String expected : new String[]{"Header not found: missing.h", "include chain:", "main.cpp", "outer.h", "inner.h"}) {
             assertTrue(run.stderr().contains(expected), run.stderr());

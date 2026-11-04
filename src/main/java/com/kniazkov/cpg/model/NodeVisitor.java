@@ -10,6 +10,8 @@ package com.kniazkov.cpg.model;
  * <p>One call to Node.accept dispatches once. Use Node.walk for a whole subtree.
  */
 public interface NodeVisitor {
+    /** Visits a recovery placeholder through the ordinary expression family. */
+    default void visit(ErrorExpression node) { visit((Expression) node); }
     /** Visits an owned external configuration input. */
     default void visit(ExternalInput node) { visit((Node) node); }
     /** Visits the synthetic terminal as an ordinary owned leaf. */
