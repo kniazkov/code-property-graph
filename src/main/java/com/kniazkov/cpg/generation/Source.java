@@ -155,6 +155,7 @@ public final class Source {
             case PrintStatement s -> pad + (target == Language.JAVA ? "System.out.println(" + emit(s.value(), 0) + ");"
                     : "std::cout << " + emit(s.value(), 0) + " << std::endl;") + "\n";
             case AssignmentExpression a -> "(" + assignment(a) + ")";
+            case Exit ignored -> "";
             case IntegerLiteral i -> Integer.toString(i.value());
             case NameExpression name -> name.name();
             case MemberExpression m -> emit(m.receiver(), 0) + separator(m) + m.member();

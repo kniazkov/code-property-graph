@@ -107,13 +107,11 @@ public final class DotVisualizer {
             }
         }
 
-        /** Draws analysis overlays after syntax IDs have been assigned. Exits belong only to the CFG. */
+        /** Draws analysis overlays after syntax IDs have been assigned. */
         private void flow(FunctionFlow flow) {
-            String exit = "exit" + id(flow.entry());
-            dot.append("  ").append(exit).append(" [label=\"Exit\", color=\"#008000\"];\n");
             for (var edge : flow.control()) {
                 String from = "n" + id((Node) edge.from());
-                String to = edge.to() == flow.exit() ? exit : "n" + id((Node) edge.to());
+                String to = "n" + id((Node) edge.to());
                 flowEdge(from, to, "CFG " + edge.kind().name().toLowerCase(java.util.Locale.ROOT), "#1565c0");
             }
             for (var edge : flow.data()) {

@@ -35,6 +35,29 @@ class FlowTest {
         return writes;
     }
 
+    @Test void callableOwnsExactlyTheExitUsedByItsFlow() throws Exception {
+        Files.writeString(dir.resolve("a.cpp"), "class A { public: static void main() {} }; int main() { A::main(); return 0; }");
+        var parsed = Cpg.read(dir, new Cpg.Options(Language.CPP, Cpg.Stage.PARSED));
+        var declarations = nodes(parsed, CallableDeclaration.class);
+        assertEquals(2, declarations.size());
+        assertEquals(declarations.stream().map(CallableDeclaration::exit).toList(), nodes(parsed, Exit.class));
+        assertNotSame(declarations.getFirst().exit(), declarations.getLast().exit());
+        for (var fn : declarations) assertSame(fn.exit(), fn.children().getLast());
+
+        var copied = parsed.edit().build();
+        var analyzed = com.kniazkov.cpg.analysis.ControlFlow.analyze(copied);
+        assertEquals(2, analyzed.flows().size());
+        for (int i = 0; i < declarations.size(); i++) {
+            var flow = analyzed.flows().get(i);
+            assertSame(flow.entry().exit(), flow.exit());
+            assertNotSame(declarations.get(i).exit(), flow.exit());
+            assertTrue(flow.control().stream().anyMatch(e -> e.to() == flow.exit()));
+        }
+        var flow = analyzed.flows().getFirst();
+        assertThrows(IllegalArgumentException.class, () -> new FunctionFlow(flow.entry(),
+                analyzed.flows().getLast().exit(), flow.control(), flow.data()));
+    }
+
     @Test void branchesKillOrPreserveIncomingDefinition() throws Exception {
         for (Language language : List.of(Language.JAVA, Language.CPP)) for (boolean hasElse : List.of(true, false)) {
             var p = read(language, "int x = 0; if (x <= 4) x = 1;" + (hasElse ? " else x = 2;" : "") + "int y = x;");

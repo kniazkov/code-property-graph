@@ -10,6 +10,9 @@ package com.kniazkov.cpg.model;
  * <p>One call to Node.accept dispatches once. Use Node.walk for a whole subtree.
  */
 public interface NodeVisitor {
+    /** Visits the synthetic terminal as an ordinary owned leaf. */
+    default void visit(Exit node) { visit((Node) node); }
+
     /** Fallback for all nodes whose more specific overloads delegate here. */
     default void visit(Node node) {
     }
