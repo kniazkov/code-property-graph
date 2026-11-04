@@ -8,7 +8,7 @@ import java.util.regex.Pattern;
 /** Shares one position among the declaration, statement and expression readers of one file. */
 final class TokenCursor {
     private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*");
-    private static final Set<String> RESERVED = Set.of("class", "int", "void", "return", "if", "while", "for", "public", "static");
+    private static final Set<String> RESERVED = Set.of("class", "int", "void", "return", "if", "else", "while", "for", "public", "static");
     private final String file;
     private final List<Token> tokens;
     private int position;

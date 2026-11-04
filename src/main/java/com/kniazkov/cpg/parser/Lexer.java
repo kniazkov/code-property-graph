@@ -53,10 +53,12 @@ final class Lexer {
             } else if (Character.isDigit(ch)) {
                 advance();
                 while (offset < source.length() && Character.isDigit(source.charAt(offset))) advance();
-            } else if (source.startsWith("::", offset) || source.startsWith("<<", offset)) {
+            } else if (source.startsWith("::", offset) || source.startsWith("<<", offset)
+                    || source.startsWith("<=", offset) || source.startsWith(">=", offset)
+                    || source.startsWith("==", offset) || source.startsWith("!=", offset)) {
                 advance();
                 advance();
-            } else if ("{}()[];=+-*/.,:".indexOf(ch) >= 0) {
+            } else if ("{}()[];=+-*/.,:<>".indexOf(ch) >= 0) {
                 advance();
             } else {
                 throw new ParseException(file, line, column, "Unsupported character: " + ch);

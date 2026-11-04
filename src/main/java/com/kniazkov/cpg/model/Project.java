@@ -9,6 +9,31 @@ import java.util.Objects;
 public final class Project extends Node {
     private List<SourceFile> files = List.of();
 
+    private List<FunctionFlow> flows = List.of();
+
+    /** Returns flow analyses associated with this particular syntax snapshot. */
+    public List<FunctionFlow> flows() { return flows; }
+
+    /** Shares immutable syntax and attaches complete per-callable analysis results. */
+    public Project withFlows(List<FunctionFlow> results) {
+        var copy = new Project();
+        copy.files = files;
+        copy.flows = List.copyOf(results);
+        var owners = new java.util.HashSet<CallableDeclaration>();
+        walk(new NodeVisitor() {
+            @Override public void visit(CallableDeclaration callable) {
+                if (callable.body().isPresent()) owners.add(callable);
+            }
+        });
+        var exits = new java.util.HashSet<FunctionFlow.Exit>();
+        for (FunctionFlow flow : copy.flows) {
+            if (!owners.remove(flow.entry()) || !exits.add(flow.exit()))
+                throw new IllegalArgumentException("Foreign or duplicate function flow");
+        }
+        if (!owners.isEmpty()) throw new IllegalArgumentException("Missing function flow");
+        return copy;
+    }
+
     private Project() {
     }
 
