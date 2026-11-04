@@ -18,5 +18,13 @@
         <configuration><createDependencyReducedPom>false</createDependencyReducedPom></configuration>
       </execution></executions>
     </plugin>
+    <plugin>
+      <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId><version>3.5.2</version>
+      <configuration>
+        <failIfNoTests>true</failIfNoTests>
+        <systemPropertyVariables><cpg.e2e.jar>${project.build.directory}/${project.build.finalName}.jar</cpg.e2e.jar></systemPropertyVariables>
+      </configuration>
+      <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
+    </plugin>
   </plugins></build>
 </project>
