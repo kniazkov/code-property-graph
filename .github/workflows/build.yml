@@ -1,6 +1,11 @@
 # Compile, test and execute both generated examples. MIT License.
 name: Build and demo
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [master]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
 jobs:
   verify:
     runs-on: ubuntu-latest

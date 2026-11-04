@@ -217,3 +217,37 @@ include paths are based on that entry's working directory, not the process cwd.
 Folder input remains supported. CLI uses `--compile-commands FILE` instead of
 `--input DIR`, with optional `--cpp-standard c++03`. See the
 [reproducible database fixture](../src/test/resources/cpp03/compilation-database/README.md).
+
+## C++03 lexical phases and physical positions
+
+`CppLexer.scan(file, source)` provides an immutable `Result` with phase-3 logical
+`text()`, `tokens()`, per-logical-character `characterRanges()`, and physical
+`eof()`. Input is a decoded Java String; offsets and columns count UTF-16 code
+units. CRLF/CR normalize to logical newlines. Trigraph replacement runs before
+a single pass of backslash-newline splicing. Comments become one space without
+joining neighboring tokens. A block comment's internal physical newlines do not
+terminate a logical preprocessing directive; a line comment ends at the next
+logical newline, after splicing.
+
+Each public `PreprocessingToken` has a kind, retained `spelling()`, separate
+`canonicalSpelling()`, physical range and half-open logical offsets. Whitespace,
+newlines and EOF remain explicit for future preprocessing. The physical range
+of a spliced token spans its original physical fragments; character mappings
+identify the individual surviving characters. A replaced trigraph maps to all
+three original characters. Comment replacement maps to the full comment range.
+
+The lexer distinguishes identifiers/UCNs, preprocessing numbers, ordinary/wide
+character and string literals, header names, operators and other characters.
+It retains digraph/alternative operator spelling while canonicalizing parser
+input, and uses the C++03 Annex E identifier repertoire rather than modern Java
+identifier rules. Maximal munch uses C++03 rules: e/E signs belong to pp-numbers;
+modern p/P sign rules, `<::` exceptions and template `>>` splitting are not added.
+Header-name tokens occur only in include-directive context. Partial literals,
+comments and headers report physical locations.
+
+The existing Java lexer is unchanged. The C++ parser consumes the new token
+stream, while its supported syntax remains deliberately smaller than the
+lexical repertoire. Tokenizing a literal or operator does not claim evaluation,
+full expression support, header resolution or macro expansion. See
+[lexical acceptance](../src/test/resources/cpp03/lexical-phases/README.md) and
+[negative literal acceptance](../src/test/resources/cpp03/unterminated-literal/README.md).
