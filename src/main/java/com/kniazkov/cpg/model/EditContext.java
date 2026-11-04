@@ -53,6 +53,7 @@ final class EditContext {
             throw new IllegalStateException("Builder does not match node type");
         }
         builder.origin = node.origin;
+        builder.provenance = node.provenance;
         if (builders.putIfAbsent(node, builder) != null) {
             throw new IllegalStateException("Node already registered");
         }

@@ -66,7 +66,7 @@ final class JsonSnapshot {
 
     private void index(Object value) {
         if (value instanceof Map<?,?> map) {
-            if (map.containsKey("id")) nodes.add(map);
+            if (map.containsKey("id") && map.containsKey("kind")) nodes.add(map);
             map.values().forEach(this::index);
         } else if (value instanceof List<?> list) list.forEach(this::index);
     }

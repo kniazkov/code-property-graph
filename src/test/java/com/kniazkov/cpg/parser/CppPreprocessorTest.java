@@ -113,6 +113,27 @@ class CppPreprocessorTest {
         assertEquals("3 1 2 + 2", text(CppPreprocessor.preprocess(build, "VALUE FLAG F(2)")));
         assertEquals("VALUE FLAG F ( 2 )", expand("VALUE FLAG F(2)"));
     }
+    @Test void buildMacroOriginsUseDistinctSyntheticBuffersAndPhysicalInvocations() {
+        var build = unit(List.of(), List.of(new Build.MacroOperation(true, "VALUE=1"),
+                new Build.MacroOperation(false, "VALUE"), new Build.MacroOperation(true, "VALUE=3"),
+                new Build.MacroOperation(true, "FLAG")));
+        var result = CppPreprocessor.preprocess(build, "VALUE FLAG");
+        assertEquals("3 1", text(result));
+        var value = result.expansions().getFirst();
+        var flag = result.expansions().getLast();
+        String physical = build.source().path().toString();
+        assertEquals(directory.resolve("<command-line:3>").toString(), value.definition().file());
+        assertEquals(directory.resolve("<command-line:4>").toString(), flag.definition().file());
+        for (var event : result.expansions()) {
+            assertNotEquals(physical, event.definition().file());
+            assertEquals(physical, event.invocation().file());
+            assertEquals(result.includes().getFirst(), event.include());
+            assertTrue(event.replacement().stream().allMatch(f -> f.range().file().equals(event.definition().file())));
+        }
+        assertEquals("VALUE", "VALUE FLAG".substring(value.invocation().start().offset(), value.invocation().end().offset()));
+        assertEquals(value.definition().file(), significant(result).getFirst().token().range().file());
+    }
+
     @Test void includesFollowQuoteIquoteIAndSystemSearchOrder() throws Exception {
         header("same.h", "local\n"); header("quote/same.h", "quote\n"); header("user/same.h", "user\n"); header("system/same.h", "system\n");
         var build = unit(List.of(new Build.IncludePath("-isystem", directory.resolve("system")), new Build.IncludePath("-I", directory.resolve("user")), new Build.IncludePath("-iquote", directory.resolve("quote"))), List.of());
@@ -196,10 +217,115 @@ class CppPreprocessorTest {
         assertEquals(directory.resolve("main.cpp").toString(), multiplication.expansionRange().file());
         assertEquals(2, multiplication.expansionRange().start().line());
         assertEquals("OUT(7)", source.substring(multiplication.expansionRange().start().offset(), multiplication.expansionRange().end().offset()));
+        assertEquals(result.includes().getFirst(), result.expansions().getLast().include());
         assertEquals(List.of("OUT", "MUL"), multiplication.origins().stream().map(CppPreprocessor.MacroExpansion::name).toList());
         var sevens = significant(result).stream().filter(t -> t.token().spelling().equals("7")).toList();
         assertEquals(2, sevens.size()); assertEquals(sevens.get(0).token().range(), sevens.get(1).token().range());
         assertEquals(directory.resolve("main.cpp").toString(), sevens.get(0).token().range().file());
         assertThrows(UnsupportedOperationException.class, () -> result.tokens().clear());
     }
+    @Test void expansionEventsHaveStableIdentityAcrossRepeatedCallsAndRedefinitions() {
+        String source = "#define A 1\nA A\n#undef A\n#define A 2\nA";
+        var result = preprocess(source);
+        var events = result.expansions();
+        assertEquals(List.of(1L, 2L, 3L), events.stream().map(CppPreprocessor.ExpansionEvent::id).toList());
+        assertEquals(events, preprocess(source).expansions());
+        assertNotEquals(events.get(0).invocation(), events.get(1).invocation());
+        assertEquals(events.get(0).definition(), events.get(1).definition());
+        assertNotEquals(events.get(0).definition(), events.get(2).definition());
+        assertEquals(List.of("1", "1", "2"), events.stream().map(e -> e.replacement().getFirst().spelling()).toList());
+        assertEquals(List.of(List.of(1L), List.of(2L), List.of(3L)), significant(result).stream().map(CppPreprocessor.ExpandedToken::expansionIds).toList());
+        assertEquals("A 1", source.substring(events.getFirst().definition().start().offset(), events.getFirst().definition().end().offset()));
+    }
+
+    @Test void eventParentsFollowPrescanAndRescanWithoutDuplicatingReusedArguments() {
+        var result = preprocess("#define A 7\n#define F(x) x+x\n#define G F\nG(A)");
+        assertEquals("7 + 7", text(result));
+        var events = result.expansions();
+        assertEquals(List.of("G", "F", "A"), events.stream().map(CppPreprocessor.ExpansionEvent::name).toList());
+        assertNull(events.get(0).parentId());
+        assertEquals(1L, events.get(1).parentId());
+        assertEquals(2L, events.get(2).parentId());
+        var sevens = significant(result).stream().filter(t -> t.token().spelling().equals("7")).toList();
+        assertEquals(List.of(1L, 2L, 3L), sevens.getFirst().expansionIds());
+        assertEquals(sevens.getFirst().expansionIds(), sevens.getLast().expansionIds());
+        assertEquals(sevens.getFirst().token().range(), sevens.getLast().token().range());
+        assertEquals("A", events.get(1).arguments().getFirst().getFirst().spelling());
+        for (var event : events) if (event.parentId() != null) assertTrue(event.parentId() < event.id());
+        var nested = preprocess("#define A 7\n#define F(x) x\n#define O F(A)\nO").expansions();
+        assertEquals(List.of("O", "F", "A"), nested.stream().map(CppPreprocessor.ExpansionEvent::name).toList());
+        assertEquals(2L, nested.getLast().parentId());
+    }
+
+    @Test void stringizeAndChainedPasteKeepAllPhysicalParticipants() {
+        var result = preprocess("#define STR(x) #x\n#define CAT(a,b,c) a##b##c\nSTR(hello + world) CAT(pre,fix,ed)");
+        assertEquals("\"hello + world\" prefixed", text(result));
+        var stringize = result.expansions().get(0).operations().getFirst();
+        assertEquals("stringize", stringize.kind());
+        assertEquals(List.of("hello", " ", "+", " ", "world"), stringize.fragments().stream().map(CppPreprocessor.Fragment::spelling).toList());
+        assertEquals(1, stringize.operator().start().line());
+        var pastes = result.expansions().get(1).operations();
+        assertEquals(2, pastes.size());
+        assertEquals(List.of("pre", "fix", "ed"), pastes.getLast().fragments().stream().map(CppPreprocessor.Fragment::spelling).toList());
+        assertEquals("prefixed", pastes.getLast().spelling());
+        assertNotEquals(pastes.getFirst().operator(), pastes.getLast().operator());
+        assertTrue(pastes.getLast().fragments().stream().allMatch(f -> f.range().start().line() == 3));
+    }
+
+    @Test void boundariesCoverPartialExpressionsMultiStatementsAndEmptyInvocations() {
+        var result = preprocess("#define OP +\n#define BOTH a();b();\n#define EMPTY\nx OP y; EMPTY BOTH EMPTY");
+        assertEquals("x + y ; a ( ) ; b ( ) ;", text(result));
+        var events = result.expansions();
+        assertEquals(List.of("OP", "EMPTY", "BOTH", "EMPTY"), events.stream().map(CppPreprocessor.ExpansionEvent::name).toList());
+        var op = events.get(0);
+        assertEquals(op.startToken() + 1, op.endToken());
+        assertEquals("+", result.tokens().get(op.startToken()).token().spelling());
+        var empty = events.get(1);
+        assertEquals(empty.startToken(), empty.endToken());
+        var both = events.get(2);
+        assertTrue(empty.startToken() <= both.startToken());
+        assertEquals("a();b();", String.join("", result.tokens().subList(both.startToken(), both.endToken()).stream().map(t -> t.token().spelling()).toList()));
+        var trailing = events.get(3);
+        assertEquals(trailing.startToken(), trailing.endToken());
+        assertTrue(trailing.startToken() >= both.endToken());
+        assertTrue(trailing.endToken() < result.tokens().size());
+    }
+
+    @Test void nestedEmptyExpansionsRetainAnchorsAndDoNotInventWhitespace() {
+        var result = preprocess("#define E\n#define ID(x) x\n#define S(x) #x\n#define X(x) S(x)\nID(E) X(a+b)");
+        assertEquals("\"a+b\"", text(result));
+        assertEquals(List.of("ID", "E", "X", "S"), result.expansions().stream().map(CppPreprocessor.ExpansionEvent::name).toList());
+        for (var event : result.expansions().subList(0, 2)) {
+            assertEquals(0, event.startToken()); assertEquals(0, event.endToken());
+        }
+    }
+
+    @Test void includeOperandEventsAreAnchoredAndDefinitionIncludesAreDistinct() throws Exception {
+        Path definitions = header("defs.h", "#define A 1\n");
+        var result = preprocess("#define H \"defs.h\"\n#include H\nA\n#undef A\n#include H\nA");
+        assertEquals("1 1", text(result));
+        assertEquals(List.of("H", "A", "H", "A"), result.expansions().stream().map(CppPreprocessor.ExpansionEvent::name).toList());
+        assertEquals(0, result.expansions().getFirst().startToken());
+        assertEquals(0, result.expansions().getFirst().endToken());
+        var first = result.expansions().get(1).replacement().getFirst();
+        var second = result.expansions().get(3).replacement().getFirst();
+        assertEquals(definitions.toString(), first.range().file());
+        assertEquals(first.range(), second.range());
+        assertNotEquals(first.include(), second.include());
+    }
+
+    @Test void provenanceCollectionsAreDeeplyImmutable() {
+        var result = preprocess("#define F(x) #x\nF(hello)");
+        var event = result.expansions().getFirst();
+        var padded = preprocess("#define F(x) #x\nF( hello )").expansions().getFirst();
+        assertEquals(List.of(" ", "hello", " "), padded.arguments().getFirst().stream().map(CppPreprocessor.Fragment::spelling).toList());
+        assertThrows(UnsupportedOperationException.class, () -> result.expansions().clear());
+        assertThrows(UnsupportedOperationException.class, () -> event.arguments().clear());
+        assertThrows(UnsupportedOperationException.class, () -> event.arguments().getFirst().clear());
+        assertThrows(UnsupportedOperationException.class, () -> event.replacement().clear());
+        assertThrows(UnsupportedOperationException.class, () -> event.operations().clear());
+        assertThrows(UnsupportedOperationException.class, () -> event.operations().getFirst().fragments().clear());
+        assertThrows(UnsupportedOperationException.class, () -> significant(result).getFirst().expansionIds().clear());
+    }
+
 }

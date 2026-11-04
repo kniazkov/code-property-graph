@@ -23,9 +23,17 @@ public final class DotVisualizer {
      * Targets outside a selected fragment receive a label without expanding their subtree.
      */
     public static String toDot(Node root) {
+        return toDot(root, true);
+    }
+
+    /** Optionally overlays macro provenance without changing syntax traversal or ownership. */
+    public static String toDot(Node root, boolean provenance) {
         Writer writer = new Writer();
         root.walk(writer);
         if (root instanceof Project project) project.flows().forEach(writer::flow);
+        if (provenance) root.walk(new NodeVisitor() {
+            @Override public void visit(Node node) { writer.provenance(node); }
+        });
         return writer.dot.append("}\n").toString();
     }
 
@@ -42,10 +50,15 @@ public final class DotVisualizer {
      * @throws IOException if the files or the renderer cannot be accessed, or rendering fails
      */
     public static void renderSvg(Node root, Path output) throws IOException, InterruptedException {
+        renderSvg(root, output, true);
+    }
+
+    /** Renders an SVG with the selected provenance visibility. */
+    public static void renderSvg(Node root, Path output, boolean provenance) throws IOException, InterruptedException {
         Path directory = output.toAbsolutePath().getParent();
         Path source = Files.createTempFile(directory, "cpg-", ".dot");
         try {
-            writeDot(root, source);
+            Files.writeString(source, toDot(root, provenance), StandardCharsets.UTF_8);
             Path svg = Files.createTempFile(directory, "cpg-", ".svg");
             try {
                 render(source, svg);
@@ -84,6 +97,10 @@ public final class DotVisualizer {
 
     private static final class Writer implements NodeVisitor {
         private final Map<Node, Integer> ids = new IdentityHashMap<>();
+        private final Map<Preprocessing, Integer> units = new IdentityHashMap<>();
+        private final java.util.Set<String> events = new java.util.HashSet<>();
+        private int fragmentCounter;
+
         private final StringBuilder dot = new StringBuilder("""
                 digraph CPG {
                   graph [penwidth=1];
@@ -105,6 +122,65 @@ public final class DotVisualizer {
                 dot.append("  n").append(from).append(" -> n").append(to)
                         .append(" [label=<&#160;ref>, style=dashed, constraint=false];\n");
             }
+        }
+
+        private void provenance(Node node) {
+            node.provenance().ifPresent(p -> {
+                int unit = units.computeIfAbsent(p.unit(), ignored -> units.size());
+                var expansions = node instanceof SourceFile ? p.unit().expansions() : p.expansions();
+                for (var event : expansions) {
+                    String eventId = event(p.unit(), unit, event);
+                    provenanceEdge("n" + id(node), eventId, "origin");
+                }
+            });
+        }
+
+        private String event(Preprocessing data, int unit, Preprocessing.Expansion event) {
+            String key = "p" + unit + "e" + event.id();
+            if (!events.add(key)) return key;
+            provenanceNode(key, "macro " + event.name() + " [TU " + unit + ", event " + event.id()
+                    + ", include " + event.includeId() + "]");
+            fragment(key, "invocation", event.invocation(), "");
+            fragment(key, "definition", event.definition(), "");
+            for (var f : event.replacement()) {
+                String role = java.util.Set.of("+", "-", "*", "/", "%", "&", "|", "^", "~", "!", "=",
+                        "==", "!=", "<", ">", "<=", ">=", "<<", ">>", "&&", "||", "++", "--", "?", ":",
+                        "+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>=", "#", "##")
+                        .contains(f.spelling()) ? "replacement operator" : "replacement";
+                fragment(key, role, f.range(), f.spelling());
+            }
+            for (int i = 0; i < event.arguments().size(); i++) {
+                for (var f : event.arguments().get(i)) fragment(key, "argument " + i, f.range(), f.spelling());
+            }
+            for (var op : event.operations()) {
+                String operation = fragment(key, op.kind(), op.operator(), op.spelling());
+                for (var f : op.fragments()) fragment(operation, "operand", f.range(), f.spelling());
+            }
+            if (event.parentId() != null) {
+                data.expansions().stream().filter(e -> e.id() == event.parentId()).findFirst().ifPresent(parent ->
+                        provenanceEdge(key, event(data, unit, parent), "parent expansion"));
+            }
+            return key;
+        }
+
+        private String fragment(String parent, String role, SourceRange range, String spelling) {
+            String key = "pf" + fragmentCounter++;
+            provenanceNode(key, role + (spelling.isEmpty() ? "" : ": " + spelling) + "\n"
+                    + range.file() + ":" + range.start().line() + ":" + range.start().column()
+                    + "–" + range.end().line() + ":" + range.end().column());
+            provenanceEdge(parent, key, role);
+            return key;
+        }
+
+        private void provenanceNode(String key, String label) {
+            dot.append("  ").append(key).append(" [shape=note, style=dashed, color=\"#7b1fa2\", label=<")
+                    .append(htmlText(label)).append(">];\n");
+        }
+
+        private void provenanceEdge(String from, String to, String label) {
+            dot.append("  ").append(from).append(" -> ").append(to)
+                    .append(" [style=dashed, color=\"#7b1fa2\", fontcolor=\"#7b1fa2\", constraint=false, label=<")
+                    .append(htmlText(label)).append(">];\n");
         }
 
         /** Draws analysis overlays after syntax IDs have been assigned. */

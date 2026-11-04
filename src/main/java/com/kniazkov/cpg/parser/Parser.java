@@ -15,16 +15,17 @@ public final class Parser {
     private final TokenCursor tokens;
     private final StatementParser statements;
 
-    private Parser(String file, Language language, java.util.List<Token> input) {
+    private Parser(String file, Language language, java.util.List<Token> input, Preprocessing preprocessing) {
         this.file = java.nio.file.Path.of(file).toAbsolutePath().normalize().toString();
         this.language = language;
-        tokens = new TokenCursor(this.file, input, language);
+        tokens = new TokenCursor(this.file, input, language, preprocessing);
         statements = new StatementParser(tokens, new ExpressionParser(tokens, language));
     }
 
     private static java.util.List<Token> parserTokens(CppPreprocessor.Result result) {
         var tokens = new java.util.ArrayList<Token>();
-        for (var expanded : result.tokens()) {
+        for (int index = 0; index < result.tokens().size(); index++) {
+            var expanded = result.tokens().get(index);
             var token = expanded.token();
             if (token.kind() == PreprocessingToken.Kind.WHITESPACE || token.kind() == PreprocessingToken.Kind.NEWLINE) continue;
             var range = expanded.expansionRange();
@@ -36,7 +37,7 @@ public final class Parser {
                 case HEADER_NAME -> "#include " + token.spelling();
                 default -> token.canonicalSpelling();
             };
-            tokens.add(new Token(spelling, range.start(), range.end(), range.file()));
+            tokens.add(new Token(spelling, range.start(), range.end(), range.file(), index));
         }
         return java.util.List.copyOf(tokens);
     }
@@ -66,7 +67,7 @@ public final class Parser {
                     java.util.List.of(), java.util.List.of(), standard);
             return parse(unit, source);
         }
-        try { return new Parser(file, language, new Lexer(java.nio.file.Path.of(file).getFileName().toString(), source).scan()).parse(); }
+        try { return new Parser(file, language, new Lexer(java.nio.file.Path.of(file).getFileName().toString(), source).scan(), null).parse(); }
         catch (ParseException e) {
             if (language == Language.CPP) throw new ParseException(e.file(), e.line(), e.column(), e.reason() + " (C++03)");
             throw e;
@@ -79,10 +80,36 @@ public final class Parser {
         com.kniazkov.cpg.build.CppStandard.require(unit.standard(), file);
         try {
             var preprocessed = CppPreprocessor.preprocess(unit, source);
-            return new Parser(file, Language.CPP, parserTokens(preprocessed)).parse();
+            var provenance = preprocessing(file, preprocessed);
+            var parsed = new Parser(file, Language.CPP, parserTokens(preprocessed), provenance).parse();
+            parsed.setProvenance(new TokenProvenance(provenance, 0, provenance.tokens().size()));
+            return parsed;
         } catch (ParseException e) {
             throw new ParseException(e.file(), e.line(), e.column(), e.reason() + " (C++03)");
         }
+    }
+
+    private static Preprocessing.Fragment fragment(CppPreprocessor.Fragment fragment) {
+        return new Preprocessing.Fragment(fragment.range(), fragment.include().occurrence(), fragment.spelling());
+    }
+
+    private static Preprocessing preprocessing(String file, CppPreprocessor.Result result) {
+        var includes = result.includes().stream().map(i -> new Preprocessing.Include(i.occurrence(),
+                i.source().path().toString(), i.parent() == null ? null : i.parent().occurrence())).toList();
+        var tokens = new java.util.ArrayList<Preprocessing.Token>();
+        for (int i = 0; i < result.tokens().size(); i++) {
+            var t = result.tokens().get(i);
+            tokens.add(new Preprocessing.Token(i, t.token().spelling(), t.token().range(),
+                    t.expansionRange(), t.include().occurrence(), t.expansionIds()));
+        }
+        var events = result.expansions().stream().map(e -> new Preprocessing.Expansion(
+                e.id(), e.name(), e.definition(), e.replacement().stream().map(Parser::fragment).toList(),
+                e.invocation(), e.include().occurrence(), e.parentId(),
+                e.arguments().stream().map(a -> a.stream().map(Parser::fragment).toList()).toList(),
+                e.operations().stream().map(o -> new Preprocessing.Operation(o.kind(), o.operator(),
+                        o.fragments().stream().map(Parser::fragment).toList(), o.spelling())).toList(),
+                e.startToken(), e.endToken())).toList();
+        return new Preprocessing(file, includes, tokens, events);
     }
 
     /** Consumes top-level items until EOF, preserving the order of declarations and includes. */
