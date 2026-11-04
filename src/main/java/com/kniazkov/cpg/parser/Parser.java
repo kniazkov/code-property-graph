@@ -76,11 +76,17 @@ public final class Parser {
 
     /** Preprocesses a configured C++ translation unit and parses its resulting tokens. */
     public static SourceFile.Builder parse(com.kniazkov.cpg.build.Build.TranslationUnit unit, String source) {
+        return parse(unit, source, null);
+    }
+
+    /** Parses using only supplied physical sources when the map is non-null. */
+    public static SourceFile.Builder parse(com.kniazkov.cpg.build.Build.TranslationUnit unit, String source,
+            java.util.Map<String, String> sources) {
         String file = unit.source().path().toString();
         com.kniazkov.cpg.build.CppStandard.require(unit.standard(), file);
         try {
-            var preprocessed = CppPreprocessor.preprocess(unit, source);
-            var provenance = preprocessing(file, preprocessed);
+            var preprocessed = sources == null ? CppPreprocessor.preprocess(unit, source) : CppPreprocessor.preprocess(unit, source, sources);
+            var provenance = preprocessing(file, preprocessed, unit);
             var parsed = new Parser(file, Language.CPP, parserTokens(preprocessed), provenance).parse();
             parsed.setProvenance(new TokenProvenance(provenance, 0, provenance.tokens().size()));
             return parsed;
@@ -93,7 +99,7 @@ public final class Parser {
         return new Preprocessing.Fragment(fragment.range(), fragment.include().occurrence(), fragment.spelling());
     }
 
-    private static Preprocessing preprocessing(String file, CppPreprocessor.Result result) {
+    private static Preprocessing preprocessing(String file, CppPreprocessor.Result result, com.kniazkov.cpg.build.Build.TranslationUnit unit) {
         var includes = result.includes().stream().map(i -> new Preprocessing.Include(i.occurrence(),
                 i.source().path().toString(), i.parent() == null ? null : i.parent().occurrence())).toList();
         var tokens = new java.util.ArrayList<Preprocessing.Token>();
@@ -109,7 +115,7 @@ public final class Parser {
                 e.operations().stream().map(o -> new Preprocessing.Operation(o.kind(), o.operator(),
                         o.fragments().stream().map(Parser::fragment).toList(), o.spelling())).toList(),
                 e.startToken(), e.endToken())).toList();
-        return new Preprocessing(file, includes, tokens, events);
+        return new Preprocessing(file, includes, tokens, events, result.sources(), unit);
     }
 
     /** Consumes top-level items until EOF, preserving the order of declarations and includes. */

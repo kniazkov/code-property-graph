@@ -29,11 +29,11 @@ class PreprocessorIT {
             @Override public void visit(MultiplyExpression node) { multiplies[0]++; }
         });
         assertEquals(2, multiplies[0]);
-        assertEquals(2, Cpg.sources(project, Language.CPP).size());
+        assertEquals(3, Cpg.sources(project, Language.CPP).size());
         var graph = run.snapshot();
         graph.containsNode("{\"kind\":\"MultiplyExpression\",\"left\":{\"name\":\"a\"},\"right\":{\"name\":\"a\"}}");
         graph.containsNode("{\"kind\":\"MultiplyExpression\",\"left\":{\"name\":\"c\"},\"right\":{\"name\":\"c\"}}");
-        assertTrue(Cpg.sources(project, Language.CPP).get("main.cpp").contains("int second();"));
+        assertTrue(Cpg.sources(project, Language.CPP).get("include/square.h").contains("int second();"));
     }
 
     @Test void macroOperationsAndRepeatedIncludesReachTheCli() throws Exception {
@@ -54,7 +54,7 @@ class PreprocessorIT {
         var expanded = CppPreprocessor.preprocess(unit, Files.readString(unit.source().path()));
         assertEquals(2, expanded.includes().stream().filter(i -> i.source().path().getFileName().toString().equals("slot.h")).count());
         assertTrue(expanded.tokens().stream().flatMap(t -> t.origins().stream()).anyMatch(o -> o.name().equals("SQUARE")));
-        assertFalse(Cpg.sources(project, Language.CPP).get("main.cpp").contains("#define"));
+        assertTrue(Cpg.sources(project, Language.CPP).get("main.cpp").contains("#define"));
     }
 
     @Test void compilationFlagsReachParserAndStayLocalToEachUnit() throws Exception {
@@ -73,8 +73,10 @@ class PreprocessorIT {
         var run = cli.runDatabase(db, "--stage", "resolved").expectStatus(0);
         assertEquals(ProjectJson.encode(project), Json.parse(run.work().resolve("snapshot.json").toFile()));
         var sources = Cpg.sources(project, Language.CPP);
-        assertTrue(sources.get("first.cpp").contains("return 7;"));
-        assertTrue(sources.get("second.cpp").contains("return 3;"));
+        assertTrue(sources.get("first.cpp").contains("return VALUE;"));
+        run.snapshot().containsNode("{\"kind\":\"FunctionDeclaration\",\"name\":\"first\",\"body\":{\"items\":[{\"kind\":\"ReturnStatement\",\"value\":{\"value\":7}}]}}");
+        assertTrue(sources.get("second.cpp").contains("return VALUE;"));
+        run.snapshot().containsNode("{\"kind\":\"FunctionDeclaration\",\"name\":\"second\",\"body\":{\"items\":[{\"kind\":\"ReturnStatement\",\"value\":{\"value\":3}}]}}");
     }
 
     @Test void missingHeaderReportsTheWholeIncludeChainWithoutExports() throws Exception {

@@ -23,7 +23,8 @@ public final class ProjectEditor {
         if (!members.contains(node)) throw new IllegalArgumentException("Node is outside the source project");
     }
 
-    /** Replaces the node at its owning edge and redirects reference edges to its replacement. */
+    /** Replaces the owning edge and redirects references. Missing replacement source range
+     * and token provenance inherit the old node's metadata; explicit metadata wins. */
     public void replace(Node node, Node replacement) {
         requireMember(node);
         if (node == source || removed.contains(node)) throw new IllegalArgumentException("Cannot replace this node");
