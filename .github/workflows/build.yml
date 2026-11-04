@@ -12,6 +12,8 @@ jobs:
           java-version: '21'
           cache: maven
       - run: mvn -B verify
+      - name: Install Graphviz for SVG end-to-end checks
+        run: command -v dot || (sudo apt-get update && sudo apt-get install -y graphviz)
       - run: bash scripts/demo.sh
       - uses: actions/upload-artifact@v4
         with:

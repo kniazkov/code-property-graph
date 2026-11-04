@@ -1,58 +1,49 @@
-<!-- Minimal Code Property Graph prototype: build and demonstration. -->
-# Code Property Graph — первый прототип
+<!-- Code Property Graph command-line interface and Java API. MIT License. -->
+# Code Property Graph
 
-Java 21, Maven, `com.kniazkov:cpg:0.0.1-SNAPSHOT`, MIT. Библиотека без runtime-зависимостей.
+Рукописный парсер Java и C++ строит единый неизменяемый `Project` из исходников одной папки. Парсер, разрешение ссылок, озеленение, свёртка, генерация исходников и визуализация используют классы из `com.kniazkov.cpg.model`.
 
-## Быстрый показ
+## Запуск из консоли
 
-```sh
-mvn verify
-bash scripts/demo.sh
-```
-
-Демонстрация обрабатывает маленькие программы на C++ и Java на каждой из четырёх стадий, компилирует полученный код и сравнивает его вывод с исходной программой. Ожидаемый результат — `40`. Нужны JDK 21, Maven, Bash и g++ с C++17. Готовый JAR и сгенерированные примеры доступны в артефакте `cpg-prototype` успешного GitHub Actions запуска.
-
-Отдельный запуск:
+Собери исполняемый JAR на JDK 21 командой `mvn verify`. Класс с `main` — `com.kniazkov.cpg.Cpg`. Для вывода SVG установи Graphviz и проверь доступность `dot -V` из той же консоли.
 
 ```sh
-java -jar target/cpg-0.0.1-SNAPSHOT.jar JAVA FOLDED examples/java target/generated-java
-java -jar target/cpg-0.0.1-SNAPSHOT.jar CPP FOLDED examples/cpp target/generated-cpp
+java -jar target/cpg-0.0.1-SNAPSHOT.jar --help
+java -jar target/cpg-0.0.1-SNAPSHOT.jar --from java --input examples/java --to cpp --out target/generated-cpp
+java -jar target/cpg-0.0.1-SNAPSHOT.jar --from cpp --input examples/cpp --stage resolved --svg target/resolved.svg
+java -jar target/cpg-0.0.1-SNAPSHOT.jar --from cpp --input examples/cpp --to java --out target/generated-java --svg target/folded.svg
 ```
 
-Выходная папка должна быть новой: CLI не перезаписывает существующие файлы.
+| Параметр | Значение |
+|---|---|
+| `--input` | Папка исходников. Читаются подходящие файлы непосредственно в ней, в порядке имён |
+| `--from` | Язык всей папки, `java` или `cpp` |
+| `--stage` | `parsed`, `resolved`, `green`, `folded`. По умолчанию `folded` |
+| `--out` | Новая папка для сгенерированных исходников |
+| `--to` | Язык исходников в `--out`. По умолчанию совпадает с `--from` |
+| `--svg` | Путь для нового SVG. Можно указать вместе с `--out` или отдельно |
 
-## API
+SVG показывает снимок **на выбранной стадии**. Сплошные стрелки ведут к детям, пунктирные — к разрешённым объявлениям. Для прежних скриптов поддерживается позиционный вызов `JAVA FOLDED examples/java target/generated-java`.
+
+## Поддерживаемые программы
+
+Примеры в `examples` содержат один класс, метод main, локальные int, присваивания, арифметику, вызовы и консольный вывод. C++ использует дополнительную свободную функцию main. Лексер пропускает комментарии и сохраняет директивы include. Диагностика неподдерживаемого синтаксиса содержит файл, строку и столбец.
+
+`resolved` связывает имена с объявлениями и однозначные квалифицированные вызовы с методами, в том числе между файлами. `green` сводит две поддерживаемые формы консольного вывода к PrintStatement. `folded` сворачивает операции над константами в диапазоне знакового 32-битного int. Деление на ноль и переполнение остаются в графе.
+
+На исходном языке доступны все четыре стадии. Для перевода примеров с выводом выбери `green` или `folded`. При переводе Java в C++ поддерживается одна папка с одним файлом и классом, содержащим main. Генератор добавляет свободную точку входа и iostream. При переводе C++ в Java поддерживается стандартная обёртка, которая вызывает Class::main() и возвращает 0. Файл класса получает расширение целевого языка. Использование аргументов командной строки Java и произвольных C++ заголовков в этих переводах вызывает диагностику.
+
+## Java API
 
 ```java
-Graph graph = Cpg.read(Path.of("examples/java"),
-    new Cpg.Options(Graph.Language.JAVA, Cpg.Stage.RESOLVED));
-Graph green = Passes.green(graph);
-Graph optimized = Passes.fold(green);
-Map<String, String> files = Cpg.sources(optimized, Graph.Language.JAVA);
-Graph.Builder mutable = optimized.mutable();
-// mutable.replace(oldNode, replacement), mutable.remove(node), node.reference(target)
-Graph snapshot = mutable.build();
+Project parsed = Cpg.read(Path.of("examples/java"), new Cpg.Options(Language.JAVA, Cpg.Stage.PARSED));
+Project ready = Passes.fold(Passes.green(Passes.resolve(parsed)));
+Map<String, String> files = Cpg.sources(ready, Language.CPP);
+DotVisualizer.renderSvg(ready, Path.of("tree.svg"));
 ```
 
-Стадии: `PARSED`, `RESOLVED`, `GREEN`, `FOLDED`. Каждая включает предшествующие. Проходы также можно вызывать отдельно; для распознавания затенённых имён `green` следует запускать после `resolve`.
+`Project`, `Language` и классы узлов находятся в пакете `com.kniazkov.cpg.model`. Каждый узел поддерживает `walk(visitor)`, `edit()` и генерацию фрагмента через `source(language)`. Для изменения ссылок и замены узлов в пределах одного проекта предусмотрен `ProjectEditor`.
 
-`Graph.Node` — неизменяемый узел. `Graph.Draft` и `Graph.Builder` — отдельная изменяемая модель. `build()` проверяет структурные ограничения, принадлежность ссылок и создаёт независимый снимок. Замена перенаправляет входящие ссылки. Удаление поддерева с входящими ссылками извне запрещено. Прежние снимки не изменяются. Структурная валидность не означает полную проверку семантики компилятором: неразрешённые имена разрешены.
+`mvn verify` запускает JUnit. `bash scripts/demo.sh` проверяет исполняемый JAR, компиляцию и запуск результатов на обоих языках и SVG через системный dot. Нужны JDK 21, g++, Graphviz, Python 3 и Bash. В CI результаты демонстрации доступны в артефакте `cpg-prototype`.
 
-## Ровно поддерживаемый объём
-
-- Одна папка без рекурсии, один явно заданный язык, только `.java` или `.cpp` соответственно. Файлы обрабатываются в сортированном порядке, остальные игнорируются. Пустая подходящая выборка даёт пустой проект.
-- Один класс с `public static void main(String[] args)` в Java; в C++ — класс с `public: static void main()` и свободная `int main()`.
-- Локальные `int` с инициализацией, присваивание, десятичные целые, `+ - * /`, скобки, унарные знаки, вызовы, доступ через `.` / `::`, `return`.
-- `System.out.println(value)` и `std::cout << value << std::endl` сначала представлены обычными вызовами/операторами. Отдельный проход превращает эти точные формы в общий `PRINT`.
-- Ссылки локальных переменных и однозначных квалифицированных вызовов `Class::main`, в том числе между файлами. Внешние символы остаются неразрешёнными. Полное разрешение типов, перегрузок и импортов отсутствует.
-- Свёртка выражений из литералов, без распространения значений переменных. Модель примеров: знаковый 32-битный `int`, C++17 на обычной платформе с 32-битным `int`. Переполнение и деление на ноль не сворачиваются.
-- `#include` сохраняется, заголовки не читаются. Комментарии пропускаются. Макросы, циклы, условия, строки, поля, конструкторы и произвольные сигнатуры методов не поддерживаются.
-- Ошибка разбора даёт `ParseException` с файлом, строкой, столбцом и причиной; частичный граф не возвращается.
-
-Озеленение стандартного вывода в этом прототипе опирается на точную форму выражений и отсутствие разрешённого затеняющего имени. Это не полноценное доказательство принадлежности символа стандартной библиотеке.
-
-Генерация целых примеров проверяется на исходном языке. Общие выражения и `PRINT` можно генерировать в оба языка через `node.source(language)`. Непереносимые конструкции ограничивают `node.languages()`; полной трансляции классов и точек входа между языками в прототипе нет. Классификация пока реализована только для C++ и Java; поддержка остальных языков — следующий этап.
-
-Требования и журнал решений: [docs/requirements.ru.md](docs/requirements.ru.md).
-
-Исследование общих синтаксических узлов C, C++, Java, Python и JavaScript: [обзор и документы](docs/research/language-nodes/README.ru.md).
+[Требования](docs/requirements.ru.md) · [Модель узлов](docs/node-model.ru.md) · [Иерархия и Visitor](docs/node-hierarchy.ru.md) · [Сравнение языков](docs/research/language-nodes/README.ru.md)
