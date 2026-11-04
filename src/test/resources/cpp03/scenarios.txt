@@ -9,3 +9,4 @@ macros
 missing-header
 provenance
 build-variants
+conditional-catalog

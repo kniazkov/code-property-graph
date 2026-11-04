@@ -15,7 +15,17 @@ class PackagedCliIT {
         var cli = new CliSandbox(temp).source("main.cpp", "int main() { return 0; }");
         var run = cli.run("cpp", "--stage", "resolved").expectStatus(0);
         run.expectSources(Map.of("main.cpp", "/e2e/return-zero.cpp"));
-        run.snapshot().exactly("/json/return-zero.json", Map.of("FILE_PATH", cli.input.resolve("main.cpp").toString()));
+        var unit = new com.kniazkov.cpg.build.Build.TranslationUnit(
+                new com.kniazkov.cpg.build.Build.PhysicalSource(cli.input.resolve("main.cpp")),
+                cli.input, java.util.List.of(), java.util.List.of(), null);
+        String key = "cli:" + unit.variantId();
+        var substitutions = new java.util.HashMap<String, String>(Map.of(
+                "FILE_PATH", cli.input.resolve("main.cpp").toString(), "CONFIG_KEY", key,
+                "ARGV_KEY", key + ":argv", "ARGV_TEXT", java.util.List.of("--from", "cpp", "--input", cli.input.toString(),
+                        "--json", "snapshot.json", "--out", "generated", "--stage", "resolved").toString()));
+        for (String name : java.util.List.of("__cplusplus", "__FILE__", "__LINE__", "__DATE__", "__TIME__"))
+            substitutions.put("PREDEFINED_" + name, cli.input.resolve("<predefined:" + name + ">").toString());
+        run.snapshot().exactly("/json/return-zero-cli.json", substitutions);
         assertFalse(run.stderr().contains("warning ["), run.stderr());
     }
 

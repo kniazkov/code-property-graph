@@ -100,6 +100,7 @@ public final class DotVisualizer {
         private final Map<Preprocessing, Integer> units = new IdentityHashMap<>();
         private final java.util.Set<String> events = new java.util.HashSet<>();
         private int fragmentCounter;
+        private final Map<String, Node> externalInputs = new java.util.LinkedHashMap<>();
 
         private final StringBuilder dot = new StringBuilder("""
                 digraph CPG {
@@ -111,6 +112,7 @@ public final class DotVisualizer {
         @Override
         public void visit(Node node) {
             int from = id(node);
+            if (node instanceof ExternalInput input) externalInputs.put(input.key(), input);
             int index = 0;
             for (Node child : node.children()) {
                 int to = id(child);
@@ -127,6 +129,27 @@ public final class DotVisualizer {
         private void provenance(Node node) {
             node.provenance().ifPresent(p -> {
                 int unit = units.computeIfAbsent(p.unit(), ignored -> units.size());
+                if (node instanceof SourceFile) {
+                    for (var definition : p.unit().definitions()) {
+                        String key = "p" + unit + "d" + definition.id();
+                        provenanceNode(key, "definition " + definition.name() + " = " + definition.rawReplacement());
+                        provenanceEdge("n" + id(node), key, "catalogue");
+                        Node input = externalInputs.get(definition.sourceKey());
+                        if (input != null) provenanceEdge(key, "n" + id(input), "configuration source");
+                        else fragment(key, "source definition", definition.range(), definition.rawReplacement());
+                    }
+                    for (var check : p.unit().presenceChecks()) {
+                        String key = "p" + unit + "c" + check.id();
+                        provenanceNode(key, "presence check " + check.name() + " = " + check.present());
+                        provenanceEdge("n" + id(node), key, "condition");
+                        if (check.definitionId() != null) provenanceEdge(key, "p" + unit + "d" + check.definitionId(), "current definition");
+                    }
+                    for (var branch : p.unit().branches()) {
+                        String key = "p" + unit + "b" + branch.id();
+                        provenanceNode(key, branch.directive() + " active=" + branch.active() + "\n" + branch.rawSource());
+                        provenanceEdge("n" + id(node), key, "conditional branch");
+                    }
+                }
                 var expansions = node instanceof SourceFile ? p.unit().expansions() : p.expansions();
                 for (var event : expansions) {
                     String eventId = event(p.unit(), unit, event);
@@ -140,6 +163,8 @@ public final class DotVisualizer {
             if (!events.add(key)) return key;
             provenanceNode(key, "macro " + event.name() + " [TU " + unit + ", event " + event.id()
                     + ", include " + event.includeId() + "]");
+            if (data.definitions().stream().anyMatch(d -> d.id() == event.definitionId()))
+                provenanceEdge(key, "p" + unit + "d" + event.definitionId(), "definition");
             fragment(key, "invocation", event.invocation(), "");
             fragment(key, "definition", event.definition(), "");
             for (var f : event.replacement()) {
@@ -284,6 +309,8 @@ public final class DotVisualizer {
         public void visit(SourceFile node) {
             detail = node.path();
         }
+
+        @Override public void visit(ExternalInput node) { detail = node.role() + ": " + node.text(); }
 
     }
 }

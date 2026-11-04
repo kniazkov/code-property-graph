@@ -174,6 +174,173 @@
       },
       "preprocessing": {
         "translationUnit": "FILE_PATH",
+        "includeStates": [
+          {
+            "includeId": 0,
+            "activeDefinitions": {
+              "__cplusplus": 1,
+              "__FILE__": 2,
+              "__LINE__": 3,
+              "__DATE__": 4,
+              "__TIME__": 5
+            }
+          }
+        ],
+        "definitions": [
+          {
+            "id": 1,
+            "name": "__cplusplus",
+            "functionLike": false,
+            "parameters": [],
+            "rawReplacement": "199711L",
+            "range": {
+              "file": "PREDEFINED___cplusplus",
+              "start": {
+                "line": 1,
+                "column": 1,
+                "offset": 0
+              },
+              "end": {
+                "line": 1,
+                "column": 12,
+                "offset": 11
+              }
+            },
+            "includeId": 0,
+            "originKind": "predefined",
+            "sourceKey": "profile:c++03:__cplusplus",
+            "sourceNodeId": 9,
+            "expansionIds": [],
+            "presenceCheckIds": []
+          },
+          {
+            "id": 2,
+            "name": "__FILE__",
+            "functionLike": false,
+            "parameters": [],
+            "rawReplacement": "",
+            "range": {
+              "file": "PREDEFINED___FILE__",
+              "start": {
+                "line": 1,
+                "column": 1,
+                "offset": 0
+              },
+              "end": {
+                "line": 1,
+                "column": 9,
+                "offset": 8
+              }
+            },
+            "includeId": 0,
+            "originKind": "predefined",
+            "sourceKey": "profile:c++03:__FILE__",
+            "sourceNodeId": 10,
+            "expansionIds": [],
+            "presenceCheckIds": []
+          },
+          {
+            "id": 3,
+            "name": "__LINE__",
+            "functionLike": false,
+            "parameters": [],
+            "rawReplacement": "",
+            "range": {
+              "file": "PREDEFINED___LINE__",
+              "start": {
+                "line": 1,
+                "column": 1,
+                "offset": 0
+              },
+              "end": {
+                "line": 1,
+                "column": 9,
+                "offset": 8
+              }
+            },
+            "includeId": 0,
+            "originKind": "predefined",
+            "sourceKey": "profile:c++03:__LINE__",
+            "sourceNodeId": 11,
+            "expansionIds": [],
+            "presenceCheckIds": []
+          },
+          {
+            "id": 4,
+            "name": "__DATE__",
+            "functionLike": false,
+            "parameters": [],
+            "rawReplacement": "",
+            "range": {
+              "file": "PREDEFINED___DATE__",
+              "start": {
+                "line": 1,
+                "column": 1,
+                "offset": 0
+              },
+              "end": {
+                "line": 1,
+                "column": 9,
+                "offset": 8
+              }
+            },
+            "includeId": 0,
+            "originKind": "predefined",
+            "sourceKey": "profile:c++03:__DATE__",
+            "sourceNodeId": 12,
+            "expansionIds": [],
+            "presenceCheckIds": []
+          },
+          {
+            "id": 5,
+            "name": "__TIME__",
+            "functionLike": false,
+            "parameters": [],
+            "rawReplacement": "",
+            "range": {
+              "file": "PREDEFINED___TIME__",
+              "start": {
+                "line": 1,
+                "column": 1,
+                "offset": 0
+              },
+              "end": {
+                "line": 1,
+                "column": 9,
+                "offset": 8
+              }
+            },
+            "includeId": 0,
+            "originKind": "predefined",
+            "sourceKey": "profile:c++03:__TIME__",
+            "sourceNodeId": 13,
+            "expansionIds": [],
+            "presenceCheckIds": []
+          }
+        ],
+        "branches": [],
+        "presenceChecks": [],
+        "directives": [],
+        "logicalLocations": [
+          {
+            "range": {
+              "file": "FILE_PATH",
+              "start": {
+                "line": 1,
+                "column": 1,
+                "offset": 0
+              },
+              "end": {
+                "line": 1,
+                "column": 25,
+                "offset": 24
+              }
+            },
+            "includeId": 0,
+            "file": "FILE_PATH",
+            "line": 1
+          }
+        ],
         "includes": [
           {
             "id": 0,
@@ -664,6 +831,65 @@
         ],
         "expansions": []
       }
+    }
+  ],
+  "externalInputs": [
+    {
+      "id": 8,
+      "kind": "ExternalInput",
+      "key": "profile:c++03",
+      "role": "language-profile",
+      "text": "C++03",
+      "inputs": [
+        {
+          "id": 9,
+          "kind": "ExternalInput",
+          "key": "profile:c++03:__cplusplus",
+          "role": "predefined-macro",
+          "text": "__cplusplus=199711L",
+          "inputs": []
+        },
+        {
+          "id": 10,
+          "kind": "ExternalInput",
+          "key": "profile:c++03:__FILE__",
+          "role": "predefined-macro",
+          "text": "__FILE__",
+          "inputs": []
+        },
+        {
+          "id": 11,
+          "kind": "ExternalInput",
+          "key": "profile:c++03:__LINE__",
+          "role": "predefined-macro",
+          "text": "__LINE__",
+          "inputs": []
+        },
+        {
+          "id": 12,
+          "kind": "ExternalInput",
+          "key": "profile:c++03:__DATE__",
+          "role": "predefined-macro",
+          "text": "__DATE__",
+          "inputs": []
+        },
+        {
+          "id": 13,
+          "kind": "ExternalInput",
+          "key": "profile:c++03:__TIME__",
+          "role": "predefined-macro",
+          "text": "__TIME__",
+          "inputs": []
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "kind": "ExternalInput",
+      "key": "CONFIG_KEY",
+      "role": "java-api",
+      "text": "Java API configuration",
+      "inputs": []
     }
   ]
 }

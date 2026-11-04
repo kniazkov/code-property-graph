@@ -93,8 +93,8 @@ class Cpp03CorpusIT {
                     .map(p -> run.work().resolve("generated").relativize(p).toString()
                             .replace(java.io.File.separatorChar, '/')).toList()));
         }
-        assertEquals(ProjectJson.encode(project), Json.parse(run.work().resolve("snapshot.json").toFile()),
-                "API and CLI graphs including links and source positions");
+        com.kniazkov.cpg.SnapshotAssertions.assertEquivalent(ProjectJson.encode(project),
+                Json.parse(run.work().resolve("snapshot.json").toFile()));
         for (var entry : apiSources.entrySet())
             assertEquals(entry.getValue(), Files.readString(run.work().resolve("generated").resolve(entry.getKey())));
         var graph = run.snapshot();
@@ -104,8 +104,12 @@ class Cpp03CorpusIT {
                     settings.getProperty("edge.to"));
         String expected = settings.getProperty("stdout");
         int exit = Integer.parseInt(settings.getProperty("exit"));
-        for (Path source : List.of(sourceInput, run.work().resolve("generated")))
-            nativePrograms(work, source, expected, exit);
+        for (Path source : List.of(sourceInput, run.work().resolve("generated"))) {
+            nativePrograms(work, source, expected, exit, settings.containsKey("native.flag")
+                    ? new String[]{settings.getProperty("native.flag")} : new String[0]);
+            if (Boolean.parseBoolean(settings.getProperty("native.also-without-flag", "false")))
+                nativePrograms(work, source, expected, exit);
+        }
         if (settings.containsKey("edited.stdout")) {
             var changed = Cpg.sources(MacroEdits.squareRightOperand(project), Language.CPP);
             Path changedRoot = Files.createDirectory(work.resolve("graph-edited"));

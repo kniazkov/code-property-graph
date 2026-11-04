@@ -58,7 +58,8 @@ public final class Main {
         String provenance = flags.getOrDefault("--provenance", "on");
         if (!provenance.equals("on") && !provenance.equals("off"))
             throw new IllegalArgumentException("--provenance must be on or off");
-        Cpg.Options options = new Cpg.Options(from, stage, flags.get("--cpp-standard"));
+        Cpg.Options options = new Cpg.Options(from, stage, flags.get("--cpp-standard"),
+                com.kniazkov.cpg.build.Build.ConfigurationSource.cli(Arrays.asList(args)));
         Project project = flags.containsKey("--compile-commands")
                 ? Cpg.readCompilationDatabase(Path.of(flags.get("--compile-commands")), options)
                 : Cpg.read(Path.of(flags.get("--input")), options);

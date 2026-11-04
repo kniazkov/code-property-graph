@@ -8,6 +8,16 @@ import java.util.Objects;
 /** Root containing source files. */
 public final class Project extends Node {
     private List<SourceFile> files = List.of();
+    private List<ExternalInput> externalInputs = List.of();
+    public List<ExternalInput> externalInputs() { return externalInputs; }
+    /** Resolves provenance to the actual owned node in this snapshot, also after edits. */
+    public java.util.Optional<ExternalInput> externalInput(String key) {
+        var found = new java.util.ArrayList<ExternalInput>();
+        for (var input : externalInputs) input.walk(new NodeVisitor() {
+            @Override public void visit(ExternalInput node) { if (node.key().equals(key)) found.add(node); }
+        });
+        return found.stream().findFirst();
+    }
     private com.kniazkov.cpg.build.Build build;
 
     public java.util.Optional<com.kniazkov.cpg.build.Build> build() { return java.util.Optional.ofNullable(build); }
@@ -45,6 +55,7 @@ public final class Project extends Node {
     public Project withFlows(List<FunctionFlow> results) {
         var copy = new Project();
         copy.files = files;
+        copy.externalInputs = externalInputs;
         copy.build = build;
         copy.flows = List.copyOf(results);
         var owners = new java.util.HashSet<CallableDeclaration>();
@@ -113,6 +124,7 @@ public final class Project extends Node {
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         children.addAll(files);
+        children.addAll(externalInputs);
         return List.copyOf(children);
     }
 
@@ -136,6 +148,7 @@ public final class Project extends Node {
         context.register(this, builder);
         builder.files = context.copyAll(files, SourceFile.class);
         builder.build = build;
+        builder.externalInputs = context.copyAll(externalInputs, ExternalInput.class);
         return builder;
     }
 
@@ -143,6 +156,8 @@ public final class Project extends Node {
     public static final class Builder extends NodeBuilder<Project> {
         private List<NodeBuilder<? extends SourceFile>> files = new ArrayList<>();
         private com.kniazkov.cpg.build.Build build;
+        private List<NodeBuilder<? extends ExternalInput>> externalInputs = new ArrayList<>();
+        public Builder addExternalInput(ExternalInput.Builder value) { externalInputs.add(value); return this; }
         public Builder setBuild(com.kniazkov.cpg.build.Build value) { build = value; return this; }
 
         private Builder() {
@@ -172,6 +187,17 @@ public final class Project extends Node {
         void fillNode(Project node, BuildContext context) {
             node.files = context.copyAll(files);
             node.build = build;
+            var inputs = new java.util.LinkedHashMap<String, ExternalInput.Builder>();
+            for (var input : externalInputs) {
+                var builder = (ExternalInput.Builder) input;
+                inputs.put(builder.inputKey(), builder);
+            }
+            for (var generated : ExternalInputs.create(node.files, build)) {
+                var existing = inputs.get(generated.inputKey());
+                if (existing == null) inputs.put(generated.inputKey(), generated);
+                else existing.mergeMissing(generated);
+            }
+            node.externalInputs = context.copyAll(new ArrayList<>(inputs.values()));
         }
     }
 }

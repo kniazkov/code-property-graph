@@ -37,6 +37,7 @@ public final class CompilationDatabase {
                 List<MacroOperation> macros = new ArrayList<>();
                 String standard = null;
                 for (int i = 1; i < args.size(); i++) {
+                    int argumentIndex = i;
                     String arg = args.get(i);
                     String key = null, value = null;
                     for (String candidate : List.of("-isystem", "-iquote", "-I", "-D", "-U", "-std")) {
@@ -55,7 +56,8 @@ public final class CompilationDatabase {
                         if (value.isEmpty()) throw new IllegalArgumentException("empty operand for " + key);
                         switch (key) {
                             case "-std" -> standard = value;
-                            case "-D", "-U" -> macros.add(new MacroOperation(key.equals("-D"), value));
+                            case "-D", "-U" -> macros.add(new MacroOperation(key.equals("-D"), value,
+                                    "argument:" + argumentIndex, arg, args.subList(argumentIndex, i + 1)));
                             default -> includes.add(new IncludePath(key, directory.resolve(value).normalize()));
                         }
                     } else if (Set.of("-o", "-MF", "-MT", "-MQ").contains(arg)) {
@@ -67,7 +69,8 @@ public final class CompilationDatabase {
                         // Source operand.
                     } else throw new IllegalArgumentException("unsupported compiler option " + arg);
                 }
-                units.add(new TranslationUnit(new PhysicalSource(source), directory, includes, macros, standard));
+                units.add(new TranslationUnit(new PhysicalSource(source), directory, includes, macros, standard,
+                        ConfigurationSource.database(database, n, args)));
             } catch (RuntimeException ex) {
                 throw new IllegalArgumentException(name + ": " + ex.getMessage(), ex);
             }

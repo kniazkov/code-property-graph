@@ -3,6 +3,10 @@ package com.kniazkov.cpg.parser;
 
 import com.kniazkov.cpg.build.Build;
 import com.kniazkov.cpg.model.SourceRange;
+import com.kniazkov.cpg.model.SourcePosition;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,8 +15,8 @@ import static com.kniazkov.cpg.parser.PreprocessingToken.Kind.*;
 
 /**
  * Translation-unit-local macro expansion and recursive header inclusion. Input
- * files always pass through CppLexer phases 1–3. Conditional support is limited
- * to ifdef/ifndef/else/endif (include guards); #if expressions are a later stage.
+ * files always pass through CppLexer phases 1–3. Conditional groups retain their
+ * original source, including skipped groups and expression fragments.
  * Empty actual arguments and invalid pastes are diagnosed rather than assigning
  * meaning to C++03 undefined behavior. Zero-parameter invocations and arguments
  * that become empty after expansion are supported; variadic macros are not.
@@ -50,19 +54,63 @@ public final class CppPreprocessor {
      */
     public record ExpansionEvent(long id, String name, SourceRange definition, List<Fragment> replacement,
             SourceRange invocation, Build.IncludeInstance include, Long parentId,
-            List<List<Fragment>> arguments, List<Operation> operations, int startToken, int endToken) {
+            List<List<Fragment>> arguments, List<Operation> operations, int startToken, int endToken, long definitionId) {
+        public ExpansionEvent(long id, String name, SourceRange definition, List<Fragment> replacement,
+                SourceRange invocation, Build.IncludeInstance include, Long parentId,
+                List<List<Fragment>> arguments, List<Operation> operations, int startToken, int endToken) {
+            this(id, name, definition, replacement, invocation, include, parentId, arguments, operations, startToken, endToken, 0);
+        }
         public ExpansionEvent {
             replacement = List.copyOf(replacement);
             arguments = arguments.stream().map(List::copyOf).toList();
             operations = List.copyOf(operations);
         }
     }
+    /** Every executed definition, including unused definitions and repeated identical definitions. */
+    public record Definition(long id, String name, boolean functionLike, List<String> parameters,
+            String rawReplacement, SourceRange range, Build.IncludeInstance include,
+            String originKind, String sourceKey) {
+        public Definition { parameters = List.copyOf(parameters); }
+    }
+    /** A conditional arm's physical text, and its contribution to the expanded token stream. */
+    public record Branch(long id, String directive, String rawSource, SourceRange range,
+            SourceRange directiveRange, Build.IncludeInstance include, Long parentId,
+            boolean parentActive, boolean evaluated, boolean conditionResult, boolean active,
+            int startToken, int endToken) {}
+    /** Presence is a query, never a fabricated value expansion. */
+    public record PresenceCheck(long id, String name, SourceRange range, Build.IncludeInstance include,
+            boolean present, boolean conditionResult, Long definitionId, long branchId) {}
+    /** Unknown pragmas are retained and ignored; skipped directives are retained without evaluation. */
+    public record Directive(String kind, String rawSource, SourceRange range,
+            Build.IncludeInstance include, boolean active) {}
+    /** Presumed filename/line is separate from the immutable physical source span. */
+    public record LogicalLocation(SourceRange range, Build.IncludeInstance include, String file, int line) {}
+    public record IncludeState(Build.IncludeInstance include, Map<String, Long> activeDefinitions) {
+        public IncludeState { activeDefinitions = Collections.unmodifiableMap(new LinkedHashMap<>(activeDefinitions)); }
+    }
     public record Result(List<ExpandedToken> tokens, List<Build.IncludeInstance> includes,
-            List<ExpansionEvent> expansions, Map<String, String> sources) {
-        public Result { tokens = List.copyOf(tokens); includes = List.copyOf(includes); expansions = List.copyOf(expansions); sources = Collections.unmodifiableMap(new LinkedHashMap<>(sources)); }
+            List<ExpansionEvent> expansions, Map<String, String> sources, List<Definition> definitions,
+            List<Branch> branches, List<PresenceCheck> presenceChecks, List<Directive> directives,
+            List<LogicalLocation> logicalLocations, List<IncludeState> includeStates, Instant translationTime) {
+        public Result {
+            tokens = List.copyOf(tokens); includes = List.copyOf(includes); expansions = List.copyOf(expansions);
+            sources = Collections.unmodifiableMap(new LinkedHashMap<>(sources)); definitions = List.copyOf(definitions);
+            branches = List.copyOf(branches); presenceChecks = List.copyOf(presenceChecks);
+            directives = List.copyOf(directives); logicalLocations = List.copyOf(logicalLocations); includeStates = List.copyOf(includeStates);
+        }
+        public Result(List<ExpandedToken> tokens, List<Build.IncludeInstance> includes,
+                List<ExpansionEvent> expansions, Map<String, String> sources, List<Definition> definitions,
+                List<Branch> branches, List<PresenceCheck> presenceChecks, List<Directive> directives,
+                List<LogicalLocation> logicalLocations, List<IncludeState> includeStates) {
+            this(tokens, includes, expansions, sources, definitions, branches, presenceChecks, directives,
+                    logicalLocations, includeStates, Instant.EPOCH);
+        }
         public Result(List<ExpandedToken> tokens, List<Build.IncludeInstance> includes) { this(tokens, includes, List.of(), Map.of()); }
         public Result(List<ExpandedToken> tokens, List<Build.IncludeInstance> includes, List<ExpansionEvent> expansions) {
             this(tokens, includes, expansions, Map.of());
+        }
+        public Result(List<ExpandedToken> tokens, List<Build.IncludeInstance> includes, List<ExpansionEvent> expansions, Map<String, String> sources) {
+            this(tokens, includes, expansions, sources, List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), Instant.EPOCH);
         }
     }
 
@@ -78,9 +126,15 @@ public final class CppPreprocessor {
         return new Processor(unit, Map.copyOf(sources)).run(source);
     }
 
+    /** Explicit UTC translation time for reproducible captures; defaults use the actual start time. */
+    public static Result preprocess(Build.TranslationUnit unit, String source, Map<String, String> sources, Instant translationTime) {
+        com.kniazkov.cpg.build.CppStandard.require(unit.standard(), unit.source().path().toString());
+        return new Processor(unit, sources == null ? null : Map.copyOf(sources), translationTime).run(source);
+    }
+
     // Deliberately only the library header currently modeled by the parser.
     private static final Set<String> OPAQUE_HEADERS = Set.of("iostream");
-    private record Macro(String name, List<String> parameters, List<Work> replacement, SourceRange definition, SourceRange fullDefinition) {}
+    private record Macro(long id, String name, List<String> parameters, List<Work> replacement, SourceRange definition, SourceRange fullDefinition) {}
     private record Work(ExpandedToken value, Set<String> hidden, boolean paste,
             boolean anchor, List<Fragment> fragments) {
         Work(ExpandedToken value) { this(value, Set.of(), false); }
@@ -91,16 +145,46 @@ public final class CppPreprocessor {
         String text() { return value.token().canonicalSpelling(); }
         boolean space() { return anchor || value.token().kind() == WHITESPACE || value.token().kind() == NEWLINE; }
     }
-    private record Conditional(boolean parentActive, boolean condition, boolean seenElse) {
-        boolean active() { return parentActive && (seenElse ? !condition : condition); }
+    private record Conditional(boolean parentActive, boolean taken, boolean seenElse, Arm arm) {
+        boolean active() { return arm.active; }
+    }
+    private static final class Arm {
+        long id; String directive; SourceRange directiveRange; Build.IncludeInstance include;
+        Long parent; boolean parentActive, evaluated, condition, active;
+        String source; int start, end, startOutput, endOutput;
+        Branch freeze(int[] bounds) {
+            SourceRange range = physicalRange(directiveRange.file(), source, start, end);
+            return new Branch(id, directive, source.substring(start, end), range, directiveRange,
+                    include, parent, parentActive, evaluated, condition, active, bounds[startOutput], bounds[endOutput]);
+        }
+    }
+    private static SourceRange physicalRange(String file, String source, int start, int end) {
+        int line = 1, column = 1; SourcePosition first = null, last = null;
+        for (int i = 0; i <= end; i++) {
+            if (i == start) first = new SourcePosition(line, column, i);
+            if (i == end) { last = new SourcePosition(line, column, i); break; }
+            char ch = source.charAt(i);
+            if (ch == '\r' || ch == '\n' && (i == 0 || source.charAt(i - 1) != '\r')) { line++; column = 1; }
+            else if (ch != '\n') column++;
+        }
+        return new SourceRange(file, first, last);
     }
     private static final class Processor {
         private final Build.TranslationUnit unit;
         private final Map<String, String> captured = new LinkedHashMap<>();
         private final Map<String, String> virtualSources;
+        private final Map<String, String> definitionSources = new HashMap<>();
         private final Map<String, Macro> macros = new LinkedHashMap<>();
         private final List<Build.IncludeInstance> includes = new ArrayList<>();
         private final List<Work> output = new ArrayList<>();
+        private final List<Definition> definitions = new ArrayList<>();
+        private final List<Arm> branches = new ArrayList<>();
+        private final List<PresenceCheck> presenceChecks = new ArrayList<>();
+        private final List<Directive> directives = new ArrayList<>();
+        private final List<LogicalLocation> logicalLocations = new ArrayList<>();
+        private final List<IncludeState> includeStates = new ArrayList<>();
+        private final Instant translationTime;
+        private static final Set<String> BUILTINS = Set.of("__LINE__", "__FILE__", "__DATE__", "__TIME__", "__cplusplus");
         private long occurrence;
         private long expansions;
         private final List<Event> events = new ArrayList<>();
@@ -122,7 +206,7 @@ public final class CppPreprocessor {
             }
             ExpansionEvent freeze() {
                 return new ExpansionEvent(id, macro.name, macro.fullDefinition, fragments(macro.replacement),
-                        call, include, parent, arguments, operations, start, end);
+                        call, include, parent, arguments, operations, start, end, macro.id);
             }
         }
         static List<Fragment> fragments(List<Work> tokens) {
@@ -135,7 +219,9 @@ public final class CppPreprocessor {
         }
         Result finish() {
             var tokens = new ArrayList<ExpandedToken>();
+            int[] bounds = new int[output.size() + 1]; int outputIndex = 0;
             for (Work token : output) {
+                bounds[outputIndex++] = tokens.size();
                 for (long id : token.value.expansionIds()) {
                     Event event = events.get((int) id - 1);
                     if (token.anchor) { if (event.anchor < 0) event.anchor = tokens.size(); }
@@ -143,6 +229,7 @@ public final class CppPreprocessor {
                 }
                 if (!token.anchor) tokens.add(token.value);
             }
+            bounds[output.size()] = tokens.size();
             // Consumed anchors (e.g. an empty argument of a later invocation) use
             // their enclosing expansion's boundary, never a fabricated source offset.
             for (Event event : events) if (event.start < 0) {
@@ -150,12 +237,17 @@ public final class CppPreprocessor {
                 event.start = event.anchor >= 0 ? event.anchor : parent != null ? parent.start : 0;
                 event.end = event.start;
             }
-            return new Result(tokens, includes, events.stream().map(Event::freeze).toList(), captured);
+            return new Result(tokens, includes, events.stream().map(Event::freeze).toList(), captured, definitions,
+                    branches.stream().map(arm -> arm.freeze(bounds)).toList(), presenceChecks, directives, logicalLocations, includeStates, translationTime);
         }
-        Processor(Build.TranslationUnit unit, Map<String, String> sources) { this.unit = unit; this.virtualSources = sources; }
+        Processor(Build.TranslationUnit unit, Map<String, String> sources) { this(unit, sources, Instant.now()); }
+        Processor(Build.TranslationUnit unit, Map<String, String> sources, Instant time) {
+            this.unit = unit; this.virtualSources = sources; this.translationTime = Objects.requireNonNull(time);
+        }
 
         Result run(String source) {
             var root = instance(unit.source().path(), null);
+            predefined(root);
             int operationOrdinal = 0;
             for (var operation : unit.macros()) {
                 // Build options have their own synthetic text buffers, not offsets
@@ -165,10 +257,12 @@ public final class CppPreprocessor {
                 if (operation.define()) {
                     int equals = operand.indexOf('=');
                     String definition = equals < 0 ? operand + " 1" : operand.substring(0, equals) + " " + operand.substring(equals + 1);
-                    define(wrap(CppLexer.scan(optionSource, definition).tokens(), root));
+                    definitionSources.put(optionSource, definition);
+                    define(wrap(CppLexer.scan(optionSource, definition).tokens(), root), "command-line", Integer.toString(operationOrdinal));
                 } else {
                     var name = significant(wrap(CppLexer.scan(optionSource, operand).tokens(), root));
                     if (name.size() != 1 || !identifier(name.get(0))) throw error(root, "Invalid -U operand: " + operand);
+                    rejectReserved(name.get(0));
                     macros.remove(name.get(0).text());
                 }
             }
@@ -185,64 +279,90 @@ public final class CppPreprocessor {
             return tokens.stream().filter(t -> t.kind() != EOF).map(t -> new Work(new ExpandedToken(t, include, List.of(), t.range()))).toList();
         }
         void process(Build.IncludeInstance include, String source, int depth) {
-            String previous = captured.putIfAbsent(include.source().path().toString(), source);
+            String file = include.source().path().toString();
+            String previous = captured.putIfAbsent(file, source);
             if (previous != null && !previous.equals(source)) throw error(include, "Physical source changed while preprocessing");
             if (depth > 128) throw error(include, "Include nesting limit exceeded (possible unguarded cycle)");
-            List<Work> input;
-            try { input = wrap(CppLexer.scan(include.source().path().toString(), source).tokens(), include); }
+            List<Work> input; SourcePosition eof;
+            try { var scanned = CppLexer.scan(file, source); input = wrap(scanned.tokens(), include); eof = scanned.eof(); }
             catch (ParseException e) { throw withChain(e, include); }
             var conditions = new ArrayDeque<Conditional>();
             var pending = new ArrayList<Work>();
+            String logicalFile = file; int lineDelta = 0;
             for (int i = 0; i < input.size();) {
                 int end = i;
                 while (end < input.size() && input.get(end).value.token().kind() != NEWLINE) end++;
                 var line = input.subList(i, end);
-                var significant = significant(line);
+                var sig = significant(line);
+                int lineStart = input.get(i).value.token().range().start().offset();
+                int lineEnd = end < input.size() ? input.get(end).value.token().range().end().offset() : source.length();
+                var lineRange = new SourceRange(file, input.get(i).value.token().range().start(),
+                        end < input.size() ? input.get(end).value.token().range().end() : eof);
+                logicalLocations.add(new LogicalLocation(lineRange, include, logicalFile, lineRange.start().line() + lineDelta));
                 boolean active = conditions.isEmpty() || conditions.peek().active();
-                if (!significant.isEmpty() && significant.get(0).text().equals("#")) {
+                if (!sig.isEmpty() && sig.get(0).text().equals("#")) {
                     output.addAll(expand(pending)); pending.clear();
-                    if (significant.size() > 1) {
-                        String directive = significant.get(1).text();
-                        var args = significant.subList(2, significant.size());
-                        Work location = significant.get(1);
+                    String directive = sig.size() == 1 ? "" : sig.get(1).text();
+                    directives.add(new Directive(directive, source.substring(lineStart, lineEnd), lineRange, include, active));
+                    if (sig.size() > 1) {
+                        var args = sig.subList(2, sig.size()); Work location = sig.get(1);
+                        var rawArgs = line.subList(line.indexOf(location) + 1, line.size());
                         switch (directive) {
-                            case "ifdef", "ifndef" -> {
-                                // In a skipped group only the directive name is processed
-                                // ([cpp.cond]/6); even nested conditional operands are ignored.
-                                if (!active) {
-                                    conditions.push(new Conditional(false, false, false));
-                                    break;
+                            case "ifdef", "ifndef", "if" -> {
+                                Arm arm = arm(directive, lineRange, include, conditions.isEmpty() ? null : conditions.peek().arm.id,
+                                        active, source, lineStart);
+                                if (active) {
+                                    arm.evaluated = true;
+                                    if (directive.equals("if")) arm.condition = condition(rawArgs, arm, location);
+                                    else {
+                                        if (args.size() != 1 || !identifier(args.get(0))) throw error(location, "Expected one macro name after #" + directive);
+                                        arm.condition = presence(args.get(0), arm.id, directive.equals("ifndef"));
+                                    }
                                 }
-                                if (args.size() != 1 || !identifier(args.get(0))) throw error(location, "Expected one macro name after #" + directive);
-                                boolean defined = macros.containsKey(args.get(0).text());
-                                conditions.push(new Conditional(active, directive.equals("ifdef") ? defined : !defined, false));
+                                arm.active = active && arm.condition;
+                                conditions.push(new Conditional(active, arm.active, false, arm));
                             }
-                            case "if" -> {
-                                if (active) throw error(location, "#if expressions are not supported yet");
-                                conditions.push(new Conditional(false, false, false));
-                            }
-                            case "else" -> {
-                                if (conditions.isEmpty() || conditions.peek().seenElse || conditions.peek().parentActive && !args.isEmpty()) throw error(location, "Unmatched or malformed #else");
-                                var old = conditions.pop(); conditions.push(new Conditional(old.parentActive, old.condition, true));
+                            case "elif", "else" -> {
+                                if (conditions.isEmpty() || conditions.peek().seenElse) throw error(location, "Unmatched or malformed #" + directive);
+                                var old = conditions.pop(); close(old.arm, lineStart);
+                                if (directive.equals("else") && old.parentActive && !args.isEmpty()) throw error(location, "Unmatched or malformed #else");
+                                Arm arm = arm(directive, lineRange, include, old.arm.parent, old.parentActive, source, lineStart);
+                                arm.evaluated = old.parentActive && !old.taken;
+                                if (arm.evaluated) arm.condition = directive.equals("else") || condition(rawArgs, arm, location);
+                                arm.active = arm.evaluated && arm.condition;
+                                conditions.push(new Conditional(old.parentActive, old.taken || arm.active, directive.equals("else"), arm));
                             }
                             case "endif" -> {
                                 if (conditions.isEmpty() || conditions.peek().parentActive && !args.isEmpty()) throw error(location, "Unmatched or malformed #endif");
-                                conditions.pop();
+                                close(conditions.pop().arm, lineStart);
                             }
                             default -> {
-                                if (active) {
-                                    int after = line.indexOf(location) + 1;
-                                    var rawArgs = line.subList(after, line.size());
-                                    switch (directive) {
-                                        case "define" -> define(rawArgs);
-                                        case "undef" -> {
-                                            if (args.size() != 1 || !identifier(args.get(0))) throw error(location, "Expected one macro name after #undef");
-                                            macros.remove(args.get(0).text());
-                                        }
-                                        case "include" -> include(include, rawArgs, location, depth);
-                                        case "error" -> throw error(location, "#error " + spelling(rawArgs));
-                                        default -> throw error(location, "Unsupported preprocessing directive #" + directive);
+                                if (active) switch (directive) {
+                                    case "define" -> define(rawArgs, "source", file);
+                                    case "undef" -> {
+                                        if (args.size() != 1 || !identifier(args.get(0))) throw error(location, "Expected one macro name after #undef");
+                                        rejectReserved(args.get(0)); macros.remove(args.get(0).text());
                                     }
+                                    case "include" -> include(include, rawArgs, location, depth);
+                                    case "error" -> throw error(location, "#error " + spelling(rawArgs));
+                                    case "pragma" -> { /* No implementation-specific pragmas are recognized. */ }
+                                    case "line" -> {
+                                        var expanded = significant(expandDirective(rawArgs));
+                                        if (expanded.isEmpty() || expanded.size() > 2 || !expanded.getFirst().text().matches("[0-9]+"))
+                                            throw error(location, "Invalid #line directive");
+                                        int number;
+                                        try { number = Integer.parseInt(expanded.getFirst().text()); }
+                                        catch (NumberFormatException e) { throw error(location, "#line number outside C++03 range 1..32767"); }
+                                        if (number < 1 || number > 32767) throw error(location, "#line number outside C++03 range 1..32767");
+                                        if (expanded.size() == 2) {
+                                            String quoted = expanded.get(1).text();
+                                            if (expanded.get(1).value.token().kind() != STRING_LITERAL || !quoted.startsWith("\""))
+                                                throw error(location, "Expected character string literal after #line number");
+                                            logicalFile = lineFilename(quoted, location);
+                                        }
+                                        lineDelta = number - lineRange.end().line();
+                                    }
+                                    default -> throw error(location, "Unsupported preprocessing directive #" + directive);
                                 }
                             }
                         }
@@ -255,12 +375,158 @@ public final class CppPreprocessor {
             }
             output.addAll(expand(pending));
             if (!conditions.isEmpty()) throw error(include, "Unterminated conditional directive");
+            var active = new LinkedHashMap<String, Long>(); macros.forEach((name, macro) -> active.put(name, macro.id));
+            includeStates.add(new IncludeState(include, active));
         }
-        void define(List<Work> line) {
+        Arm arm(String directive, SourceRange range, Build.IncludeInstance include, Long parent,
+                boolean parentActive, String source, int start) {
+            Arm arm = new Arm(); arm.id = branches.size() + 1L; arm.directive = directive;
+            arm.directiveRange = range; arm.include = include; arm.parent = parent;
+            arm.parentActive = parentActive; arm.source = source; arm.start = start; arm.startOutput = output.size();
+            branches.add(arm); return arm;
+        }
+        void close(Arm arm, int end) { arm.end = end; arm.endOutput = output.size(); }
+        boolean presence(Work name, long branch, boolean negate) {
+            Macro macro = lookup(name);
+            boolean present = macro != null, result = negate ? !present : present;
+            presenceChecks.add(new PresenceCheck(presenceChecks.size() + 1L, name.text(), name.value.token().range(),
+                    name.value.include(), present, result, macro == null ? null : macro.id, branch));
+            return result;
+        }
+        boolean condition(List<Work> raw, Arm arm, Work location) {
+            var operand = new ArrayList<Work>();
+            for (int i = 0; i < raw.size(); i++) {
+                Work token = raw.get(i);
+                if (!token.text().equals("defined")) { operand.add(token); continue; }
+                int nameIndex = next(raw, i + 1);
+                boolean paren = nameIndex < raw.size() && raw.get(nameIndex).text().equals("(");
+                if (paren) nameIndex = next(raw, nameIndex + 1);
+                if (nameIndex >= raw.size() || !identifier(raw.get(nameIndex))) throw error(token, "Expected macro name in defined operator");
+                Work name = raw.get(nameIndex); i = nameIndex;
+                if (paren) {
+                    i = next(raw, i + 1);
+                    if (i >= raw.size() || !raw.get(i).text().equals(")")) throw error(token, "Expected ')' after defined operand");
+                }
+                operand.add(synthetic(token, PP_NUMBER, presence(name, arm.id, false) ? "1" : "0"));
+            }
+            var expanded = significant(expandDirective(operand));
+            if (expanded.isEmpty()) throw error(location, "Empty #if expression");
+            if (expanded.stream().anyMatch(t -> t.text().equals("defined"))) throw error(location, "Macro-generated defined has undefined behavior in C++03");
+            try { return CppConditionalExpression.evaluate(expanded.stream().map(t -> t.value.token()).toList()); }
+            catch (ParseException e) {
+                Work fault = expanded.stream().filter(t -> {
+                    SourceRange range = t.value.token().range();
+                    return range.file().equals(e.file()) && range.start().line() == e.line() && range.start().column() == e.column();
+                }).findFirst().orElse(location);
+                throw error(fault, e.reason());
+            }
+        }
+        List<Work> expandDirective(List<Work> input) {
+            int first = events.size(); var result = expand(input);
+            int boundary = (int) output.stream().filter(t -> !t.anchor).count();
+            for (int i = first; i < events.size(); i++) events.get(i).anchor = boundary;
+            return result;
+        }
+        void predefined(Build.IncludeInstance root) {
+            for (String name : List.of("__cplusplus", "__FILE__", "__LINE__", "__DATE__", "__TIME__")) {
+                String file = unit.directory().resolve("<predefined:" + name + ">").toString();
+                var tokens = wrap(CppLexer.scan(file, name).tokens(), root);
+                SourceRange range = tokens.getFirst().value.token().range();
+                long id = definitions.size() + 1L;
+                var macro = new Macro(id, name, null, List.of(), range, range);
+                definitions.add(new Definition(id, name, false, List.of(), name.equals("__cplusplus") ? "199711L" : "",
+                        range, root, "predefined", name));
+                macros.put(name, macro);
+            }
+        }
+        Macro lookup(Work invocation) {
+            Macro macro = macros.get(invocation.text());
+            if (macro == null || !BUILTINS.contains(macro.name)) return macro;
+            Build.IncludeInstance include = invocation.value.include();
+            if (!invocation.value.expansionIds().isEmpty())
+                include = events.get(invocation.value.expansionIds().getLast().intValue() - 1).include;
+            SourceRange call = invocation.value.expansionRange();
+            String file = call.file(); int line = call.start().line();
+            for (int i = logicalLocations.size() - 1; i >= 0; i--) {
+                LogicalLocation location = logicalLocations.get(i);
+                if (location.include().equals(include) && location.range().file().equals(call.file())
+                        && call.start().offset() >= location.range().start().offset()
+                        && call.start().offset() < location.range().end().offset()) {
+                    file = location.file(); line = location.line() + call.start().line() - location.range().start().line(); break;
+                }
+            }
+            var time = translationTime.atZone(ZoneOffset.UTC);
+            String value = switch (macro.name) {
+                case "__cplusplus" -> "199711L";
+                case "__LINE__" -> Integer.toString(line);
+                case "__FILE__" -> quote(file);
+                case "__DATE__" -> quote(time.format(DateTimeFormatter.ofPattern("MMM", Locale.US)) + " "
+                        + String.format(Locale.ROOT, "%2d", time.getDayOfMonth()) + " " + time.getYear());
+                case "__TIME__" -> quote(time.format(DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ROOT)));
+                default -> throw new AssertionError(macro.name);
+            };
+            var kind = value.startsWith("\"") ? STRING_LITERAL : PP_NUMBER;
+            var token = new PreprocessingToken(kind, value, value, macro.definition, 0, value.length());
+            var replacement = new Work(new ExpandedToken(token, include, List.of(), call));
+            return new Macro(macro.id, macro.name, null, List.of(replacement), macro.definition, macro.fullDefinition);
+        }
+        String lineFilename(String quoted, Work location) {
+            StringBuilder result = new StringBuilder();
+            for (int i = 1; i < quoted.length() - 1; i++) {
+                char ch = quoted.charAt(i);
+                if (ch != '\\') { result.append(ch); continue; }
+                char escape = quoted.charAt(++i);
+                String keys = "'\"?\\abfnrtv", values = "'\"?\\\u0007\b\f\n\r\t\u000b";
+                int key = keys.indexOf(escape);
+                if (key >= 0) { result.append(values.charAt(key)); continue; }
+                if (escape >= '0' && escape <= '7') {
+                    int value = escape - '0', count = 1;
+                    while (count < 3 && i + 1 < quoted.length() - 1 && quoted.charAt(i + 1) >= '0' && quoted.charAt(i + 1) <= '7') {
+                        value = value * 8 + quoted.charAt(++i) - '0'; count++;
+                    }
+                    result.append((char) value); continue;
+                }
+                if (escape == 'x' || escape == 'u' || escape == 'U') {
+                    int start = i + 1, limit = escape == 'u' ? 4 : escape == 'U' ? 8 : Integer.MAX_VALUE;
+                    while (i + 1 < quoted.length() - 1 && i + 1 - start < limit && Character.digit(quoted.charAt(i + 1), 16) >= 0) i++;
+                    try {
+                        if (i < start || escape != 'x' && i + 1 - start != limit) throw new NumberFormatException();
+                        int value = Integer.parseInt(quoted.substring(start, i + 1), 16);
+                        if (!Character.isValidCodePoint(value)) throw new NumberFormatException();
+                        result.appendCodePoint(value); continue;
+                    } catch (NumberFormatException e) { throw error(location, "Invalid filename escape in #line directive"); }
+                }
+                throw error(location, "Invalid filename escape in #line directive");
+            }
+            return result.toString();
+        }
+        static String quote(String text) {
+            var result = new StringBuilder("\"");
+            for (int i = 0; i < text.length(); i++) {
+                char ch = text.charAt(i);
+                if (ch == '\\' || ch == '"') result.append('\\').append(ch);
+                else if (ch < 32 || ch == 127) result.append(String.format(Locale.ROOT, "\\%03o", (int) ch));
+                else result.append(ch);
+            }
+            return result.append('\"').toString();
+        }
+        String rawReplacement(List<Work> replacement) {
+            if (replacement.isEmpty()) return "";
+            SourceRange first = replacement.getFirst().value.token().range(), last = replacement.getLast().value.token().range();
+            String source = captured.getOrDefault(first.file(), definitionSources.get(first.file()));
+            return source != null && first.file().equals(last.file())
+                    ? source.substring(first.start().offset(), last.end().offset()) : spelling(replacement);
+        }
+        void rejectReserved(Work name) {
+            if (BUILTINS.contains(name.text()) || name.text().equals("__STDC__") || name.text().equals("defined"))
+                throw error(name, "Redefining or undefining reserved preprocessing name has undefined behavior in C++03: " + name.text());
+        }
+        void define(List<Work> line, String originKind, String sourceKey) {
             var raw = trim(line);
             if (raw.isEmpty() || !identifier(raw.get(0))) throw raw.isEmpty()
                     ? error(unit.source().path().toString(), "Missing macro name") : error(raw.get(0), "Expected macro name");
             Work name = raw.get(0);
+            rejectReserved(name);
             int index = 1;
             List<String> parameters = null;
             if (index < raw.size() && raw.get(index).text().equals("(")) {
@@ -287,10 +553,13 @@ public final class CppPreprocessor {
             if (parameters != null) for (int i = 0; i < sig.size(); i++) {
                 if (sig.get(i).text().equals("#") && (i + 1 == sig.size() || !parameters.contains(sig.get(i + 1).text()))) throw error(sig.get(i), "# must precede a macro parameter");
             }
-            var macro = new Macro(name.text(), parameters == null ? null : List.copyOf(parameters), List.copyOf(replacement), name.value.token().range(), new SourceRange(name.value.token().range().file(),
+            var macro = new Macro(definitions.size() + 1L, name.text(), parameters == null ? null : List.copyOf(parameters), List.copyOf(replacement), name.value.token().range(), new SourceRange(name.value.token().range().file(),
                     name.value.token().range().start(), raw.getLast().value.token().range().end()));
             Macro old = macros.get(name.text());
             if (old != null && (!Objects.equals(old.parameters, macro.parameters) || !spelling(old.replacement).equals(spelling(macro.replacement)))) throw error(name, "Incompatible redefinition of macro " + name.text());
+            definitions.add(new Definition(macro.id, macro.name, parameters != null,
+                    parameters == null ? List.of() : parameters, rawReplacement(replacement), macro.fullDefinition,
+                    name.value.include(), originKind, sourceKey));
             macros.put(name.text(), macro);
         }
         void include(Build.IncludeInstance parent, List<Work> raw, Work location, int depth) {
@@ -334,7 +603,7 @@ public final class CppPreprocessor {
             var work = new ArrayList<>(input);
             for (int index = 0; index < work.size();) {
                 Work invocation = work.get(index);
-                Macro macro = macros.get(invocation.text());
+                Macro macro = lookup(invocation);
                 if (macro == null || !identifier(invocation) || invocation.hidden.contains(macro.name)) { index++; continue; }
                 int end = index + 1;
                 List<List<Work>> arguments = List.of(), rawArguments = List.of();
@@ -448,7 +717,19 @@ public final class CppPreprocessor {
         }
         ParseException error(Work location, String reason) {
             SourceRange range = location.value.expansionRange();
-            return withChain(new ParseException(range.file(), range.start().line(), range.start().column(), reason), location.value.include());
+            Build.IncludeInstance include = location.value.include();
+            if (!location.value.expansionIds().isEmpty())
+                include = events.get(location.value.expansionIds().getLast().intValue() - 1).include;
+            String file = range.file(); int line = range.start().line();
+            for (int i = logicalLocations.size() - 1; i >= 0; i--) {
+                LogicalLocation logical = logicalLocations.get(i);
+                if (logical.include().equals(include) && logical.range().file().equals(range.file())
+                        && range.start().offset() >= logical.range().start().offset()
+                        && range.start().offset() < logical.range().end().offset()) {
+                    file = logical.file(); line = logical.line() + range.start().line() - logical.range().start().line(); break;
+                }
+            }
+            return withChain(new ParseException(file, line, range.start().column(), reason), include);
         }
         ParseException error(Build.IncludeInstance include, String reason) {
             return withChain(error(include.source().path().toString(), reason), include);
