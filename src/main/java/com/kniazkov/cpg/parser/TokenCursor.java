@@ -21,11 +21,23 @@ final class TokenCursor {
         this.tokens = tokens;
     }
 
-    SourcePosition start() { return tokens.get(position).start(); }
+    record Mark(SourceRange range) {}
+
+    private SourceRange range(Token token) {
+        return new SourceRange(token.file() == null ? file : token.file(), token.start(), token.end());
+    }
+
+    Mark start() { return new Mark(range(tokens.get(position))); }
+    SourcePosition position() { return tokens.get(position).start(); }
 
     /** Attaches the interval from the first token to the end of the last consumed token. */
-    <B extends NodeBuilder<?>> B span(SourcePosition start, B builder) {
-        builder.setRange(new SourceRange(file, start, tokens.get(position - 1).end()));
+    <B extends NodeBuilder<?>> B span(Mark start, B builder) {
+        SourceRange first = start.range(), last = range(tokens.get(position - 1));
+        // A syntax node can span included sources. Its primary range must never
+        // invent a physical interval across files; full origins are separate.
+        if (first.file().equals(last.file()) && last.end().offset() >= first.start().offset())
+            builder.setRange(new SourceRange(first.file(), first.start(), last.end()));
+        else builder.setRange(first);
         return builder;
     }
 
@@ -58,6 +70,6 @@ final class TokenCursor {
     /** Attaches the current token position to a grammar diagnostic. */
     ParseException error(String reason) {
         Token token = tokens.get(position);
-        return new ParseException(java.nio.file.Path.of(file).getFileName().toString(), token.start().line(), token.start().column(), reason);
+        return new ParseException(java.nio.file.Path.of(token.file() == null ? file : token.file()).getFileName().toString(), token.start().line(), token.start().column(), reason);
     }
 }

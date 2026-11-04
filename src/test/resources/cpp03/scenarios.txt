@@ -5,3 +5,5 @@ square
 compilation-database
 lexical-phases
 unterminated-literal
+macros
+missing-header
