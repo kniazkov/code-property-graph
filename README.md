@@ -3,6 +3,8 @@
 
 Рукописный парсер Java и C++ строит единый неизменяемый `Project` из исходников одной папки. Парсер, разрешение ссылок, озеленение, свёртка, генерация исходников и визуализация используют классы из `com.kniazkov.cpg.model`.
 
+[Справочник модели, CFG и DFG](docs/model-guide.ru.md) · [Model, CFG and DFG guide (English)](docs/model-guide.en.md)
+
 ## Запуск из консоли
 
 Собери исполняемый JAR на JDK 21 командой `mvn verify`. Класс с `main` — `com.kniazkov.cpg.Main`. Для вывода SVG установи Graphviz и проверь доступность `dot -V` из той же консоли.
