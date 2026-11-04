@@ -1,0 +1,6 @@
+[submodule "docs/standards/cpp/cpp23"]
+	path = docs/standards/cpp/cpp23
+	url = https://github.com/cplusplus/draft.git
+[submodule "docs/standards/cpp/cpp26"]
+	path = docs/standards/cpp/cpp26
+	url = https://github.com/cplusplus/draft.git
