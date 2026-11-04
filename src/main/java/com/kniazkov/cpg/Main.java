@@ -75,12 +75,28 @@ public final class Main {
         Path json = flags.containsKey("--json") ? Path.of(flags.get("--json")).toAbsolutePath().normalize() : null;
         Map<String,String> generated = output == null ? Map.of() : Cpg.sources(project, to);
         if (output != null && Files.exists(output)) throw new IllegalArgumentException("Output directory already exists: " + output);
-        if (json != null && (Files.exists(json) || json.equals(output) || json.equals(svg)
-                || output != null && generated.keySet().stream().anyMatch(n -> output.resolve(n).equals(json))))
-            throw new IllegalArgumentException("JSON output conflicts with another file: " + json);
+        var destinations = new ArrayList<Path>();
+        for (String name : generated.keySet()) {
+            Path destination = output.resolve(name).normalize();
+            if (!destination.startsWith(output) || destination.equals(output))
+                throw new IllegalArgumentException("Unsafe output path: " + name);
+            destinations.add(destination);
+        }
+        if (json != null) destinations.add(json);
+        if (svg != null) destinations.add(svg);
+        // An export file must not occupy a directory required by another export.
+        // Check every destination before rendering SVG or writing any output.
+        for (int i = 0; i < destinations.size(); i++) {
+            Path destination = destinations.get(i);
+            if (Files.exists(destination) || output != null && output.startsWith(destination))
+                throw new IllegalArgumentException("Output conflicts with another file: " + destination);
+            for (int j = 0; j < i; j++) {
+                Path other = destinations.get(j);
+                if (conflicts(destination, other))
+                    throw new IllegalArgumentException("Output paths conflict: " + destination + " and " + other);
+            }
+        }
         if (svg != null) {
-            if (Files.exists(svg) || svg.equals(output) || output != null && generated.keySet().stream().anyMatch(n -> output.resolve(n).equals(svg)))
-                throw new IllegalArgumentException("SVG output conflicts with another file: " + svg);
             Files.createDirectories(svg.getParent());
             DotVisualizer.renderSvg(project, svg, provenance.equals("on"));
             System.out.println("SVG: " + svg);
@@ -92,9 +108,18 @@ public final class Main {
         }
         if (output != null) {
             Files.createDirectories(output);
-            for (var entry : generated.entrySet())
-                Files.writeString(output.resolve(entry.getKey()), entry.getValue(), StandardOpenOption.CREATE_NEW);
+            for (var entry : generated.entrySet()) {
+                Path destination = output.resolve(entry.getKey()).normalize();
+                if (!destination.startsWith(output)) throw new IllegalArgumentException("Unsafe output path: " + entry.getKey());
+                Files.createDirectories(destination.getParent());
+                Files.writeString(destination, entry.getValue(), StandardOpenOption.CREATE_NEW);
+            }
             System.out.println("Generated " + generated.size() + " " + to + " file(s) in " + output);
         }
     }
+
+    private static boolean conflicts(Path left, Path right) {
+        return left.startsWith(right) || right.startsWith(left);
+    }
+
 }

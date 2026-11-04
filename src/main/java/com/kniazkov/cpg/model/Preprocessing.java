@@ -6,10 +6,16 @@ import java.util.Objects;
 
 /** One translation unit's preprocessing record. IDs and token offsets are local to this record. */
 public record Preprocessing(String translationUnit, List<Include> includes, List<Token> tokens,
-                            List<Expansion> expansions) {
+                            List<Expansion> expansions, java.util.Map<String, String> sources,
+                            com.kniazkov.cpg.build.Build.TranslationUnit configuration) {
     public Preprocessing {
         Objects.requireNonNull(translationUnit);
+        sources = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(sources));
         includes = List.copyOf(includes); tokens = List.copyOf(tokens); expansions = List.copyOf(expansions);
+    }
+    /** Compatibility constructor for externally supplied provenance without captured source text. */
+    public Preprocessing(String translationUnit, List<Include> includes, List<Token> tokens, List<Expansion> expansions) {
+        this(translationUnit, includes, tokens, expansions, java.util.Map.of(), null);
     }
     /** Physical include occurrence, distinct even when the same header is read again. */
     public record Include(long id, String file, Long parentId) {}

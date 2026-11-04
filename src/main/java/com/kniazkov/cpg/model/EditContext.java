@@ -27,7 +27,13 @@ final class EditContext {
 
     /** Applies scheduled replacements at an edge and verifies the destination slot type. */
     <T extends Node> NodeBuilder<? extends T> edge(Node node, Class<T> type) {
-        return copy(type.cast(replacements.getOrDefault(node, node)));
+        Node replacement = replacements.getOrDefault(node, node);
+        NodeBuilder<? extends T> result = copy(type.cast(replacement));
+        if (replacement != node) {
+            if (result.origin == null) result.origin = node.origin;
+            if (result.provenance == null) result.provenance = node.provenance;
+        }
+        return result;
     }
 
     /** Starts from a concrete node and returns its corresponding concrete builder through a checked cast. */

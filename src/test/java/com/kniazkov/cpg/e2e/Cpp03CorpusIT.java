@@ -100,6 +100,17 @@ class Cpp03CorpusIT {
         for (Path source : List.of(sourceInput, run.work().resolve("generated")))
             nativePrograms(work, source, expected, exit);
         if (settings.containsKey("edited.stdout")) {
+            var changed = Cpg.sources(MacroEdits.squareRightOperand(project), Language.CPP);
+            Path changedRoot = Files.createDirectory(work.resolve("graph-edited"));
+            for (var entry : changed.entrySet()) {
+                Path path = changedRoot.resolve(entry.getKey());
+                Files.createDirectories(path.getParent()); Files.writeString(path, entry.getValue());
+            }
+            assertEquals(Files.readString(sourceInput.resolve("include/square.h")), changed.get("include/square.h"));
+            assertEquals(Files.readString(sourceInput.resolve("second.cpp")), changed.get("second.cpp"));
+            assertFalse(changed.get("main.cpp").contains("SQUARE(a)"));
+            nativePrograms(work, changedRoot, settings.getProperty("edited.stdout"),
+                    Integer.parseInt(settings.getProperty("edited.exit")));
             Path editedWork = Files.createDirectory(work.resolve("edited"));
             var edited = new CliSandbox(editedWork).directory(fixture.resolve("sources"));
             Files.copy(fixture.resolve("expected/edited-main.cpp"), edited.input.resolve("main.cpp"),
