@@ -44,7 +44,7 @@ public final class ReturnStatement extends Statement {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
-        builder.value = value == null ? null : context.copy(value);
+        builder.value = value == null ? null : context.edge(value, Expression.class);
         return builder;
     }
 

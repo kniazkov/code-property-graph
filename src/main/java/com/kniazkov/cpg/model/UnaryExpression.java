@@ -32,7 +32,7 @@ public abstract class UnaryExpression extends Expression {
     final Builder<?, ?> copyBuilder(EditContext context) {
         Builder<?, ?> builder = emptyBuilder();
         context.register(this, builder);
-        builder.operand = context.copy(operand);
+        builder.operand = context.edge(operand, Expression.class);
         return builder;
     }
 

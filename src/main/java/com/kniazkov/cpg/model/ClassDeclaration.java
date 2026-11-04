@@ -54,7 +54,7 @@ public final class ClassDeclaration extends Declaration {
         context.register(this, builder);
         builder.name = name;
         builder.modifiers = new ArrayList<>(modifiers);
-        builder.members = context.copyAll(members);
+        builder.members = context.copyAll(members, Declaration.class);
         return builder;
     }
 

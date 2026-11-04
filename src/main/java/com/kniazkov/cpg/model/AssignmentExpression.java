@@ -48,8 +48,8 @@ public final class AssignmentExpression extends Expression {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
-        builder.target = context.copy(target);
-        builder.value = context.copy(value);
+        builder.target = context.edge(target, Expression.class);
+        builder.value = context.edge(value, Expression.class);
         return builder;
     }
 

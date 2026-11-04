@@ -58,8 +58,8 @@ public final class VariableDeclaration extends Declaration {
         Builder builder = new Builder();
         context.register(this, builder);
         builder.name = name;
-        builder.type = type == null ? null : context.copy(type);
-        builder.initializer = initializer == null ? null : context.copy(initializer);
+        builder.type = type == null ? null : context.edge(type, TypeNode.class);
+        builder.initializer = initializer == null ? null : context.edge(initializer, Expression.class);
         return builder;
     }
 

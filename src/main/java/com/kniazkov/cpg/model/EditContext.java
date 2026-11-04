@@ -13,6 +13,23 @@ import java.util.Map;
 final class EditContext {
     private final Map<Node, NodeBuilder<?>> builders = new IdentityHashMap<>();
 
+    private final Map<Node, Node> replacements;
+    private final java.util.Set<Node> removed;
+
+    EditContext() {
+        this(Map.of(), java.util.Set.of());
+    }
+
+    EditContext(Map<Node, Node> replacements, java.util.Set<Node> removed) {
+        this.replacements = replacements;
+        this.removed = removed;
+    }
+
+    /** Applies scheduled replacements at an edge and verifies the destination slot type. */
+    <T extends Node> NodeBuilder<? extends T> edge(Node node, Class<T> type) {
+        return copy(type.cast(replacements.getOrDefault(node, node)));
+    }
+
     /** Starts from a concrete node and returns its corresponding concrete builder through a checked cast. */
     <T extends Node, B extends NodeBuilder<T>> B edit(T node, Class<B> builderType) {
         return builderType.cast(copy(node));
@@ -41,10 +58,10 @@ final class EditContext {
     }
 
     /** Copies an ordered child list and returns the mutable list owned by the destination builder. */
-    <T extends Node> List<NodeBuilder<? extends T>> copyAll(List<T> nodes) {
+    <T extends Node> List<NodeBuilder<? extends T>> copyAll(List<T> nodes, Class<T> type) {
         List<NodeBuilder<? extends T>> result = new ArrayList<>();
         for (T node : nodes) {
-            result.add(copy(node));
+            if (!removed.contains(node)) result.add(edge(node, type));
         }
         return result;
     }

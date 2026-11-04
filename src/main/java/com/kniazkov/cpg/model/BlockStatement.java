@@ -41,7 +41,7 @@ public final class BlockStatement extends Statement {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
-        builder.items = context.copyAll(items);
+        builder.items = context.copyAll(items, Node.class);
         return builder;
     }
 

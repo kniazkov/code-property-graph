@@ -56,9 +56,9 @@ public final class IfStatement extends Statement {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
-        builder.condition = context.copy(condition);
-        builder.thenBranch = context.copy(thenBranch);
-        builder.elseBranch = elseBranch == null ? null : context.copy(elseBranch);
+        builder.condition = context.edge(condition, Expression.class);
+        builder.thenBranch = context.edge(thenBranch, Statement.class);
+        builder.elseBranch = elseBranch == null ? null : context.edge(elseBranch, Statement.class);
         return builder;
     }
 

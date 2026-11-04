@@ -50,7 +50,7 @@ public final class ParameterDeclaration extends Declaration {
         Builder builder = new Builder();
         context.register(this, builder);
         builder.name = name;
-        builder.type = type == null ? null : context.copy(type);
+        builder.type = type == null ? null : context.edge(type, TypeNode.class);
         return builder;
     }
 

@@ -54,7 +54,7 @@ public final class SourceFile extends Node {
         context.register(this, builder);
         builder.path = path;
         builder.language = language;
-        builder.items = context.copyAll(items);
+        builder.items = context.copyAll(items, Node.class);
         return builder;
     }
 
