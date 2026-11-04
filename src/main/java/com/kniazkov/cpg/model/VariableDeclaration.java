@@ -39,6 +39,11 @@ public final class VariableDeclaration extends Declaration {
         return List.copyOf(children);
     }
 
+    @Override
+    public void accept(NodeVisitor visitor) {
+        visitor.visit(this);
+    }
+
     public static Builder create() {
         return new Builder();
     }

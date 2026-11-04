@@ -1,23 +1,52 @@
 /* Typed CPG model: immutable nodes and nested mutable builders. MIT License. */
 package com.kniazkov.cpg.model;
 
+import java.util.ArrayDeque;
 import java.util.List;
+import java.util.Objects;
 
-/** Base of the proposed immutable model; independent of the original Graph.Node. */
+/** Root of the immutable syntax hierarchy. Each snapshot has two kinds of edges.
+ * Children form an ordered ownership tree. Resolved references may share targets
+ * or point back to ancestors. A visitor selects behavior by the concrete node type.
+ * The public API observes only completed snapshots. */
 public abstract class Node {
+    /** Restricts node construction to the model package during snapshot assembly. */
     Node() {
     }
 
-    /** Returns syntax children in source order, excluding reference edges. */
+    /** Returns an immutable list of owned children in syntax order. Leaves return an empty list. */
     public abstract List<Node> children();
 
-    /** Returns resolved reference targets, excluding syntax children. */
+    /** Returns an immutable list of resolved non-owning edges. The default applies to nodes with no such edges. */
     public List<Node> references() {
         return List.of();
     }
 
-    /** Copies the reachable graph into independent builders, preserving identity. */
+    /** Starts an independent editing session. Shared targets and cycles among all reachable nodes are preserved. */
     public abstract NodeBuilder<? extends Node> edit();
 
+    /** Dispatches this single node to its concrete overload on the visitor. */
+    public abstract void accept(NodeVisitor visitor);
+
+    /**
+     * Visits this subtree in preorder, with siblings in the order of children().
+     * The explicit stack holds pending syntax nodes. Reference targets are
+     * available to the visitor through references() but never enter the stack.
+     */
+    public final void walk(NodeVisitor visitor) {
+        Objects.requireNonNull(visitor);
+        var pending = new ArrayDeque<Node>();
+        pending.push(this);
+        while (!pending.isEmpty()) {
+            Node node = pending.pop();
+            node.accept(visitor);
+            List<Node> children = node.children();
+            for (int i = children.size() - 1; i >= 0; i--) {
+                pending.push(children.get(i));
+            }
+        }
+    }
+
+    /** Registers a fresh builder before copying children and reference targets into it. */
     abstract NodeBuilder<? extends Node> copyBuilder(EditContext context);
 }

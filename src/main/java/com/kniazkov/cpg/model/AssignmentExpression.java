@@ -6,12 +6,12 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/** An assignment in statement position. */
-public final class AssignmentStatement extends Statement {
+/** A write to a target whose assigned value can be used in an enclosing expression. */
+public final class AssignmentExpression extends Expression {
     private Expression target;
     private Expression value;
 
-    private AssignmentStatement() {
+    private AssignmentExpression() {
     }
 
     public Expression target() {
@@ -28,6 +28,11 @@ public final class AssignmentStatement extends Statement {
         children.add(target);
         children.add(value);
         return List.copyOf(children);
+    }
+
+    @Override
+    public void accept(NodeVisitor visitor) {
+        visitor.visit(this);
     }
 
     public static Builder create() {
@@ -49,12 +54,12 @@ public final class AssignmentStatement extends Statement {
     }
 
     /** Mutable counterpart; setters may be chained before building a snapshot. */
-    public static final class Builder extends NodeBuilder<AssignmentStatement> {
+    public static final class Builder extends NodeBuilder<AssignmentExpression> {
         private NodeBuilder<? extends Expression> target;
         private NodeBuilder<? extends Expression> value;
 
         private Builder() {
-            super(AssignmentStatement.class);
+            super(AssignmentExpression.class);
         }
 
         public Optional<NodeBuilder<? extends Expression>> target() {
@@ -76,16 +81,17 @@ public final class AssignmentStatement extends Statement {
         }
 
         @Override
-        AssignmentStatement newNode() {
-            return new AssignmentStatement();
+        AssignmentExpression newNode() {
+            return new AssignmentExpression();
         }
 
         @Override
-        void fillNode(AssignmentStatement node, BuildContext context) {
+        void fillNode(AssignmentExpression node, BuildContext context) {
             node.target = context.copy(target);
             node.value = context.copy(value);
             if (!(node.target instanceof NameExpression)
-                    && !(node.target instanceof MemberExpression)) {
+                    && !(node.target instanceof MemberExpression)
+                    && !(node.target instanceof DereferenceExpression)) {
                 throw new IllegalStateException("Unsupported assignment target");
             }
         }

@@ -7,22 +7,19 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** A binary operation whose semantics depend on the language. */
-public final class BinaryExpression extends Expression {
-    private BinaryOperator operator;
+public abstract class BinaryExpression extends Expression {
     private Expression left;
     private Expression right;
 
-    private BinaryExpression() {
+    BinaryExpression() {
     }
 
-    public BinaryOperator operator() {
-        return operator;
-    }
-
+    /** Returns the left of this syntax node. */
     public Expression left() {
         return left;
     }
 
+    /** Returns the right of this syntax node. */
     public Expression right() {
         return right;
     }
@@ -35,70 +32,58 @@ public final class BinaryExpression extends Expression {
         return List.copyOf(children);
     }
 
-    public static Builder create() {
-        return new Builder();
-    }
+    /** Creates the builder for the concrete operation during an edit session. */
+    abstract Builder<?, ?> emptyBuilder();
 
     @Override
-    public Builder edit() {
-        return new EditContext().edit(this, Builder.class);
-    }
-
-    @Override
-    Builder copyBuilder(EditContext context) {
-        Builder builder = new Builder();
+    final Builder<?, ?> copyBuilder(EditContext context) {
+        Builder<?, ?> builder = emptyBuilder();
         context.register(this, builder);
-        builder.operator = operator;
         builder.left = context.copy(left);
         builder.right = context.copy(right);
         return builder;
     }
 
-    /** Mutable counterpart; setters may be chained before building a snapshot. */
-    public static final class Builder extends NodeBuilder<BinaryExpression> {
-        private BinaryOperator operator = BinaryOperator.ADD;
+    /** Holds the fields shared by every concrete variant and copies them in one build session.
+     * @param <T> concrete node allocated by the leaf builder
+     * @param <B> concrete builder returned by fluent setters */
+    public abstract static class Builder<T extends BinaryExpression, B extends Builder<T, B>> extends NodeBuilder<T> {
         private NodeBuilder<? extends Expression> left;
         private NodeBuilder<? extends Expression> right;
 
-        private Builder() {
-            super(BinaryExpression.class);
+        /** Binds this builder to the snapshot class used for identity lookups. */
+        Builder(Class<T> type) {
+            super(type);
         }
 
-        public BinaryOperator operator() {
-            return operator;
-        }
-
+        /** Reads the current left from the builder. */
         public Optional<NodeBuilder<? extends Expression>> left() {
             return Optional.ofNullable(left);
         }
 
+        /** Reads the current right from the builder. */
         public Optional<NodeBuilder<? extends Expression>> right() {
             return Optional.ofNullable(right);
         }
 
-        public Builder setOperator(BinaryOperator operator) {
-            this.operator = Objects.requireNonNull(operator);
-            return this;
-        }
-
-        public Builder setLeft(NodeBuilder<? extends Expression> left) {
+        /** Replaces the left in the mutable state and returns the concrete builder. */
+        public final B setLeft(NodeBuilder<? extends Expression> left) {
             this.left = Objects.requireNonNull(left);
-            return this;
+            return self();
         }
 
-        public Builder setRight(NodeBuilder<? extends Expression> right) {
+        /** Replaces the right in the mutable state and returns the concrete builder. */
+        public final B setRight(NodeBuilder<? extends Expression> right) {
             this.right = Objects.requireNonNull(right);
-            return this;
+            return self();
         }
 
-        @Override
-        BinaryExpression newNode() {
-            return new BinaryExpression();
-        }
+        /** Returns the concrete builder so inherited setters can be chained. */
+        abstract B self();
 
         @Override
-        void fillNode(BinaryExpression node, BuildContext context) {
-            node.operator = operator;
+        final void fillNode(T shell, BuildContext context) {
+            BinaryExpression node = shell;
             node.left = context.copy(left);
             node.right = context.copy(right);
         }

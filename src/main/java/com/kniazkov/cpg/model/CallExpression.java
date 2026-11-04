@@ -10,7 +10,7 @@ import java.util.Optional;
 public final class CallExpression extends Expression {
     private Expression callee;
     private List<Expression> arguments = List.of();
-    private MethodDeclaration target;
+    private CallableDeclaration target;
 
     private CallExpression() {
     }
@@ -23,7 +23,7 @@ public final class CallExpression extends Expression {
         return arguments;
     }
 
-    public Optional<MethodDeclaration> target() {
+    public Optional<CallableDeclaration> target() {
         return Optional.ofNullable(target);
     }
 
@@ -38,6 +38,11 @@ public final class CallExpression extends Expression {
     @Override
     public List<Node> references() {
         return target == null ? List.of() : List.of(target);
+    }
+
+    @Override
+    public void accept(NodeVisitor visitor) {
+        visitor.visit(this);
     }
 
     public static Builder create() {
@@ -63,7 +68,7 @@ public final class CallExpression extends Expression {
     public static final class Builder extends NodeBuilder<CallExpression> {
         private NodeBuilder<? extends Expression> callee;
         private List<NodeBuilder<? extends Expression>> arguments = new ArrayList<>();
-        private NodeBuilder<? extends MethodDeclaration> target;
+        private NodeBuilder<? extends CallableDeclaration> target;
 
         private Builder() {
             super(CallExpression.class);
@@ -77,7 +82,7 @@ public final class CallExpression extends Expression {
             return List.copyOf(arguments);
         }
 
-        public Optional<NodeBuilder<? extends MethodDeclaration>> target() {
+        public Optional<NodeBuilder<? extends CallableDeclaration>> target() {
             return Optional.ofNullable(target);
         }
 
@@ -96,7 +101,7 @@ public final class CallExpression extends Expression {
             return this;
         }
 
-        public Builder setTarget(NodeBuilder<? extends MethodDeclaration> target) {
+        public Builder setTarget(NodeBuilder<? extends CallableDeclaration> target) {
             this.target = Objects.requireNonNull(target);
             return this;
         }

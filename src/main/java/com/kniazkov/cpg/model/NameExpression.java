@@ -31,6 +31,11 @@ public final class NameExpression extends Expression {
         return target == null ? List.of() : List.of(target);
     }
 
+    @Override
+    public void accept(NodeVisitor visitor) {
+        visitor.visit(this);
+    }
+
     public static Builder create() {
         return new Builder();
     }
