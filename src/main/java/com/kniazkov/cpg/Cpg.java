@@ -2,6 +2,7 @@
 package com.kniazkov.cpg;
 
 import com.kniazkov.cpg.model.*;
+import com.kniazkov.cpg.build.Build;
 import com.kniazkov.cpg.analysis.ConsoleNormalizer;
 import com.kniazkov.cpg.analysis.UnreadWrites;
 import com.kniazkov.cpg.analysis.ConstantFolder;
@@ -18,10 +19,15 @@ public final class Cpg {
     /** Last stage to execute. Each stage includes the preceding passes in declaration order. */
     public enum Stage { PARSED, RESOLVED, GREEN, FOLDED }
     /** Selects a single input language for the directory and the stage to publish. */
-    public record Options(Language language, Stage stage, String cppStandard) {
+    public record Options(Language language, Stage stage, String cppStandard,
+            Build.ConfigurationSource configurationSource) {
         public Options(Language language, Stage stage) { this(language, stage, null); }
+        public Options(Language language, Stage stage, String cppStandard) {
+            this(language, stage, cppStandard, Build.ConfigurationSource.javaApi());
+        }
         public Options {
             Objects.requireNonNull(stage);
+            Objects.requireNonNull(configurationSource);
             if (cppStandard != null) {
                 if (language != Language.CPP) throw new IllegalArgumentException("C++ standard requires CPP input");
 
@@ -38,8 +44,14 @@ public final class Cpg {
         var root = Project.create();
         String suffix = options.language() == Language.JAVA ? ".java" : ".cpp";
         try (var paths = Files.list(directory)) {
-            for (Path path : paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(suffix)).sorted().toList())
-                root.addFile(Parser.parse(path.toString(), Files.readString(path), options.language(), options.cppStandard()));
+            for (Path path : paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(suffix)).sorted().toList()) {
+                if (options.language() == Language.CPP) {
+                    var unit = new Build.TranslationUnit(new Build.PhysicalSource(path),
+                            path.toAbsolutePath().getParent(), List.of(), List.of(), options.cppStandard(),
+                            options.configurationSource());
+                    root.addFile(Parser.parse(unit, Files.readString(path)));
+                } else root.addFile(Parser.parse(path.toString(), Files.readString(path), options.language(), options.cppStandard()));
+            }
         } catch (IOException | java.io.UncheckedIOException e) {
             throw new ParseException(directory.toString(), 1, 1, e.getMessage());
         }
@@ -58,7 +70,9 @@ public final class Cpg {
         if (options.language() != Language.CPP) throw new IllegalArgumentException("Compilation builds require CPP");
         var effectiveUnits = build.units().stream().map(unit -> new com.kniazkov.cpg.build.Build.TranslationUnit(
                 unit.source(), unit.directory(), unit.includes(), unit.macros(),
-                options.cppStandard() != null ? options.cppStandard() : unit.standard() == null ? "c++03" : unit.standard())).toList();
+                options.cppStandard() != null ? options.cppStandard() : unit.standard() == null ? "c++03" : unit.standard(),
+                options.cppStandard() == null ? unit.configurationSource()
+                        : unit.configurationSource().withStandardOverride(options.configurationSource().kind()))).toList();
         var composition = build.composition();
         if (composition != null && options.cppStandard() != null) {
             var ids = new ArrayList<String>();

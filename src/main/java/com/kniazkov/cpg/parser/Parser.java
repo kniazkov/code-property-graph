@@ -82,10 +82,17 @@ public final class Parser {
     /** Parses using only supplied physical sources when the map is non-null. */
     public static SourceFile.Builder parse(com.kniazkov.cpg.build.Build.TranslationUnit unit, String source,
             java.util.Map<String, String> sources) {
+        return parse(unit, source, sources, null);
+    }
+
+    /** Replays preprocessing with the original translation time for date/time macros. */
+    public static SourceFile.Builder parse(com.kniazkov.cpg.build.Build.TranslationUnit unit, String source,
+            java.util.Map<String, String> sources, java.time.Instant translationTime) {
         String file = unit.source().path().toString();
         com.kniazkov.cpg.build.CppStandard.require(unit.standard(), file);
         try {
-            var preprocessed = sources == null ? CppPreprocessor.preprocess(unit, source) : CppPreprocessor.preprocess(unit, source, sources);
+            var preprocessed = translationTime != null ? CppPreprocessor.preprocess(unit, source, sources, translationTime)
+                    : sources == null ? CppPreprocessor.preprocess(unit, source) : CppPreprocessor.preprocess(unit, source, sources);
             var provenance = preprocessing(file, preprocessed, unit);
             var parsed = new Parser(file, Language.CPP, parserTokens(preprocessed), provenance).parse();
             parsed.setProvenance(new TokenProvenance(provenance, 0, provenance.tokens().size()));
@@ -114,8 +121,32 @@ public final class Parser {
                 e.arguments().stream().map(a -> a.stream().map(Parser::fragment).toList()).toList(),
                 e.operations().stream().map(o -> new Preprocessing.Operation(o.kind(), o.operator(),
                         o.fragments().stream().map(Parser::fragment).toList(), o.spelling())).toList(),
-                e.startToken(), e.endToken())).toList();
-        return new Preprocessing(file, includes, tokens, events, result.sources(), unit);
+                e.startToken(), e.endToken(), e.definitionId())).toList();
+        return new Preprocessing(file, includes, tokens, events, result.sources(), unit,
+                result.definitions().stream().map(d -> new Preprocessing.Definition(d.id(), d.name(),
+                        d.functionLike(), d.parameters(), d.rawReplacement(), d.range(), d.include().occurrence(),
+                        d.originKind(), externalSourceKey(unit, d))).toList(),
+                result.branches().stream().map(b -> new Preprocessing.Branch(b.id(), b.directive(), b.rawSource(),
+                        b.range(), b.directiveRange(), b.include().occurrence(), b.parentId(), b.parentActive(),
+                        b.evaluated(), b.conditionResult(), b.active(), b.startToken(), b.endToken())).toList(),
+                result.presenceChecks().stream().map(c -> new Preprocessing.PresenceCheck(c.id(), c.name(), c.range(),
+                        c.include().occurrence(), c.present(), c.conditionResult(), c.definitionId(), c.branchId())).toList(),
+                result.directives().stream().map(d -> new Preprocessing.Directive(d.kind(), d.rawSource(), d.range(),
+                        d.include().occurrence(), d.active())).toList(),
+                result.logicalLocations().stream().map(l -> new Preprocessing.LogicalLocation(l.range(),
+                        l.include().occurrence(), l.file(), l.line())).toList(),
+                result.includeStates().stream().map(s -> new Preprocessing.IncludeState(s.include().occurrence(), s.activeDefinitions())).toList(), result.translationTime());
+    }
+
+    private static String externalSourceKey(com.kniazkov.cpg.build.Build.TranslationUnit unit, CppPreprocessor.Definition definition) {
+        if (definition.originKind().equals("predefined")) return "profile:c++03:" + definition.sourceKey();
+        if (!definition.originKind().equals("command-line")) return definition.sourceKey();
+        int ordinal = Integer.parseInt(definition.sourceKey());
+        var source = unit.configurationSource();
+        String key = source.kind().equals("database") ? "database:" + source.database() + ":entry:" + source.entryOrdinal()
+                : source.kind() + ":" + unit.variantId();
+        var operation = unit.macros().get(ordinal - 1);
+        return key + ":" + (operation.sourceKey() == null ? "operation:" + ordinal : operation.sourceKey());
     }
 
     /** Consumes top-level items until EOF, preserving the order of declarations and includes. */

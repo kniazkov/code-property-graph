@@ -37,14 +37,55 @@ public record Build(List<TranslationUnit> units, Composition composition) {
     public record IncludePath(String kind, Path path) {
         public IncludePath { Objects.requireNonNull(kind); Objects.requireNonNull(path); }
     }
-    /** Ordered compiler macro operation, not a claim that expansion is already supported. */
-    public record MacroOperation(boolean define, String operand) {
-        public MacroOperation { Objects.requireNonNull(operand); }
+    /** Source of a configuration, independent of its effective compiler-setting identity. */
+    public record ConfigurationSource(String kind, Path database, int entryOrdinal,
+            List<String> arguments, String standardOverrideKind) {
+        public ConfigurationSource {
+            if (!List.of("database", "java-api", "cli").contains(kind))
+                throw new IllegalArgumentException("Unknown configuration source: " + kind);
+            if (database != null) database = database.toAbsolutePath().normalize();
+            if (kind.equals("database") && (database == null || entryOrdinal < 0))
+                throw new IllegalArgumentException("Database source requires a path and entry ordinal");
+            arguments = List.copyOf(arguments);
+            if (standardOverrideKind != null && !List.of("java-api", "cli").contains(standardOverrideKind))
+                throw new IllegalArgumentException("Unknown standard override source: " + standardOverrideKind);
+        }
+        public static ConfigurationSource javaApi() {
+            return new ConfigurationSource("java-api", null, -1, List.of(), null);
+        }
+        public static ConfigurationSource cli(List<String> arguments) {
+            return new ConfigurationSource("cli", null, -1, arguments, null);
+        }
+        public static ConfigurationSource database(Path path, int ordinal, List<String> arguments) {
+            return new ConfigurationSource("database", path, ordinal, arguments, null);
+        }
+        public ConfigurationSource withStandardOverride(String kind) {
+            return new ConfigurationSource(this.kind, database, entryOrdinal, arguments, kind);
+        }
+    }
+    /** Ordered compiler macro operation, retaining the original flag and any separate operand. */
+    public record MacroOperation(boolean define, String operand, String sourceKey,
+            String originalArgument, List<String> originalArguments) {
+        public MacroOperation(boolean define, String operand) {
+            this(define, operand, null, (define ? "-D" : "-U") + operand,
+                    List.of((define ? "-D" : "-U") + operand));
+        }
+        public MacroOperation {
+            Objects.requireNonNull(operand);
+            Objects.requireNonNull(originalArgument);
+            originalArguments = List.copyOf(originalArguments);
+        }
     }
     public record TranslationUnit(PhysicalSource source, Path directory,
-            List<IncludePath> includes, List<MacroOperation> macros, String standard) {
+            List<IncludePath> includes, List<MacroOperation> macros, String standard,
+            ConfigurationSource configurationSource) {
+        public TranslationUnit(PhysicalSource source, Path directory,
+                List<IncludePath> includes, List<MacroOperation> macros, String standard) {
+            this(source, directory, includes, macros, standard, ConfigurationSource.javaApi());
+        }
         public TranslationUnit {
             Objects.requireNonNull(source);
+            Objects.requireNonNull(configurationSource);
             directory = directory.toAbsolutePath().normalize();
             Path base = directory;
             includes = includes.stream().map(p -> new IncludePath(p.kind(), base.resolve(p.path()).normalize())).toList();

@@ -56,7 +56,14 @@ final class BuildContext {
         for (Node node : nodes.values()) {
             visit(node, parents, active, complete);
         }
-        if (root instanceof Project) {
+        if (root instanceof Project project) {
+            for (var file : project.files()) file.provenance().ifPresent(provenance -> {
+                for (var definition : provenance.unit().definitions()) {
+                    if ((definition.originKind().equals("command-line") || definition.originKind().equals("predefined"))
+                            && project.externalInput(definition.sourceKey()).isEmpty())
+                        throw new IllegalStateException("Preprocessing source outside project: " + definition.sourceKey());
+                }
+            });
             Set<Node> owned = Collections.newSetFromMap(new IdentityHashMap<>());
             collect(root, owned);
             if (owned.size() != nodes.size()) {
