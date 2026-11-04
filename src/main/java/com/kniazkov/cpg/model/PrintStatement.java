@@ -36,6 +36,13 @@ public final class PrintStatement extends Statement {
         return result;
     }
 
+    /** Preserves the source of a statement normalized to this print operation. */
+    public static PrintStatement from(ExpressionStatement original, Expression value) {
+        PrintStatement result = of(value);
+        result.origin = original.origin;
+        return result;
+    }
+
     public static Builder create() {
         return new Builder();
     }

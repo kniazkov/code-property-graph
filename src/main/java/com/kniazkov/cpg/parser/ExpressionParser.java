@@ -36,6 +36,7 @@ final class ExpressionParser {
      * at the same level for right associativity, while arithmetic recurses one level higher.
      */
     private NodeBuilder<? extends Expression> expression(int minimum) {
+        var start = tokens.start();
         var left = primary();
         while (precedence(tokens.peek()) >= minimum) {
             String operator = tokens.peek();
@@ -59,18 +60,20 @@ final class ExpressionParser {
                 case ">=" -> GreaterOrEqualExpression.create().setLeft(left).setRight(right);
                 default -> throw new AssertionError(operator);
             };
+            tokens.span(start, left);
         }
         return left;
     }
 
     /** Reads a prefix or atom followed by any member accesses and calls bound to it. */
     private NodeBuilder<? extends Expression> primary() {
+        var start = tokens.start();
         NodeBuilder<? extends Expression> value;
         if (tokens.take("(")) { value = expression(0); tokens.expect(")"); }
         else if (tokens.take("-")) {
-            if (tokens.take("2147483648")) return IntegerLiteral.create().setValue(Integer.MIN_VALUE);
-            return NegateExpression.create().setOperand(primary());
-        } else if (tokens.take("+")) return UnaryPlusExpression.create().setOperand(primary());
+            if (tokens.take("2147483648")) return tokens.span(start, IntegerLiteral.create().setValue(Integer.MIN_VALUE));
+            return tokens.span(start, NegateExpression.create().setOperand(primary()));
+        } else if (tokens.take("+")) return tokens.span(start, UnaryPlusExpression.create().setOperand(primary()));
         else if (tokens.peek().matches("[0-9]+")) {
             String number = tokens.peek();
             if (number.length() > 1 && number.startsWith("0")) throw tokens.error("Only decimal literals without leading zeros are supported");
@@ -78,6 +81,7 @@ final class ExpressionParser {
             catch (NumberFormatException e) { throw tokens.error("Integer literal outside signed 32-bit range"); }
             tokens.advance();
         } else value = NameExpression.create().setName(tokens.identifier());
+        tokens.span(start, value);
         while (true) {
             if (tokens.take(".")) value = DotMemberExpression.create().setReceiver(value).setMember(tokens.identifier());
             else if (language == Language.CPP && tokens.take("::")) value = ScopeMemberExpression.create().setReceiver(value).setMember(tokens.identifier());
@@ -86,6 +90,7 @@ final class ExpressionParser {
                 if (!tokens.take(")")) { do { call.addArgument(expression(0)); } while (tokens.take(",")); tokens.expect(")"); }
                 value = call;
             } else return value;
+            tokens.span(start, value);
         }
     }
 }

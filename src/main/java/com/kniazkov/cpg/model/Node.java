@@ -11,6 +11,13 @@ import java.util.Objects;
  * The public API observes only completed snapshots. */
 public abstract non-sealed class Node implements FlowVertex {
     /** Restricts node construction to the model package during snapshot assembly. */
+    SourceRange origin;
+
+    /** Returns the original text span when this node has source provenance. */
+    public final java.util.Optional<SourceRange> range() {
+        return java.util.Optional.ofNullable(origin);
+    }
+
     Node() {
     }
 

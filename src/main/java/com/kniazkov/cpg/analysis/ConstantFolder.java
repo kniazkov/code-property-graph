@@ -41,7 +41,9 @@ public final class ConstantFolder {
             } else continue;
             if (result >= Integer.MIN_VALUE && result <= Integer.MAX_VALUE) {
                 constants.put(node, (int) result);
-                editor.replace(node, IntegerLiteral.create().setValue((int) result).build());
+                var literal = IntegerLiteral.create().setValue((int) result);
+                node.range().ifPresent(literal::setRange);
+                editor.replace(node, literal.build());
             }
         }
         return editor.build();
