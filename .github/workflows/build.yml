@@ -11,7 +11,11 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+      - name: Install mandatory C++03 compilers
+        run: sudo apt-get update && sudo apt-get install -y g++ clang
       - run: mvn -B verify
+      - name: Verify complete C++03 corpus discovery
+        run: python3 scripts/check-cpp03-reports.py
       - name: Validate JavaDoc including internal parser and analysis classes
         run: |
           mvn -B dependency:build-classpath -Dmdep.includeScope=compile -Dmdep.outputFile=target/javadoc-classpath
