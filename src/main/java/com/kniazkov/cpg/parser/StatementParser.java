@@ -22,16 +22,36 @@ final class StatementParser {
                 String name = tokens.identifier();
                 tokens.expect("=");
                 block.addItem(VariableDeclaration.create().setName(name).setType(NamedType.create().setName("int")).setInitializer(expressions.parse()));
-            } else if (tokens.take("return")) {
-                var statement = ReturnStatement.create();
-                if (!tokens.peek().equals(";")) statement.setValue(expressions.parse());
-                block.addItem(statement);
-            } else {
-                block.addItem(ExpressionStatement.create().setExpression(expressions.parse()));
-            }
-            tokens.expect(";");
+                tokens.expect(";");
+            } else block.addItem(statement());
         }
         return block;
     }
 
+    /** Recursion binds an optional else to its nearest still-open if. */
+    private NodeBuilder<? extends Statement> statement() {
+        if (tokens.peek().equals("{")) return block();
+        if (tokens.take("if")) {
+            var branch = IfStatement.create().setCondition(condition()).setThenBranch(statement());
+            if (tokens.take("else")) branch.setElseBranch(statement());
+            return branch;
+        }
+        if (tokens.take("while")) return WhileStatement.create().setCondition(condition()).setBody(statement());
+        if (tokens.take("return")) {
+            var result = ReturnStatement.create();
+            if (!tokens.peek().equals(";")) result.setValue(expressions.parse());
+            tokens.expect(";");
+            return result;
+        }
+        var result = ExpressionStatement.create().setExpression(expressions.parse());
+        tokens.expect(";");
+        return result;
+    }
+
+    private NodeBuilder<? extends Expression> condition() {
+        tokens.expect("(");
+        var condition = expressions.parse();
+        tokens.expect(")");
+        return condition;
+    }
 }

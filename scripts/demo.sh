@@ -70,3 +70,39 @@ assert "PrintStatement" not in labels(sys.argv[2])
 PY
 cp "$work/tree.svg" target/demo/tree.svg
 echo 'Both translations and SVG exports passed.'
+
+mkdir "$work/flow-input"
+cat > "$work/flow-input/Loop.java" <<'JAVA'
+class Loop {
+    public static void main(String[] args) {
+        int x = 0;
+        while (x < 3) {
+            if (x == 1) x = x + 2;
+            else x = x + 1;
+        }
+        System.out.println(x);
+    }
+}
+JAVA
+java -jar "$jar" --from java --input "$work/flow-input" --to cpp --out "$work/flow-cpp" --svg "$work/flow.svg"
+g++ -std=c++17 "$work/flow-cpp/Loop.cpp" -o "$work/loop"
+test "$("$work/loop")" = 3
+java -jar "$jar" --from cpp --input "$work/flow-cpp" --to java --out "$work/flow-java"
+javac "$work/flow-java/Loop.java"
+test "$(java -cp "$work/flow-java" Loop)" = 3
+python3 - "$work/flow.svg" <<'PY'
+import sys
+import xml.etree.ElementTree as ET
+root = ET.parse(sys.argv[1]).getroot()
+ns = {"s": "http://www.w3.org/2000/svg"}
+labels = {}
+for edge in root.findall(".//s:g[@class='edge']", ns):
+    label = edge.find("s:text", ns).text.strip()
+    labels.setdefault(label, set()).add(edge.find("s:path", ns).get("stroke").lower())
+for label in ("CFG entry", "CFG true", "CFG false"):
+    assert labels[label] == {"#1565c0"}, (label, labels)
+for label in ("DFG value", "DFG def"):
+    assert labels[label] == {"#aa3377"}, (label, labels)
+assert sum(t.text == "Exit" for t in root.findall(".//s:text", ns)) == 1
+PY
+cp "$work/flow.svg" target/demo/flow.svg
