@@ -18,7 +18,20 @@ final class CliSandbox {
     }
 
     CliSandbox source(String name, String contents) throws IOException {
+        Files.createDirectories(input.resolve(name).getParent());
         Files.writeString(input.resolve(name), contents, StandardOpenOption.CREATE_NEW);
+        return this;
+    }
+
+    /** Copies a checked-in scenario, preserving headers and nested relative paths. */
+    CliSandbox directory(Path source) throws IOException {
+        try (var paths = Files.walk(source)) {
+            for (Path path : paths.sorted().toList()) {
+                Path destination = input.resolve(source.relativize(path));
+                if (Files.isDirectory(path)) Files.createDirectories(destination);
+                else Files.copy(path, destination);
+            }
+        }
         return this;
     }
 
