@@ -60,6 +60,33 @@ class Cpp03CorpusIT {
         try (var reader = Files.newBufferedReader(fixture.resolve("scenario.properties"))) { settings.load(reader); }
         Path work = Files.createDirectory(temp.resolve(name));
         var cli = new CliSandbox(work).directory(fixture.resolve("sources"));
+        if ("source-fixture".equals(settings.getProperty("mode"))) {
+            nativePrograms(work, cli.input, settings.getProperty("stdout"),
+                    Integer.parseInt(settings.getProperty("exit")));
+            Path editedWork = Files.createDirectory(work.resolve("edited"));
+            var edited = new CliSandbox(editedWork).directory(fixture.resolve("sources"));
+            Files.copy(fixture.resolve("expected/edited-main.cpp"), edited.input.resolve("main.cpp"),
+                    StandardCopyOption.REPLACE_EXISTING);
+            nativePrograms(editedWork, edited.input, settings.getProperty("edited.stdout"),
+                    Integer.parseInt(settings.getProperty("edited.exit")));
+            Object database = Json.parse(fixture.resolve("compile_commands.json").toFile()).toJavaObject();
+            assertInstanceOf(List.class, database);
+            var entries = (List<?>) database;
+            assertEquals(2, entries.size());
+            Set<String> units = new TreeSet<>();
+            for (Object entry : entries) {
+                assertInstanceOf(Map.class, entry);
+                var command = (Map<?, ?>) entry;
+                assertEquals("sources", command.get("directory"));
+                String file = (String) command.get("file");
+                assertTrue(units.add(file), "Duplicate compilation entry");
+                assertTrue(Files.isRegularFile(fixture.resolve("sources").resolve(file)));
+                assertEquals(List.of("g++", "-std=c++03", "-pedantic-errors", "-Iinclude", "-c", file),
+                        command.get("arguments"));
+            }
+            assertEquals(Set.of("main.cpp", "second.cpp"), units);
+            return;
+        }
         String stage = Objects.requireNonNull(settings.getProperty("stage"));
         var options = new Cpg.Options(Language.CPP, Cpg.Stage.valueOf(stage.toUpperCase(Locale.ROOT)));
         int status = Integer.parseInt(settings.getProperty("status"));
@@ -91,25 +118,29 @@ class Cpp03CorpusIT {
                     settings.getProperty("edge.to"));
         String expected = settings.getProperty("stdout");
         int exit = Integer.parseInt(settings.getProperty("exit"));
+        for (Path source : List.of(cli.input, run.work().resolve("generated")))
+            nativePrograms(work, source, expected, exit);
+    }
+
+    private static void nativePrograms(Path work, Path source, String expected, int exit) throws Exception {
         for (String compiler : List.of("g++", "clang++")) {
             Result versionResult = command(List.of(compiler, "--version"), work);
             assertEquals(0, versionResult.status(), compiler + " --version\n" + versionResult.output());
             String version = versionResult.output();
-            for (Path source : List.of(cli.input, run.work().resolve("generated"))) {
-                Path binary = work.resolve(compiler + "-" + source.getFileName()).toAbsolutePath();
-                List<String> compile = new ArrayList<>(List.of(compiler, "-std=c++03", "-pedantic-errors"));
-                try (var paths = Files.walk(source)) {
-                    compile.addAll(paths.filter(p -> p.toString().endsWith(".cpp")).sorted()
-                            .map(p -> p.toAbsolutePath().toString()).toList());
-                }
-                compile.addAll(List.of("-o", binary.toString()));
-                Result build = command(compile, work);
-                assertEquals(0, build.status(), version + "\n" + compile + "\n" + build.output() + build.error());
-                Result execution = command(List.of(binary.toString()), work);
-                assertEquals(exit, execution.status(), version + "\n" + binary + "\n" + execution.output() + execution.error());
-                assertEquals(expected, execution.output(), version + "\n" + binary);
-                assertEquals("", execution.error(), version + "\n" + binary + " stderr");
+            Path binary = work.resolve(compiler + "-" + source.getFileName()).toAbsolutePath();
+            List<String> compile = new ArrayList<>(List.of(compiler, "-std=c++03", "-pedantic-errors",
+                    "-I" + source.resolve("include").toAbsolutePath()));
+            try (var paths = Files.walk(source)) {
+                compile.addAll(paths.filter(p -> p.toString().endsWith(".cpp")).sorted()
+                        .map(p -> p.toAbsolutePath().toString()).toList());
             }
+            compile.addAll(List.of("-o", binary.toString()));
+            Result build = command(compile, work);
+            assertEquals(0, build.status(), version + "\n" + compile + "\n" + build.output() + build.error());
+            Result execution = command(List.of(binary.toString()), work);
+            assertEquals(exit, execution.status(), version + "\n" + binary + "\n" + execution.output() + execution.error());
+            assertEquals(expected, execution.output(), version + "\n" + binary);
+            assertEquals("", execution.error(), version + "\n" + binary + " stderr");
         }
     }
 
