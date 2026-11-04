@@ -13,7 +13,9 @@ jobs:
           cache: maven
       - run: mvn -B verify
       - name: Validate JavaDoc including internal parser and analysis classes
-        run: javadoc -quiet -Werror -private -Xdoclint:all,-missing -sourcepath src/main/java -subpackages com.kniazkov.cpg -d target/apidocs
+        run: |
+          mvn -B dependency:build-classpath -Dmdep.includeScope=compile -Dmdep.outputFile=target/javadoc-classpath
+          javadoc -classpath "$(cat target/javadoc-classpath)" -quiet -Werror -private -Xdoclint:all,-missing -sourcepath src/main/java -subpackages com.kniazkov.cpg -d target/apidocs
       - name: Install Graphviz for SVG end-to-end checks
         run: command -v dot || (sudo apt-get update && sudo apt-get install -y graphviz)
       - run: bash scripts/demo.sh

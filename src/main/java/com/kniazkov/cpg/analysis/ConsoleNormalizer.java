@@ -28,11 +28,11 @@ public final class ConsoleNormalizer {
                         && call.callee() instanceof DotMemberExpression println && println.member().equals("println")
                         && println.receiver() instanceof DotMemberExpression out && out.member().equals("out")
                         && external(out.receiver(), "System")) {
-                    editor.replace(statement, PrintStatement.of(call.arguments().getFirst()));
+                    editor.replace(statement, PrintStatement.from(statement, call.arguments().getFirst()));
                 }
                 if (file.language() == Language.CPP && expr instanceof ShiftLeftExpression tail && stream(tail.right(), "endl")
                         && tail.left() instanceof ShiftLeftExpression head && stream(head.left(), "cout")) {
-                    editor.replace(statement, PrintStatement.of(head.right()));
+                    editor.replace(statement, PrintStatement.from(statement, head.right()));
                 }
             }
         });

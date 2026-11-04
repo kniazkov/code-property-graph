@@ -2,4 +2,4 @@
 package com.kniazkov.cpg.parser;
 
 /** Source spelling and one-based location of the first character of a token. */
-record Token(String text, int line, int column) {}
+record Token(String text, com.kniazkov.cpg.model.SourcePosition start, com.kniazkov.cpg.model.SourcePosition end) {}

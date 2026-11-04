@@ -8,6 +8,11 @@ import java.util.Objects;
  * Reusing a builder as a reference target preserves object identity in the snapshot.
  * @param <T> exact snapshot class allocated by this builder */
 public abstract class NodeBuilder<T extends Node> {
+    SourceRange origin;
+
+    /** Assigns the source span copied into the next immutable snapshot. */
+    public final void setRange(SourceRange range) { origin = Objects.requireNonNull(range); }
+
     private final Class<T> nodeType;
 
     /** Records the runtime type used to retrieve a previously allocated shell. */

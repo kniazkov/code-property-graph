@@ -15,37 +15,42 @@ final class StatementParser {
 
     /** Consumes both braces and records declarations, returns and expression statements in source order. */
     BlockStatement.Builder block() {
+        var start = tokens.start();
         tokens.expect("{");
         var block = BlockStatement.create();
         while (!tokens.take("}")) {
+            var itemStart = tokens.start();
             if (tokens.take("int")) {
+                var type = tokens.span(itemStart, NamedType.create().setName("int"));
                 String name = tokens.identifier();
                 tokens.expect("=");
-                block.addItem(VariableDeclaration.create().setName(name).setType(NamedType.create().setName("int")).setInitializer(expressions.parse()));
+                var decl = VariableDeclaration.create().setName(name).setType(type).setInitializer(expressions.parse());
                 tokens.expect(";");
+                block.addItem(tokens.span(itemStart, decl));
             } else block.addItem(statement());
         }
-        return block;
+        return tokens.span(start, block);
     }
 
     /** Recursion binds an optional else to its nearest still-open if. */
     private NodeBuilder<? extends Statement> statement() {
+        var start = tokens.start();
         if (tokens.peek().equals("{")) return block();
         if (tokens.take("if")) {
             var branch = IfStatement.create().setCondition(condition()).setThenBranch(statement());
             if (tokens.take("else")) branch.setElseBranch(statement());
-            return branch;
+            return tokens.span(start, branch);
         }
-        if (tokens.take("while")) return WhileStatement.create().setCondition(condition()).setBody(statement());
+        if (tokens.take("while")) return tokens.span(start, WhileStatement.create().setCondition(condition()).setBody(statement()));
         if (tokens.take("return")) {
             var result = ReturnStatement.create();
             if (!tokens.peek().equals(";")) result.setValue(expressions.parse());
             tokens.expect(";");
-            return result;
+            return tokens.span(start, result);
         }
         var result = ExpressionStatement.create().setExpression(expressions.parse());
         tokens.expect(";");
-        return result;
+        return tokens.span(start, result);
     }
 
     private NodeBuilder<? extends Expression> condition() {

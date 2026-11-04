@@ -34,7 +34,7 @@ public final class Cpg {
         String suffix = options.language() == Language.JAVA ? ".java" : ".cpp";
         try (var paths = Files.list(directory)) {
             for (Path path : paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(suffix)).sorted().toList())
-                root.addFile(Parser.parse(path.getFileName().toString(), Files.readString(path), options.language()));
+                root.addFile(Parser.parse(path.toString(), Files.readString(path), options.language()));
         } catch (IOException | java.io.UncheckedIOException e) {
             throw new ParseException(directory.toString(), 1, 1, e.getMessage());
         }
