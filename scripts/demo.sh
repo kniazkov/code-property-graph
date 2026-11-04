@@ -237,3 +237,64 @@ for variant in server client; do
     --json "$work/selected-builds/$variant/reparsed.json"
 done
 cp "$work/selected-builds/all-variants.json" target/demo/build-variants.json
+
+# Shared physical header: reject incompatible requirements before any filesystem export.
+mkdir "$work/shared-header-classes"
+javac -cp "$jar" -d "$work/shared-header-classes" examples/cpp03-shared-headers/EditSharedHeaders.java
+shared_fixture=src/test/resources/cpp03/shared-headers
+if java -cp "$jar:$work/shared-header-classes" EditSharedHeaders \
+    "$shared_fixture/common/compile_commands.json" server "$work/shared-conflict" \
+    >"$work/shared-conflict.stdout" 2>"$work/shared-conflict.stderr"; then
+  echo 'Expected a shared-header conflict for the server-only edit.' >&2
+  exit 1
+fi
+test ! -e "$work/shared-conflict"
+grep -q 'conflict' "$work/shared-conflict.stderr"
+grep -q 'common.h:4:12-4:13' "$work/shared-conflict.stderr"
+grep -q -- '-DSERVER' "$work/shared-conflict.stderr"
+grep -q -- '-DCLIENT' "$work/shared-conflict.stderr"
+grep -q 'requires "2"' "$work/shared-conflict.stderr"
+grep -q 'requires "1"' "$work/shared-conflict.stderr"
+java -cp "$jar:$work/shared-header-classes" EditSharedHeaders \
+  "$shared_fixture/common/compile_commands.json" both "$work/shared-both"
+java -cp "$jar:$work/shared-header-classes" EditSharedHeaders \
+  "$shared_fixture/conditional/compile_commands.json" server "$work/shared-conditional"
+python3 - "$shared_fixture" "$work" <<'PY'
+from pathlib import Path
+import sys
+fixture, work = map(Path, sys.argv[1:])
+for name, output in [('common', 'shared-both'), ('conditional', 'shared-conditional')]:
+    before = (fixture / name / 'sources/include/common.h').read_bytes()
+    after = (work / output / 'sources/include/common.h').read_bytes()
+    assert after == before.replace(b'return 1;', b'return 2;', 1), (name, after)
+    if name == 'common':
+        assert after.count(b'return 2;') == 1 and b'return 1;' not in after
+    else:
+        assert before[before.index(b'#else'):] == after[after.index(b'#else'):]
+    assert (fixture / name / 'sources/main.cpp').read_bytes() == (work / output / 'sources/main.cpp').read_bytes()
+PY
+for scenario in common conditional shared-both shared-conditional; do
+  case "$scenario" in
+    common|conditional) sources="$shared_fixture/$scenario/sources" ;;
+    *) sources="$work/$scenario/sources" ;;
+  esac
+  for compiler in g++ clang++; do
+    for configuration in server client; do
+      flags=(-DCLIENT)
+      if [ "$configuration" = server ]; then flags=(-DSERVER); fi
+      expected=1
+      if [ "$scenario" = shared-both ] || { [ "$scenario" = shared-conditional ] && [ "$configuration" = server ]; }; then
+        expected=2
+      fi
+      "$compiler" -std=c++03 -pedantic-errors "${flags[@]}" "$sources/main.cpp" -o "$work/shared-program"
+      test "$("$work/shared-program")" = "$expected"
+    done
+  done
+done
+for output in shared-both shared-conditional; do
+  java -jar "$jar" --from cpp --stage resolved --compile-commands "$work/$output/compile_commands.json" \
+    --out "$work/$output/reparsed-sources" --json "$work/$output/reparsed.json"
+  cmp "$work/$output/sources/include/common.h" "$work/$output/reparsed-sources/include/common.h"
+done
+cp "$work/shared-conditional/edited.json" target/demo/shared-header-edited.json
+echo 'Shared headers: conflicting edit rejected; common edit 2/2 and conditional edit 2/1 passed with GCC and Clang.'
