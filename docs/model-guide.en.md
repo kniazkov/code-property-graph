@@ -1,0 +1,182 @@
+<!-- Code Property Graph: English model and analysis reference. MIT License. -->
+# Program graph model and analysis
+
+[Русская версия](model-guide.ru.md) · [README](../README.md)
+
+This guide describes the public API and input grammar implemented as of 4 November 2026. The examples use Java 21. When adding a construct, update both editions, the coverage table at the end and the corresponding parser or CLI test.
+
+## Read a project snapshot
+
+```java
+import com.kniazkov.cpg.Cpg;
+import com.kniazkov.cpg.model.*;
+import java.nio.file.Path;
+import java.util.*;
+
+// Inside a method, running from the repository root
+Project project = Cpg.read(Path.of("examples/unread-write/java"),
+        new Cpg.Options(Language.JAVA, Cpg.Stage.RESOLVED));
+SourceFile file = project.files().getFirst();
+```
+
+The example reads a program in which the initial value of `score` is overwritten before a read. The reader processes matching files in filename order, directly inside one directory, for one selected language. A parse failure raises `parser.ParseException` with the file, line and column. A successful call returns a complete immutable project.
+
+| Stage | What the snapshot contains |
+|---|---|
+| `PARSED` | Original syntax with source positions. Each callable already owns its exit. Name resolution and analysis have not run yet. |
+| `RESOLVED` | Resolved names and calls, CFG, DFG and diagnostics on the original constructs. Choose this stage to inspect the input program. |
+| `GREEN` | Recognized console output becomes a `PrintStatement` after resolution. Flow edges and warnings describe the transformed tree. |
+| `FOLDED` | Safe constant arithmetic has also been folded. Flows and warnings are computed on the final tree. This is the CLI default. |
+
+## Node structure and properties
+
+The `Project` root owns `files()`. Each `SourceFile` has a path, a language and ordered top-level `items()`. Below them, declarations (`Declaration`), statements (`Statement`), expressions (`Expression`) and written types (`TypeNode`) form separate branches of the `Node` hierarchy.
+
+| API | Purpose and example |
+|---|---|
+| Typed getters | `BinaryExpression.left()/right()` return operands. `VariableDeclaration.name()` returns its name and `initializer()` its optional initializer. `BlockStatement.items()` lists declarations and statements in source order. |
+| `children()` | Immutable ordered list of owned children, empty for a leaf. The last child of a function or method is always its own `exit()`. |
+| `references()` | Resolved references to nodes in this snapshot. For `NameExpression` and `CallExpression`, use the typed `target()`. External or ambiguous names can have an empty target. |
+| `range()` | An `Optional<SourceRange>` gives the full path and a half-open source interval. Lines and columns start at 1, offsets at 0. Columns and offsets count UTF-16 code units. A synthetic `Exit` has no range. A folded literal retains the original expression span. |
+| `languages()`, `source(target)` | Available direct emission targets and generated fragment text. For complete files and entry-point adaptation use `Cpg.sources(project, target)`. |
+| `diagnostics()` | Immutable findings attached to this particular node. An empty list means there are no attached findings at the selected stage. |
+
+Required children are returned directly, optional children through `Optional`, and repeated children as lists. For example, `ReturnStatement.value()` returns the expression for `return x;` and an empty optional for `return;`.
+
+```java
+project.walk(new NodeVisitor() {
+    @Override public void visit(VariableDeclaration variable) {
+        String type = variable.type()
+                .filter(NamedType.class::isInstance)
+                .map(NamedType.class::cast).map(NamedType::name).orElse("?");
+        System.out.println(type + " " + variable.name());
+    }
+});
+```
+
+`accept(visitor)` dispatches one node. `walk(visitor)` visits the ownership tree in depth-first preorder. A family callback such as `visit(BinaryExpression)` handles addition and subtraction unless their specific overloads are overridden. Tree traversal does not follow declaration references or flow edges.
+
+## Traversing the CFG and DFG
+
+Read both edge sets from `project.flows()`. Each `FunctionFlow` describes one function or method with a body. Its `entry()` is the declaration and its `exit()` is the same object as `entry().exit()`. Analysis stays within the callable. A recursive call can still refer to its declaration through `CallExpression.target()`.
+
+**CFG. Which instructions can execute next?** Each edge in `control()` has a `from()`, `to()` and `kind()`. Kinds are `ENTRY`, `NEXT`, `TRUE`, `FALSE`, `BACK` and `RETURN`. The condition expression is the decision vertex. A return transfers to the shared exit. Unreachable syntax remains in the tree but has no CFG path from entry.
+
+```java
+for (FunctionFlow flow : project.flows()) {
+    Map<FlowVertex, List<FunctionFlow.ControlEdge>> outgoing = new IdentityHashMap<>();
+    for (var edge : flow.control())
+        outgoing.computeIfAbsent(edge.from(), v -> new ArrayList<>()).add(edge);
+
+    Set<FlowVertex> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+    Deque<FlowVertex> pending = new ArrayDeque<>();
+    pending.add(flow.entry());
+    while (!pending.isEmpty()) {
+        FlowVertex current = pending.removeFirst();
+        if (!seen.add(current)) continue;
+        for (var edge : outgoing.getOrDefault(current, List.of())) {
+            System.out.println(current.getClass().getSimpleName() + " --" + edge.kind()
+                    + "--> " + edge.to().getClass().getSimpleName());
+            pending.addLast(edge.to());
+        }
+    }
+}
+```
+
+The visited set terminates traversal even on a loop back edge. For backward traversal, index by `to()`, start at `exit()` and follow `from()`.
+
+**DFG. Where does this read get its value?** A `VALUE` edge runs from an operand value to its consumer, for example from a literal to the variable being initialized. A `DEFINITION` edge runs from a particular write to a name read. In the score example, the read at the print site has a `target()` pointing to the declaration `int score = 1;`, whereas its incoming `DEFINITION` comes from the assignment `score = 2`.
+
+```java
+for (FunctionFlow flow : project.flows()) {
+    Map<Node, List<Node>> writesForRead = new IdentityHashMap<>();
+    for (var edge : flow.data()) {
+        if (edge.kind() == FunctionFlow.Dependency.DEFINITION)
+            writesForRead.computeIfAbsent(edge.to(), n -> new ArrayList<>()).add(edge.from());
+    }
+    flow.entry().walk(new NodeVisitor() {
+        @Override public void visit(NameExpression use) {
+            for (Node write : writesForRead.getOrDefault(use, List.of()))
+                System.out.println(use.name() + " <- " + write.getClass().getSimpleName()
+                        + " " + write.range());
+        }
+    });
+}
+```
+
+A read after a branch join can have multiple reaching writes. A back edge can carry a write from the previous iteration. To find downstream dependencies, use the same worklist as in the CFG example, index `flow.data()` by `from()` and start from the node of interest. Reverse the direction to trace a result to its sources. Use node identity within one snapshot.
+
+The following fragment counts other nodes reachable from each assignment along outgoing DFG edges of either kind. In the score example the second write reaches the print call through the name read.
+
+```java
+for (FunctionFlow flow : project.flows()) {
+    Map<Node, List<Node>> consumers = new IdentityHashMap<>();
+    for (var edge : flow.data())
+        consumers.computeIfAbsent(edge.from(), n -> new ArrayList<>()).add(edge.to());
+
+    flow.entry().walk(new NodeVisitor() {
+        @Override public void visit(AssignmentExpression write) {
+            Set<Node> reached = Collections.newSetFromMap(new IdentityHashMap<>());
+            Deque<Node> queue = new ArrayDeque<>();
+            queue.add(write);
+            while (!queue.isEmpty()) {
+                Node producer = queue.removeFirst();
+                if (!reached.add(producer)) continue;
+                for (Node consumer : consumers.getOrDefault(producer, List.of()))
+                    queue.addLast(consumer);
+            }
+            System.out.println(write.range() + " -> " + (reached.size() - 1));
+        }
+    });
+}
+```
+
+## Pass results and editing
+
+Passes expose results through typed methods. Name resolution populates `target()`, flow analysis populates `Project.flows()`, and diagnostic rules populate `Node.diagnostics()`. Normalization and folding change the syntax tree itself, for example by replacing a console call with a `PrintStatement`.
+
+```java
+project.walk(new NodeVisitor() {
+    @Override public void visit(Node n) {
+        for (Diagnostic d : n.diagnostics()) {
+            String location = n.range().map(r -> r.file() + ":" + r.start().line()
+                    + ":" + r.start().column()).orElse("?");
+            System.out.println(location + " " + d.severity() + " [" + d.code() + "] " + d.message());
+        }
+    }
+});
+```
+
+The `unread-write` rule attaches a `WARNING` to the particular initialization or assignment whose stored value reaches no read. The example flags the first write to `score`. Use the stable `code()` for automation and `message()` for display. JSON stores diagnostic `code` and `severity`; outbound entries in `edges` contain a kind and a numeric target ID. IDs are assigned when exporting a tree. The Java API uses direct references.
+
+Create a node through its nested builder, e.g. `IntegerLiteral.create().setValue(2).build()`. To edit, call `edit()`, change the builder and call `build()` for a new snapshot. Editing the project discards derived flows and findings. Resolve names again when bindings are affected and run analysis on the new snapshot. For example:
+
+```java
+Project edited = project.edit().build();
+Project resolved = com.kniazkov.cpg.analysis.NameResolver.resolve(edited);
+Project analyzed = com.kniazkov.cpg.analysis.UnreadWrites.analyze(resolved);
+```
+
+For individual analyses, use `ControlFlow.analyze` and `DataFlow.analyze`. Resolve names before DFG analysis. `UnreadWrites.analyze` builds the DFG it needs. Each pass returns its result; query the returned project.
+
+## Input language coverage
+
+This table covers the normal `Cpg.read` entry point. The model also provides classes for constructs that the input parser does not yet recognize.
+
+| Construct | Java (`.java`) | C++ (`.cpp`) |
+|---|---|---|
+| Top level | `class C { … }`, `public class C { … }` | `class C { public: … };`, `int main() { … }` |
+| Class method | `public static void main(String[] args)` | `static void main()` |
+| Local declarations | `int x = expression;` | `int x = expression;` |
+| Literals and arithmetic | Decimal signed 32-bit integers, grouping, unary and binary `+`, `-`, binary `*`, `/` | Same, plus `<<` |
+| Assignment and comparison | `=` (including chains), `== != < <= > >=` | Same |
+| Access and calls | `obj.member`, `f(a, b)`, `C.main(args)` | `obj.member`, `f(a, b)`, `C::main()` |
+| Control | Blocks, `if`, `if/else`, `while`, `return;`, `return expr;` | Same |
+| Comments and directives | `//`, `/* … */` | Both comment forms and preserved `#include <…>`, `#include "…"` |
+| Console normalization | `System.out.println(x)` | `std::cout << x << std::endl` |
+
+The Java main parameter name can vary. Coverage describes syntax recognition; full compiler type and semantic checks are outside its scope. C++ headers are preserved without expansion. General function signatures, constructors, templates, general arrays, strings, `for`, `break` and `continue` are outside the current input grammar.
+
+**Model nodes available ahead of the parser** include remainder `%`, right shift `>>`, logical negation `!`, address-of `&x`, dereference `*p` and pointer member access `p->field`. C, Python, JavaScript and Ascend C have no input parser yet. Cross-language generation covers small Java/C++ programs with the supported main and console forms. See the README for translation constraints.
+
+[Grammar implementation](../src/main/java/com/kniazkov/cpg/parser) · [Analysis passes](../src/main/java/com/kniazkov/cpg/analysis) · [Model classes](../src/main/java/com/kniazkov/cpg/model)
