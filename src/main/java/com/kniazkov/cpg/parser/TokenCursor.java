@@ -11,10 +11,12 @@ final class TokenCursor {
     private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*");
     private static final Set<String> RESERVED = Set.of("class", "int", "void", "return", "if", "else", "while", "for", "public", "static");
     private final String file;
+    private final Language language;
     private final List<Token> tokens;
     private int position;
 
-    TokenCursor(String file, List<Token> tokens) {
+    TokenCursor(String file, List<Token> tokens, Language language) {
+        this.language = language;
         this.file = file;
         this.tokens = tokens;
     }
@@ -48,7 +50,7 @@ final class TokenCursor {
     /** Consumes an identifier permitted by the supported grammar. */
     String identifier() {
         String name = peek();
-        if (!IDENTIFIER.matcher(name).matches() || RESERVED.contains(name)) throw error("Expected identifier");
+        if (!(language == Language.CPP ? CppLexer.isIdentifier(name) : IDENTIFIER.matcher(name).matches()) || RESERVED.contains(name)) throw error("Expected identifier");
         advance();
         return name;
     }

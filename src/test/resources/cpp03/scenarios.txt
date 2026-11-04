@@ -3,3 +3,5 @@ arithmetic
 invalid-token
 square
 compilation-database
+lexical-phases
+unterminated-literal
