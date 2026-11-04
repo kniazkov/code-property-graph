@@ -31,9 +31,20 @@ public final class Parser {
      * @throws ParseException if a token or construction is unsupported
      */
     public static SourceFile.Builder parse(String file, String source, Language language) {
+        return parse(file, source, language, null);
+    }
+
+    /** Edition-aware entry point; null preserves the C++03 default. */
+    public static SourceFile.Builder parse(String file, String source, Language language, String standard) {
+        if (language == Language.CPP) com.kniazkov.cpg.build.CppStandard.require(standard, file);
+        else if (standard != null) throw new IllegalArgumentException("C++ standard requires CPP input");
         if (language != Language.JAVA && language != Language.CPP)
             throw new IllegalArgumentException("Input language must be JAVA or CPP");
-        return new Parser(file, source, language).parse();
+        try { return new Parser(file, source, language).parse(); }
+        catch (ParseException e) {
+            if (language == Language.CPP) throw new ParseException(e.file(), e.line(), e.column(), e.reason() + " (C++03)");
+            throw e;
+        }
     }
 
     /** Consumes top-level items until EOF, preserving the order of declarations and includes. */
