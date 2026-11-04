@@ -15,10 +15,10 @@ public final class Main {
 
     private static final String USAGE = """
         Usage: java -jar cpg.jar --input DIR --from JAVA|CPP [--stage PARSED|RESOLVED|GREEN|FOLDED]
-                    [--cpp-standard c++03] [--to JAVA|CPP --out NEW_DIR] [--svg FILE] [--json FILE]
+                    [--cpp-standard c++03] [--to JAVA|CPP --out NEW_DIR] [--svg FILE] [--json FILE] [--provenance on|off]
         Choose one or more outputs: --out, --svg, --json. Defaults: FOLDED stage, source language as target.
         Use --compile-commands FILE instead of --input DIR to import a C++ build.
-        SVG rendering requires Graphviz dot on PATH.
+        SVG rendering requires Graphviz dot on PATH. Macro provenance is shown by default.
         """;
 
     /** Runs the console pipeline and translates argument, parsing and rendering failures into a nonzero exit status. */
@@ -43,7 +43,7 @@ public final class Main {
         if (args.length == 4 && !args[0].startsWith("--"))
             args = new String[]{"--from", args[0], "--stage", args[1], "--input", args[2], "--out", args[3]};
         Map<String,String> flags = new HashMap<>();
-        Set<String> allowed = Set.of("--input", "--from", "--stage", "--to", "--out", "--svg", "--json", "--cpp-standard", "--compile-commands");
+        Set<String> allowed = Set.of("--input", "--from", "--stage", "--to", "--out", "--svg", "--json", "--cpp-standard", "--compile-commands", "--provenance");
         for (int i = 0; i < args.length; i += 2) {
             if (i + 1 >= args.length || !allowed.contains(args[i]) || args[i + 1].startsWith("--")
                     || flags.putIfAbsent(args[i], args[i+1]) != null) throw new IllegalArgumentException(USAGE);
@@ -55,6 +55,9 @@ public final class Main {
         Language from = Language.valueOf(flags.get("--from").toUpperCase(Locale.ROOT));
         Language to = Language.valueOf(flags.getOrDefault("--to", from.name()).toUpperCase(Locale.ROOT));
         Stage stage = Stage.valueOf(flags.getOrDefault("--stage", "FOLDED").toUpperCase(Locale.ROOT));
+        String provenance = flags.getOrDefault("--provenance", "on");
+        if (!provenance.equals("on") && !provenance.equals("off"))
+            throw new IllegalArgumentException("--provenance must be on or off");
         Cpg.Options options = new Cpg.Options(from, stage, flags.get("--cpp-standard"));
         Project project = flags.containsKey("--compile-commands")
                 ? Cpg.readCompilationDatabase(Path.of(flags.get("--compile-commands")), options)
@@ -79,7 +82,7 @@ public final class Main {
             if (Files.exists(svg) || svg.equals(output) || output != null && generated.keySet().stream().anyMatch(n -> output.resolve(n).equals(svg)))
                 throw new IllegalArgumentException("SVG output conflicts with another file: " + svg);
             Files.createDirectories(svg.getParent());
-            DotVisualizer.renderSvg(project, svg);
+            DotVisualizer.renderSvg(project, svg, provenance.equals("on"));
             System.out.println("SVG: " + svg);
         }
         if (json != null) {

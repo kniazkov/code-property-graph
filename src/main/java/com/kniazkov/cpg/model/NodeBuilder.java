@@ -9,6 +9,10 @@ import java.util.Objects;
  * @param <T> exact snapshot class allocated by this builder */
 public abstract class NodeBuilder<T extends Node> {
     SourceRange origin;
+    TokenProvenance provenance;
+
+    /** Assigns immutable source-token provenance to the next snapshot. */
+    public final void setProvenance(TokenProvenance value) { provenance = Objects.requireNonNull(value); }
 
     /** Assigns the source span copied into the next immutable snapshot. */
     public final void setRange(SourceRange range) { origin = Objects.requireNonNull(range); }

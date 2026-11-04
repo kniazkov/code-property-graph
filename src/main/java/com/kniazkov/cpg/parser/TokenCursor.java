@@ -14,20 +14,26 @@ final class TokenCursor {
     private final Language language;
     private final List<Token> tokens;
     private int position;
+    private final Preprocessing preprocessing;
 
     TokenCursor(String file, List<Token> tokens, Language language) {
+        this(file, tokens, language, null);
+    }
+
+    TokenCursor(String file, List<Token> tokens, Language language, Preprocessing preprocessing) {
+        this.preprocessing = preprocessing;
         this.language = language;
         this.file = file;
         this.tokens = tokens;
     }
 
-    record Mark(SourceRange range) {}
+    record Mark(SourceRange range, int tokenIndex) {}
 
     private SourceRange range(Token token) {
         return new SourceRange(token.file() == null ? file : token.file(), token.start(), token.end());
     }
 
-    Mark start() { return new Mark(range(tokens.get(position))); }
+    Mark start() { return new Mark(range(tokens.get(position)), position); }
     SourcePosition position() { return tokens.get(position).start(); }
 
     /** Attaches the interval from the first token to the end of the last consumed token. */
@@ -38,6 +44,11 @@ final class TokenCursor {
         if (first.file().equals(last.file()) && last.end().offset() >= first.start().offset())
             builder.setRange(new SourceRange(first.file(), first.start(), last.end()));
         else builder.setRange(first);
+        if (preprocessing != null) {
+            int begin = tokens.get(start.tokenIndex()).sourceIndex();
+            int end = tokens.get(position - 1).sourceIndex() + 1;
+            builder.setProvenance(new TokenProvenance(preprocessing, begin, end));
+        }
         return builder;
     }
 
