@@ -61,7 +61,9 @@ public final class Cpg {
             String file = unit.source().path().toString();
             String standard = options.cppStandard() != null ? options.cppStandard() : unit.standard();
             com.kniazkov.cpg.build.CppStandard.require(standard, file);
-            try { root.addFile(Parser.parse(file, Files.readString(unit.source().path()), Language.CPP, standard)); }
+            var effective = new com.kniazkov.cpg.build.Build.TranslationUnit(unit.source(), unit.directory(),
+                    unit.includes(), unit.macros(), standard);
+            try { root.addFile(Parser.parse(effective, Files.readString(unit.source().path()))); }
             catch (IOException e) { throw new ParseException(file, 1, 1, e.getMessage()); }
         }
         com.kniazkov.cpg.build.CppStandard.require(options.cppStandard(), "empty compilation build");

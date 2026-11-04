@@ -15,12 +15,30 @@ public final class Parser {
     private final TokenCursor tokens;
     private final StatementParser statements;
 
-    private Parser(String file, String source, Language language) {
+    private Parser(String file, Language language, java.util.List<Token> input) {
         this.file = java.nio.file.Path.of(file).toAbsolutePath().normalize().toString();
         this.language = language;
-        tokens = new TokenCursor(this.file, language == Language.CPP ? CppLexer.parserTokens(this.file, source)
-                : new Lexer(java.nio.file.Path.of(file).getFileName().toString(), source).scan(), language);
+        tokens = new TokenCursor(this.file, input, language);
         statements = new StatementParser(tokens, new ExpressionParser(tokens, language));
+    }
+
+    private static java.util.List<Token> parserTokens(CppPreprocessor.Result result) {
+        var tokens = new java.util.ArrayList<Token>();
+        for (var expanded : result.tokens()) {
+            var token = expanded.token();
+            if (token.kind() == PreprocessingToken.Kind.WHITESPACE || token.kind() == PreprocessingToken.Kind.NEWLINE) continue;
+            var range = expanded.expansionRange();
+            if (token.kind() == PreprocessingToken.Kind.OTHER)
+                throw new ParseException(range.file(), range.start().line(), range.start().column(),
+                        "Unsupported character: " + token.spelling());
+            String spelling = switch (token.kind()) {
+                case EOF -> "<eof>";
+                case HEADER_NAME -> "#include " + token.spelling();
+                default -> token.canonicalSpelling();
+            };
+            tokens.add(new Token(spelling, range.start(), range.end(), range.file()));
+        }
+        return java.util.List.copyOf(tokens);
     }
 
     /**
@@ -41,10 +59,29 @@ public final class Parser {
         else if (standard != null) throw new IllegalArgumentException("C++ standard requires CPP input");
         if (language != Language.JAVA && language != Language.CPP)
             throw new IllegalArgumentException("Input language must be JAVA or CPP");
-        try { return new Parser(file, source, language).parse(); }
+        if (language == Language.CPP) {
+            var path = java.nio.file.Path.of(file).toAbsolutePath().normalize();
+            var unit = new com.kniazkov.cpg.build.Build.TranslationUnit(
+                    new com.kniazkov.cpg.build.Build.PhysicalSource(path), path.getParent(),
+                    java.util.List.of(), java.util.List.of(), standard);
+            return parse(unit, source);
+        }
+        try { return new Parser(file, language, new Lexer(java.nio.file.Path.of(file).getFileName().toString(), source).scan()).parse(); }
         catch (ParseException e) {
             if (language == Language.CPP) throw new ParseException(e.file(), e.line(), e.column(), e.reason() + " (C++03)");
             throw e;
+        }
+    }
+
+    /** Preprocesses a configured C++ translation unit and parses its resulting tokens. */
+    public static SourceFile.Builder parse(com.kniazkov.cpg.build.Build.TranslationUnit unit, String source) {
+        String file = unit.source().path().toString();
+        com.kniazkov.cpg.build.CppStandard.require(unit.standard(), file);
+        try {
+            var preprocessed = CppPreprocessor.preprocess(unit, source);
+            return new Parser(file, Language.CPP, parserTokens(preprocessed)).parse();
+        } catch (ParseException e) {
+            throw new ParseException(e.file(), e.line(), e.column(), e.reason() + " (C++03)");
         }
     }
 
@@ -63,11 +100,13 @@ public final class Parser {
                 result.addItem(clazz());
             } else if (language == Language.CPP && tokens.take("int")) {
                 var returnType = tokens.span(start, type("int"));
-                tokens.expect("main"); tokens.expect("("); tokens.expect(")");
-                result.addItem(tokens.span(start, FunctionDeclaration.create().setName("main").setReturnType(returnType).setBody(statements.block())));
+                String name = tokens.identifier(); tokens.expect("("); tokens.expect(")");
+                var function = FunctionDeclaration.create().setName(name).setReturnType(returnType);
+                if (!tokens.take(";")) function.setBody(statements.block());
+                result.addItem(tokens.span(start, function));
             } else throw tokens.error("Unsupported top-level declaration");
         }
-        result.setRange(new SourceRange(file, new SourcePosition(1, 1, 0), tokens.start()));
+        result.setRange(new SourceRange(file, new SourcePosition(1, 1, 0), tokens.position()));
         return result;
     }
 

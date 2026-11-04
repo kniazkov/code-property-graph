@@ -81,6 +81,7 @@ public final class Source {
     }
 
     private static void checkWrapper(FunctionDeclaration fn, Project project) {
+        if (fn.body().isEmpty()) throw new IllegalArgumentException("Cannot translate this C++ declaration to Java");
         var items = fn.body().orElseThrow().items();
         if (!fn.name().equals("main") || items.size() != 2 || !(items.getFirst() instanceof ExpressionStatement stmt)
                 || !(stmt.expression() instanceof CallExpression call) || !call.arguments().isEmpty()
@@ -140,8 +141,8 @@ public final class Source {
             case ClassDeclaration c -> classStart(c) + c.members().stream().map(m -> emit(m, level + 1)).collect(Collectors.joining("\n")) + classEnd();
             case CallableDeclaration f -> pad + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
                     + emit(f.returnType().orElseThrow(), 0) + " " + f.name() + "("
-                    + f.parameters().stream().map(p -> emit(p, 0)).collect(Collectors.joining(", ")) + ") "
-                    + emit(f.body().orElseThrow(), level);
+                    + f.parameters().stream().map(p -> emit(p, 0)).collect(Collectors.joining(", ")) + ")"
+                    + f.body().map(b -> " " + emit(b, level)).orElse(";\n");
             case ParameterDeclaration p -> emit(p.type().orElseThrow(), 0) + " " + p.name();
             case NamedType t -> t.name();
             case BlockStatement b -> "{\n" + b.items().stream().map(i -> emit(i, level + 1)).collect(Collectors.joining()) + pad + "}\n";

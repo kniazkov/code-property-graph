@@ -62,33 +62,6 @@ class Cpp03CorpusIT {
         boolean databaseMode = "compilation-database".equals(settings.getProperty("mode"));
         var cli = new CliSandbox(work).directory(databaseMode ? fixture : fixture.resolve("sources"));
         Path sourceInput = databaseMode ? cli.input.resolve("sources") : cli.input;
-        if ("source-fixture".equals(settings.getProperty("mode"))) {
-            nativePrograms(work, cli.input, settings.getProperty("stdout"),
-                    Integer.parseInt(settings.getProperty("exit")));
-            Path editedWork = Files.createDirectory(work.resolve("edited"));
-            var edited = new CliSandbox(editedWork).directory(fixture.resolve("sources"));
-            Files.copy(fixture.resolve("expected/edited-main.cpp"), edited.input.resolve("main.cpp"),
-                    StandardCopyOption.REPLACE_EXISTING);
-            nativePrograms(editedWork, edited.input, settings.getProperty("edited.stdout"),
-                    Integer.parseInt(settings.getProperty("edited.exit")));
-            Object database = Json.parse(fixture.resolve("compile_commands.json").toFile()).toJavaObject();
-            assertInstanceOf(List.class, database);
-            var entries = (List<?>) database;
-            assertEquals(2, entries.size());
-            Set<String> units = new TreeSet<>();
-            for (Object entry : entries) {
-                assertInstanceOf(Map.class, entry);
-                var command = (Map<?, ?>) entry;
-                assertEquals("sources", command.get("directory"));
-                String file = (String) command.get("file");
-                assertTrue(units.add(file), "Duplicate compilation entry");
-                assertTrue(Files.isRegularFile(fixture.resolve("sources").resolve(file)));
-                assertEquals(List.of("g++", "-std=c++03", "-pedantic-errors", "-Iinclude", "-c", file),
-                        command.get("arguments"));
-            }
-            assertEquals(Set.of("main.cpp", "second.cpp"), units);
-            return;
-        }
         String stage = Objects.requireNonNull(settings.getProperty("stage"));
         var options = new Cpg.Options(Language.CPP, Cpg.Stage.valueOf(stage.toUpperCase(Locale.ROOT)),
                 databaseMode ? "c++03" : null);
@@ -126,6 +99,14 @@ class Cpp03CorpusIT {
         int exit = Integer.parseInt(settings.getProperty("exit"));
         for (Path source : List.of(sourceInput, run.work().resolve("generated")))
             nativePrograms(work, source, expected, exit);
+        if (settings.containsKey("edited.stdout")) {
+            Path editedWork = Files.createDirectory(work.resolve("edited"));
+            var edited = new CliSandbox(editedWork).directory(fixture.resolve("sources"));
+            Files.copy(fixture.resolve("expected/edited-main.cpp"), edited.input.resolve("main.cpp"),
+                    StandardCopyOption.REPLACE_EXISTING);
+            nativePrograms(editedWork, edited.input, settings.getProperty("edited.stdout"),
+                    Integer.parseInt(settings.getProperty("edited.exit")));
+        }
     }
 
     private static void nativePrograms(Path work, Path source, String expected, int exit) throws Exception {

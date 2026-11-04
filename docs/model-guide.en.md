@@ -183,7 +183,7 @@ The Java main parameter name can vary. Coverage describes syntax recognition; fu
 
 The [C++03 file corpus](e2e.en.md) now checks the public API and packaged CLI against the same ordinary source files, with strict GCC and Clang execution oracles. Its initial coverage is a return literal, arithmetic/console normalization, and an invalid-token diagnostic; it does not extend the supported language surface.
 
-The [SQUARE fixture](../src/test/resources/cpp03/square/README.md) adds a reproducible two-unit macro project and compilation database. Strict native execution verifies 58 before editing and 64 for a hand-written edited oracle. This is fixture preparation only; macro preprocessing, provenance and graph editing are still pending #13–#17.
+The [SQUARE fixture](../src/test/resources/cpp03/square/README.md) adds a reproducible two-unit macro project and compilation database. Strict native execution verifies 58 before editing and 64 for a hand-written edited oracle. Import and macro preprocessing are implemented by #13–#15; graph provenance and editing remain #16–#17.
 
 ## C++03 edition and compilation databases
 
@@ -231,7 +231,7 @@ logical newline, after splicing.
 
 Each public `PreprocessingToken` has a kind, retained `spelling()`, separate
 `canonicalSpelling()`, physical range and half-open logical offsets. Whitespace,
-newlines and EOF remain explicit for future preprocessing. The physical range
+newlines and EOF remain explicit for preprocessing. The physical range
 of a spliced token spans its original physical fragments; character mappings
 identify the individual surviving characters. A replaced trigraph maps to all
 three original characters. Comment replacement maps to the full comment range.
@@ -251,3 +251,11 @@ lexical repertoire. Tokenizing a literal or operator does not claim evaluation,
 full expression support, header resolution or macro expansion. See
 [lexical acceptance](../src/test/resources/cpp03/lexical-phases/README.md) and
 [negative literal acceptance](../src/test/resources/cpp03/unterminated-literal/README.md).
+
+## Header inclusion and macro expansion (C++03 #15)
+
+`CppPreprocessor.preprocess(Build.TranslationUnit, source)` applies ordered `-D`/`-U` operations independently per translation unit and runs lexical phases on each included physical file. Object/function macros support empty replacement lists, nested argument parentheses, argument prescan, rescan with recursive suppression, raw `#` stringization and `##` token pasting. A pasted result must be one preprocessing token. C++03 empty actual arguments have undefined behavior and are diagnosed; a genuinely zero-parameter `F()` and arguments becoming empty after expansion are supported.
+
+Quoted headers search the including file's directory, `-iquote`, `-I`, then `-isystem`; angle headers search `-I` then `-isystem`. Macro-generated include operands are expanded first. Include guards use `#ifdef`/`#ifndef`/`#else`/`#endif`; full `#if` expressions remain #19. Repeated includes run in the current macro context; missing files report the full include chain. Only the existing modeled `<iostream>` remains opaque when no configured file exists. Other missing system headers are errors, not silently ignored. Include nesting and expansion work have bounded diagnostic limits.
+
+The parser consumes a single active expanded stream with per-token physical filenames and primary expansion ranges. Preprocessor results expose spelling ranges, expansion ranges, macro origins and include occurrence identities; graph/JSON/SVG provenance is a separate #16 deliverable. Source generation currently emits expanded declarations, not preserved macro calls (#17). Minimal no-argument `int name()` declarations/definitions support the two-unit SQUARE fixture; full function semantics and cross-unit lookup are not claimed. `CppPreprocessorTest`, `PreprocessorIT`, and the `square`, `macros`, `missing-header` corpus fixtures cover these boundaries.

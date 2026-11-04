@@ -13,8 +13,8 @@ distinct: `a = 3`, `b = 5`, `c = 7`.
 Две единицы трансляции используют один заголовок и два вызова SQUARE. До правки
 ожидается 58, после замены только правого операнда первого раскрытия — 64.
 Файл `expected/edited-main.cpp` задаёт ожидаемый результат будущего редактора,
-а не доказывает его реализацию. Поддержка импорта, препроцессора, происхождения
-и правки графа принимается в #13–#17; #12 проверяет воспроизводимость исходников.
+а не доказывает его реализацию. Импорт и препроцессор реализованы в #13–#15; происхождение
+и правка графа принимаются в #16–#17.
 
 From the repository root / Из корня репозитория:
 
@@ -36,7 +36,11 @@ done
 directory. Its `arguments` entries compile each translation unit; link both
 objects to create the executable. No external paths or installed CPG are needed.
 
-Current CPG CLI cannot yet process this macro project. Do not present a partial
-graph as success. The full CLI/API acceptance will replace `source-fixture` mode
-when #13–#17 are implemented. The corpus counts this fixture and requires both
-compilers now; there is no disabled or skipped test.
+The compilation-database corpus now verifies full CLI/API JSON parity, both macro
+expansions, source generation, and strict GCC/Clang execution of original and
+generated programs (58). The edited oracle (64) is still hand-written: graph
+provenance and macro-aware editing remain #16–#17. No tests are skipped.
+
+Корпус проверяет API/CLI, JSON, оба раскрытия, генерацию и строгие нативные
+прогоны исходной и сгенерированной программы (58). Эталон 64 остаётся ручным;
+происхождение в графе и редактирование макросов — задачи #16–#17.

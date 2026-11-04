@@ -4,7 +4,7 @@ Run `mvn verify` with JDK 21, GCC (`g++`) and Clang (`clang++`) on PATH. Failsaf
 
 ## C++03 corpus
 
-The inventory is `src/test/resources/cpp03/scenarios.txt`. Every entry names a directory containing ordinary files under `sources/` and a `scenario.properties` expectation. `Cpp03CorpusIT` loads those exact files through both `Cpg.read` and the CLI. `CliSandbox.directory` preserves nested relative paths and headers. Nested source discovery and preprocessing are not claimed by this infrastructure change.
+The inventory is `src/test/resources/cpp03/scenarios.txt`. Every entry names a directory containing ordinary files under `sources/` and a `scenario.properties` expectation. `Cpp03CorpusIT` loads those exact files through both `Cpg.read` and the CLI. `CliSandbox.directory` preserves nested relative paths and headers. Translation units come from the folder or explicit compilation database; custom headers are recursively preprocessed.
 
 | Scenario | Expectation | Failsafe test |
 | --- | --- | --- |
@@ -26,8 +26,9 @@ CI runs `python3 scripts/check-cpp03-reports.py` after the full `mvn verify`. It
 
 When adding language support, reuse existing nodes first. Add minimal positive, negative and interaction scenarios and update the standard matrix and RU/EN model guides in the same PR. Give each scenario explicit diagnostics or graph expectations and independent output/exit expectations. Undefined or implementation-dependent behavior is not an execution oracle. Editing scenarios must supply separate before/after expectations when introduced. New nodes need builders, visitors, ranges, exports and generation tests.
 
-The fourth corpus entry, [square](../src/test/resources/cpp03/square/README.md), uses explicit `source-fixture` mode while macro processing is pending. It verifies both original source (58) and a hand-written edited oracle (64) with GCC and Clang and checks its portable compilation database. It is counted and never skipped, but does not claim a successful CPG graph. Run it with `-Dcpg.cpp03.scenario=square`.
 
 `compilation-database` is the fifth registered scenario. It uses a mixed C++03/C++11 database with an explicit C++03 override and requires full API/CLI parity and both native compilers. `CompilationDatabaseIT` also checks default-vs-explicit folder equivalence, rejection without the override, lambda rejection despite the override, unsupported-option filenames, and a manually constructed configuration with ordered spaced paths and define/undefine operations. Run `mvn -Dit.test=CompilationDatabaseIT verify`; [fixture details](../src/test/resources/cpp03/compilation-database/README.md).
 
 `lexical-phases` and `unterminated-literal` extend the mandatory corpus to seven scenarios. `LexicalPhasesIT` inspects per-character physical mapping, trigraph ranges, alternative spelling and full API/CLI graph parity using the same source. The positive source executes through both strict compilers; the negative source must report physical 2:5 and produce no exports. See each fixture README for commands. CI runs once per PR open/update/reopen, and on pushes to `master` (including merges); branch pushes no longer duplicate PR runs. Manual dispatch remains available.
+
+`macros` and `missing-header` bring the mandatory inventory to nine scenarios. `square` now uses compilation-database mode with full API/CLI graph parity, two expanded multiplications, and native original/generated output 58. The hand-written edited oracle still produces 64; graph editing is pending #17. `macros` covers a macro-generated include name, guards, stringization, pasting, nested arguments, recursion suppression and repeated inclusion with changed definitions. `missing-header` requires failure without exports and a three-file include chain. `PreprocessorIT` inspects those same ordinary sources through the public API and packaged CLI. Run `mvn -Dit.test=PreprocessorIT,Cpp03CorpusIT verify` for this acceptance.
