@@ -13,6 +13,7 @@ public abstract class CallableDeclaration extends Declaration {
     private TypeNode returnType;
     private List<ParameterDeclaration> parameters = List.of();
     private BlockStatement body;
+    private Exit exit;
 
     CallableDeclaration() {
     }
@@ -42,6 +43,9 @@ public abstract class CallableDeclaration extends Declaration {
         return Optional.ofNullable(body);
     }
 
+    /** Returns the terminal owned by this declaration, available before flow analysis. */
+    public Exit exit() { return exit; }
+
     @Override
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
@@ -52,6 +56,7 @@ public abstract class CallableDeclaration extends Declaration {
         if (body != null) {
             children.add(body);
         }
+        children.add(exit);
         return List.copyOf(children);
     }
 
@@ -67,6 +72,7 @@ public abstract class CallableDeclaration extends Declaration {
         builder.returnType = returnType == null ? null : context.edge(returnType, TypeNode.class);
         builder.parameters = context.copyAll(parameters, ParameterDeclaration.class);
         builder.body = body == null ? null : context.edge(body, BlockStatement.class);
+        builder.exit = context.edge(exit, Exit.class);
         return builder;
     }
 
@@ -79,6 +85,7 @@ public abstract class CallableDeclaration extends Declaration {
         private NodeBuilder<? extends TypeNode> returnType;
         private List<NodeBuilder<? extends ParameterDeclaration>> parameters = new ArrayList<>();
         private NodeBuilder<? extends BlockStatement> body;
+        private NodeBuilder<? extends Exit> exit = Exit.create();
 
         /** Binds this builder to the snapshot class used for identity lookups. */
         Builder(Class<T> type) {
@@ -175,6 +182,7 @@ public abstract class CallableDeclaration extends Declaration {
             node.returnType = returnType == null ? null : context.copy(returnType);
             node.parameters = context.copyAll(parameters);
             node.body = body == null ? null : context.copy(body);
+            node.exit = context.copy(exit);
         }
     }
 }

@@ -18,14 +18,16 @@ public final class ControlFlow {
         List<FunctionFlow> flows = new ArrayList<>();
         project.walk(new NodeVisitor() {
             @Override public void visit(CallableDeclaration fn) {
-                fn.body().ifPresent(body -> flows.add(new Builder().build(fn, body)));
+                fn.body().ifPresent(body -> flows.add(new Builder(fn.exit()).build(fn, body)));
             }
         });
         return project.withFlows(flows);
     }
 
     private static final class Builder {
-        private final Exit exit = new Exit();
+        private final Exit exit;
+
+        Builder(Exit exit) { this.exit = exit; }
         private final List<ControlEdge> edges = new ArrayList<>();
 
         FunctionFlow build(CallableDeclaration fn, BlockStatement body) {
