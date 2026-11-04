@@ -13,7 +13,7 @@
 
 ## Наследование
 
-Стрелка показывает переход от базового класса к производному. Каждый конечный класс узла имеет собственный `public static final Builder extends NodeBuilder<ЭтотКласс>`.
+Для семейств операций показаны примеры листовых классов. Стрелка показывает переход от базового класса к производному. Каждый конечный класс узла имеет собственный `Builder`.
 
 ```mermaid
 flowchart LR
@@ -25,11 +25,13 @@ flowchart LR
     N --> E[Expression]
     N --> T[TypeNode]
     D --> DC[ClassDeclaration]
-    D --> DM[MethodDeclaration]
+    D --> CD[CallableDeclaration]
+    CD --> DM[MethodDeclaration]
+    CD --> DF[FunctionDeclaration]
     D --> DP[ParameterDeclaration]
     D --> DV[VariableDeclaration]
     S --> SB[BlockStatement]
-    S --> SA[AssignmentStatement]
+    E --> EA[AssignmentExpression]
     S --> SR[ReturnStatement]
     S --> SE[ExpressionStatement]
     S --> SP[PrintStatement]
@@ -41,12 +43,16 @@ flowchart LR
     E --> EC[CallExpression]
     E --> EB[BinaryExpression]
     E --> EU[UnaryExpression]
+    EB --> ADD[AddExpression]
+    EB --> SUB[SubtractExpression]
+    EU --> NEG[NegateExpression]
+    EM --> DOT[DotMemberExpression]
     T --> TN[NamedType]
 ```
 
-`Declaration` и `Statement` — разные категории. Блок может содержать обе. `ParameterDeclaration` пока тоже относится к общей категории объявлений; проверка конкретного допустимого места параметра будет добавляться при интеграции. В этом варианте `MethodDeclaration` представляет и метод, и свободную функцию; поле `CallablePlacement` различает их.
+`Declaration` и `Statement` — разные категории. Блок может содержать обе. `ParameterDeclaration` пока тоже относится к общей категории объявлений; проверка конкретного допустимого места параметра будет добавляться при интеграции. Метод и свободная функция наследуют общие поля параметров, типа и тела от `CallableDeclaration`. `CallExpression.target()` может указывать на любой из этих двух видов объявления.
 
-Вспомогательные enum: `Language`, `CallablePlacement`, `MemberAccessKind`, `BinaryOperator`, `UnaryOperator`. Типы и модификаторы пока представлены просто: `NamedType` хранит написанное имя, modifiers — неизменяемый список строк. Это не окончательная модель всех языковых вариантов из исследования.
+Операции представлены отдельными классами. Например, `AddExpression` и `MultiplyExpression` наследуют операнды и сборку от `BinaryExpression`. `UnaryExpression` объединяет операции с одним операндом. У `MemberExpression` три варианта доступа — через точку, указатель и область видимости. `Language` хранит язык исходного файла.
 
 ## Контракт класса
 
@@ -80,9 +86,7 @@ VariableDeclaration changed = original.edit()
 `children()` возвращает только синтаксических детей, `references()` — только разрешённые цели дополнительных связей. Оба списка неизменяемы и не содержат null. Неразрешённая цель представлена `Optional.empty()` в специальном геттере и не включается в `references()`.
 
 ```java
-var function = MethodDeclaration.create()
-        .setName("again")
-        .setPlacement(CallablePlacement.FUNCTION);
+var function = FunctionDeclaration.create().setName("again");
 
 var call = CallExpression.create()
         .setCallee(NameExpression.create()
@@ -93,7 +97,7 @@ var call = CallExpression.create()
 function.setBody(BlockStatement.create()
         .addItem(ReturnStatement.create().setValue(call)));
 
-MethodDeclaration snapshot = function.build();
+FunctionDeclaration snapshot = function.build();
 ```
 
 Получается цикл: функция → тело → return → call → ссылка на ту же функцию. Обход `children()` остаётся конечным деревом; обход всех рёбер требует учёта уже посещённых объектов.
@@ -104,14 +108,14 @@ MethodDeclaration snapshot = function.build();
 
 `BuildContext` хранит `NodeBuilder<?> → Node` в IdentityHashMap. Метод `copy(NodeBuilder<T>)` возвращает `T`; при повторном посещении используется проверяемый `Class<T>.cast()`. Узел регистрируется до заполнения его связей.
 
-`EditContext` хранит `Node → NodeBuilder<?>`. Конкретный узел создаёт свой вложенный Builder и регистрирует пару через типизированный `register(T, NodeBuilder<T>)` до копирования детей. Соответствие проверяется также по классу узла. Единственный участок с unchecked-приведением находится внутри `EditContext.copy()`: коллекция Java не выражает зависимость типа значения от конкретного ключа. В классах узлов приведений нет.
+`EditContext` хранит `Node → NodeBuilder<?>`. Конкретный узел создаёт свой вложенный Builder и регистрирует пару через `register(Node, NodeBuilder<?>)` до копирования детей. При регистрации контекст сверяет класс узла с классом, объявленным строителем. Единственный участок с unchecked-приведением находится внутри `EditContext.copy()`: коллекция Java не выражает зависимость типа значения от конкретного ключа. В классах узлов приведений нет.
 
 Контексты package-private и живут только в пределах одной операции. Частично заполненные оболочки не передаются в пользовательские callback и не возвращаются через публичные методы. При исключении контекст отбрасывается целиком.
 
 ## Что проверяет сборка
 
 - Наличие обязательных детей и непустых обязательных имён/путей.
-- Типы связей: например, цель CallExpression имеет тип MethodDeclaration.
+- Типы связей: например, цель CallExpression имеет тип CallableDeclaration.
 - Базовые категории элементов файла и блока, начальный набор целей присваивания.
 - Отсутствие циклов владения и повторного использования одного синтаксического ребёнка в нескольких позициях. Общие цели ссылок разрешены.
 - При сборке Project все разрешённые цели должны принадлежать синтаксическому дереву этого проекта.
@@ -128,4 +132,41 @@ MethodDeclaration snapshot = function.build();
 - Операции замены/удаления с автоматическим обслуживанием входящих ссылок. Текущие сеттеры строителей меняют только явно указанную связь; это ещё не редактор всего графа.
 - Идентификаторы узлов, исходные позиции, дополнительные правила валидации и расширенные diagnostics.
 
-Проверка этого варианта: компиляция старых и новых main-классов вместе с `javac --release 21 -Xlint:all`. У новых классов предупреждений нет; у существующего ParseException остаётся предупреждение про serialVersionUID. Отдельный временный пример проверил цикл рекурсивного вызова, общую цель двух ссылок, независимость edit/build и неизменяемость списка. Тестовые файлы в репозиторий не добавлялись.
+## Присваивание и Visitor
+
+```java
+var assignment = AssignmentExpression.create()
+        .setTarget(NameExpression.create().setName("x"))
+        .setValue(AddExpression.create()
+                .setLeft(IntegerLiteral.create().setValue(2))
+                .setRight(IntegerLiteral.create().setValue(3)));
+var statement = ExpressionStatement.create().setExpression(assignment).build();
+
+statement.walk(new NodeVisitor() {
+    @Override
+    public void visit(BinaryExpression operation) {
+        System.out.println(operation.getClass().getSimpleName());
+    }
+});
+```
+
+`accept(visitor)` выбирает перегрузку Visitor для одного узла. `walk(visitor)` обходит дерево в глубину, начиная с корня, и посещает детей слева направо. Перегрузки по умолчанию передают управление перегрузке непосредственного родительского класса. В примере обработчик семейства получает узел сложения. При обходе семантические ссылки доступны через `references()`.
+
+## Визуализация DOT
+
+```java
+import com.kniazkov.cpg.visualization.DotVisualizer;
+import java.nio.file.Path;
+
+// Внутри метода, который обрабатывает IOException и InterruptedException.
+DotVisualizer.writeDot(statement, Path.of("tree.dot"));
+DotVisualizer.renderSvg(statement, Path.of("tree.svg"));
+```
+
+`toDot(root)` возвращает текст графа. Сплошные стрелки с номерами показывают позиции детей, пунктирные с меткой `ref` ведут к разрешённым объявлениям. При выборе поддерева внешняя цель получает собственную вершину. Генерация DOT работает средствами Java. Для SVG установи Graphviz и проверь `dot -V` в терминале. Визуализатор запускает программу из PATH, на Windows это `dot.exe`. Ошибки запуска и диагностика Graphviz передаются вызывающему коду.
+
+## Правила JavaDoc
+
+Пишем JavaDoc на английском. У интерфейсов и абстрактных классов описываем роль в иерархии и контракт каждого метода. Для точек расширения указываем, кто вызывает метод, что должна сделать реализация и какие инварианты обязана сохранить. У алгоритмов документируем порядок действий и причину выбора этого порядка. Например, регистрация оболочки до обхода ссылок сохраняет идентичность узла при рекурсии.
+
+У листового класса достаточно короткого описания конструкции. Переопределение требует отдельного комментария, когда добавляет существенные условия к унаследованному контракту. Очевидные геттеры и сеттеры отдельных комментариев не требуют.

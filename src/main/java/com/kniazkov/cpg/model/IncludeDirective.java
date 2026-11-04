@@ -26,6 +26,11 @@ public final class IncludeDirective extends Node {
         return List.of();
     }
 
+    @Override
+    public void accept(NodeVisitor visitor) {
+        visitor.visit(this);
+    }
+
     public static Builder create() {
         return new Builder();
     }

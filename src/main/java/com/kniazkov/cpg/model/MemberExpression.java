@@ -7,24 +7,21 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Member access with its original access form. */
-public final class MemberExpression extends Expression {
+public abstract class MemberExpression extends Expression {
     private Expression receiver;
     private String member;
-    private MemberAccessKind access;
 
-    private MemberExpression() {
+    MemberExpression() {
     }
 
+    /** Returns the receiver of this syntax node. */
     public Expression receiver() {
         return receiver;
     }
 
+    /** Returns the member of this syntax node. */
     public String member() {
         return member;
-    }
-
-    public MemberAccessKind access() {
-        return access;
     }
 
     @Override
@@ -34,72 +31,60 @@ public final class MemberExpression extends Expression {
         return List.copyOf(children);
     }
 
-    public static Builder create() {
-        return new Builder();
-    }
+    /** Creates the builder for the concrete operation during an edit session. */
+    abstract Builder<?, ?> emptyBuilder();
 
     @Override
-    public Builder edit() {
-        return new EditContext().edit(this, Builder.class);
-    }
-
-    @Override
-    Builder copyBuilder(EditContext context) {
-        Builder builder = new Builder();
+    final Builder<?, ?> copyBuilder(EditContext context) {
+        Builder<?, ?> builder = emptyBuilder();
         context.register(this, builder);
         builder.receiver = context.copy(receiver);
         builder.member = member;
-        builder.access = access;
         return builder;
     }
 
-    /** Mutable counterpart; setters may be chained before building a snapshot. */
-    public static final class Builder extends NodeBuilder<MemberExpression> {
+    /** Holds the fields shared by every concrete variant and copies them in one build session.
+     * @param <T> concrete node allocated by the leaf builder
+     * @param <B> concrete builder returned by fluent setters */
+    public abstract static class Builder<T extends MemberExpression, B extends Builder<T, B>> extends NodeBuilder<T> {
         private NodeBuilder<? extends Expression> receiver;
         private String member;
-        private MemberAccessKind access = MemberAccessKind.DOT;
 
-        private Builder() {
-            super(MemberExpression.class);
+        /** Binds this builder to the snapshot class used for identity lookups. */
+        Builder(Class<T> type) {
+            super(type);
         }
 
+        /** Reads the current receiver from the builder. */
         public Optional<NodeBuilder<? extends Expression>> receiver() {
             return Optional.ofNullable(receiver);
         }
 
+        /** Reads the current member from the builder. */
         public Optional<String> member() {
             return Optional.ofNullable(member);
         }
 
-        public MemberAccessKind access() {
-            return access;
-        }
-
-        public Builder setReceiver(NodeBuilder<? extends Expression> receiver) {
+        /** Replaces the receiver in the mutable state and returns the concrete builder. */
+        public final B setReceiver(NodeBuilder<? extends Expression> receiver) {
             this.receiver = Objects.requireNonNull(receiver);
-            return this;
+            return self();
         }
 
-        public Builder setMember(String member) {
+        /** Replaces the member in the mutable state and returns the concrete builder. */
+        public final B setMember(String member) {
             this.member = Objects.requireNonNull(member);
-            return this;
+            return self();
         }
 
-        public Builder setAccess(MemberAccessKind access) {
-            this.access = Objects.requireNonNull(access);
-            return this;
-        }
+        /** Returns the concrete builder so inherited setters can be chained. */
+        abstract B self();
 
         @Override
-        MemberExpression newNode() {
-            return new MemberExpression();
-        }
-
-        @Override
-        void fillNode(MemberExpression node, BuildContext context) {
+        final void fillNode(T shell, BuildContext context) {
+            MemberExpression node = shell;
             node.receiver = context.copy(receiver);
             node.member = requiredText(member, "MemberExpression.member");
-            node.access = access;
         }
     }
 }

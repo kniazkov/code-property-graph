@@ -7,17 +7,13 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** A unary operation. */
-public final class UnaryExpression extends Expression {
-    private UnaryOperator operator;
+public abstract class UnaryExpression extends Expression {
     private Expression operand;
 
-    private UnaryExpression() {
+    UnaryExpression() {
     }
 
-    public UnaryOperator operator() {
-        return operator;
-    }
-
+    /** Returns the operand of this syntax node. */
     public Expression operand() {
         return operand;
     }
@@ -29,59 +25,45 @@ public final class UnaryExpression extends Expression {
         return List.copyOf(children);
     }
 
-    public static Builder create() {
-        return new Builder();
-    }
+    /** Creates the builder for the concrete operation during an edit session. */
+    abstract Builder<?, ?> emptyBuilder();
 
     @Override
-    public Builder edit() {
-        return new EditContext().edit(this, Builder.class);
-    }
-
-    @Override
-    Builder copyBuilder(EditContext context) {
-        Builder builder = new Builder();
+    final Builder<?, ?> copyBuilder(EditContext context) {
+        Builder<?, ?> builder = emptyBuilder();
         context.register(this, builder);
-        builder.operator = operator;
         builder.operand = context.copy(operand);
         return builder;
     }
 
-    /** Mutable counterpart; setters may be chained before building a snapshot. */
-    public static final class Builder extends NodeBuilder<UnaryExpression> {
-        private UnaryOperator operator = UnaryOperator.PLUS;
+    /** Holds the fields shared by every concrete variant and copies them in one build session.
+     * @param <T> concrete node allocated by the leaf builder
+     * @param <B> concrete builder returned by fluent setters */
+    public abstract static class Builder<T extends UnaryExpression, B extends Builder<T, B>> extends NodeBuilder<T> {
         private NodeBuilder<? extends Expression> operand;
 
-        private Builder() {
-            super(UnaryExpression.class);
+        /** Binds this builder to the snapshot class used for identity lookups. */
+        Builder(Class<T> type) {
+            super(type);
         }
 
-        public UnaryOperator operator() {
-            return operator;
-        }
-
+        /** Reads the current operand from the builder. */
         public Optional<NodeBuilder<? extends Expression>> operand() {
             return Optional.ofNullable(operand);
         }
 
-        public Builder setOperator(UnaryOperator operator) {
-            this.operator = Objects.requireNonNull(operator);
-            return this;
-        }
-
-        public Builder setOperand(NodeBuilder<? extends Expression> operand) {
+        /** Replaces the operand in the mutable state and returns the concrete builder. */
+        public final B setOperand(NodeBuilder<? extends Expression> operand) {
             this.operand = Objects.requireNonNull(operand);
-            return this;
+            return self();
         }
 
-        @Override
-        UnaryExpression newNode() {
-            return new UnaryExpression();
-        }
+        /** Returns the concrete builder so inherited setters can be chained. */
+        abstract B self();
 
         @Override
-        void fillNode(UnaryExpression node, BuildContext context) {
-            node.operator = operator;
+        final void fillNode(T shell, BuildContext context) {
+            UnaryExpression node = shell;
             node.operand = context.copy(operand);
         }
     }
