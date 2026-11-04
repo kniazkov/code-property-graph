@@ -16,9 +16,9 @@ public final class Parser {
     private final StatementParser statements;
 
     private Parser(String file, String source, Language language) {
-        this.file = file;
+        this.file = java.nio.file.Path.of(file).toAbsolutePath().normalize().toString();
         this.language = language;
-        tokens = new TokenCursor(file, new Lexer(file, source).scan());
+        tokens = new TokenCursor(this.file, new Lexer(java.nio.file.Path.of(file).getFileName().toString(), source).scan());
         statements = new StatementParser(tokens, new ExpressionParser(tokens, language));
     }
 
@@ -38,21 +38,24 @@ public final class Parser {
 
     /** Consumes top-level items until EOF, preserving the order of declarations and includes. */
     private SourceFile.Builder parse() {
-        var result = SourceFile.create().setPath(file).setLanguage(language);
+        var result = SourceFile.create().setPath(java.nio.file.Path.of(file).getFileName().toString()).setLanguage(language);
         while (!tokens.peek().equals("<eof>")) {
+            var start = tokens.start();
             if (tokens.peek().startsWith("#")) {
                 var include = java.util.regex.Pattern.compile("#\\s*include\\s*(?:<([^>]+)>|\"([^\"]+)\")\\s*").matcher(tokens.peek());
                 if (language != Language.CPP || !include.matches()) throw tokens.error("Only #include is supported");
                 boolean system = include.group(1) != null;
-                result.addItem(IncludeDirective.create().setSystem(system).setHeader(include.group(system ? 1 : 2)));
                 tokens.advance();
+                result.addItem(tokens.span(start, IncludeDirective.create().setSystem(system).setHeader(include.group(system ? 1 : 2))));
             } else if (tokens.peek().equals("class") || tokens.peek().equals("public")) {
                 result.addItem(clazz());
             } else if (language == Language.CPP && tokens.take("int")) {
+                var returnType = tokens.span(start, type("int"));
                 tokens.expect("main"); tokens.expect("("); tokens.expect(")");
-                result.addItem(FunctionDeclaration.create().setName("main").setReturnType(type("int")).setBody(statements.block()));
+                result.addItem(tokens.span(start, FunctionDeclaration.create().setName("main").setReturnType(returnType).setBody(statements.block())));
             } else throw tokens.error("Unsupported top-level declaration");
         }
+        result.setRange(new SourceRange(file, new SourcePosition(1, 1, 0), tokens.start()));
         return result;
     }
 
@@ -62,6 +65,7 @@ public final class Parser {
 
     /** Parses the supported class form and dispatches each method body to the statement reader. */
     private ClassDeclaration.Builder clazz() {
+        var start = tokens.start();
         boolean isPublic = tokens.take("public");
         if (isPublic && language == Language.CPP) throw tokens.error("Unexpected public before class");
         tokens.expect("class");
@@ -70,19 +74,25 @@ public final class Parser {
         tokens.expect("{");
         if (language == Language.CPP) { tokens.expect("public"); tokens.expect(":"); }
         while (!tokens.take("}")) {
+            var methodStart = tokens.start();
             var method = MethodDeclaration.create();
             if (language == Language.JAVA) { tokens.expect("public"); method.addModifier("public"); }
-            tokens.expect("static"); tokens.expect("void"); tokens.expect("main"); tokens.expect("(");
-            method.addModifier("static").setName("main").setReturnType(type("void"));
+            tokens.expect("static");
+            var typeStart = tokens.start();
+            tokens.expect("void");
+            var returnType = tokens.span(typeStart, type("void")); tokens.expect("main"); tokens.expect("(");
+            method.addModifier("static").setName("main").setReturnType(returnType);
             if (language == Language.JAVA) {
+                var paramStart = tokens.start();
                 tokens.expect("String"); tokens.expect("["); tokens.expect("]");
-                method.addParameter(ParameterDeclaration.create().setType(type("String[]")).setName(tokens.identifier()));
+                var paramType = tokens.span(paramStart, type("String[]"));
+                method.addParameter(tokens.span(paramStart, ParameterDeclaration.create().setType(paramType).setName(tokens.identifier())));
             }
             tokens.expect(")");
-            node.addMember(method.setBody(statements.block()));
+            node.addMember(tokens.span(methodStart, method.setBody(statements.block())));
         }
         if (language == Language.CPP) tokens.expect(";");
-        return node;
+        return tokens.span(start, node);
     }
 
 }

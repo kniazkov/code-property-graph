@@ -1,6 +1,7 @@
 /* Code Property Graph: shared parser position and source diagnostics. MIT License. */
 package com.kniazkov.cpg.parser;
 
+import com.kniazkov.cpg.model.*;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -16,6 +17,14 @@ final class TokenCursor {
     TokenCursor(String file, List<Token> tokens) {
         this.file = file;
         this.tokens = tokens;
+    }
+
+    SourcePosition start() { return tokens.get(position).start(); }
+
+    /** Attaches the interval from the first token to the end of the last consumed token. */
+    <B extends NodeBuilder<?>> B span(SourcePosition start, B builder) {
+        builder.setRange(new SourceRange(file, start, tokens.get(position - 1).end()));
+        return builder;
     }
 
     /** Reads the next spelling without consuming it. */
@@ -47,6 +56,6 @@ final class TokenCursor {
     /** Attaches the current token position to a grammar diagnostic. */
     ParseException error(String reason) {
         Token token = tokens.get(position);
-        return new ParseException(file, token.line(), token.column(), reason);
+        return new ParseException(java.nio.file.Path.of(file).getFileName().toString(), token.start().line(), token.start().column(), reason);
     }
 }

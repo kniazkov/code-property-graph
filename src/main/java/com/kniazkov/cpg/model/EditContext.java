@@ -52,6 +52,7 @@ final class EditContext {
         if (builder.nodeType() != node.getClass()) {
             throw new IllegalStateException("Builder does not match node type");
         }
+        builder.origin = node.origin;
         if (builders.putIfAbsent(node, builder) != null) {
             throw new IllegalStateException("Node already registered");
         }

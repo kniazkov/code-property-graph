@@ -1,6 +1,7 @@
 /* Code Property Graph: tokenization of the supported Java and C++ subsets. MIT License. */
 package com.kniazkov.cpg.parser;
 
+import com.kniazkov.cpg.model.SourcePosition;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -63,20 +64,24 @@ final class Lexer {
             } else {
                 throw new ParseException(file, line, column, "Unsupported character: " + ch);
             }
-            tokens.add(new Token(source.substring(start, offset), startLine, startColumn));
+            tokens.add(new Token(source.substring(start, offset), new SourcePosition(startLine, startColumn, start), position()));
         }
-        tokens.add(new Token("<eof>", line, column));
+        tokens.add(new Token("<eof>", position(), position()));
         return List.copyOf(tokens);
     }
 
+    private SourcePosition position() { return new SourcePosition(line, column, offset); }
+
     /** Leaves the newline for the ordinary whitespace path, also handling a final line without one. */
     private void skipLine() {
-        while (offset < source.length() && source.charAt(offset) != '\n') advance();
+        while (offset < source.length() && source.charAt(offset) != '\n' && source.charAt(offset) != '\r') advance();
     }
 
     /** Advances the offset and updates the one-based position of the next character. */
     private void advance() {
-        if (source.charAt(offset++) == '\n') {
+        char ch = source.charAt(offset++);
+        if (ch == '\r' || ch == '\n') {
+            if (ch == '\r' && offset < source.length() && source.charAt(offset) == '\n') offset++;
             line++;
             column = 1;
         } else {

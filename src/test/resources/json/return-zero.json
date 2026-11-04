@@ -1,0 +1,28 @@
+{
+  "id": 0,
+  "kind": "Project",
+  "files": [{
+    "id": 1, "kind": "SourceFile", "path": "FILE_PATH", "language": "CPP",
+    "range": {"start": {"line": 1, "column": 1, "offset": 0}, "end": {"line": 1, "column": 25, "offset": 24}},
+    "items": [{
+      "id": 2, "kind": "FunctionDeclaration", "name": "main", "modifiers": [],
+      "returnType": {"id": 3, "kind": "NamedType", "name": "int",
+        "range": {"start": {"line": 1, "column": 1, "offset": 0}, "end": {"line": 1, "column": 4, "offset": 3}}},
+      "parameters": [],
+      "body": {"id": 4, "kind": "BlockStatement",
+        "items": [{
+          "id": 5, "kind": "ReturnStatement",
+          "value": {"id": 6, "kind": "IntegerLiteral", "value": 0,
+            "range": {"start": {"line": 1, "column": 21, "offset": 20}, "end": {"line": 1, "column": 22, "offset": 21}},
+            "edges": [{"kind": "dfg.value", "to": 5}]},
+          "range": {"start": {"line": 1, "column": 14, "offset": 13}, "end": {"line": 1, "column": 23, "offset": 22}},
+          "edges": [{"kind": "cfg.return", "to": 7}]
+        }],
+        "range": {"start": {"line": 1, "column": 12, "offset": 11}, "end": {"line": 1, "column": 25, "offset": 24}}
+      },
+      "exit": {"id": 7, "kind": "Exit"},
+      "range": {"start": {"line": 1, "column": 1, "offset": 0}, "end": {"line": 1, "column": 25, "offset": 24}},
+      "edges": [{"kind": "cfg.entry", "to": 5}]
+    }]
+  }]
+}
