@@ -8,10 +8,13 @@ import java.util.stream.Collectors;
 
 /** Prints typed syntax and adapts the supported demonstration entry points. */
 public final class Source {
+    /** Languages currently supported for direct source generation. */
+    public static final Set<Language> SUPPORTED_TARGETS = Set.of(Language.CPP, Language.JAVA);
+
     private final Language target;
 
     private Source(Language target) {
-        if (target != Language.JAVA && target != Language.CPP) throw new IllegalArgumentException("Supported targets: JAVA, CPP");
+        if (!SUPPORTED_TARGETS.contains(target)) throw new IllegalArgumentException("Supported targets: JAVA, CPP");
         this.target = target;
     }
 
@@ -22,7 +25,7 @@ public final class Source {
 
     /** Intersects the language restrictions of owned syntax nodes without following semantic references. */
     public static Set<Language> languages(Node node) {
-        EnumSet<Language> targets = EnumSet.of(Language.CPP, Language.JAVA);
+        EnumSet<Language> targets = EnumSet.copyOf(SUPPORTED_TARGETS);
         node.walk(new NodeVisitor() {
             @Override public void visit(IncludeDirective n) { targets.remove(Language.JAVA); }
             @Override public void visit(FunctionDeclaration n) { targets.remove(Language.JAVA); }
