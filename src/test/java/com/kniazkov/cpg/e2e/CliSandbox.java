@@ -45,7 +45,17 @@ final class CliSandbox {
         return runInput("cpp", "--compile-commands", database, options);
     }
 
+    /** Imports all variants for analysis without asking for a potentially conflicting source set. */
+    CliRun runDatabaseJson(Path database, String... options) throws IOException, InterruptedException {
+        return runInput("cpp", "--compile-commands", database, false, options);
+    }
+
     private CliRun runInput(String language, String inputFlag, Path source, String... options)
+            throws IOException, InterruptedException {
+        return runInput(language, inputFlag, source, true, options);
+    }
+
+    private CliRun runInput(String language, String inputFlag, Path source, boolean sources, String... options)
             throws IOException, InterruptedException {
         Path jar = Path.of(Objects.requireNonNull(System.getProperty("cpg.e2e.jar"), "Run via mvn verify"));
         assertTrue(Files.isRegularFile(jar), () -> "Missing packaged CLI: " + jar);
@@ -54,7 +64,8 @@ final class CliSandbox {
         String exe = System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java";
         List<String> command = new ArrayList<>(List.of(Path.of(System.getProperty("java.home"), "bin", exe).toString(),
                 "-Dfile.encoding=UTF-8", "-jar", jar.toAbsolutePath().toString(), "--from", language,
-                inputFlag, source.toString(), "--out", "generated", "--json", "snapshot.json"));
+                inputFlag, source.toString(), "--json", "snapshot.json"));
+        if (sources) command.addAll(List.of("--out", "generated"));
         command.addAll(List.of(options));
         Process child = new ProcessBuilder(command).directory(work.toFile())
                 .redirectOutput(out.toFile()).redirectError(err.toFile()).start();
