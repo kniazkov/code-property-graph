@@ -1,5 +1,5 @@
 /* Code Property Graph: Java and C++ source generation. MIT License. */
-package com.kniazkov.cpg;
+package com.kniazkov.cpg.generation;
 
 import com.kniazkov.cpg.model.*;
 import java.nio.file.Path;
@@ -43,7 +43,8 @@ public final class Source {
         return Collections.unmodifiableSet(targets);
     }
 
-    static Map<String,String> files(Project project, Language target) {
+    /** Generates named files, adapting supported program entry points when changing languages. */
+    public static Map<String,String> files(Project project, Language target) {
         Source out = new Source(target);
         Map<String,String> files = new LinkedHashMap<>();
         for (SourceFile file : project.files()) {

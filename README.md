@@ -5,7 +5,7 @@
 
 ## Запуск из консоли
 
-Собери исполняемый JAR на JDK 21 командой `mvn verify`. Класс с `main` — `com.kniazkov.cpg.Cpg`. Для вывода SVG установи Graphviz и проверь доступность `dot -V` из той же консоли.
+Собери исполняемый JAR на JDK 21 командой `mvn verify`. Класс с `main` — `com.kniazkov.cpg.Main`. Для вывода SVG установи Graphviz и проверь доступность `dot -V` из той же консоли.
 
 ```sh
 java -jar target/cpg-0.0.1-SNAPSHOT.jar --help
@@ -33,11 +33,15 @@ SVG показывает снимок **на выбранной стадии**. 
 
 На исходном языке доступны все четыре стадии. Для перевода примеров с выводом выбери `green` или `folded`. При переводе Java в C++ поддерживается одна папка с одним файлом и классом, содержащим main. Генератор добавляет свободную точку входа и iostream. При переводе C++ в Java поддерживается стандартная обёртка, которая вызывает Class::main() и возвращает 0. Файл класса получает расширение целевого языка. Использование аргументов командной строки Java и произвольных C++ заголовков в этих переводах вызывает диагностику.
 
+## Организация пакетов
+
+В `com.kniazkov.cpg` находятся `Cpg` (API библиотеки) и `Main` (CLI). В `parser` лексер создаёт токены с координатами, а читатели объявлений, операторов и выражений работают с общей позицией в потоке. В `analysis` каждый проход можно запустить отдельно. Пакет `generation` отвечает за генерацию исходников, `visualization` — за DOT и SVG.
+
 ## Java API
 
 ```java
 Project parsed = Cpg.read(Path.of("examples/java"), new Cpg.Options(Language.JAVA, Cpg.Stage.PARSED));
-Project ready = Passes.fold(Passes.green(Passes.resolve(parsed)));
+Project ready = ConstantFolder.fold(ConsoleNormalizer.green(NameResolver.resolve(parsed)));
 Map<String, String> files = Cpg.sources(ready, Language.CPP);
 DotVisualizer.renderSvg(ready, Path.of("tree.svg"));
 ```

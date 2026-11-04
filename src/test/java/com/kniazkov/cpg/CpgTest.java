@@ -2,12 +2,15 @@
 package com.kniazkov.cpg;
 
 import com.kniazkov.cpg.model.*;
+import com.kniazkov.cpg.analysis.*;
+import com.kniazkov.cpg.parser.ParseException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.*;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+/** Exercises the public folder pipeline, individual analysis passes and snapshot integrity. */
 class CpgTest {
     @TempDir Path temp;
 
@@ -29,9 +32,9 @@ class CpgTest {
 
     @Test void stagesAndIndependentSnapshots() throws Exception {
         Project parsed = read("int a = 2; System.out.println(a + (2 + 3) * 4);", Cpg.Stage.PARSED);
-        Project resolved = Passes.resolve(parsed);
-        Project green = Passes.green(resolved);
-        Project folded = Passes.fold(green);
+        Project resolved = NameResolver.resolve(parsed);
+        Project green = ConsoleNormalizer.green(resolved);
+        Project folded = ConstantFolder.fold(green);
         assertTrue(nodes(parsed, NameExpression.class).stream().allMatch(n -> n.target().isEmpty()));
         var use = nodes(resolved, NameExpression.class).stream().filter(n -> n.name().equals("a")).findFirst().orElseThrow();
         assertSame(nodes(resolved, VariableDeclaration.class).getFirst(), use.target().orElseThrow());

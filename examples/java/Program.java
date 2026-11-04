@@ -1,4 +1,5 @@
 /* Small Java input for the CPG demonstration. */
+/** Demonstration input for parsing, constant folding and console output. */
 public class Program {
     public static void main(String[] args) {
         int a = 2;
