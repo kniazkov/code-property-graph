@@ -1,0 +1,12 @@
+[
+  {
+    "directory": "sources",
+    "file": "main.cpp",
+    "arguments": ["g++", "-std=c++03", "-pedantic-errors", "-Iinclude", "-c", "main.cpp"]
+  },
+  {
+    "directory": "sources",
+    "file": "second.cpp",
+    "arguments": ["g++", "-std=c++03", "-pedantic-errors", "-Iinclude", "-c", "second.cpp"]
+  }
+]

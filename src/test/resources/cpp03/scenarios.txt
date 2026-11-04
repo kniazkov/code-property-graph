@@ -1,3 +1,4 @@
 return-zero
 arithmetic
 invalid-token
+square
