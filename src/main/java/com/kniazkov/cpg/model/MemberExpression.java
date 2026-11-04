@@ -38,7 +38,7 @@ public abstract class MemberExpression extends Expression {
     final Builder<?, ?> copyBuilder(EditContext context) {
         Builder<?, ?> builder = emptyBuilder();
         context.register(this, builder);
-        builder.receiver = context.copy(receiver);
+        builder.receiver = context.edge(receiver, Expression.class);
         builder.member = member;
         return builder;
     }

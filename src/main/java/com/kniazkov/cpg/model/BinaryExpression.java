@@ -39,8 +39,8 @@ public abstract class BinaryExpression extends Expression {
     final Builder<?, ?> copyBuilder(EditContext context) {
         Builder<?, ?> builder = emptyBuilder();
         context.register(this, builder);
-        builder.left = context.copy(left);
-        builder.right = context.copy(right);
+        builder.left = context.edge(left, Expression.class);
+        builder.right = context.edge(right, Expression.class);
         return builder;
     }
 

@@ -64,9 +64,9 @@ public abstract class CallableDeclaration extends Declaration {
         context.register(this, builder);
         builder.name = name;
         builder.modifiers = new ArrayList<>(modifiers);
-        builder.returnType = returnType == null ? null : context.copy(returnType);
-        builder.parameters = context.copyAll(parameters);
-        builder.body = body == null ? null : context.copy(body);
+        builder.returnType = returnType == null ? null : context.edge(returnType, TypeNode.class);
+        builder.parameters = context.copyAll(parameters, ParameterDeclaration.class);
+        builder.body = body == null ? null : context.edge(body, BlockStatement.class);
         return builder;
     }
 

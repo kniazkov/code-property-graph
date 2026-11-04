@@ -42,7 +42,7 @@ public final class ExpressionStatement extends Statement {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
-        builder.expression = context.copy(expression);
+        builder.expression = context.edge(expression, Expression.class);
         return builder;
     }
 

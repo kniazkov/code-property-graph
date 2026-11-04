@@ -58,9 +58,9 @@ public final class CallExpression extends Expression {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
-        builder.callee = context.copy(callee);
-        builder.arguments = context.copyAll(arguments);
-        builder.target = target == null ? null : context.copy(target);
+        builder.callee = context.edge(callee, Expression.class);
+        builder.arguments = context.copyAll(arguments, Expression.class);
+        builder.target = target == null ? null : context.edge(target, CallableDeclaration.class);
         return builder;
     }
 

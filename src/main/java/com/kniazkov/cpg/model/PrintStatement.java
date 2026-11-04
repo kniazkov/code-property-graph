@@ -29,6 +29,13 @@ public final class PrintStatement extends Statement {
         visitor.visit(this);
     }
 
+    /** Wraps an existing immutable expression while preserving references into its project. */
+    public static PrintStatement of(Expression value) {
+        var result = new PrintStatement();
+        result.value = Objects.requireNonNull(value);
+        return result;
+    }
+
     public static Builder create() {
         return new Builder();
     }
@@ -42,7 +49,7 @@ public final class PrintStatement extends Statement {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
-        builder.value = context.copy(value);
+        builder.value = context.edge(value, Expression.class);
         return builder;
     }
 

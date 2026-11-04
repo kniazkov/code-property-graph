@@ -41,7 +41,7 @@ public final class Project extends Node {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
-        builder.files = context.copyAll(files);
+        builder.files = context.copyAll(files, SourceFile.class);
         return builder;
     }
 

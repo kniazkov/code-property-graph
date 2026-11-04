@@ -48,8 +48,8 @@ public final class WhileStatement extends Statement {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
-        builder.condition = context.copy(condition);
-        builder.body = context.copy(body);
+        builder.condition = context.edge(condition, Expression.class);
+        builder.body = context.edge(body, Statement.class);
         return builder;
     }
 

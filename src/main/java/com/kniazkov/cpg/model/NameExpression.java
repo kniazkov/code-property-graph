@@ -50,7 +50,7 @@ public final class NameExpression extends Expression {
         Builder builder = new Builder();
         context.register(this, builder);
         builder.name = name;
-        builder.target = target == null ? null : context.copy(target);
+        builder.target = target == null ? null : context.edge(target, Declaration.class);
         return builder;
     }
 
