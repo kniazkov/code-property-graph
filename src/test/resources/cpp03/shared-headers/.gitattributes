@@ -1,0 +1,2 @@
+# This fixture intentionally contains CRLF and trailing spaces for byte-preservation checks.
+conditional/sources/include/common.h -text whitespace=-blank-at-eol,cr-at-eol

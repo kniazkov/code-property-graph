@@ -56,8 +56,8 @@ public final class Source {
 
     /** Generates named files, adapting supported program entry points when changing languages. */
     public static Map<String,String> files(Project project, Language target) {
-        requireVariantSelection(project);
         if (target == Language.CPP && PreservedSource.applicable(project)) return PreservedSource.files(project);
+        requireVariantSelection(project);
         Source out = new Source(target);
         Map<String,String> files = new LinkedHashMap<>();
         for (SourceFile file : project.files()) {
