@@ -1,8 +1,9 @@
 /* Source diagnostics for the CPG prototype. MIT License. */
-package com.kniazkov.cpg;
+package com.kniazkov.cpg.parser;
 
 /** A source error; no partial graph accompanies this exception. */
 public final class ParseException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
     private final String file;
     private final int line, column;
     public ParseException(String file, int line, int column, String reason) {
