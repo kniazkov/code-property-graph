@@ -365,3 +365,38 @@ checks**. This scenario checks API/CLI equivalence, snapshot copying, JSON/SVG,
 original/generated/folded native programs, and three invalid C++03 template forms.
 Public `Cpg.read` regression tests also verify instance CFG/DFG through resolved,
 green and folded stages, including target-profile-dependent branches and folding.
+
+## Specialization exports and the C++03 export investigation (#35)
+
+Run focused syntax/export checks with:
+
+```sh
+mvn -Dtest=TemplateInstantiationExportTest,TemplateExportTest test
+scripts/probe-cpp03-export.sh g++ clang++
+```
+
+The unit tests check full/partial specialization syntax, explicit instantiation,
+`export` preservation, separately owned generic and concrete syntax, typed call
+and request edges, reverse requests, copies and the absence of dangling references.
+The compiler probe prints versions and diagnostics and leaves no files behind.
+Unavailable compilers are explicitly marked SKIPPED. Its exit status is not a
+conformance verdict: inspect both reported compile/link outcomes. With GCC 14.2
+and Clang 19.1.7 the separate exported definition fails linking, whereas the
+explicit-instantiation control builds and runs. Neither an ignored keyword nor a
+passing explicit-instantiation control closes C++03 `export` support. Compatible
+shared-header instantiation across TUs remains distinct from this investigation.
+
+`TemplateInstantiationExportTest` also exercises TYPE/VALUE/TEMPLATE callable
+arguments, unique owned JSON IDs and compatibility type views in copied snapshots.
+
+The mandatory `template-instantiation` corpus runs two physical translation units
+sharing one header. It checks shared outer/inner instances and reverse request
+links, retained generic bodies, immediate-context SFINAE, function ordering,
+full and ordered partial class specializations, explicit function instantiation,
+array-bound/value/template-template arguments, copied graphs and API/CLI JSON/SVG
+parity. Original, generated and folded programs use genuine system `<vector>` and
+must agree under GCC and Clang. Separate invalid fixtures cover selected nested
+body errors with ordered primary/request ranges, partial function specialization
+and ambiguous class partials. The full corpus has **29 scenarios and 31 results
+including infrastructure checks**. Run just this gate with
+`mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=template-instantiation verify`.

@@ -6,13 +6,33 @@ import java.util.*;
 /** Stages replacements and bindings against one source snapshot. Each build creates independent objects. */
 public final class ProjectEditor {
     private final Project source;
-    private record Instantiation(CallableDeclaration origin, CallExpression cause, SourceFile file, List<TypeNode> arguments) {}
+    private boolean retainDiagnostics;
+    /** Semantic passes may preserve prior findings; ordinary source edits still invalidate them. */
+    public ProjectEditor retainDiagnostics() { retainDiagnostics=true; return this; }
+    private record Instantiation(CallableDeclaration origin, Node cause, SourceFile file, List<TypeNode> arguments, Map<Node, Node> substitutions, CallableDeclaration definition, List<TemplateArgument> structuredArguments) {}
     private final List<Instantiation> instantiations = new ArrayList<>();
     /** Basic instances own a distinct body; written arguments remain children of the call. */
-    public void instantiate(CallableDeclaration origin, CallExpression cause, SourceFile file, List<TypeNode> arguments) {
-        requireMember(origin); requireMember(cause); requireMember(file);
-        if (arguments.size() != origin.templateParameters().size()) throw new IllegalArgumentException("Template argument count");
-        instantiations.add(new Instantiation(origin, cause, file, List.copyOf(arguments)));
+    public void instantiate(CallableDeclaration origin, Node cause, SourceFile file, List<TypeNode> arguments) {
+        instantiate(origin, cause, file, arguments, Map.of());
+    }
+    public void instantiate(CallableDeclaration origin, Node cause, SourceFile file, List<TypeNode> arguments, Map<Node, Node> substitutions) {
+        instantiate(origin, cause, file, arguments, substitutions, origin);
+    }
+    public void instantiate(CallableDeclaration origin, Node cause, SourceFile file, List<TypeNode> arguments, Map<Node, Node> substitutions, CallableDeclaration definition) {
+        var structured=arguments.stream().map(type -> TemplateArgument.create().setType(type.edit()).build()).toList();
+        instantiateArguments(origin,cause,file,structured,substitutions,definition);
+    }
+    public void instantiateArguments(CallableDeclaration origin,Node cause,SourceFile file,List<TemplateArgument> arguments,
+            Map<Node,Node> substitutions,CallableDeclaration definition) {
+        requireMember(origin); requireMember(cause); requireMember(file); requireMember(definition);
+        if(arguments.size()!=origin.templateParameters().size())throw new IllegalArgumentException("Template argument count");
+        instantiations.add(new Instantiation(origin,cause,file,arguments.stream().flatMap(a -> a.type().stream()).toList(),Map.copyOf(substitutions),definition,List.copyOf(arguments)));
+    }
+
+    private final Map<TemplateInstance, List<Node>> additionalRequests = new IdentityHashMap<>();
+    public void requestInstantiation(TemplateInstance instance, Node request) {
+        requireMember(instance); requireMember(request);
+        if (!instance.requests().contains(request)) additionalRequests.computeIfAbsent(instance, ignored -> new ArrayList<>()).add(request);
     }
 
     private final Set<Node> members = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -256,31 +276,45 @@ public final class ProjectEditor {
                     adjusted.putIfAbsent(reference, adjusted.getOrDefault(original, original));
             }
         }
+        for(var instance:instantiations) for(Node argument:java.util.stream.Stream.concat(instance.structuredArguments().stream(),instance.substitutions().values().stream()).toList()) argument.walk(new NodeVisitor(){
+            @Override public void visit(Node node){ for(Node reference:node.references()) {
+                Node original=origins.get(reference.editIdentity);
+                if(original!=null && reference!=original && !ambiguousOrigins.contains(reference.editIdentity))adjusted.putIfAbsent(reference,original);
+            }}
+        });
         var context = new EditContext(adjusted, removed, conversions);
         var root = context.edit(source, Project.Builder.class);
         dependencies.forEach((expression, value) -> context.copy(expression).setDependent(value));
+        additionalRequests.forEach((instance, requests) -> {
+            var builder = context.edit(instance, TemplateInstance.Builder.class);
+            var all = new ArrayList<NodeBuilder<? extends Node>>(builder.requests);
+            requests.forEach(request -> all.add(context.copy(request)));
+            builder.requests = all;
+        });
         for (var instance : instantiations) {
             var substitutions = new IdentityHashMap<Node, Node>();
-            instance.origin().walk(new NodeVisitor() {
+            substitutions.putAll(instance.substitutions());
+            instance.definition().walk(new NodeVisitor() {
                 @Override public void visit(NamedType type) {
                     int index = type.declaration().isEmpty() ? -1 : instance.origin().templateParameters().indexOf(type.declaration().get());
-                    if (index >= 0) substitutions.put(type, instance.arguments().get(index));
+                    if (index >= 0 && instance.structuredArguments().get(index).type().isPresent()) substitutions.put(type, instance.structuredArguments().get(index).type().get());
                 }
             });
-            var fork = context.fork(instance.origin(), substitutions);
-            var declaration = (CallableDeclaration.Builder<?, ?>) fork.copy(instance.origin());
-            declaration.setTemplateParameters(List.of()); declaration.clearDefinition(); declaration.clearPreviousDeclaration();
-            instance.origin().walk(new NodeVisitor() {
+            var fork = context.fork(instance.definition(), substitutions);
+            var declaration = (CallableDeclaration.Builder<?, ?>) fork.copy(instance.definition());
+            declaration.setTemplateParameters(List.of()); declaration.setTemplateKind(TemplateKind.NONE); declaration.clearTemplateArguments(); declaration.setExportedTemplate(false); declaration.clearDefinition(); declaration.clearPreviousDeclaration();
+            instance.definition().walk(new NodeVisitor() {
+                @Override public void visit(NamedType type) { fork.edit(type,NamedType.Builder.class).setDependent(false); }
                 @Override public void visit(Expression expression) { fork.copy(expression).setDependent(false); }
                 @Override public void visit(CallExpression call) { fork.edit(call, CallExpression.Builder.class).clearTarget().setDependent(false); }
                 @Override public void visit(MemberExpression member) { ((MemberExpression.Builder<?, ?>) fork.copy(member)).clearTarget().setDependent(false); }
             });
             var b = new TemplateInstance.Builder(); b.origin = context.edge(instance.origin(), CallableDeclaration.class);
-            b.cause = context.copy(instance.cause()); b.source = context.edge(instance.file(), SourceFile.class);
+            b.requests = new ArrayList<>(List.of(context.copy(instance.cause()))); b.source = context.edge(instance.file(), SourceFile.class);
             b.declaration = declaration;
-            var args = new ArrayList<NodeBuilder<? extends TypeNode>>();
-            for (TypeNode type : instance.arguments()) args.add(context.fork(type, Map.of()).edge(type, TypeNode.class));
-            b.arguments = args; root.addTemplateInstance(b);
+            var structured=new ArrayList<NodeBuilder<? extends TemplateArgument>>();
+            for(TemplateArgument argument:instance.structuredArguments())structured.add(context.fork(argument,Map.of()).edge(argument,TemplateArgument.class));
+            b.structuredArguments=structured; root.addTemplateInstance(b);
         }
         names.forEach((use, target) -> {
             var builder = context.edit(use, NameExpression.Builder.class).clearTarget();
@@ -348,7 +382,14 @@ public final class ProjectEditor {
         expressions.forEach((expression, info) -> context.copy(expression).setExpressionInfo(info));
         var build = new BuildContext();
         Project result = build.build(root);
-        diagnostics.forEach((node, findings) -> build.copy(context.copy(node)).findings = List.copyOf(findings));
+        if(retainDiagnostics && replacements.isEmpty() && removed.isEmpty()) for(Node member:members)
+            if(!member.diagnostics().isEmpty())build.copy(context.copy(member)).findings=member.diagnostics();
+        diagnostics.forEach((node, findings) -> {
+            Node target=build.copy(context.copy(node));
+            var combined=new ArrayList<Diagnostic>(target.findings);
+            for(Diagnostic finding:findings)if(!combined.contains(finding))combined.add(finding);
+            target.findings=List.copyOf(combined);
+        });
         return result;
     }
 }

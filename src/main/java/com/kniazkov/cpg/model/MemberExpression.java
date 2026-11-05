@@ -8,6 +8,8 @@ import java.util.Optional;
 
 /** Member access with its original access form. */
 public abstract class MemberExpression extends Expression {
+    void invalidateTemplateTargets(java.util.Set<Node> discarded) { if(discarded.contains(target)) target=null; }
+
     private Expression receiver;
     private List<TemplateArgument> templateArguments = List.of();
     private boolean hasTemplateArguments, templateKeyword;

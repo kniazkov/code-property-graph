@@ -152,9 +152,17 @@ public final class DotVisualizer {
                 if (expression.operatorTarget().isEmpty()) for (var candidate : expression.operatorCandidates())
                     semanticEdge(expression, candidate, "operator candidate (" + expression.operatorResolution().name().toLowerCase(java.util.Locale.ROOT) + ")");
             }
+            if (node instanceof TemplateInstance instance) for (Node request : instance.requests()) {
+                semanticEdge(request, instance, "INSTANTIATION_CAUSE");
+                semanticEdge(instance, request, "INSTANTIATION_REQUEST");
+            }
+            if (node instanceof ClassTemplateInstance instance) for (Node request : instance.requests()) {
+                semanticEdge(request, instance, "INSTANTIATION_CAUSE");
+                semanticEdge(instance, request, "INSTANTIATION_REQUEST");
+            }
             if (node instanceof NamedType type) resolution(type);
             if (node instanceof CallExpression call) {
-                call.target().ifPresent(target -> semanticEdge(call, target, "static target"));
+                call.target().ifPresent(target -> semanticEdge(call, target, "CALL_TARGET (static target)"));
                 for (var target : call.virtualTargets()) semanticEdge(call, target,
                         "possible virtual implementation" + (call.virtualTargetsComplete() ? "" : " (incomplete set)"));
             }
@@ -328,6 +336,7 @@ public final class DotVisualizer {
             }
             if (node instanceof NameExpression name && name.templateKeyword()
                     || node instanceof MemberExpression member && member.templateKeyword()) label.detail += " [template]";
+            if (node instanceof ClassTemplateInstance instance) label.detail = instance.origin().name() + " " + instance.identity();
             if (node instanceof TemplateInstance instance) label.detail = instance.origin().name() + " " + instance.status();
             if (node instanceof SourceFile && com.kniazkov.cpg.analysis.LibraryDeclarations.isLibrary(node)) label.detail += " [library declarations only]";
             if (node instanceof NamedType type && type.dependent() || node instanceof Expression expression && expression.dependent()) label.detail += " [dependent]";

@@ -66,6 +66,15 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("template-instantiation".equals(settings.getProperty("mode"))) {
+            var output = TemplateInstantiationAcceptance.verify(fixture, work);
+            for (Path source : output.sources()) nativePrograms(work, source, "", 0);
+            for (String compiler : List.of("g++", "clang++")) for (Path invalid : output.invalid()) {
+                Result rejected = command(List.of(compiler, "-std=c++03", "-pedantic-errors", "-fsyntax-only", invalid.resolve("main.cpp").toString()), work);
+                assertNotEquals(0, rejected.status(), "Invalid template accepted: " + invalid + " by " + compiler);
+            }
+            return;
+        }
         if ("templates-dependent".equals(settings.getProperty("mode"))) {
             var output = TemplatesDependentAcceptance.verify(fixture, work);
             for (Path source : output.sources()) nativePrograms(work, source, "", 0);

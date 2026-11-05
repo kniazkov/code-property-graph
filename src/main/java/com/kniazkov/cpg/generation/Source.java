@@ -335,6 +335,14 @@ public final class Source {
                 + parameters.stream().map(this::templateParameter).collect(Collectors.joining(", ")) + " >\n";
     }
 
+    private String templateHead(TemplateKind kind, boolean exported, List<TemplateParameterDeclaration> parameters, int level) {
+        String pad = "    ".repeat(level);
+        if (kind == TemplateKind.EXPLICIT_INSTANTIATION) return pad + "template ";
+        if (kind == TemplateKind.FULL_SPECIALIZATION) return pad + "template <>\n";
+        String head = templateHead(parameters, level);
+        return exported ? pad + "export " + head.substring(pad.length()) : head;
+    }
+
     private String templateParameter(TemplateParameterDeclaration parameter) {
         String written = switch (parameter.kind()) {
             case TYPE -> parameter.keyword() + (parameter.name().isEmpty() ? "" : " " + parameter.name());
@@ -359,12 +367,12 @@ public final class Source {
 
     private String classStart(ClassDeclaration cls) {
         String access = cls.isFriend() && target == Language.CPP ? "friend " : target == Language.JAVA && cls.modifiers().contains("public") ? "public " : "";
-        return access + (target == Language.CPP ? cls.keyword() : "class") + " " + cls.name() + (cls.bases().isEmpty() ? "" : " : " + cls.bases().stream().map(base -> emit(base, 0)).collect(Collectors.joining(", "))) + " {\n" + (target == Language.CPP ? cls.memberAccess() + ":\n" : "");
+        return access + (target == Language.CPP ? cls.keyword() : "class") + " " + cls.name() + templateArguments(cls.hasTemplateArguments(), cls.templateArguments()) + (cls.bases().isEmpty() ? "" : " : " + cls.bases().stream().map(base -> emit(base, 0)).collect(Collectors.joining(", "))) + " {\n" + (target == Language.CPP ? cls.memberAccess() + ":\n" : "");
     }
     private String callableHead(CallableDeclaration f) {
         String name = f.kind() == CallableDeclaration.Kind.CONVERSION
                 ? f.name().substring(0, f.name().lastIndexOf("operator"))
-                    + "operator " + declaration(f.conversionType().orElseThrow(), "") : f.name();
+                    + "operator " + declaration(f.conversionType().orElseThrow(), "") : f.name() + templateArguments(f.hasTemplateArguments(), f.templateArguments());
         String signature = name + "(" + parameters(f.parameters(), f.variadic()) + ")"
                 + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : "");
         if (f.kind() == CallableDeclaration.Kind.FUNCTION) signature = declaration(f.returnType().orElseThrow(), signature);
@@ -407,9 +415,9 @@ public final class Source {
             case EnumDeclaration enumeration -> pad + "enum" + (enumeration.name().isEmpty() ? "" : " " + enumeration.name()) + " { "
                     + enumeration.enumerators().stream().map(value -> emit(value, 0)).collect(Collectors.joining(", ")) + " };\n";
             case EnumeratorDeclaration value -> value.name() + value.value().map(expression -> " = " + emit(expression, 0)).orElse("");
-            case ClassDeclaration c -> c.implicit() ? "" : !c.isDefinition() ? templateHead(c.templateParameters(), level) + pad + (c.isFriend() ? "friend " : "") + c.keyword() + " " + c.name() + ";\n"
-                    : templateHead(c.templateParameters(), level) + pad + classStart(c) + classMembers(c, level + 1) + pad + classEnd();
-            case CallableDeclaration f -> linkage(f, templateHead(f.templateParameters(), level) + pad + (f.isFriend() ? "friend " : "") + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
+            case ClassDeclaration c -> c.implicit() ? "" : !c.isDefinition() ? templateHead(c.templateKind(), c.exportedTemplate(), c.templateParameters(), level) + pad + (c.isFriend() ? "friend " : "") + c.keyword() + " " + c.name() + templateArguments(c.hasTemplateArguments(), c.templateArguments()) + ";\n"
+                    : templateHead(c.templateKind(), c.exportedTemplate(), c.templateParameters(), level) + pad + classStart(c) + classMembers(c, level + 1) + pad + classEnd();
+            case CallableDeclaration f -> linkage(f, templateHead(f.templateKind(), f.exportedTemplate(), f.templateParameters(), level) + pad + (f.isFriend() ? "friend " : "") + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
                     + (f.writtenType().isPresent() ? declaration(f.writtenType().orElseThrow(), f.name()) + ";\n"
                         : callableHead(f)
                             + f.body().map(b -> " " + emit(b, level) + f.handlers().stream().map(h -> emit(h, level)).collect(Collectors.joining())).orElse(f.isPureVirtual() ? " = 0;\n" : ";\n")), level);
