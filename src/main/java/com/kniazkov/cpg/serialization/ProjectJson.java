@@ -52,6 +52,8 @@ public final class ProjectJson {
             project.classTemplateInstances().forEach(instance -> instance.walk(index));
             project.dynamicArrayTypes().forEach(type -> type.walk(index));
             project.dynamicArraySemantics().forEach(operation -> operation.walk(index));
+            project.containerTypes().forEach(type -> type.walk(index));
+            project.containerSemantics().forEach(operation -> operation.walk(index));
             for (var flow : project.flows()) for (var vertex : flow.auxiliaryVertices()) ids.put(vertex, ids.size());
             project.externalInputs().forEach(input -> input.walk(index));
             for (SourceFile file : java.util.stream.Stream.concat(project.files().stream(), project.librarySources().stream()).toList()) file.provenance().ifPresent(p -> units.put(p.unit(), ids.get(file)));
@@ -62,6 +64,7 @@ public final class ProjectJson {
                 if (vertex instanceof OpaqueLibraryType type) {
                     type.iteratorContainer().ifPresent(container -> edge(type, container, "ITERATOR_CONTAINER"));
                     type.iteratorDifferenceType().ifPresent(difference -> edge(type, difference, "ITERATOR_DIFFERENCE_TYPE"));
+                    type.iteratorValueType().ifPresent(value -> edge(type, value, "ITERATOR_VALUE_TYPE"));
                 }
                 if (vertex instanceof DynamicArrayType type) {
                     if (type.concreteClass() != null) edge(type, type.concreteClass(), "DYNAMIC_ARRAY_CLASS");
@@ -74,6 +77,38 @@ public final class ProjectJson {
                     edge(operation, operation.destination(), "DESTINATION");
                     operation.sources().forEach(source -> edge(operation, source, "SOURCE"));
                     edge(operation, operation.selectedTarget(), "CPP_TARGET");
+                    operation.elementCopyConstructor().ifPresent(target -> edge(operation, target, "ELEMENT_COPY_CONSTRUCTOR"));
+                    operation.elementDestructor().ifPresent(target -> edge(operation, target, "ELEMENT_DESTRUCTOR"));
+                    operation.elementAssignment().ifPresent(target -> edge(operation, target, "ELEMENT_ASSIGNMENT"));
+                    operation.index().ifPresent(operand -> edge(operation, operand, "INDEX"));
+                    operation.mutatedObjects().forEach(target -> edge(operation, target, "MUTATES"));
+                    operation.handle().ifPresent(handle -> {
+                        edge(operation, handle.sequence(), "HANDLE_SEQUENCE");
+                        handle.position().ifPresent(position -> edge(operation, position, "HANDLE_POSITION"));
+                    });
+                    operation.handleEffects().forEach(effect -> {
+                        edge(operation, effect.producer(), "HANDLE_" + effect.validityAfter().name());
+                        effect.sequenceAfter().ifPresent(sequence -> edge(operation, sequence, "SEQUENCE_AFTER"));
+                        effect.positionAfter().ifPresent(position -> edge(operation, position, "POSITION_AFTER"));
+                    });
+                }
+                if (vertex instanceof ContainerType type) {
+                    if (type.concreteClass() != null) edge(type, type.concreteClass(), "CONTAINER_CLASS");
+                    edge(type, type.elementType(), "ELEMENT_TYPE");
+                    type.keyType().ifPresent(value -> edge(type, value, "KEY_TYPE"));
+                    type.mappedType().ifPresent(value -> edge(type, value, "MAPPED_TYPE"));
+                    type.comparatorType().ifPresent(value -> edge(type, value, "COMPARATOR_TYPE"));
+                    type.underlyingType().ifPresent(value -> edge(type, value, "UNDERLYING_TYPE"));
+                    type.writtenTypes().forEach(site -> edge(site, type, "COMMON_TYPE"));
+                }
+                if (vertex instanceof ContainerOperation operation) {
+                    edge(operation.syntax(), operation, "COMMON_OPERATION");
+                    edge(operation, operation.type(), "CONTAINER_TYPE");
+                    edge(operation, operation.destination(), "DESTINATION");
+                    operation.sources().forEach(source -> edge(operation, source, "SOURCE"));
+                    edge(operation, operation.selectedTarget(), "CPP_TARGET");
+                    operation.comparator().ifPresent(value -> edge(operation, value, "COMPARATOR_TARGET"));
+                    operation.sourceContainer().ifPresent(value -> edge(operation, value, "SOURCE_CONTAINER"));
                     operation.elementCopyConstructor().ifPresent(target -> edge(operation, target, "ELEMENT_COPY_CONSTRUCTOR"));
                     operation.elementDestructor().ifPresent(target -> edge(operation, target, "ELEMENT_DESTRUCTOR"));
                     operation.elementAssignment().ifPresent(target -> edge(operation, target, "ELEMENT_ASSIGNMENT"));
@@ -136,6 +171,8 @@ public final class ProjectJson {
                     if (!p.classTemplateInstances().isEmpty()) obj.put("classTemplateInstances", nodes(p.classTemplateInstances()));
                     if (!p.dynamicArrayTypes().isEmpty()) obj.put("dynamicArrayTypes", nodes(p.dynamicArrayTypes()));
                     if (!p.dynamicArraySemantics().isEmpty()) obj.put("dynamicArraySemantics", nodes(p.dynamicArraySemantics()));
+                    if (!p.containerTypes().isEmpty()) obj.put("containerTypes", nodes(p.containerTypes()));
+                    if (!p.containerSemantics().isEmpty()) obj.put("containerSemantics", nodes(p.containerSemantics()));
                     if (p.hasErrors()) {
                         obj.put("hasErrors", true);
                         obj.array("diagnosticGroups", a -> p.diagnosticGroups().forEach(g -> a.add(diagnosticGroup(g))));
@@ -160,6 +197,46 @@ public final class ProjectJson {
                     operation.elementCopyConstructor().ifPresent(target -> obj.put("elementCopyConstructorId", ids.get(target)));
                     operation.elementDestructor().ifPresent(target -> obj.put("elementDestructorId", ids.get(target)));
                     operation.elementAssignment().ifPresent(target -> obj.put("elementAssignmentId", ids.get(target)));
+                    obj.put("resultKind", lower(operation.resultKind())).put("writable", operation.writable())
+                        .put("boundsChecked", operation.boundsChecked())
+                        .array("mutatedObjectIds", a -> operation.mutatedObjects().forEach(target -> a.add(ids.get(target))));
+                    operation.index().ifPresent(operand -> obj.put("indexId", ids.get(operand)));
+                    operation.handle().ifPresent(handle -> obj.object("handle", h -> {
+                        h.put("kind", lower(handle.kind())).put("sequenceId", ids.get(handle.sequence()))
+                            .put("direction", lower(handle.direction())).put("positionKind", lower(handle.positionKind()))
+                            .put("writable", handle.writable()).put("validity", lower(handle.validity()));
+                        handle.position().ifPresent(position -> h.put("positionId", ids.get(position)));
+                    }));
+                    obj.array("handleEffects", a -> operation.handleEffects().forEach(effect -> a.object(e -> {
+                        e.put("producerId", ids.get(effect.producer())).put("validityAfter", lower(effect.validityAfter()));
+                        effect.sequenceAfter().ifPresent(sequence -> e.put("sequenceAfterId", ids.get(sequence)));
+                        effect.positionAfter().ifPresent(position -> e.put("positionAfterId", ids.get(position)));
+                    })));
+                }
+                case ContainerType type -> {
+                    obj.put("kind", lower(type.kind())).put("iteratorCategory", lower(type.iteratorCategory()))
+                        .put("order", lower(type.order())).put("referenceStability", lower(type.referenceStability()))
+                        .put("uniqueKeys", type.uniqueKeys()).put("valueTypeId", ids.get(type.valueType()));
+                    type.keyType().ifPresent(value -> obj.put("keyTypeId", ids.get(value)));
+                    type.mappedType().ifPresent(value -> obj.put("mappedTypeId", ids.get(value)));
+                    type.comparatorType().ifPresent(value -> obj.put("comparatorTypeId", ids.get(value)));
+                    type.underlyingType().ifPresent(value -> obj.put("underlyingTypeId", ids.get(value)));
+                    obj.put("elementTypeId", ids.get(type.elementType()))
+                        .array("writtenTypeIds", a -> type.writtenTypes().forEach(site -> a.add(ids.get(site))));
+                    if (type.concreteClass() != null) obj.put("concreteClassId", ids.get(type.concreteClass()));
+                }
+                case ContainerOperation operation -> {
+                    obj.put("operation", lower(operation.kind())).put("syntaxId", ids.get(operation.syntax()))
+                        .put("destinationId", ids.get(operation.destination())).put("typeId", ids.get(operation.type()))
+                        .put("selectedTargetId", ids.get(operation.selectedTarget()))
+                        .array("sourceIds", a -> operation.sources().forEach(source -> a.add(ids.get(source))));
+                    operation.elementCopyConstructor().ifPresent(target -> obj.put("elementCopyConstructorId", ids.get(target)));
+                    operation.elementDestructor().ifPresent(target -> obj.put("elementDestructorId", ids.get(target)));
+                    operation.elementAssignment().ifPresent(target -> obj.put("elementAssignmentId", ids.get(target)));
+                    operation.comparator().ifPresent(value -> obj.put("comparatorId", ids.get(value)));
+                    operation.sourceContainer().ifPresent(value -> obj.put("sourceContainerId", ids.get(value)));
+                    obj.put("mayInsert", operation.mayInsert()).put("preservesTransferredReferences", operation.preservesTransferredReferences());
+                    if (operation.kind() == ContainerOperation.Kind.SPLICE) obj.put("transferKind", lower(operation.transferKind()));
                     obj.put("resultKind", lower(operation.resultKind())).put("writable", operation.writable())
                         .put("boundsChecked", operation.boundsChecked())
                         .array("mutatedObjectIds", a -> operation.mutatedObjects().forEach(target -> a.add(ids.get(target))));
@@ -330,6 +407,7 @@ public final class ProjectJson {
                     obj.put("name", t.name()).put("identity", t.identity()).put("category", t.category().name());
                     t.iteratorContainer().ifPresent(container -> obj.put("iteratorContainerId", ids.get(container)));
                     t.iteratorDifferenceType().ifPresent(difference -> obj.put("iteratorDifferenceTypeId", ids.get(difference)));
+                    t.iteratorValueType().ifPresent(value -> obj.put("iteratorValueTypeId", ids.get(value)));
                 }
                 case NamedType t -> {
                     obj.put("name", t.name());

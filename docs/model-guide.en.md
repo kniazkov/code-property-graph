@@ -1155,3 +1155,37 @@ Abstract catalogue iterators carry trusted container/difference-type links rathe
 than pretending to be machine pointers. Their physical representation stays opaque.
 Nontrivial user effects remain conservative and unresolved common equivalence stays
 as the original C++ operation. This is not a complete path-sensitive STL verifier.
+
+## Other container families (#39)
+
+`Project.containerTypes()` and `containerSemantics()` own separate common nodes
+for deque, list, set/multiset, map/multimap and stack/queue/priority_queue. They do
+not inherit vector reallocation rules. Types expose value/element, key, mapped,
+comparator and underlying-container links where applicable, key uniqueness,
+iteration category, ordering and reference-stability family. A set/map is unique;
+a multi-container may retain equivalent keys. Adapter order is LIFO, FIFO or
+priority, rather than an invented general iteration order.
+
+Operations retain raw C++ syntax and selected overloads, ordered inputs, result
+category, modified objects and available element/comparator implementation links.
+FIND reads without inserting; map SUBSCRIPT may insert a default mapped value.
+User comparator calls may have observable effects even during lookup, so a
+read-only container query does not imply a pure whole-program operation. Exact
+comparison counts and tie order are not assumed. Unsupported common equivalences
+retain resolved C++ and conservative effects.
+
+List SPLICE records source/destination and ALL/ONE/RANGE transfer scope. It moves
+elements, not container objects, and preserves references to transferred elements.
+Handle creation records and temporal effects describe storage association; partial
+or conditional transfers remain conservative when exact membership is unknown.
+An element-reference write follows transferred storage, while a reference to the
+source container continues to denote that original object. Deque operations keep
+their own reference/iterator guarantees, and node-based erasure does not promise
+that erased-element handles survive.
+
+Trusted catalogue iterator facts distinguish random-access deque from
+bidirectional list and associative containers. Set elements are read-only; map
+value_type retains const key and writable mapped value. Iterators refer to owned
+value-type declarations instead of assuming a pointer ABI. JSON/DOT include
+CONTAINER_TYPE, SOURCE_CONTAINER, COMPARATOR_TARGET and type/handle edges; copy
+and edit invalidation preserve the same ownership rules as vector annotations.

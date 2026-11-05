@@ -155,6 +155,7 @@ public final class Cpg {
         if (options.stage() != Stage.RESOLVED) {
             result = NameResolver.resolve(result);
             result = com.kniazkov.cpg.analysis.DynamicArraySemantics.green(result);
+            result = com.kniazkov.cpg.analysis.ContainerSemantics.green(result);
         }
         return UnreadWrites.analyze(result);
     }

@@ -465,10 +465,10 @@ public final class NameResolver {
             }
         }
 
-        boolean integralVectorRange(CallableDeclaration candidate, List<Expression> arguments, SourceFile file) {
+        boolean integralSequenceRange(CallableDeclaration candidate, List<Expression> arguments, SourceFile file) {
             if (!LibraryDeclarations.isLibrary(candidate) || candidate.templateParameters().isEmpty() || arguments.size()<2) return false;
             var owner=scopeClass(scopes.get(candidate));
-            if(owner==null || !owner.name().equals("vector") || !(candidate.name().equals("assign") || candidate.name().equals("insert") || candidate.kind()==CallableDeclaration.Kind.CONSTRUCTOR))return false;
+            if(owner==null || !Set.of("vector","deque","list").contains(owner.name()) || !(candidate.name().equals("assign") || candidate.name().equals("insert") || candidate.kind()==CallableDeclaration.Kind.CONSTRUCTOR))return false;
             int first=candidate.name().equals("insert")?1:0;
             if(arguments.size()<first+2)return false;
             return arguments.subList(first,first+2).stream().allMatch(a->TypeSemantics.expressionType(a,TypeSemantics.profile(file))
@@ -499,7 +499,7 @@ public final class NameResolver {
                     var deductions=new IdentityHashMap<CallableDeclaration,TemplateDeduction.Result>();
                     var origins=new IdentityHashMap<CallableDeclaration,CallableDeclaration>();
                     for(var candidate:candidates) {
-                        if(integralVectorRange(candidate,arguments,file))continue;
+                        if(integralSequenceRange(candidate,arguments,file))continue;
                         if(candidate.templateParameters().isEmpty())OverloadResolution.candidate(candidate,arguments,TypeSemantics.profile(file),OverloadResolution.requiredArguments(candidate)).ifPresent(ranks::add);
                         else TemplateDeduction.deduce(candidate,List.of(),arguments,TypeSemantics.profile(file),classOrigins).ifPresent(d->{
                             deductions.put(d.signature(),d);origins.put(d.signature(),candidate);
@@ -540,7 +540,7 @@ public final class NameResolver {
                             int cv=object==null?0:TypeSemantics.qualifiers(object), targetCv=(candidate.isConst()?1:0)|(candidate.isVolatile()?2:0);
                             if((cv & targetCv)!=cv)continue;
                         }
-                        if (integralVectorRange(candidate,call.arguments(),file)) continue;
+                        if (integralSequenceRange(candidate,call.arguments(),file)) continue;
                         for(TemplateInstance instance:project.templateInstances()) if(instance.declaration()==candidate){candidate=instance.origin();break;}
                         if (candidate.templateKind() == TemplateKind.EXPLICIT_INSTANTIATION
                                 || candidate.templateKind() == TemplateKind.FULL_SPECIALIZATION) continue;
@@ -1087,13 +1087,13 @@ public final class NameResolver {
         Match unique(List<Match> matches) {
             if (matches.stream().anyMatch(Match::ambiguous)) return null;
             if (matches.size() == 1) return matches.getFirst();
-            if (!matches.isEmpty() && matches.stream().allMatch(m -> m.declaration() instanceof ClassDeclaration && LibraryDeclarations.isLibrary(m.declaration()))
+            if (!matches.isEmpty() && matches.stream().allMatch(m -> m.declaration() instanceof ClassDeclaration cls && (LibraryDeclarations.isLibrary(cls) || cls.templateKind()!=TemplateKind.NONE))
                     && matches.stream().map(m -> entityName(m.declaration())).distinct().count()==1
                     && matches.stream().map(m -> TypeSemantics.profile(scopes.get(m.declaration()).file).stableIdentity()).distinct().count()==1) {
                 var primaries=matches.stream().filter(m->((ClassDeclaration)m.declaration()).templateKind()==TemplateKind.PRIMARY).toList();
                 if(!primaries.isEmpty()) return primaries.stream().filter(m->m.declaration().isDefinition()).findFirst().orElse(primaries.getFirst());
             }
-            if (!matches.isEmpty() && matches.stream().allMatch(m -> m.declaration() instanceof NamespaceDeclaration && LibraryDeclarations.isLibrary(m.declaration()))
+            if (!matches.isEmpty() && matches.stream().allMatch(m -> m.declaration() instanceof NamespaceDeclaration)
                     && matches.stream().map(m -> entityName(m.declaration())).distinct().count() == 1)
                 return matches.getFirst();
             if (matches.size() > 1 && matches.stream().allMatch(m -> m.declaration() instanceof CallableDeclaration)
@@ -1151,14 +1151,26 @@ public final class NameResolver {
                     : target instanceof ParameterDeclaration parameter ? parameter.type().orElse(null)
                     : target instanceof CallableDeclaration callable ? callable.returnType().orElse(null)
                     : receiver instanceof InitializationExpression initialization ? initialization.type().orElse(null) : null;
+            if (type == null) type = TypeSemantics.expressionType(receiver,TypeSemantics.profile(scopes.get(receiver).file)).orElse(null);
             if (type == null) return null;
+            if (pointer) {
+                var iterator=LibraryIteratorSemantics.info(type);
+                if(iterator.isPresent())type=iterator.get().element();
+            }
             type = TypeSemantics.unqualified(type);
             if (type instanceof ReferenceType reference) type = TypeSemantics.unqualified(reference.referredType());
             if (pointer && type instanceof PointerType ptr) type = TypeSemantics.unqualified(ptr.pointee());
             if (type instanceof NamedType name) {
                 Match match = typeBindings.get(name);
                 Declaration declaration = match == null ? name.declaration().orElse(null) : match.declaration();
-                if (declaration instanceof ClassDeclaration cls) return cls;
+                if (declaration instanceof ClassDeclaration cls) {
+                    if(introduced.containsKey(cls))return cls;
+                    // Substituted argument/qualified type views can carry an edited
+                    // declaration. Lookup uses the original class's owned scope.
+                    return declarations.stream().filter(ClassDeclaration.class::isInstance).map(ClassDeclaration.class::cast)
+                            .filter(candidate->introduced.containsKey(candidate) && ClassSemantics.sameClass(candidate,cls))
+                            .findFirst().orElse(cls);
+                }
             }
             return null;
         }
@@ -1203,7 +1215,15 @@ public final class NameResolver {
                 @Override public void visit(NameExpression name) { editor.dependent(name, TypeSemantics.dependent(name)); if (!TypeSemantics.dependent(name)) diagnoseAmbiguity(name, name.name(), false); }
                 @Override public void visit(MemberExpression member) {
                     editor.dependent(member, TypeSemantics.dependent(member));
-                    if (!TypeSemantics.dependent(member)) { String name = expressionName(member); diagnoseAmbiguity(member, name == null ? member.member() : name, false); }
+                    if (!TypeSemantics.dependent(member)) {
+                        // A selected nested call can make its result's members visible
+                        // only after the preceding linking publication (find(k)->second).
+                        if(!(member instanceof ScopeMemberExpression) && member.target().isEmpty()) {
+                            Match match=memberMatch(member);
+                            if(match!=null)editor.bind(member,match.declaration());
+                        }
+                        String name = expressionName(member); diagnoseAmbiguity(member, name == null ? member.member() : name, false);
+                    }
                 }
                 @Override public void visit(NamedType type) { diagnoseAmbiguity(type, type.name(), type.elaboratedKeyword().isPresent()); }
                 @Override public void visit(VariableDeclaration variable) { validateInitialization(variable); }

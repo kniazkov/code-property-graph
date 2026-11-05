@@ -189,11 +189,27 @@ public final class TypeSemantics {
         if (expression instanceof TypeidExpression) return Optional.of(QualifiedType.create()
                 .setBaseType(NamedType.create().setName("std::type_info")).setConst(true).build());
         if (expression instanceof NameExpression name) return declarationType(name.target());
-        if (expression instanceof MemberExpression member) return declarationType(member.target());
+        if (expression instanceof MemberExpression member) {
+            var type=declarationType(member.target());
+            // Abstract iterator arrow access carries the element's constness without
+            // inventing an operator-> implementation or a physical pointer type.
+            if(member instanceof PointerMemberExpression && member.target().orElse(null) instanceof VariableDeclaration field && !field.modifiers().contains("mutable")
+                    && !field.modifiers().contains("static") && type.filter(t->unqualified(t) instanceof ReferenceType).isEmpty()
+                    && expressionType(member.receiver(),profile).flatMap(LibraryIteratorSemantics::info)
+                        .filter(LibraryIteratorSemantics.Info::readOnly).isPresent())
+                return type.map(t->QualifiedType.create().setBaseType(t.edit()).setConst(true).build());
+            return type;
+        }
         if (expression instanceof CallExpression call) return call.target().flatMap(CallableDeclaration::returnType)
                 .or(() -> callType(call, profile).map(FunctionType::returnType));
         if (expression instanceof AssignmentExpression assignment) return expressionType(assignment.target(), profile);
-        if (expression instanceof CompoundAssignmentExpression assignment) return expressionType(assignment.target(), profile);
+        if (expression instanceof CompoundAssignmentExpression assignment) {
+            var type=expressionType(assignment.target(),profile);
+            var iterator=type.flatMap(LibraryIteratorSemantics::info);
+            if(iterator.isPresent() && (!iterator.get().randomAccess() || !Set.of("+=","-=").contains(assignment.operator())
+                    || expressionType(assignment.value(),profile).flatMap(t->integerType(t,profile)).isEmpty()))return Optional.empty();
+            return type;
+        }
         if (expression instanceof ConditionalExpression conditional) {
             var a = expressionType(conditional.thenExpression(), profile);
             var b = expressionType(conditional.elseExpression(), profile);
@@ -233,23 +249,23 @@ public final class TypeSemantics {
             var iteratorA=LibraryIteratorSemantics.info(a);
             var iteratorB=LibraryIteratorSemantics.info(b);
             if (binary instanceof IndexExpression) {
-                if(iteratorA.isPresent() && integerType(b,profile).isPresent())return Optional.of(iteratorA.get().referenceType());
+                if(iteratorA.isPresent() && iteratorA.get().randomAccess() && integerType(b,profile).isPresent())return Optional.of(iteratorA.get().referenceType());
                 if (integerType(b, profile).isPresent()) return pointee(a);
                 if (integerType(a, profile).isPresent()) return pointee(b);
                 return Optional.empty();
             }
             if (binary instanceof DotMemberPointerExpression || binary instanceof ArrowMemberPointerExpression)
                 return unqualified(b) instanceof MemberPointerType member ? Optional.of(member.pointee()) : Optional.empty();
-            if(isComparison(binary) && iteratorA.isPresent() && iteratorB.isPresent() && iteratorA.get().compatible(iteratorB.get()))
+            if(isComparison(binary) && (binary instanceof EqualExpression || binary instanceof NotEqualExpression || iteratorA.filter(LibraryIteratorSemantics.Info::randomAccess).isPresent()) && iteratorA.isPresent() && iteratorB.isPresent() && iteratorA.get().compatible(iteratorB.get()))
                 return Optional.of(named("bool"));
             if (binary instanceof LogicalAndExpression || binary instanceof LogicalOrExpression || isComparison(binary))
                 return scalar(a, profile) && scalar(b, profile) ? Optional.of(named("bool")) : Optional.empty();
             if (binary instanceof ShiftLeftExpression || binary instanceof ShiftRightExpression)
                 return integerType(a, profile).isPresent() && integerType(b, profile).isPresent() ? promoted(a, profile) : Optional.empty();
             if (binary instanceof AddExpression || binary instanceof SubtractExpression) {
-                if(iteratorA.isPresent() && integerType(b,profile).isPresent())return Optional.of(a);
-                if(binary instanceof AddExpression && iteratorB.isPresent() && integerType(a,profile).isPresent())return Optional.of(b);
-                if(binary instanceof SubtractExpression && iteratorA.isPresent() && iteratorB.isPresent() && iteratorA.get().compatible(iteratorB.get()))
+                if(iteratorA.isPresent() && iteratorA.get().randomAccess() && integerType(b,profile).isPresent())return Optional.of(a);
+                if(binary instanceof AddExpression && iteratorB.isPresent() && iteratorB.get().randomAccess() && integerType(a,profile).isPresent())return Optional.of(b);
+                if(binary instanceof SubtractExpression && iteratorA.isPresent() && iteratorA.get().randomAccess() && iteratorB.isPresent() && iteratorA.get().compatible(iteratorB.get()))
                     return iteratorA.get().iterator().iteratorDifferenceType();
                 if (pointee(a).isPresent() && integerType(b, profile).isPresent()) return Optional.of(a);
                 if (binary instanceof AddExpression && integerType(a, profile).isPresent() && pointee(b).isPresent()) return Optional.of(b);

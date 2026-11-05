@@ -169,7 +169,7 @@ public final class OverloadResolution {
         var fromIterator=LibraryIteratorSemantics.info(sourceBase);
         var toIterator=LibraryIteratorSemantics.info(targetBase);
         if(fromIterator.isPresent() && toIterator.isPresent() && !sourceBase.canonicalIdentity().equals(targetBase.canonicalIdentity())) {
-            if(!fromIterator.get().compatible(toIterator.get()) || fromIterator.get().readOnly() || !toIterator.get().readOnly())return Optional.empty();
+            if(!fromIterator.get().compatible(toIterator.get()) || fromIterator.get().iterator().name().equals("const_iterator") || !toIterator.get().iterator().name().equals("const_iterator"))return Optional.empty();
             if(TypeSemantics.unqualified(target) instanceof ReferenceType reference && TypeSemantics.qualifiers(reference.referredType())!=1)return Optional.empty();
             // Conversion is required by the iterator contract, but its underlying
             // implementation may be a qualification or a converting constructor.
