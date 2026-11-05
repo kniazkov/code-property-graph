@@ -89,14 +89,20 @@ public final class ProjectJson {
                             f.parseProblems().forEach(problem -> a.add(problem(problem))));
                     f.stoppedAt().ifPresent(position -> obj.put("stoppedAt", range(position)));
                 }
-                case ClassDeclaration c -> obj.put("name", c.name()).array("modifiers", a -> a.addAll(c.modifiers()))
-                        .put("members", nodes(c.members()));
+                case ClassDeclaration c -> {
+                    obj.put("name", c.name()).array("modifiers", a -> a.addAll(c.modifiers())).put("members", nodes(c.members()));
+                    if (!c.keyword().equals("class")) obj.put("keyword", c.keyword());
+                    if (!c.memberAccess().equals("public")) obj.put("memberAccess", c.memberAccess());
+                }
                 case CallableDeclaration c -> {
                     obj.put("name", c.name()).array("modifiers", a -> a.addAll(c.modifiers()));
                     c.returnType().ifPresent(t -> obj.put("returnType", node(t)));
                     obj.put("parameters", nodes(c.parameters()));
                     c.body().ifPresent(b -> obj.put("body", node(b)));
                     obj.put("exit", node(c.exit()));
+                    if (c.variadic()) obj.put("variadic", true);
+                    if (c.isConst()) obj.put("const", true);
+                    if (c.isVolatile()) obj.put("volatile", true);
                 }
                 case BlockStatement b -> obj.put("items", nodes(b.items()));
                 case VariableDeclaration v -> {
@@ -108,9 +114,24 @@ public final class ProjectJson {
                     obj.put("name", p.name());
                     p.type().ifPresent(t -> obj.put("type", node(t)));
                 }
-                case NamedType t -> obj.put("name", t.name());
+                case NamedType t -> {
+                    obj.put("name", t.name());
+                    t.alias().ifPresent(a -> obj.put("aliasId", ids.get(a)).put("canonicalIdentity", t.canonicalIdentity()));
+                }
+                case TypedefDeclaration d -> obj.put("name", d.name()).put("type", node(d.type()));
+                case QualifiedType t -> obj.put("baseType", node(t.baseType())).put("const", t.isConst()).put("volatile", t.isVolatile());
+                case PointerType t -> obj.put("pointee", node(t.pointee()));
+                case ReferenceType t -> obj.put("referredType", node(t.referredType()));
+                case ArrayType t -> { obj.put("elementType", node(t.elementType())); t.bound().ifPresent(b -> obj.put("bound", node(b))); }
+                case MemberPointerType t -> obj.put("ownerType", node(t.ownerType())).put("pointee", node(t.pointee()));
+                case FunctionType t -> obj.put("returnType", node(t.returnType())).put("parameters", nodes(t.parameters()))
+                        .put("variadic", t.variadic()).put("const", t.isConst()).put("volatile", t.isVolatile());
+                case SizeofExpression e -> {
+                    e.type().ifPresent(t -> obj.put("type", node(t)));
+                    e.operand().ifPresent(operand -> obj.put("operand", node(operand)));
+                }
                 case NameExpression e -> obj.put("name", e.name());
-                case IntegerLiteral i -> obj.put("value", i.value());
+                case IntegerLiteral i -> { obj.put("value", i.value()); i.cppType().ifPresent(t -> obj.put("cppType", t)); }
                 case ErrorExpression e -> obj.put("problem", problem(e.problem()));
                 case IncludeDirective i -> obj.put("header", i.header()).put("system", i.system());
                 case IfStatement i -> {
@@ -130,6 +151,16 @@ public final class ProjectJson {
                 case UnaryExpression u -> obj.put("operand", node(u.operand()));
                 case Exit ignored -> { }
                 default -> throw new IllegalStateException("Missing JSON schema for " + n.getClass().getName());
+            }
+            if (n instanceof TypeNode type) {
+                if (!(type instanceof NamedType)) obj.put("canonicalIdentity", type.canonicalIdentity());
+                type.semanticType().ifPresent(facts -> obj.object("semanticType", value -> {
+                    value.put("canonicalIdentity", facts.canonicalIdentity()).put("profileIdentity", facts.profileIdentity());
+                    facts.sizeBits().ifPresent(bits -> value.put("sizeBits", bits));
+                    facts.sizeBytes().ifPresent(bytes -> value.put("sizeBytes", bytes));
+                    facts.alignmentBits().ifPresent(bits -> value.put("alignmentBits", bits));
+                    facts.integerRange().ifPresent(range -> value.object("integerRange", limits -> limits.put("minimum", range.min()).put("maximum", range.max())));
+                }));
             }
             if (compilationBuild && n instanceof SourceFile file)
                 file.variantId().ifPresent(id -> obj.put("variantId", id));
@@ -163,6 +194,7 @@ public final class ProjectJson {
                             v.put("define", m.define()).put("operand", m.operand())
                                     .put("originalArgument", m.originalArgument())
                                     .array("originalArguments", args -> args.addAll(m.originalArguments())))));
+            obj.put("platform", settings(unit.platform().toSettings()));
             if (unit.standard() != null) obj.put("standard", unit.standard());
             var source = unit.configurationSource();
             obj.object("configurationSource", o -> {
@@ -171,6 +203,20 @@ public final class ProjectJson {
                 if (source.standardOverrideKind() != null) o.put("standardOverrideKind", source.standardOverrideKind());
             });
             return obj.build();
+        }
+
+        private static JsonObject settings(Map<?, ?> settings) {
+            var object = Json.object();
+            settings.forEach((key, value) -> {
+                String name = key.toString();
+                if (value == null) object.putNull(name);
+                else if (value instanceof Map<?, ?> nested) object.put(name, settings(nested));
+                else if (value instanceof String text) object.put(name, text);
+                else if (value instanceof Boolean flag) object.put(name, flag);
+                else if (value instanceof Number number) object.put(name, number);
+                else throw new IllegalArgumentException("Unsupported platform setting " + name);
+            });
+            return object.build();
         }
 
         private static JsonObject range(SourceRange r) {

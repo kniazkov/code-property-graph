@@ -34,6 +34,7 @@ final class BuildContext {
         T node = builder.newNode();
         node.origin = builder.origin;
         node.provenance = builder.provenance;
+        if (node instanceof TypeNode type) type.representation = builder.typeRepresentation;
         nodes.put(builder, node);
         builder.fillNode(node, this);
         return node;

@@ -14,3 +14,4 @@ shared-headers
 parser-recovery
 inactive-extension
 diagnostic-provenance
+platform-declarators

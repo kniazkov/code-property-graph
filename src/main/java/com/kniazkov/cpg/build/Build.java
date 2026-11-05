@@ -78,14 +78,23 @@ public record Build(List<TranslationUnit> units, Composition composition) {
     }
     public record TranslationUnit(PhysicalSource source, Path directory,
             List<IncludePath> includes, List<MacroOperation> macros, String standard,
-            ConfigurationSource configurationSource) {
+            ConfigurationSource configurationSource, PlatformProfile platform) {
         public TranslationUnit(PhysicalSource source, Path directory,
                 List<IncludePath> includes, List<MacroOperation> macros, String standard) {
-            this(source, directory, includes, macros, standard, ConfigurationSource.javaApi());
+            this(source, directory, includes, macros, standard, ConfigurationSource.javaApi(), PlatformProfile.defaults());
+        }
+        public TranslationUnit(PhysicalSource source, Path directory,
+                List<IncludePath> includes, List<MacroOperation> macros, String standard,
+                ConfigurationSource configurationSource) {
+            this(source, directory, includes, macros, standard, configurationSource, PlatformProfile.defaults());
+        }
+        public TranslationUnit withPlatform(PlatformProfile profile) {
+            return new TranslationUnit(source, directory, includes, macros, standard, configurationSource, profile);
         }
         public TranslationUnit {
             Objects.requireNonNull(source);
             Objects.requireNonNull(configurationSource);
+            Objects.requireNonNull(platform);
             directory = directory.toAbsolutePath().normalize();
             Path base = directory;
             includes = includes.stream().map(p -> new IncludePath(p.kind(), base.resolve(p.path()).normalize())).toList();
@@ -99,6 +108,7 @@ public record Build(List<TranslationUnit> units, Composition composition) {
                 else text.append(value.length()).append(':').append(value);
             };
             add.accept(source.path().toString()); add.accept(directory.toString()); add.accept(standard == null ? "c++03" : standard);
+            add.accept(platform.stableIdentity());
             add.accept(Integer.toString(includes.size()));
             includes.forEach(p -> { add.accept(p.kind()); add.accept(p.path().toString()); });
             add.accept(Integer.toString(macros.size()));

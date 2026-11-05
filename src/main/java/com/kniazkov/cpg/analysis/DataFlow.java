@@ -112,7 +112,10 @@ public final class DataFlow {
 
     /** Evaluates value operands and models assignment as a write after the right-hand side has been read. */
     private void evaluate(Expression value, State state, Sink sink) {
-        if (value instanceof NameExpression use) {
+        if (value instanceof SizeofExpression) {
+            // C++03 sizeof does not read or execute any expression in its operand.
+            return;
+        } else if (value instanceof NameExpression use) {
             use.target().ifPresent(target -> {
                 for (Node write : state.definitions.getOrDefault(target, Set.of()))
                     sink.edge(write, use, Dependency.DEFINITION);

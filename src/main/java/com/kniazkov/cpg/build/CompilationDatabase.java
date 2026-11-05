@@ -69,8 +69,14 @@ public final class CompilationDatabase {
                         // Source operand.
                     } else throw new IllegalArgumentException("unsupported compiler option " + arg);
                 }
+                PlatformProfile platform = PlatformProfile.defaults();
+                if (entry.containsKey("platformProfile")) {
+                    if (!(entry.get("platformProfile") instanceof Map<?, ?> settings))
+                        throw new IllegalArgumentException("platformProfile must be an object");
+                    platform = PlatformProfile.fromSettings(settings);
+                }
                 units.add(new TranslationUnit(new PhysicalSource(source), directory, includes, macros, standard,
-                        ConfigurationSource.database(database, n, args)));
+                        ConfigurationSource.database(database, n, args), platform));
             } catch (RuntimeException ex) {
                 throw new IllegalArgumentException(name + ": " + ex.getMessage(), ex);
             }

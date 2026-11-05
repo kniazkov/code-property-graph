@@ -259,7 +259,7 @@ final class PreservedSource {
                     p.kind(), root.resolve(base.relativize(p.path())).normalize())).toList();
             var relocated = new com.kniazkov.cpg.build.Build.TranslationUnit(
                     new com.kniazkov.cpg.build.Build.PhysicalSource(source), root,
-                    includes, configuration.macros(), configuration.standard(), configuration.configurationSource());
+                    includes, configuration.macros(), configuration.standard(), configuration.configurationSource(), configuration.platform());
             relocatedRecords.add(new Preprocessing(source.toString(), List.of(), List.of(), List.of(), relocatedSources, relocated,
                     List.of(), List.of(), List.of(), List.of(), List.of(), List.of(), record.translationTime()));
         }
@@ -278,12 +278,32 @@ final class PreservedSource {
         Pair pair = new Pair(before, after);
         pairs.add(pair);
         if (render(before).equals(render(after))) return;
+        // A declarator type can surround its name (int (*name)[3]). Its abstract
+        // type rendering cannot replace that noncontiguous written syntax alone.
+        // Rewrite the smallest owning declaration and verify replay as usual.
+        if (before instanceof Declaration && after instanceof Declaration && changedType(before, after)) {
+            if (!(before instanceof CallableDeclaration) && !(before instanceof ParameterDeclaration)) {
+                var span = before.provenance().orElseThrow(() -> unsupported("type edit has no declaration token span"));
+                int end = significantEnd(span.unit(), span.startToken(), span.endToken());
+                if (end == span.startToken() || !span.unit().tokens().get(end - 1).spelling().equals(";"))
+                    throw unsupported("type edit belongs to a shared multi-declarator statement; replace the whole statement explicitly");
+            }
+            changes.add(pair); return;
+        }
         if (before.getClass() != after.getClass() || before.children().size() != after.children().size()) {
             changes.add(pair); return;
         }
         int count = changes.size();
         for (int i = 0; i < before.children().size(); i++) diff(before.children().get(i), after.children().get(i), pairs, changes);
         if (count == changes.size()) changes.add(pair);
+    }
+
+    private static boolean changedType(Node before, Node after) {
+        var oldTypes = before.children().stream().filter(TypeNode.class::isInstance).toList();
+        var newTypes = after.children().stream().filter(TypeNode.class::isInstance).toList();
+        if (oldTypes.size() != newTypes.size()) return true;
+        for (int i = 0; i < oldTypes.size(); i++) if (!render(oldTypes.get(i)).equals(render(newTypes.get(i)))) return true;
+        return false;
     }
 
     private static int significantStart(Preprocessing unit, int start, int end) {

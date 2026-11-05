@@ -84,4 +84,29 @@ mvn verify
 python3 scripts/check-cpp03-reports.py
 ```
 
-Run the report check only after the full corpus. With sixteen scenarios, it expects eighteen corpus results, including the two infrastructure checks. Existing Java/C++ tests and strict GCC/Clang checks for valid corpus programs remain mandatory. The fixture README gives manual packaged-CLI commands and the exact physical coordinate oracle; the [model guide](model-guide.en.md#diagnostic-provenance-and-grouping-22) defines the API and JSON fields.
+Run the report check only after the full corpus. At the #22 milestone, sixteen scenarios required eighteen corpus results, including the two infrastructure checks; the current inventory is described below. Existing Java/C++ tests and strict GCC/Clang checks for valid corpus programs remain mandatory. The fixture README gives manual packaged-CLI commands and the exact physical coordinate oracle; the [model guide](model-guide.en.md#diagnostic-provenance-and-grouping-22) defines the API and JSON fields.
+
+## Platform profiles and declarators (#23)
+
+[platform-declarators](../src/test/resources/cpp03/platform-declarators/README.md) is the seventeenth mandatory scenario. `PlatformDeclaratorsIT` and `Cpp03CorpusIT` share `PlatformDeclaratorsAcceptance` over the same ordinary source files. It checks the distinction between arrays of pointers, pointers to arrays and function pointers, abstract function parameters, a member pointer, cv qualifiers, references, local comma-separated declarations and a written typedef linked to its canonical type. A `PARSED` copy preserves the complete JSON snapshot, and parsed API and packaged CLI snapshots agree after accounting for their documented input-attribution difference.
+
+The target checks compare default and `long32` profiles, target bytes of 8 and 16 bits, long integer ranges, absent versus explicit-null alignment, invalid settings and distinct per-unit variants. `GREEN` written types and `TypeRepresentation` records survive an unchanged edit; this does not require full JSON equality, because editing drops derived CFG/DFG edges. `FOLDED` returns 20 under the default profile and 16 under `long32`, with API/CLI parity. Ordinary-field layout is checked separately: `char, long, char` has default offsets 0/8/16 target bytes and size 24; changing long to 32 bits with 32-bit alignment gives size 12. Unknown layout facts must remain unknown rather than taking host values.
+
+`PlatformEncodingIT` separately writes ISO-8859-1 source/header files, exports through the packaged CLI and verifies their exact bytes and reparsing under the same profile. It also requires no exports for unrepresentable generated text or conflicting encodings for one physical file. These checks do not add corpus inventory entries.
+
+The corpus compiles and executes original and generated default-profile sources using both `g++` and `clang++` with `-std=c++03 -pedantic-errors`, expecting empty output and exit 20. The custom `long32` size/result checks are **API/CLI model oracles**, not native executions claiming the host compiler uses that arbitrary ABI. The default native oracle is the repository’s controlled test configuration, not a declaration that all C++03 targets are LP64. Function/member-pointer/class layout and the fuller literal, conversion and overload work remain outside #23 as described in the [model guide](model-guide.en.md#platform-profiles-and-recursive-declarators-23).
+
+```sh
+mvn -Dit.test=PlatformDeclaratorsIT,PlatformEncodingIT verify
+mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=platform-declarators verify
+# Full acceptance, without filtering the corpus:
+mvn verify
+python3 scripts/check-cpp03-reports.py
+```
+
+With seventeen scenarios, the report guard expects nineteen corpus results including the two infrastructure checks. Run it only after the complete corpus, not a focused invocation. JDK 21, both strict C++ compilers and Graphviz remain required, as do the existing Java/C++ regression and translation tests.
+
+The `platform-declarators/signed-min` companion is also compiled and executed
+before and after folding by both mandatory compilers. Its `int`/`long` overload
+oracle must return 1: generated signed-minimum expressions must retain their
+original type. This native oracle does not claim CPG overload resolution (#30).

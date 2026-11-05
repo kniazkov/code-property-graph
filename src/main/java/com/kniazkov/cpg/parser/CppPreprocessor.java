@@ -464,7 +464,7 @@ public final class CppPreprocessor {
             if (expanded.isEmpty()) throw expandedError(location, "Empty #if expression", expanded, firstEvent);
             if (expanded.stream().anyMatch(t -> t.text().equals("defined")))
                 throw expandedError(location, "Macro-generated defined has undefined behavior in C++03", expanded, firstEvent);
-            try { return CppConditionalExpression.evaluate(expanded.stream().map(t -> t.value.token()).toList()); }
+            try { return CppConditionalExpression.evaluate(expanded.stream().map(t -> t.value.token()).toList(), unit.platform()); }
             catch (ParseException e) {
                 Work fault = expanded.stream().filter(t -> {
                     SourceRange range = t.value.token().range();
@@ -491,6 +491,17 @@ public final class CppPreprocessor {
                 definitions.add(new Definition(id, name, false, List.of(), name.equals("__cplusplus") ? "199711L" : "",
                         range, root, "predefined", name));
                 macros.put(name, macro);
+            }
+            for (var entry : unit.platform().predefinedMacros().entrySet()) {
+                String name = entry.getKey(), value = entry.getValue();
+                String file = unit.directory().resolve("<predefined:" + name + ">").toString();
+                String source = name + " " + value;
+                definitionSources.put(file, source);
+                var tokens = wrap(CppLexer.scan(file, source).tokens(), root);
+                SourceRange range = tokens.getFirst().value.token().range();
+                long id = definitions.size() + 1L;
+                macros.put(name, new Macro(id, name, null, trim(tokens.subList(1, tokens.size())), range, range));
+                definitions.add(new Definition(id, name, false, List.of(), value, range, root, "predefined", name));
             }
         }
         Macro lookup(Work invocation) {
@@ -572,7 +583,8 @@ public final class CppPreprocessor {
                     ? source.substring(first.start().offset(), last.end().offset()) : spelling(replacement);
         }
         void rejectReserved(Work name) {
-            if (BUILTINS.contains(name.text()) || name.text().equals("__STDC__") || name.text().equals("defined"))
+            if (BUILTINS.contains(name.text()) || unit.platform().predefinedMacros().containsKey(name.text())
+                    || Set.of("__CHAR_UNSIGNED__", "__WCHAR_UNSIGNED__").contains(name.text()) || name.text().equals("__STDC__") || name.text().equals("defined"))
                 throw error(name, "Redefining or undefining reserved preprocessing name has undefined behavior in C++03: " + name.text());
         }
         void define(List<Work> line, String originKind, String sourceKey) {
@@ -650,7 +662,7 @@ public final class CppPreprocessor {
                 Path candidate = rawCandidate.toAbsolutePath().normalize();
                 if (!(virtualSources == null ? Files.isRegularFile(candidate) : virtualSources.containsKey(candidate.toString()))) continue;
                 var included = instance(candidate, parent);
-                try { process(included, virtualSources == null ? Files.readString(candidate) : virtualSources.get(candidate.toString()), depth + 1); }
+                try { process(included, virtualSources == null ? Files.readString(candidate, java.nio.charset.Charset.forName(unit.platform().sourceEncoding())) : virtualSources.get(candidate.toString()), depth + 1); }
                 catch (IOException e) { throw expandedError(location, "Cannot read header " + candidate + ": " + e.getMessage(), expanded, firstEvent); }
                 return;
             }

@@ -20,14 +20,21 @@ public final class Cpg {
     public enum Stage { PARSED, RESOLVED, GREEN, FOLDED }
     /** Selects a single input language for the directory and the stage to publish. */
     public record Options(Language language, Stage stage, String cppStandard,
-            Build.ConfigurationSource configurationSource) {
+            Build.ConfigurationSource configurationSource, com.kniazkov.cpg.build.PlatformProfile platform) {
         public Options(Language language, Stage stage) { this(language, stage, null); }
         public Options(Language language, Stage stage, String cppStandard) {
-            this(language, stage, cppStandard, Build.ConfigurationSource.javaApi());
+            this(language, stage, cppStandard, Build.ConfigurationSource.javaApi(), null);
+        }
+        public Options(Language language, Stage stage, String cppStandard, Build.ConfigurationSource configurationSource) {
+            this(language, stage, cppStandard, configurationSource, null);
+        }
+        public Options withPlatform(com.kniazkov.cpg.build.PlatformProfile profile) {
+            return new Options(language, stage, cppStandard, configurationSource, Objects.requireNonNull(profile));
         }
         public Options {
             Objects.requireNonNull(stage);
             Objects.requireNonNull(configurationSource);
+            if (platform != null && language != Language.CPP) throw new IllegalArgumentException("Platform profile requires CPP input");
             if (cppStandard != null) {
                 if (language != Language.CPP) throw new IllegalArgumentException("C++ standard requires CPP input");
 
@@ -61,8 +68,9 @@ public final class Cpg {
                 if (options.language() == Language.CPP) {
                     var unit = new Build.TranslationUnit(new Build.PhysicalSource(path),
                             path.toAbsolutePath().getParent(), List.of(), List.of(), options.cppStandard(),
-                            options.configurationSource());
-                    String source = Files.readString(path);
+                            options.configurationSource(), options.platform() == null
+                                    ? com.kniazkov.cpg.build.PlatformProfile.defaults() : options.platform());
+                    String source = Files.readString(path, java.nio.charset.Charset.forName(unit.platform().sourceEncoding()));
                     root.addFile(recover ? Parser.parseRecovering(unit, source) : Parser.parse(unit, source));
                 } else root.addFile(Parser.parse(path.toString(), Files.readString(path), options.language(), options.cppStandard()));
             }
@@ -101,9 +109,10 @@ public final class Cpg {
                 unit.source(), unit.directory(), unit.includes(), unit.macros(),
                 options.cppStandard() != null ? options.cppStandard() : unit.standard() == null ? "c++03" : unit.standard(),
                 options.cppStandard() == null ? unit.configurationSource()
-                        : unit.configurationSource().withStandardOverride(options.configurationSource().kind()))).toList();
+                        : unit.configurationSource().withStandardOverride(options.configurationSource().kind()),
+                options.platform() == null ? unit.platform() : options.platform())).toList();
         var composition = build.composition();
-        if (composition != null && options.cppStandard() != null) {
+        if (composition != null && (options.cppStandard() != null || options.platform() != null)) {
             var ids = new ArrayList<String>();
             for (int i = 0; i < build.units().size(); i++)
                 if (composition.variantIds().contains(build.units().get(i).variantId())) ids.add(effectiveUnits.get(i).variantId());
@@ -116,7 +125,7 @@ public final class Cpg {
             String file = unit.source().path().toString();
             com.kniazkov.cpg.build.CppStandard.require(unit.standard(), file);
             try {
-                String source = Files.readString(unit.source().path());
+                String source = Files.readString(unit.source().path(), java.nio.charset.Charset.forName(unit.platform().sourceEncoding()));
                 root.addFile(recover ? Parser.parseRecovering(unit, source) : Parser.parse(unit, source));
             }
             catch (IOException e) { throw new ParseException(file, 1, 1, e.getMessage()); }
@@ -130,7 +139,7 @@ public final class Cpg {
         // original parser diagnostics intact rather than analyzing an incomplete program.
         if (options.stage() == Stage.PARSED || result.hasErrors()) return result;
         result = NameResolver.resolve(result);
-        if (options.stage() != Stage.RESOLVED) result = ConsoleNormalizer.green(result);
+        if (options.stage() != Stage.RESOLVED) result = com.kniazkov.cpg.analysis.TypeNormalizer.green(ConsoleNormalizer.green(result));
         if (options.stage() == Stage.FOLDED) result = ConstantFolder.fold(result);
         // Transformations deliberately drop annotations; recompute links and build diagnostics.
         if (options.stage() != Stage.RESOLVED) result = NameResolver.resolve(result);

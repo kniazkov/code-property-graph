@@ -10,6 +10,14 @@ import java.util.Objects;
 public abstract class NodeBuilder<T extends Node> {
     SourceRange origin;
     TokenProvenance provenance;
+    TypeRepresentation typeRepresentation;
+
+    /** Assigns immutable green facts; permitted only on type builders. */
+    public final void setTypeRepresentation(TypeRepresentation value) {
+        if (!TypeNode.class.isAssignableFrom(nodeType)) throw new IllegalStateException("Not a type builder");
+        typeRepresentation = Objects.requireNonNull(value);
+    }
+
 
     /** Assigns immutable source-token provenance to the next snapshot. */
     public final void setProvenance(TokenProvenance value) { provenance = Objects.requireNonNull(value); }

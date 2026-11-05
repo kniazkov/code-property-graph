@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 /** Shares one position among the declaration, statement and expression readers of one file. */
 final class TokenCursor {
     private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*");
-    private static final Set<String> RESERVED = Set.of("class", "int", "void", "return", "if", "else", "while", "for", "public", "static");
+    private static final Set<String> RESERVED = Set.of("class", "int", "void", "return", "if", "else", "while", "for", "public", "static", "bool", "char", "signed", "unsigned", "short", "long", "wchar_t", "float", "double", "const", "volatile", "typedef", "struct", "union", "enum", "extern", "inline", "register", "mutable", "private", "protected", "sizeof");
     private final String file;
     private final Language language;
     private final List<Token> tokens;
@@ -82,6 +82,21 @@ final class TokenCursor {
             builder.setProvenance(new TokenProvenance(preprocessing, begin, end));
         }
         return builder;
+    }
+
+    com.kniazkov.cpg.build.PlatformProfile platform() {
+        return preprocessing != null && preprocessing.configuration() != null ? preprocessing.configuration().platform()
+                : com.kniazkov.cpg.build.PlatformProfile.defaults();
+    }
+    Language language() { return language; }
+    String peek(int offset) {
+        Token token = tokens.get(Math.min(position + offset, tokens.size() - 1));
+        if (token.problem() != null) throw token.problem();
+        return token.text();
+    }
+    boolean isIdentifier() {
+        String name = peek();
+        return (language == Language.CPP ? CppLexer.isIdentifier(name) : IDENTIFIER.matcher(name).matches()) && !RESERVED.contains(name);
     }
 
     /** Reads the next spelling without consuming it. */

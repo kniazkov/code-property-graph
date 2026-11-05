@@ -8,6 +8,8 @@ final class ExpressionParser {
     private final TokenCursor tokens;
     private final Language language;
     private final ParseRecovery recovery;
+    private TypeParser types;
+    void setTypes(TypeParser types) { this.types = types; }
     private boolean statementBoundary;
     private int nestedDelimiters;
 
@@ -93,16 +95,66 @@ final class ExpressionParser {
         return left;
     }
 
+    /** C++03 literal candidate order uses the selected target, never host widths. */
+    private String integerType(java.math.BigInteger value, int radix, String suffix) {
+        String ending = suffix == null ? "" : suffix.toLowerCase(java.util.Locale.ROOT);
+        java.util.List<String> candidates;
+        if (ending.contains("u") && ending.contains("l")) candidates = java.util.List.of("unsigned long");
+        else if (ending.contains("u")) candidates = java.util.List.of("unsigned int", "unsigned long");
+        else if (ending.contains("l")) candidates = java.util.List.of("long", "unsigned long");
+        else candidates = radix == 10 ? java.util.List.of("int", "long", "unsigned long")
+                : java.util.List.of("int", "unsigned int", "long", "unsigned long");
+        for (String candidate : candidates) {
+            var range = tokens.platform().integerRange(candidate);
+            if (range.isPresent() && value.compareTo(range.orElseThrow().max()) <= 0) return candidate;
+        }
+        throw tokens.error("Integer literal outside target C++03 type ranges");
+    }
+
     /** Reads a prefix or atom followed by any member accesses and calls bound to it. */
     private NodeBuilder<? extends Expression> primary() {
         var start = tokens.start();
         if (java.util.Set.of(";", ")", "}", ",", "<eof>").contains(tokens.peek())) throw tokens.missingExpression();
         NodeBuilder<? extends Expression> value;
+        if (language == Language.CPP && tokens.take("sizeof")) {
+            var size = SizeofExpression.create();
+            if (tokens.take("(")) {
+                if (types != null && types.startsType()) size.setType(types.abstractType());
+                else size.setOperand(nestedExpression());
+                tokens.expect(")");
+            } else size.setOperand(primary());
+            return tokens.span(start, size);
+        }
+        if (language == Language.CPP && tokens.take("&")) return tokens.span(start, AddressOfExpression.create().setOperand(primary()));
+        if (language == Language.CPP && tokens.take("*")) return tokens.span(start, DereferenceExpression.create().setOperand(primary()));
         if (tokens.take("(")) { value = nestedExpression(); tokens.expect(")"); }
         else if (tokens.take("-")) {
-            if (tokens.take("2147483648")) return tokens.span(start, IntegerLiteral.create().setValue(Integer.MIN_VALUE));
+            if (language == Language.JAVA && tokens.take("2147483648")) return tokens.span(start, IntegerLiteral.create().setValue(Integer.MIN_VALUE));
+            if (language == Language.CPP && tokens.peek().matches("(?i)2147483648(?:u|l|ul|lu)?")) {
+                String suffix = tokens.peek().substring(10);
+                String type = integerType(new java.math.BigInteger("2147483648"), 10, suffix.isEmpty() ? null : suffix);
+                if (type.startsWith("unsigned")) throw tokens.error("Negated unsigned literal outside supported signed 32-bit payload");
+                tokens.advance();
+                return tokens.span(start, IntegerLiteral.create().setValue(Integer.MIN_VALUE).setCppType(type));
+            }
             return tokens.span(start, NegateExpression.create().setOperand(primary()));
         } else if (tokens.take("+")) return tokens.span(start, UnaryPlusExpression.create().setOperand(primary()));
+        else if (language == Language.CPP && tokens.peek().matches("(?i)(?:0x[0-9a-f]+|[0-9]+)(?:u|l|ul|lu)?")) {
+            String number = tokens.peek();
+            var match = java.util.regex.Pattern.compile("(?i)(0x[0-9a-f]+|[0-9]+)(u|l|ul|lu)?").matcher(number);
+            match.matches();
+            String digits = match.group(1), suffix = match.group(2);
+            int radix = digits.startsWith("0x") || digits.startsWith("0X") ? 16 : digits.startsWith("0") && digits.length() > 1 ? 8 : 10;
+            if (radix == 16) digits = digits.substring(2);
+            try {
+                var numberValue = new java.math.BigInteger(digits, radix);
+                String type = integerType(numberValue, radix, suffix);
+                var literal = IntegerLiteral.create().setValue(numberValue.intValueExact());
+                if (suffix != null || radix != 10) literal.setCppType(type);
+                value = literal;
+            } catch (NumberFormatException | ArithmeticException ex) { throw tokens.error("Integer literal outside supported signed 32-bit payload"); }
+            tokens.advance();
+        }
         else if (tokens.peek().matches("[0-9]+")) {
             String number = tokens.peek();
             if (number.length() > 1 && number.startsWith("0")) throw tokens.error("Only decimal literals without leading zeros are supported");

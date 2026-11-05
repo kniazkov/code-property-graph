@@ -60,6 +60,7 @@ final class EditContext {
         }
         builder.origin = node.origin;
         builder.provenance = node.provenance;
+        if (node instanceof TypeNode type) builder.typeRepresentation = type.semanticType().orElse(null);
         if (builders.putIfAbsent(node, builder) != null) {
             throw new IllegalStateException("Node already registered");
         }

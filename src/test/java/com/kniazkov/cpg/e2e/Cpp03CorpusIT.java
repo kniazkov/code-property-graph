@@ -66,6 +66,14 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("platform-declarators".equals(settings.getProperty("mode"))) {
+            var output = PlatformDeclaratorsAcceptance.verify(fixture, work);
+            for (Path source : List.of(output.original(), output.generated()))
+                nativePrograms(work, source, settings.getProperty("stdout"), Integer.parseInt(settings.getProperty("exit")));
+            for (Path source : List.of(output.minimumOriginal(), output.minimumGenerated()))
+                nativePrograms(work, source, "", 1);
+            return;
+        }
         if ("diagnostic-provenance".equals(settings.getProperty("mode"))) {
             DiagnosticProvenanceAcceptance.verify(fixture, work);
             return;
