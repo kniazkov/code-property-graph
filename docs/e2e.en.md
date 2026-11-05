@@ -157,4 +157,19 @@ mvn verify
 python3 scripts/check-cpp03-reports.py
 ```
 
-Run the report guard only after the complete corpus: the current inventory has **nineteen scenarios and twenty-one corpus/harness results**, without failures, errors or skips. Existing Java and C++ regressions remain mandatory. The [model guide](model-guide.en.md#literals-expressions-and-standard-conversions-25) defines the conservative built-in conversion contract and the #26/#28/#30 boundaries; this fixture does not claim full C++03 overload resolution, target floating-point arithmetic or constant folding.
+Run the report guard only after the complete corpus: the #25 inventory had **nineteen scenarios and twenty-one corpus/harness results**, without failures, errors or skips. Existing Java and C++ regressions remain mandatory. The [model guide](model-guide.en.md#literals-expressions-and-standard-conversions-25) defines the conservative built-in conversion contract and the #26/#28/#30 boundaries; this fixture does not claim full C++03 overload resolution, target floating-point arithmetic or constant folding.
+
+## Functions and default arguments (#26)
+
+[functions-defaults](../src/test/resources/cpp03/functions-defaults/README.md) is the twentieth mandatory scenario. `FunctionsDefaultsIT` and the corpus share `FunctionsDefaultsAcceptance` and ordinary fixture files. The positive graph distinguishes `log(); log(2); log();`: two omitted calls reference the same declaration-owned `next()` expression, while the middle call keeps its written argument. Checks cover the supplying prototype separately from the later definition, JSON reference IDs, API/CLI parity, DOT/SVG, copied snapshot ownership, editing and generated-source reparsing.
+
+Original and generated programs run under **both** GCC and Clang with `-std=c++03 -pedantic-errors`, empty output and exit 0; the fixture checks that `next()` executes twice. Source generation leaves both `log()` calls omitted. The negative fixture calls a function before its later default is visible: native compilers reject it, the diagnostic API/CLI export the error and source output stays blocked. `FunctionDefaultsExportTest` additionally checks reference identity, source-preserving edits with comments/macros, and Java guards for defaults and unsupported signatures.
+
+```sh
+mvn -Dit.test=FunctionsDefaultsIT verify
+mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=functions-defaults verify
+mvn verify
+python3 scripts/check-cpp03-reports.py
+```
+
+The full inventory now requires **twenty scenarios and twenty-two corpus/harness results**, with no failures, errors or skips. Run the report guard only after the unfiltered corpus. Existing Java tests, SQUARE editing, `scripts/demo.sh`, Maven/Javadoc and both strict compilers remain required. The [model guide](model-guide.en.md#functions-and-default-arguments-26) defines the non-owning defaults contract and remaining overload/virtual-dispatch limits.

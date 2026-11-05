@@ -30,8 +30,20 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
             if (!members.contains(edge.from()) || !members.contains(edge.to()) || edge.from() == exit)
                 throw new IllegalArgumentException("Invalid control-flow endpoint");
         }
+        // Defaults remain owned by their declaration. Only expressions actually
+        // referenced by calls in this function may be external data-flow endpoints.
+        Set<Node> evaluated = Collections.newSetFromMap(new IdentityHashMap<>());
+        var pending = new ArrayDeque<Node>();
+        pending.add(entry);
+        while (!pending.isEmpty()) {
+            Node node = pending.remove();
+            if (!evaluated.add(node)) continue;
+            pending.addAll(node.children());
+            if (node instanceof CallExpression call)
+                call.defaultArguments().forEach(argument -> pending.add(argument.expression()));
+        }
         for (DataEdge edge : data) {
-            if (!members.contains(edge.from()) || !members.contains(edge.to()))
+            if (!evaluated.contains(edge.from()) || !evaluated.contains(edge.to()))
                 throw new IllegalArgumentException("Foreign data-flow endpoint");
         }
     }

@@ -42,6 +42,7 @@ public final class NameResolver {
         final Map<Integer, Scope> pointScopes = new HashMap<>();
         final Map<ClassDeclaration, Integer> classEnds = new IdentityHashMap<>();
         final Map<EnumDeclaration, Integer> enumEnds = new IdentityHashMap<>();
+        final Map<ParameterDeclaration, Integer> parameterEnds = new IdentityHashMap<>();
         final Set<Scope> functionScopes = Collections.newSetFromMap(new IdentityHashMap<>());
         final Map<Declaration, Scope> introduced = new IdentityHashMap<>();
         final Map<SourceFile, Scope> roots = new IdentityHashMap<>();
@@ -84,6 +85,7 @@ public final class NameResolver {
                 callable.writtenType().ifPresent(type -> index(type, scope));
                 callable.returnType().ifPresent(type -> index(type, scope));
                 callable.parameters().forEach(parameter -> index(parameter, nested));
+                positions.put(callable, position++); // A function name follows its complete declarator.
                 callable.body().ifPresent(body -> index(body, nested));
                 index(callable.exit(), nested);
             } else if (node instanceof FunctionType function) {
@@ -101,6 +103,7 @@ public final class NameResolver {
                 parameter.type().ifPresent(type -> index(type, scope));
                 positions.put(parameter, position++);
                 for (Node child : parameter.children()) if (!(child instanceof TypeNode)) index(child, scope);
+                parameterEnds.put(parameter, position);
             } else {
                 if (node instanceof UsingDirective directive) scope.directives.add(directive);
                 for (Node child : node.children()) index(child, scope);
@@ -458,6 +461,9 @@ public final class NameResolver {
                 else editor.declare(declaration, linkage, isDefinition(declaration), null, null);
             }
             for (List<Declaration> group : groups.values()) connect(group);
+            for (Declaration declaration : declarations)
+                if (declaration instanceof CallableDeclaration callable && scopes.get(callable).file.language() == Language.CPP)
+                    validateDefaults(callable);
             project.walk(new NodeVisitor() {
                 @Override public void visit(CallExpression call) { resolveCall(call); }
                 @Override public void visit(NameExpression name) { diagnoseAmbiguity(name, name.name(), false); }
@@ -586,6 +592,68 @@ public final class NameResolver {
                         && (variable.initializer().isPresent() || !variable.modifiers().contains("extern"));
             return declaration.isDefinition();
         }
+        List<CallExpression.DefaultArgument> applicableDefaults(CallableDeclaration declaration, int point) {
+            var result = new LinkedHashMap<Integer, CallExpression.DefaultArgument>();
+            Scope scope = scopes.get(declaration);
+            for (Declaration candidate : scope.names.getOrDefault(declaration.name(), List.of())) {
+                if (!(candidate instanceof CallableDeclaration callable) || positions.get(candidate) > point
+                        || !parameterSignature(callable).equals(parameterSignature(declaration))) continue;
+                for (int i = 0; i < callable.parameters().size(); i++) {
+                    ParameterDeclaration parameter = callable.parameters().get(i);
+                    if (parameter.defaultValue().isPresent() && parameterEnds.get(parameter) <= point)
+                        result.putIfAbsent(i, new CallExpression.DefaultArgument(i, callable, parameter));
+                }
+            }
+            return result.values().stream().sorted(Comparator.comparingInt(CallExpression.DefaultArgument::parameterIndex)).toList();
+        }
+        void validateDefaults(CallableDeclaration callable) {
+            var prior = applicableDefaults(callable, positions.get(callable) - 1);
+            Set<Integer> available = new HashSet<>();
+            prior.forEach(argument -> available.add(argument.parameterIndex()));
+            boolean defaultSeen = false;
+            for (int i = 0; i < callable.parameters().size(); i++) {
+                ParameterDeclaration parameter = callable.parameters().get(i);
+                if (parameter.defaultValue().isPresent()) {
+                    if (!available.add(i)) error(parameter, "duplicate-default-argument", "Default argument already specified in this scope");
+                    validateDefaultExpression(parameter.defaultValue().orElseThrow());
+                }
+                if (available.contains(i)) defaultSeen = true;
+                else if (defaultSeen) error(parameter, "missing-default-argument", "A parameter after a default argument requires a default argument");
+            }
+        }
+        void validateDefaultExpression(Node expression) {
+            // N1638 [dcl.fct.default]/9 forbids parameter names even in sizeof.
+            if (expression instanceof NameExpression name) {
+                name.target().filter(target -> target instanceof ParameterDeclaration
+                        || target instanceof VariableDeclaration && scopes.get(target).local)
+                        .ifPresent(target -> error(name, "invalid-default-argument", "A C++03 default argument cannot use a parameter or local variable"));
+            }
+            expression.children().forEach(this::validateDefaultExpression);
+        }
+        void resolveDefaults(CallExpression call, List<Match> visible) {
+            editor.defaultArguments(call, List.of());
+            if (scopes.get(call).file.language() != Language.CPP) return;
+            Match unique = unique(visible);
+            if (unique == null || !(unique.declaration() instanceof CallableDeclaration declaration)) {
+                // Pointer calls have a type but no statically selected implementation or defaults.
+                TypeSemantics.callType(call, TypeSemantics.profile(scopes.get(call).file)).ifPresent(type ->
+                        checkArity(call, type.parameters().size(), type.variadic(), List.of()));
+                return;
+            }
+            var defaults = applicableDefaults(declaration, positions.get(call)).stream()
+                    .filter(argument -> argument.parameterIndex() >= call.arguments().size()).toList();
+            editor.defaultArguments(call, defaults);
+            checkArity(call, declaration.parameters().size(), declaration.variadic(), defaults);
+        }
+        void checkArity(CallExpression call, int count, boolean variadic, List<CallExpression.DefaultArgument> defaults) {
+            if (!variadic && call.arguments().size() > count)
+                error(call, "excess-call-arguments", "Too many arguments for the uniquely known function type");
+            Set<Integer> supplied = new HashSet<>();
+            defaults.forEach(argument -> supplied.add(argument.parameterIndex()));
+            for (int i = call.arguments().size(); i < count; i++) if (!supplied.contains(i)) {
+                error(call, "missing-call-argument", "A required argument is missing"); break;
+            }
+        }
         void resolveCall(CallExpression call) {
             String written = expressionName(call.callee());
             List<Match> visible = written == null ? List.of() : lookup(written, scopes.get(call), positions.get(call), new HashSet<>());
@@ -618,6 +686,7 @@ public final class NameResolver {
                     : odr ? CallExpression.Resolution.ODR_CONFLICT
                     : candidates.size() == 1 ? CallExpression.Resolution.RESOLVED : CallExpression.Resolution.AMBIGUOUS;
             editor.resolve(call, candidates, status);
+            resolveDefaults(call, visible);
             if (odr) error(call, "odr-conflict", "Multiple definitions in one translation unit or selected build composition");
         }
         List<CallableDeclaration> callableGroup(CallableDeclaration declaration, SourceFile caller) {
@@ -676,7 +745,7 @@ public final class NameResolver {
             parameters = written.parameters(); function.setVariadic(written.variadic()).setConst(written.isConst()).setVolatile(written.isVolatile());
         }
         parameters.forEach(parameter -> {
-            var builder = parameter.edit();
+            var builder = parameter.edit().clearDefaultValue();
             if (parameter.type().isEmpty()) builder.setType(NamedType.create().setName("<unknown>"));
             function.addParameter(builder);
         });
