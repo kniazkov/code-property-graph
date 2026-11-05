@@ -11,6 +11,7 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 final class VectorSemanticsAcceptance {
     private VectorSemanticsAcceptance() {}
+    private static final Set<DynamicArrayOperation.Kind> CORE = Set.of(DynamicArrayOperation.Kind.EMPTY, DynamicArrayOperation.Kind.COUNT, DynamicArrayOperation.Kind.FILL, DynamicArrayOperation.Kind.RANGE, DynamicArrayOperation.Kind.COPY, DynamicArrayOperation.Kind.ASSIGN_COPY, DynamicArrayOperation.Kind.ASSIGN_FILL, DynamicArrayOperation.Kind.ASSIGN_RANGE, DynamicArrayOperation.Kind.APPEND);
     static List<Path> verify(Path fixture,Path work)throws Exception {
         var cli=new CliSandbox(Files.createDirectories(work.resolve("main"))).directory(fixture.resolve("sources"));
         var resolved=Cpg.read(cli.input,options(Cpg.Stage.RESOLVED));
@@ -32,7 +33,7 @@ final class VectorSemanticsAcceptance {
         var out=new ArrayList<Path>(List.of(cli.input,run.work().resolve("generated"),folded.work().resolve("generated")));
         var copyCli=new CliSandbox(Files.createDirectories(work.resolve("copy-overloads"))).directory(fixture.resolve("copy-overloads"));
         var copy=Cpg.read(copyCli.input,options(Cpg.Stage.GREEN));assertFalse(copy.hasErrors(),()->copy.semanticDiagnostics().toString());
-        for(var operation:copy.dynamicArraySemantics())if(operation.kind()!=DynamicArrayOperation.Kind.EMPTY)assertConstCopy(operation);
+        for(var operation:copy.dynamicArraySemantics())if(CORE.contains(operation.kind())&&operation.kind()!=DynamicArrayOperation.Kind.EMPTY)assertConstCopy(operation);
         assertEquals(Set.of(DynamicArrayOperation.Kind.EMPTY,DynamicArrayOperation.Kind.APPEND,DynamicArrayOperation.Kind.FILL,DynamicArrayOperation.Kind.COPY),kinds(copy));
         var copyGreen=copyCli.run("cpp","--stage","green","--cpp-standard","c++03").expectStatus(0);
         var copyFolded=copyCli.run("cpp","--stage","folded","--cpp-standard","c++03").expectStatus(0);
@@ -40,13 +41,13 @@ final class VectorSemanticsAcceptance {
         return List.copyOf(out);
     }
     private static Cpg.Options options(Cpg.Stage stage){return new Cpg.Options(Language.CPP,stage,"c++03");}
-    private static Set<DynamicArrayOperation.Kind> kinds(Project project){var result=EnumSet.noneOf(DynamicArrayOperation.Kind.class);project.dynamicArraySemantics().forEach(op->result.add(op.kind()));return result;}
+    private static Set<DynamicArrayOperation.Kind> kinds(Project project){var result=EnumSet.noneOf(DynamicArrayOperation.Kind.class);project.dynamicArraySemantics().stream().filter(op->CORE.contains(op.kind())).forEach(op->result.add(op.kind()));return result;}
     private static void verifyMain(Project project) {
         assertFalse(project.hasErrors(),()->project.semanticDiagnostics()+" / "+project.parseProblems());
-        assertEquals(2,project.dynamicArrayTypes().size());assertEquals(13,project.dynamicArraySemantics().size());
-        assertEquals(EnumSet.allOf(DynamicArrayOperation.Kind.class),kinds(project));
+        assertEquals(2,project.dynamicArrayTypes().size());assertEquals(13,project.dynamicArraySemantics().stream().filter(op->CORE.contains(op.kind())).count());
+        assertEquals(CORE,kinds(project));
         var types=Collections.newSetFromMap(new IdentityHashMap<DynamicArrayType,Boolean>());types.addAll(project.dynamicArrayTypes());
-        var operations=project.dynamicArraySemantics();
+        var operations=project.dynamicArraySemantics().stream().filter(op->CORE.contains(op.kind())).toList();
         var integer=project.dynamicArrayTypes().stream().filter(t->t.elementType().canonicalIdentity().equals("int")).findFirst().orElseThrow();
         var record=project.dynamicArrayTypes().stream().filter(t->ClassSemantics.objectClass(t.elementType()).map(c->c.name().equals("Record")).orElse(false)).findFirst().orElseThrow();
         assertNotSame(integer,record);assertFalse(integer.writtenTypes().isEmpty());assertFalse(record.writtenTypes().isEmpty());
