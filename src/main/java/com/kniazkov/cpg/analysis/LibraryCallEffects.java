@@ -14,6 +14,12 @@ final class LibraryCallEffects {
     static boolean unknown(CallableDeclaration target) {
         return LibraryDeclarations.isLibrary(target) || target.templateOrigin().filter(LibraryDeclarations::isLibrary).isPresent();
     }
+    static boolean libraryObject(Node node) {
+        if (node instanceof ClassDeclaration type) return LibraryDeclarations.isLibrary(type);
+        if (node instanceof VariableDeclaration variable)
+            return variable.type().flatMap(ClassSemantics::objectClass).filter(LibraryDeclarations::isLibrary).isPresent();
+        return false;
+    }
     /** Receiver and reference/pointer arguments expose object state to opaque code. */
     static List<Expression> exposed(CallExpression call) {
         var result = new ArrayList<Expression>();

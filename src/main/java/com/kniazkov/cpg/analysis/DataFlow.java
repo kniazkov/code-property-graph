@@ -162,6 +162,13 @@ public final class DataFlow {
                 constructLibraryObject(v, state, sink);
             }
             case AuxiliaryFlowVertex auxiliary -> {
+                if (auxiliary.kind() == AuxiliaryFlowVertex.Kind.IMPLICIT_CONSTRUCTOR
+                        && auxiliary.constructor().filter(LibraryCallEffects::unknown).isPresent()) {
+                    auxiliary.object().ifPresent(object -> {
+                        if (object instanceof Declaration declaration) state.write(declaration, object);
+                        opaqueMutation(object, libraryAccessible, state, sink);
+                    });
+                }
                 if (auxiliary.kind() == AuxiliaryFlowVertex.Kind.IMPLICIT_DESTRUCTOR)
                     auxiliary.object().filter(Declaration.class::isInstance).map(Declaration.class::cast).ifPresent(object -> {
                         // Destruction reads the final object state, but is not a written call.
@@ -173,7 +180,14 @@ public final class DataFlow {
                     });
             }
             case CatchClause handler -> handler.parameter().ifPresent(parameter -> state.write(parameter, parameter));
-            case MemberInitializer initializer -> initializer.arguments().forEach(argument -> consume(argument, initializer, state, sink));
+            case MemberInitializer initializer -> {
+                initializer.arguments().forEach(argument -> consume(argument, initializer, state, sink));
+                if (initializer.target().filter(LibraryCallEffects::libraryObject).isPresent()) {
+                    var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
+                    initializer.arguments().forEach(argument -> exposed.addAll(LibraryCallEffects.roots(argument)));
+                    opaqueMutation(initializer, exposed, state, sink);
+                }
+            }
             case ExpressionStatement s -> evaluate(s.expression(), state, sink);
             case Expression condition -> evaluate(condition, state, sink);
             case ReturnStatement ret -> ret.value().ifPresent(value -> consume(value, ret, state, sink));

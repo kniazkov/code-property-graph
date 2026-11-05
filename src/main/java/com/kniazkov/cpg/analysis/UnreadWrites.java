@@ -55,7 +55,16 @@ public final class UnreadWrites {
                 });
             }
         });
+        if (profile != null && flow.auxiliaryVertices().stream().anyMatch(vertex ->
+                vertex.constructor().filter(LibraryCallEffects::unknown).isPresent()
+                || vertex.destructor().filter(LibraryCallEffects::unknown).isPresent())) escaped.addAll(libraryAccessible);
         if (profile != null) walkEvaluatedSyntax(flow.entry(), new NodeVisitor() {
+            @Override public void visit(MemberInitializer initializer) {
+                if (initializer.target().filter(LibraryCallEffects::libraryObject).isPresent()) {
+                    escaped.addAll(libraryAccessible);
+                    initializer.arguments().forEach(argument -> escaped.addAll(LibraryCallEffects.roots(argument)));
+                }
+            }
             // External code may retain a pointer or a reference to the local and read it later.
             @Override public void visit(Expression expression) {
                 if (!unevaluated.contains(expression) && OperatorSemantics.mayInvokeUserCode(expression))

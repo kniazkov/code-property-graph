@@ -60,6 +60,16 @@ class LibraryUnknownEffectsTest {
         assertLifetimeEffect("#include <vector>\nint global;int f(){global=1;{std::vector<int> v;global=2;}return global;}","global");
         assertLifetimeEffect("#include <vector>\nint f(){int x=1;int* p=&x;{std::vector<int> v;x=2;}return x;}","x");
     }
+    @Test void librarySubobjectConstructionMayChangeAccessibleStorage()throws Exception {
+        for(String constructor:List.of("H(){int x=global;}","H():v(3){int x=global;}")) {
+            var p=read("#include <vector>\nint global;struct H {std::vector<int> v;"+constructor+"};");
+            assertFalse(p.hasErrors(),()->p.semanticDiagnostics().toString());
+            var flow=p.flows().stream().filter(f->f.entry().name().equals("H")).findFirst().orElseThrow();assertTrue(flow.complete());
+            var use=nodes(flow.entry(),NameExpression.class).stream().filter(n->n.name().equals("global")).findFirst().orElseThrow();
+            assertTrue(flow.data().stream().anyMatch(e->e.to()==use&&e.kind()==FunctionFlow.Dependency.DEFINITION
+                && (e.from() instanceof MemberInitializer || e.from() instanceof VariableDeclaration v&&v.name().equals("v"))),constructor);
+        }
+    }
     private void assertLifetimeEffect(String source,String name)throws Exception {
         var p=read(source);assertFalse(p.hasErrors(),()->p.semanticDiagnostics().toString());var f=function(p,"f");
         var v=nodes(f,VariableDeclaration.class).stream().filter(d->d.name().equals("v")).findFirst().orElseThrow();
