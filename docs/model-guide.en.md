@@ -698,3 +698,57 @@ continues to own `sizeof(S) + 1` and its declaration reference: reanalysis with 
 known profile can derive 9 without replacing the written expression or changing
 the original snapshot. Changing `long` from 64 to 32 bits changes `sizeof(long)`
 from 8 to 4, but never merges the overload identities of `int` and `long`.
+
+## Inheritance and virtual methods (#29)
+
+`BaseSpecifier` preserves each written direct base, access and `virtual` flag.
+`CallableDeclaration.isPureVirtual()` records the written `= 0`; `virtual` stays
+in the written modifiers and is not inserted into overriding declarations.
+Out-of-class definitions retain qualified names and declaration/definition links.
+`InheritanceSemantics.isVirtual(project, method)`, `overrides(project, method)`
+and `overriddenBy(project, method)` derive semantic virtualness and both directions
+of override relationships from the hierarchy, independently of call sites.
+Same-name methods with different parameter signatures do not acquire override edges.
+
+A call's `target()` is its statically selected declaration; `candidates()` and
+`resolution()` describe static lookup. Written `arguments()` remain unchanged.
+Omitted defaults remain separate `defaultArguments()` references to the visible
+static declaration, parameter and owned expression. Dynamic dispatch does not
+substitute defaults from a possible implementation. `isVirtualDispatch()` and
+`virtualTargets()` describe possible implementations, separately from static
+selection; `virtualTargetsComplete()` describes completeness of that analysis.
+These are non-owning edges, not cloned syntax or a promise about the runtime
+object. Re-resolve after semantic edits rather than treating copied analysis as
+fresh results. Qualified calls suppress virtual dispatch.
+
+JSON exports `pureVirtual`/semantic `virtual`, `overridesIds`/`overriddenByIds`,
+`staticTargetId`, `defaultArguments`, `virtualDispatch`, `virtualTargetIds` and
+`virtualTargetsComplete` as distinct fields. DOT labels static selection, defaults,
+possible implementations and override directions separately. Source generation
+preserves base lists, `virtual`, `= 0`, qualified definitions and omitted arguments;
+Java generation refuses these C++-only forms. Copying preserves references within
+the copied snapshot. The model does not fabricate object layout, ABI, vtables,
+RTTI execution or a unique runtime target from a base reference. Full overload
+ranking, ADL and user-defined conversions remain #30.
+
+Construction ordering has an explicit invocation context:
+`ClassSemantics.constructionOrder(owner, constructor, ConstructionContext.COMPLETE_OBJECT)`
+includes virtual bases in most-derived construction order, while
+`ConstructionContext.BASE_SUBOBJECT` excludes virtual bases, whose initialization
+belongs to the most-derived object. The two-argument overload uses
+`COMPLETE_OBJECT`; `destructionOrder` accepts the same context and reverses the
+corresponding construction order. This structural order is not a fully modeled
+runtime execution: callable CFGs remain incomplete for virtual hierarchies when
+the constructor/destructor invocation context is unknown.
+
+Known multiple final overriders of the same virtual base subobject produce an
+`multiple-final-overriders` error even without calls. A derived override, including
+a pure override, resolves that conflict; independent nonvirtual base subobjects
+are checked separately. Incomplete or cyclic hierarchy facts are not guessed.
+Out-of-line definitions retain in-class virtual/pure status and static defaults.
+Explicit object-qualified calls suppress dispatch. Calls on the current object
+inside a constructor/destructor cannot target more-derived implementations;
+calls on unrelated receivers remain open-world.
+Declaration/base syntax edits through ProjectEditor conservatively clear stored
+virtual-call targets across the snapshot; rerun resolution to repopulate them.
+Unchanged copies retain and remap these non-owning edges.

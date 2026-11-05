@@ -2,6 +2,7 @@
 package com.kniazkov.cpg.visualization;
 
 import com.kniazkov.cpg.generation.Source;
+import com.kniazkov.cpg.analysis.InheritanceSemantics;
 import com.kniazkov.cpg.model.*;
 
 import java.io.IOException;
@@ -30,7 +31,15 @@ public final class DotVisualizer {
     public static String toDot(Node root, boolean provenance) {
         Writer writer = new Writer();
         root.walk(writer);
-        if (root instanceof Project project) project.flows().forEach(writer::flow);
+        if (root instanceof Project project) {
+            project.flows().forEach(writer::flow);
+            project.walk(new NodeVisitor() {
+                @Override public void visit(CallableDeclaration method) {
+                    InheritanceSemantics.overrides(project, method).forEach(base -> writer.semanticEdge(method, base, "overrides"));
+                    InheritanceSemantics.overriddenBy(project, method).forEach(derived -> writer.semanticEdge(method, derived, "overridden by"));
+                }
+            });
+        }
         if (provenance) root.walk(new NodeVisitor() {
             @Override public void visit(Node node) { writer.provenance(node); }
         });
@@ -133,6 +142,11 @@ public final class DotVisualizer {
                         .append(" [label=<&#160;ref>, style=dashed, constraint=false];\n");
             }
             if (node instanceof NamedType type) resolution(type);
+            if (node instanceof CallExpression call) {
+                call.target().ifPresent(target -> semanticEdge(call, target, "static target"));
+                for (var target : call.virtualTargets()) semanticEdge(call, target,
+                        "possible virtual implementation" + (call.virtualTargetsComplete() ? "" : " (incomplete set)"));
+            }
             if (node instanceof CallExpression call) for (var argument : call.defaultArguments()) {
                 String label = "default argument " + argument.parameterIndex();
                 semanticEdge(call, argument.declaration(), label + " declaration");
@@ -339,7 +353,7 @@ public final class DotVisualizer {
 
         @Override
         public void visit(CallableDeclaration node) {
-            detail = node.name();
+            detail = node.name() + (node.isPureVirtual() ? " (pure virtual)" : node.modifiers().contains("virtual") ? " (virtual)" : "");
         }
 
         @Override

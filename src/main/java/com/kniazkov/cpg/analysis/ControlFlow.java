@@ -21,7 +21,7 @@ public final class ControlFlow {
         }});
         var findings = new IdentityHashMap<Node, Diagnostic>();
         for (var function : unsupported) findings.put(function, new Diagnostic("unsupported-constructor-flow", Diagnostic.Severity.WARNING,
-                "Constructor flow requires resolved non-virtual base hierarchy; no partial flow is published"));
+                "Constructor flow requires a complete hierarchy without context-dependent virtual-base initialization; no partial flow is published"));
         final Project snapshot = project.withDiagnostics("unsupported-constructor-flow", findings);
         List<FunctionFlow> flows = new ArrayList<>();
         snapshot.walk(new NodeVisitor() {
@@ -41,6 +41,8 @@ public final class ControlFlow {
             if (cls.isDefinition() && (cls.members().contains(function) || function.previousDeclaration().filter(cls.members()::contains).isPresent()
                     || cls.typeIdentity().filter(identity -> function.name().equals(identity + "::" + cls.name())).isPresent())) owners.add(cls);
         }});
+        // A single callable CFG cannot distinguish complete-object and base-subobject invocation.
+        // Keep virtual-base initializers conditional rather than invent unconditional edges.
         if (owners.size() != 1 || !ClassSemantics.hasCompleteNonvirtualHierarchy(owners.getFirst())) return Optional.empty();
         return Optional.of(ClassSemantics.constructionOrder(owners.getFirst(), function).stream().flatMap(item -> item.writtenInitializer().stream()).toList());
     }
