@@ -14,6 +14,13 @@ final class LibraryCallEffects {
     static boolean unknown(CallableDeclaration target) {
         return LibraryDeclarations.isLibrary(target) || target.templateOrigin().filter(LibraryDeclarations::isLibrary).isPresent();
     }
+    /** Opaque reference/pointer results may alias exposed input or nonlocal storage. */
+    static Optional<TypeNode> aliasResult(Expression expression) {
+        var selected = expression.operatorTarget();
+        if (selected.isEmpty() && expression instanceof CallExpression call) selected = call.target();
+        return selected.filter(LibraryCallEffects::unknown).flatMap(CallableDeclaration::returnType)
+                .map(TypeSemantics::unqualified).filter(type -> type instanceof ReferenceType || type instanceof PointerType);
+    }
     static boolean libraryObject(Node node) {
         if (node instanceof ClassDeclaration type) return LibraryDeclarations.isLibrary(type);
         if (node instanceof VariableDeclaration variable)
@@ -32,6 +39,8 @@ final class LibraryCallEffects {
             TypeNode type = i < target.parameters().size() ? target.parameters().get(i).type().orElse(null) : null;
             if (type != null) type = TypeSemantics.unqualified(type);
             if (type instanceof ReferenceType || type instanceof PointerType || type instanceof ArrayType
+                    // A copied library handle (notably an I/O iterator) can still mutate its backing storage.
+                    || type != null && ClassSemantics.objectClass(type).filter(LibraryDeclarations::isLibrary).isPresent()
                     || arguments.get(i) instanceof AddressOfExpression) result.add(arguments.get(i));
         }
         return List.copyOf(result);
@@ -48,6 +57,12 @@ final class LibraryCallEffects {
         else if (expression instanceof DereferenceExpression dereference) roots(dereference.operand(),out);
         else if (expression instanceof IndexExpression index) roots(index.left(),out);
         else if (expression instanceof AssignmentExpression assignment) roots(assignment.target(),out);
+        else if (expression instanceof ConditionalExpression conditional) {
+            roots(conditional.thenExpression(), out); roots(conditional.elseExpression(), out);
+        } else if (aliasResult(expression).isPresent()) {
+            if (expression instanceof CallExpression call) exposed(call).forEach(argument -> roots(argument, out));
+            else OperatorSemantics.operands(expression).forEach(argument -> roots(argument, out));
+        }
     }
     /** Conservative aliases: address-exposed storage and referenced nonlocal data may remain reachable. */
     static Set<Declaration> accessible(CallableDeclaration function, com.kniazkov.cpg.build.PlatformProfile profile) {

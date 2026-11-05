@@ -303,8 +303,16 @@ final class ExpressionParser {
         if (value instanceof NameExpression.Builder name) return !name.hasTemplateArguments() && types.templateName(name.name().orElse(""));
         if (value instanceof ScopeMemberExpression.Builder member) return !member.hasTemplateArguments()
                 && (member.templateKeyword() || types.templateName(qualifiedExpressionName(value)));
-        if (value instanceof MemberExpression.Builder<?, ?> member) return !member.hasTemplateArguments() && (member.templateKeyword() || types.templateName(member.member().orElse("")));
+        if (value instanceof MemberExpression.Builder<?, ?> member) return !member.hasTemplateArguments() && (member.templateKeyword() || types.templateName(member.member().orElse("")) || libraryMemberTemplateIdAhead(member.member().orElse("")));
         return false;
+    }
+    /** A catalogue member identifier alone must not turn an ordinary member comparison into a template-id. */
+    private boolean libraryMemberTemplateIdAhead(String name) {
+        if (!types.memberTemplateName(name)) return false;
+        int checkpoint = tokens.checkpoint();
+        try { types.templateArguments(); return tokens.peek().equals("("); }
+        catch (ParseException ignored) { return false; }
+        finally { tokens.restore(checkpoint); }
     }
     private NodeBuilder<? extends Expression> postfix(TokenCursor.Mark start, NodeBuilder<? extends Expression> value) {
         while (true) {

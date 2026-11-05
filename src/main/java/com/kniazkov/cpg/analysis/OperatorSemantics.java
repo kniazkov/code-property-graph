@@ -100,6 +100,13 @@ public final class OperatorSemantics {
     /** Contextual types include enumerator names whose owning enum is known by lookup. */
     public static OverloadResolution.Result resolve(Expression expression, List<CallableDeclaration> declarations,
             PlatformProfile profile, ProjectEditor editor, Function<Expression, Optional<TypeNode>> argumentTypes) {
+        return resolve(expression,declarations,profile,editor,argumentTypes,Map.of(),Map.of());
+    }
+    /** Template origins supply the C++03 tie-break after equal conversion sequences.
+     * A null editor ranks detached signature probes without publishing graph edges. */
+    public static OverloadResolution.Result resolve(Expression expression, List<CallableDeclaration> declarations,
+            PlatformProfile profile, ProjectEditor editor, Function<Expression, Optional<TypeNode>> argumentTypes,
+            Map<CallableDeclaration,CallableDeclaration> templateOrigins, Map<CallableDeclaration,ClassDeclaration> methodOwners) {
         var written = operands(expression);
         if (operatorName(expression) == null || written.isEmpty()) return OverloadResolution.selectCandidates(List.of());
         var arguments = new ArrayList<>(written);
@@ -120,12 +127,21 @@ public final class OperatorSemantics {
                         || (qualifiers & 2) != 0 && !declaration.isVolatile()) continue;
                 int target = (declaration.isConst() ? 1 : 0) | (declaration.isVolatile() ? 2 : 0);
                 var sequences = new ArrayList<OverloadResolution.Sequence>();
-                sequences.add(new OverloadResolution.Sequence(OverloadResolution.Rank.EXACT,
+                ClassDeclaration receiver = ClassSemantics.objectClass(objectType.get()).orElse(null);
+                ClassDeclaration owner = methodOwners.get(declaration);
+                var objectRank = receiver != null && owner != null && !ClassSemantics.sameClass(receiver,owner)
+                        ? OverloadResolution.Rank.CONVERSION : OverloadResolution.Rank.EXACT;
+                sequences.add(new OverloadResolution.Sequence(objectRank,
                         Integer.bitCount(target & ~qualifiers), null));
                 sequences.addAll(candidate.get().sequences());
                 viable.add(new OverloadResolution.Candidate(declaration, sequences));
             } else viable.add(candidate.get());
         }
+        var ranked = new ArrayList<>(viable);
+        viable.removeIf(a -> ranked.stream().anyMatch(b -> a != b && equivalentConversions(a,b)
+                && templateOrigins.containsKey(a.declaration())
+                && (!templateOrigins.containsKey(b.declaration())
+                    || TemplateOrdering.moreSpecialized(templateOrigins.get(b.declaration()),templateOrigins.get(a.declaration()),a.declaration().parameters().size()))));
         // Built-ins participate in the same pairwise comparison, not a fallback after
         // a user function has already won. Synthetic declarations never enter the graph.
         var builtins = builtinCandidates(expression, written, profile, argumentTypes);
@@ -137,9 +153,21 @@ public final class OperatorSemantics {
         var result = new OverloadResolution.Result(builtinWins ? CallExpression.Resolution.UNRESOLVED : selected.status(),
                 selected.selected().filter(target -> !builtinDeclarations.contains(target)),
                 builtinWins ? List.of() : selected.viable().stream().filter(target -> !builtinDeclarations.contains(target)).toList());
-        editor.resolveOperator(expression, result.viable(), result.status());
-        result.selected().ifPresent(target -> editor.bindOperator(expression, target));
+        if (editor != null) {
+            editor.resolveOperator(expression, result.viable(), result.status());
+            result.selected().ifPresent(target -> editor.bindOperator(expression, target));
+        }
         return result;
+    }
+
+    private static boolean equivalentConversions(OverloadResolution.Candidate a, OverloadResolution.Candidate b) {
+        if (a.sequences().size()!=b.sequences().size()) return false;
+        for (int i=0;i<a.sequences().size();i++) {
+            var left=a.sequences().get(i); var right=b.sequences().get(i);
+            if (left.rank()==OverloadResolution.Rank.UNKNOWN || left.rank()!=right.rank() || left.userDefined()!=right.userDefined()
+                    || left.referenceBinding()==right.referenceBinding() && left.qualification()!=right.qualification()) return false;
+        }
+        return true;
     }
 
     private static List<OverloadResolution.Candidate> builtinCandidates(Expression expression,

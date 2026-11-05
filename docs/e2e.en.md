@@ -436,3 +436,14 @@ before erase, and an accumulator wider than its elements. Original, GREEN and
 FOLDED source programs run under strict C++03 with GCC and Clang. API/CLI JSON,
 full DOT, copied graphs and a compact output-adapter SVG are checked separately
 so graph layout time does not weaken semantic coverage.
+
+### Remaining standard-library families
+
+`remaining-library` runs narrow/wide string streams, failed extraction and EOF,
+state clearing/input replacement, formatting manipulators and input/output
+iterators. Original/GREEN/FOLDED programs run with strict GCC and Clang. Full
+API/CLI JSON, DOT, copied graphs and a compact extraction SVG check selected
+library operators, constructors, storage effects and source preservation.
+Separate audited overload inventories, native signature-only probes and CPG
+resolution tests cover the other remaining families. Macro-only and opaque
+implementation boundaries are recorded in the library catalogue guide.

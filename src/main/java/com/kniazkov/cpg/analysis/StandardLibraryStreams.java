@@ -202,10 +202,26 @@ __cpg_opaque_unspecified_setbase_result setbase(int);
 __cpg_opaque_unspecified_setprecision_result setprecision(int);
 __cpg_opaque_unspecified_setw_result setw(int);
 template<class CharT> __cpg_opaque_unspecified_setfill_result setfill(CharT);
-""";
+""" + manipulatorOperators();
         case "locale" -> locale();
         default -> null;
     }; }
+    /** The standard specifies these insertion/extraction expressions, but not
+     * the representation or identity of the returned manipulator objects. */
+    private static String manipulatorOperators() {
+        StringBuilder declarations = new StringBuilder();
+        for (String name : new String[]{"resetiosflags", "setiosflags", "setbase", "setprecision", "setw", "setfill"}) {
+            for (String direction : new String[]{"istream", "ostream"}) {
+                if (name.equals("setfill") && direction.equals("istream")) continue;
+                String stream = "basic_" + direction + "<CharT, Traits>";
+                declarations.append("template<class CharT, class Traits> ").append(stream)
+                    .append("& operator").append(direction.equals("istream") ? ">>" : "<<")
+                    .append("(").append(stream).append("&, __cpg_opaque_unspecified_")
+                    .append(name).append("_result);\n");
+            }
+        }
+        return declarations.toString();
+    }
     static boolean supports(String h) { return Set.of("iosfwd", "ios", "istream", "ostream", "iostream", "streambuf", "fstream", "sstream", "iomanip", "locale").contains(h); }
     static Set<String> dependencies(String h) { return switch(h) {
         case "iosfwd" -> Set.of("cstddef", "cwchar");

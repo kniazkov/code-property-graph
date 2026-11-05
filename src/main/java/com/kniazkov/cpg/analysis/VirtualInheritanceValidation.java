@@ -11,6 +11,10 @@ public final class VirtualInheritanceValidation {
     /** Virtual declarations whose subobject has more than one final overrider.
      * Unknown, incomplete, or cyclic hierarchies deliberately produce no findings. */
     public static List<CallableDeclaration> conflictingMethods(Project project, ClassDeclaration cls) {
+        return conflictingMethods(new InheritanceSemantics.Index(project),cls);
+    }
+    /** One linking pass shares its snapshot-local index, never a later snapshot. */
+    static List<CallableDeclaration> conflictingMethods(InheritanceSemantics.Index index, ClassDeclaration cls) {
         if (!complete(cls, identitySet(), identitySet())) return List.of();
         Graph graph = new Graph();
         graph.add(cls);
@@ -18,13 +22,13 @@ public final class VirtualInheritanceValidation {
         var conflicts = new LinkedHashSet<CallableDeclaration>();
         for (Subobject slot : graph.objects) {
             for (CallableDeclaration method : methods(slot.owner)) {
-                if (!InheritanceSemantics.isVirtual(project, method)) continue;
+                if (!index.virtual(method,identitySet())) continue;
                 var candidates = new ArrayList<Candidate>();
                 for (Subobject object : graph.objects) {
                     if (!reaches(object, slot, identitySet())) continue;
                     for (CallableDeclaration candidate : methods(object.owner)) {
                         if (candidate == method || overrides.computeIfAbsent(candidate,
-                                key -> InheritanceSemantics.overrides(project, key)).contains(method))
+                                key -> index.overrides(key,identitySet())).contains(method))
                             candidates.add(new Candidate(object, candidate));
                     }
                 }
@@ -32,7 +36,7 @@ public final class VirtualInheritanceValidation {
                         other.object != candidate.object
                         && reaches(other.object, candidate.object, identitySet())
                         && overrides.computeIfAbsent(other.method,
-                                key -> InheritanceSemantics.overrides(project, key)).contains(candidate.method))).count();
+                                key -> index.overrides(key,identitySet())).contains(candidate.method))).count();
                 if (finals > 1) conflicts.add(method);
             }
         }

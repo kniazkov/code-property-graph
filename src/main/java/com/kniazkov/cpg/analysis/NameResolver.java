@@ -34,17 +34,25 @@ public final class NameResolver {
         // Each publication makes nested call/operator result types available to its parent.
         // The syntax depth bounds this propagation, without assuming a fixed nesting limit.
         int depth = expressionDepth(typed);
-        for (int i = 0; i <= depth; i++) typed = new Engine(typed.edit().build()).linkDeclarations();
+        for (int i = 0; i <= depth; i++) {
+            List<String> before=expressionBindings(typed);
+            typed=new Engine(typed.edit().build()).linkDeclarations();
+            if(before.equals(expressionBindings(typed)))break;
+        }
         // A member-template argument can itself be a selected call (e.g. vector
         // insert(begin()+n, first,last)). Revisit deduction after nested calls bind.
         for(int round=0;round<64;round++) {
             int before=typed.templateInstances().stream().mapToInt(instance->instance.requests().size()).sum();
+            List<String> bindingsBefore=expressionBindings(typed);
             var pass=new Engine(typed);
             typed=pass.instantiateTemplates(false);
             int after=typed.templateInstances().stream().mapToInt(instance->instance.requests().size()).sum();
-            if(after==before)break;
-            typed=new Engine(ClassTemplateSemantics.analyze(typed)).bindNames();
-            for(int i=0;i<=depth;i++)typed=new Engine(typed.edit().build()).linkDeclarations();
+            if(after!=before) typed=new Engine(ClassTemplateSemantics.analyze(typed)).bindNames();
+            // One publication exposes the newly instantiated inner expression to
+            // the next deduction round. Repeating the entire syntax depth here
+            // made a stream-manipulator chain require quadratic full-graph copies.
+            typed=new Engine(typed.edit().build()).linkDeclarations();
+            if(after==before && bindingsBefore.equals(expressionBindings(typed)))break;
             if(pass.instantiationLimitReached || round==63){resourceLimit=true;break;}
         }
         typed=new Engine(typed).instantiateTemplates(true);
@@ -56,6 +64,34 @@ public final class NameResolver {
             typed=limited.build();
         }
         return LibraryGraph.materialize(typed);
+    }
+
+    private static List<String> expressionBindings(Project project) {
+        var result=new ArrayList<String>();
+        NodeVisitor inspect=new NodeVisitor(){@Override public void visit(Expression expression){
+            for(Node reference:expression.references()) if(reference instanceof Declaration declaration) {
+                String signature=declaration.getClass().getSimpleName()+declaration.range().toString()+declaration.typeIdentity().toString();
+                if(declaration instanceof CallableDeclaration callable) signature+=callable.returnType().map(TypeNode::canonicalIdentity).orElse("")
+                        +callable.parameters().stream().map(p->p.type().map(TypeNode::canonicalIdentity).orElse("")).toList();
+                if(declaration instanceof VariableDeclaration variable) signature+=variable.type().map(TypeNode::canonicalIdentity).orElse("");
+                result.add(signature);
+            }
+            result.add(expression.operatorResolution().name());
+            result.add(expression.operatorTarget().map(NameResolver::callableBinding).orElse(""));
+            if(expression instanceof CallExpression call) {
+                result.add(call.resolution().name());
+                result.add(call.target().map(NameResolver::callableBinding).orElse(""));
+            }
+        }};
+        project.files().forEach(file->file.walk(inspect));
+        project.templateInstances().forEach(instance->instance.declaration().walk(inspect));
+        project.classTemplateInstances().forEach(instance->instance.declaration().walk(inspect));
+        return result;
+    }
+
+    private static String callableBinding(CallableDeclaration callable) {
+        return callable.name()+callable.range().toString()+callable.returnType().map(TypeNode::canonicalIdentity).orElse("")
+                +callable.parameters().stream().map(p->p.type().map(TypeNode::canonicalIdentity).orElse("")).toList();
     }
 
     private static int expressionDepth(Node node) {
@@ -493,6 +529,61 @@ public final class NameResolver {
             var classMethods=Collections.newSetFromMap(new IdentityHashMap<CallableDeclaration,Boolean>());
             project.classTemplateInstances().forEach(instance->instance.declaration().walk(new NodeVisitor(){@Override public void visit(CallableDeclaration method){classMethods.add(method);}}));
             project.walk(new NodeVisitor() {
+                @Override public void visit(Expression expression) {
+                    if (diagnosticsOnly || expression instanceof CallExpression || TypeSemantics.dependent(expression)
+                            || !scopes.containsKey(expression)) return;
+                    String name = OperatorSemantics.operatorName(expression);
+                    if (name == null) return;
+                    var arguments = new ArrayList<>(OperatorSemantics.operands(expression));
+                    if (arguments.isEmpty()) return;
+                    SourceFile file = scopes.get(expression).file;
+                    if (file.language() != Language.CPP || arguments.stream().anyMatch(a -> TypeSemantics.expressionType(a,TypeSemantics.profile(file)).isEmpty())) return;
+                    if (expression instanceof PostfixIncrementExpression || expression instanceof PostfixDecrementExpression)
+                        arguments.add(IntegerLiteral.create().setValue(0).build());
+                    var found = new ArrayList<>(lookup(name,scopes.get(expression),positions.get(expression),new HashSet<>()));
+                    found.addAll(adl(name,OperatorSemantics.operands(expression),expression));
+                    ClassDeclaration receiver = TypeSemantics.expressionType(arguments.getFirst(),TypeSemantics.profile(file))
+                            .flatMap(ClassSemantics::objectClass).orElse(null);
+                    if (receiver != null && introduced.get(receiver) != null)
+                        found.addAll(direct(name,introduced.get(receiver),Integer.MAX_VALUE,new HashSet<>(),false,true));
+                    var signatures = new LinkedHashMap<String,CallableDeclaration>();
+                    var deductions = new IdentityHashMap<CallableDeclaration,TemplateDeduction.Result>();
+                    var origins = new IdentityHashMap<CallableDeclaration,CallableDeclaration>();
+                    var owners = new IdentityHashMap<CallableDeclaration,ClassDeclaration>();
+                    for (Match match : found) {
+                        if (!(match.declaration() instanceof CallableDeclaration generic)) continue;
+                        String key=entityName(generic)+":"+signature(generic);
+                        if (signatures.containsKey(key)) continue;
+                        CallableDeclaration probe=generic;
+                        if (!generic.templateParameters().isEmpty()) {
+                            boolean member = generic instanceof MethodDeclaration && !generic.isFriend();
+                            var deduction = TemplateDeduction.deduce(generic,List.of(),member ? arguments.subList(1,arguments.size()) : arguments,TypeSemantics.profile(file),classOrigins);
+                            if (deduction.isEmpty()) continue;
+                            probe=deduction.get().signature();
+                            deductions.put(probe,deduction.get()); origins.put(probe,generic);
+                        }
+                        signatures.put(key,probe);
+                        ClassDeclaration owner=scopeClass(scopes.get(generic));
+                        if (owner!=null) owners.put(probe,owner);
+                    }
+                    if (deductions.isEmpty()) return;
+                    // Rank detached signatures before owning any specialization.
+                    // Losing stream/character overloads are not library demands.
+                    var selection=OperatorSemantics.resolve(expression,List.copyOf(signatures.values()),TypeSemantics.profile(file),
+                            null,Engine.this::argumentType,origins,owners);
+                    List<CallableDeclaration> selected=selection.selected().map(List::of).orElse(selection.viable());
+                    for (CallableDeclaration probe : selected) {
+                        if (!deductions.containsKey(probe)) continue;
+                        var d=deductions.get(probe); var generic=origins.get(probe);
+                        String identity = instanceIdentity(generic,d.structuredArguments(),file);
+                        var existing = project.templateInstances().stream().filter(i -> instanceIdentity(i.origin(),i.structuredArguments(),i.source()).equals(identity)).findFirst();
+                        if (existing.isPresent()) { if (!existing.get().requests().contains(expression)) editor.requestInstantiation(existing.get(),expression); continue; }
+                        if (pending.contains(identity)) continue;
+                        if (project.templateInstances().size()+project.classTemplateInstances().size()+pending.size()>=256) { instantiationLimitReached=true; return; }
+                        pending.add(identity);
+                        editor.instantiateArguments(generic,expression,file,d.structuredArguments(),d.substitutions(),generic);
+                    }
+                }
                 @Override public void visit(VariableDeclaration variable) {
                     if(diagnosticsOnly || done.contains(variable) || variable.type().isEmpty() || !variable.isDefinition())return;
                     // This pass only supplies catalogue constructor targets; user construction remains with class semantics.
@@ -990,7 +1081,7 @@ public final class NameResolver {
                 NamespaceDeclaration namespace = namespace(directive.namespaceName(), scope, positions.get(directive), active);
                 if (namespace != null) {
                     var matches = new ArrayList<Match>();
-                    Scope targetScope = introduced.get(namespace);
+                    Scope targetScope = importedNamespaceScope(namespace,scope);
                     List<Match> nominated = pending == null ? unqualified(name, targetScope, point, active, false, tagsOnly)
                             : nominated(name, targetScope, point, active, tagsOnly);
                     for (Match target : nominated) {
@@ -1021,7 +1112,7 @@ public final class NameResolver {
             for (UsingDirective directive : scope.directives) {
                 if (positions.get(directive) > point || !active.add(directive)) continue;
                 NamespaceDeclaration target = namespace(directive.namespaceName(), scope, positions.get(directive), active);
-                if (target != null) for (Match match : nominated(name, introduced.get(target), point, active, tagsOnly)) {
+                if (target != null) for (Match match : nominated(name, importedNamespaceScope(target,scope), point, active, tagsOnly)) {
                     var steps = new ArrayList<TypeResolutionStep>();
                     steps.add(new TypeResolutionStep("using-directive", directive, match.declaration())); steps.addAll(match.steps());
                     result.add(new Match(match.declaration(), List.copyOf(steps)));
@@ -1034,6 +1125,14 @@ public final class NameResolver {
                 }
             }
             return distinct(result);
+        }
+        Scope importedNamespaceScope(NamespaceDeclaration namespace, Scope context) {
+            if (LibraryDeclarations.isLibrary(namespace)) {
+                Scope merged=roots.get(context.file);
+                for(String part:entityName(namespace).split("::")) if(!part.isEmpty()) merged=merged==null?null:merged.nested.get(part);
+                if(merged!=null) return merged;
+            }
+            return introduced.get(namespace);
         }
         Scope nominationScope(Match match) {
             for (TypeResolutionStep step : match.steps())
@@ -1101,6 +1200,11 @@ public final class NameResolver {
                     && matches.stream().map(m -> TypeSemantics.profile(scopes.get(m.declaration()).file).stableIdentity()).distinct().count()==1) {
                 var primaries=matches.stream().filter(m->((ClassDeclaration)m.declaration()).templateKind()==TemplateKind.PRIMARY).toList();
                 if(!primaries.isEmpty()) return primaries.stream().filter(m->m.declaration().isDefinition()).findFirst().orElse(primaries.getFirst());
+                if (matches.stream().allMatch(m -> LibraryDeclarations.isLibrary(m.declaration())
+                        && ((ClassDeclaration)m.declaration()).templateKind() == TemplateKind.NONE)) {
+                    var definitions = matches.stream().filter(m -> m.declaration().isDefinition()).toList();
+                    if (definitions.size() <= 1) return definitions.isEmpty() ? matches.getFirst() : definitions.getFirst();
+                }
             }
             if (!matches.isEmpty() && matches.stream().allMatch(m -> m.declaration() instanceof NamespaceDeclaration)
                     && matches.stream().map(m -> entityName(m.declaration())).distinct().count() == 1)
@@ -1410,12 +1514,13 @@ public final class NameResolver {
             return false;
         }
         void validateInheritance() {
+            var index=new InheritanceSemantics.Index(project);
             for (Declaration declaration : declarations) {
                 if (declaration instanceof CallableDeclaration method && method.isPureVirtual()
-                        && (!InheritanceSemantics.isVirtual(project, method) || method.modifiers().contains("static")))
+                        && (!index.virtual(method,Collections.newSetFromMap(new IdentityHashMap<>())) || method.modifiers().contains("static")))
                     error(method, "invalid-pure-virtual", "A pure specifier requires a virtual non-static member function");
                 if (!(declaration instanceof ClassDeclaration cls)) continue;
-                if (!VirtualInheritanceValidation.conflictingMethods(project, cls).isEmpty())
+                if (!VirtualInheritanceValidation.conflictingMethods(index, cls).isEmpty())
                     error(cls, "multiple-final-overriders", "A virtual function has multiple final overriders in " + cls.name());
                 for (BaseSpecifier base : cls.bases()) {
                     ClassDeclaration parent = resolvedBase(base);
@@ -1811,7 +1916,10 @@ public final class NameResolver {
             for (ClassDeclaration associated : OverloadResolution.associatedClasses(arguments, TypeSemantics.profile(scopes.get(use).file))) {
                 ClassDeclaration owner = declarations.stream().filter(ClassDeclaration.class::isInstance).map(ClassDeclaration.class::cast)
                         .filter(candidate -> ClassSemantics.sameClass(candidate, associated)).filter(ClassDeclaration::isDefinition).findFirst().orElse(associated);
-                Scope scope = scopes.get(owner);
+                ClassDeclaration namespaceOwner = owner;
+                for (ClassTemplateInstance instance : project.classTemplateInstances())
+                    if (instance.declaration() == owner) { namespaceOwner = instance.origin(); break; }
+                Scope scope = scopes.get(namespaceOwner);
                 while (scope != null && scope.classScope) scope = scope.parent;
                 if (scope != null) namespaces.add(scope);
                 for (Node member : owner.members()) if (member instanceof CallableDeclaration callable && callable.isFriend()
@@ -1823,9 +1931,12 @@ public final class NameResolver {
                 if (enumeration != null) namespaces.add(scopes.get(enumeration));
             }
             for (Expression argument : arguments) argumentType(argument).ifPresent(type -> associatedEnumScopes(type, namespaces));
-            for (Scope scope : namespaces) for (Declaration declaration : scope.names.getOrDefault(name, List.of()))
-                if (declaration instanceof CallableDeclaration && positions.get(declaration) <= positions.get(use))
-                    result.add(new Match(declaration, List.of()));
+            for (Scope scope : namespaces) {
+                // Associated namespaces include visible reopenings in other headers,
+                // not only the scope in which the associated class was declared.
+                result.addAll(lookup((scope.qualified.isEmpty() ? "::" : "::" + scope.qualified + "::") + name,
+                        scopes.get(use),positions.get(use),new HashSet<>()));
+            }
             return distinct(result);
         }
         void associatedEnumScopes(TypeNode type, Set<Scope> namespaces) {
@@ -1870,7 +1981,18 @@ public final class NameResolver {
                 var definitions = callableGroup(callable, scopes.get(expression).file).stream().filter(candidate -> candidate.body().isPresent()).toList();
                 entities.put(entityName(callable) + ":" + signature(callable), definitions.size() == 1 ? definitions.getFirst() : callable);
             }
-            var result = OperatorSemantics.resolve(expression, List.copyOf(entities.values()), TypeSemantics.profile(scopes.get(expression).file), editor, this::argumentType);
+            entities.values().removeIf(candidate -> !candidate.templateParameters().isEmpty());
+            for (TemplateInstance instance : project.templateInstances()) if (instance.requests().contains(expression))
+                entities.put(entityName(instance.origin())+":"+signature(instance.origin())+":"+signature(instance.declaration()),instance.declaration());
+            var origins = new IdentityHashMap<CallableDeclaration,CallableDeclaration>();
+            for (TemplateInstance instance : project.templateInstances()) origins.put(instance.declaration(),instance.origin());
+            var owners = new IdentityHashMap<CallableDeclaration,ClassDeclaration>();
+            for (CallableDeclaration candidate : entities.values()) {
+                CallableDeclaration origin = origins.getOrDefault(candidate,candidate);
+                ClassDeclaration owner = scopeClass(scopes.get(origin));
+                if (owner != null) owners.put(candidate,owner);
+            }
+            var result = OperatorSemantics.resolve(expression, entities.values().stream().distinct().toList(), TypeSemantics.profile(scopes.get(expression).file), editor, this::argumentType,origins,owners);
             result.selected().ifPresent(selected -> checkSelectedAccess(expression, selected));
             if (result.status() == CallExpression.Resolution.AMBIGUOUS) error(expression, "ambiguous-overload", "No unique best operator overload");
         }

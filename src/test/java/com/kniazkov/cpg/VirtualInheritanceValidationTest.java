@@ -62,4 +62,19 @@ class VirtualInheritanceValidationTest {
         assertFalse(conflict(parse("struct V { virtual void f() {} }; struct A : virtual V { void f() {} }; "
                 + "struct B : virtual V { void f() const {} void f(int) {} }; struct D : A, B {};")));
     }
+    @Test void editedHierarchyGetsItsOwnValidationIndex() {
+        var original=parse(DIAMOND+"struct D : A, B { void f() {} };");
+        assertFalse(conflict(original));
+        ClassDeclaration derived=nodes(original,ClassDeclaration.class).getLast();
+        MethodDeclaration method=(MethodDeclaration)derived.members().stream().filter(CallableDeclaration.class::isInstance).findFirst().orElseThrow();
+        var context=new EditContext();
+        var root=context.edit(original,Project.Builder.class);
+        context.edit(method,MethodDeclaration.Builder.class).setName("g");
+        var edited=NameResolver.resolve(root.build());
+        assertTrue(conflict(edited));
+        assertTrue(edited.semanticDiagnostics().stream().anyMatch(d->d.code().equals("multiple-final-overriders")));
+        assertFalse(conflict(original));
+        assertFalse(conflict(original.edit().build()));
+    }
+
 }

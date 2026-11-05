@@ -69,7 +69,7 @@ normalization is a separate pass, not an effect summary inferred from declaratio
 | `typeinfo` | type_info comparisons/before/name and inaccessible copy operations, bad_cast/bad_typeid interfaces | #41 |
 | `limits` | numeric_limits member interface, 14 C++03 scalar specializations, float_round_style/float_denorm_style | #41; target-specific constants are not invented |
 | `bitset` | Reference proxy, scalar/string construction, bit/shift operators, access/tests/count/conversions and stream operators | #41; C++03 to_string template parameters remain explicit |
-| `complex` | Primary plus float/double/long-double specializations, scalar/complex arithmetic and comparisons, values/polar/transcendentals and stream operators | #41 |
+| `complex` | Primary plus float/double/long-double specializations, scalar/complex arithmetic and comparisons, values/polar/transcendentals and stream operators | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
 | `valarray` | valarray, slice/gslice, four proxy families, access/subsets/assignments/reductions/shift/apply/resize, arithmetic/logical/comparison and math nonmembers | #41; expression-template implementation choices are not represented as concrete layouts |
 | `iosfwd` | Forward stream templates, character aliases, fpos and abstract stream offset/position types | #41; string streams and stringbuf retain Allocator parameter |
 | `ios` | ios_base flags/state/callbacks/storage/locale/Init/failure, basic_ios, manipulators | #41 |
@@ -80,23 +80,23 @@ normalization is a separate pass, not an effect summary inferred from declaratio
 | `sstream` | Stringbuf and string stream classes, construction/str/rdbuf and protected buffer hooks | #41 |
 | `iomanip` | Flag/base/fill/precision/width manipulators with abstract result types | #41 |
 | `locale` | locale/facet/id/category, facet access, classification, ctype and char specialization, codecvt, numeric/collation/time/money/message facets and byname variants | #41 |
-| `cstddef`, `stddef.h` | size_t/ptrdiff_t under explicit target policy | offsetof/NULL macro expansion: #41 |
-| `cstdio`, `stdio.h` | FILE/fpos_t, formatted/character/file/block I/O, positioning/status and file management, including va_list forms | Macros, I/O effects and target behavior: #41 |
-| `cstdlib`, `stdlib.h` | div_t/ldiv_t, allocation, process/environment, conversions, abs/div, random, search/sort and multibyte conversions | Macros and behavior: #41 |
-| `cstring`, `string.h` | Memory/string copy/concatenation/comparison/search/tokenization/transformation, const/mutable search overloads | Macros and behavior: #41 |
-| `cctype`, `ctype.h` | All 13 narrow classification/case functions | Locale-sensitive behavior: #41 |
-| `cmath`, `math.h` | C++03 floating overload families, decomposition/scaling and pow | Macros, numeric/domain behavior: #41 |
-| `clocale`, `locale.h` | lconv public interface, setlocale/localeconv | Macros and behavior: #41 |
-| `ctime`, `time.h` | Abstract clock_t/time_t, tm fields, clock/time/difftime/mktime, text/calendar conversions and strftime | Macros and behavior: #41 |
-| `cwchar`, `wchar.h` | Abstract mbstate_t/wint_t, wide I/O, string/memory operations, classification bridges, number/multibyte conversions and wcsftime | Macros and stateful behavior: #41 |
-| `cwctype`, `wctype.h` | Abstract wide types, classification/descriptors and transforms | Macros and behavior: #41 |
-| `csignal`, `signal.h` | Abstract sig_atomic_t, signal/raise | Signal constants and behavior: #41 |
-| `csetjmp`, `setjmp.h` | Abstract jmp_buf and longjmp | setjmp macro and control-flow behavior: #41 |
-| `cstdarg`, `stdarg.h` | Abstract va_list | va_* macros: #41 |
-| `cassert`, `assert.h` | Header only | assert macro: #41 |
-| `cerrno`, `errno.h` | Header only | errno/error macros: #41 |
-| `cfloat`, `float.h` | Header only | Floating characteristic macros: #41 |
-| `climits`, `limits.h` | Header only | Integer characteristic macros: #41 |
+| `cstddef`, `stddef.h` | size_t/ptrdiff_t under explicit target policy | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cstdio`, `stdio.h` | FILE/fpos_t, formatted/character/file/block I/O, positioning/status and file management, including va_list forms | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cstdlib`, `stdlib.h` | div_t/ldiv_t, allocation, process/environment, conversions, abs/div, random, search/sort and multibyte conversions | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cstring`, `string.h` | Memory/string copy/concatenation/comparison/search/tokenization/transformation, const/mutable search overloads | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cctype`, `ctype.h` | All 13 narrow classification/case functions | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cmath`, `math.h` | C++03 floating overload families, decomposition/scaling and pow | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `clocale`, `locale.h` | lconv public interface, setlocale/localeconv | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `ctime`, `time.h` | Abstract clock_t/time_t, tm fields, clock/time/difftime/mktime, text/calendar conversions and strftime | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cwchar`, `wchar.h` | Abstract mbstate_t/wint_t, wide I/O, string/memory operations, classification bridges, number/multibyte conversions and wcsftime | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cwctype`, `wctype.h` | Abstract wide types, classification/descriptors and transforms | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `csignal`, `signal.h` | Abstract sig_atomic_t, signal/raise | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `csetjmp`, `setjmp.h` | Abstract jmp_buf and longjmp | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cstdarg`, `stdarg.h` | Abstract va_list | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cassert`, `assert.h` | Header only | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cerrno`, `errno.h` | Header only | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cfloat`, `float.h` | Header only | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `climits`, `limits.h` | Header only | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
 | `ciso646`, `iso646.h` | Header only; alternative operator tokens are a language feature | No separate C++ declaration family |
 
 ## Reproducible checks
@@ -129,3 +129,39 @@ and accumulate. This is distinct from the broader declaration catalogue above:
 other declared overloads remain resolved C++ unless their common equivalence is
 proved. User traits, allocators, specializations and unsupported lifetime cases
 retain conservative behavior; see model-guide.en.md and the native corpus.
+
+## Remaining-family verification (#41)
+
+Four kinds of evidence are kept separate:
+
+1. `src/test/resources/library-catalogue/cpp03-remaining-overloads.tsv` records
+   audited declaration groups and overload counts. `RemainingLibraryOverloadsTest`
+   checks the parsed catalogue against that inventory. This is an audited matrix,
+   not a claim that every possible standard-library expression is modeled.
+2. `remaining-cpp-signatures.cpp` and the C compatibility signature sources are
+   compiled with real GCC and Clang in strict C++03. They check signatures without
+   executing allocation, process, signal, file or nonlocal-jump operations.
+3. `RemainingLibraryResolutionTest`, `CCompatibilityFamiliesTest` and
+   `StreamLibraryResolutionTest` check selected CPG declarations, template
+   specializations and overload distinctions. Native compilation alone does not
+   establish CPG resolution.
+4. `LibraryUnknownEffectsTest` and the `remaining-library` native corpus check
+   conservative effects and observable stream values/state. String streams stay
+   ordinary C++ streams; they are not converted into console-print nodes.
+
+The matrix covers utility/memory/functional adapters; exception/new/stdexcept/
+typeinfo; numeric limits, bitset, complex and valarray; locales/facets; stream
+families and I/O iterators; and all 18 C-prefixed/compatibility-header pairs.
+Known library declarations have no invented bodies. Unproven behavior remains
+an ordinary resolved call with possible reads/writes to accessible storage,
+including backing streams and returned reference/pointer aliases. Time, locale,
+I/O, process and signal behavior is not simulated. Numeric limit values and
+implementation layouts are not guessed.
+
+Macro-only header recognition is a separate boundary: the portable catalogue
+does not supply target-specific definitions for EOF, errno, clock scales, signal
+numbers, numeric limits, `setjmp` or `va_*`. Without target definitions those names
+remain unresolved; real-header presence checks do not imply macro evaluation in
+the graph. See `src/test/resources/library-catalogue/c-compatibility-coverage.md`
+for namespace and compiler-specific probe qualifications. Alternative tokens in
+`ciso646` are C++ language tokens, not missing function declarations.
