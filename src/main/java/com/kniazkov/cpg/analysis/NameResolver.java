@@ -551,15 +551,133 @@ public final class NameResolver {
                     String name = expressionName(member); if (name != null) diagnoseAmbiguity(member, name, false);
                 }
                 @Override public void visit(NamedType type) { diagnoseAmbiguity(type, type.name(), type.elaboratedKeyword().isPresent()); }
+                @Override public void visit(NewExpression expression) { validateNew(expression); }
+                @Override public void visit(DeleteExpression expression) { validateDelete(expression); }
+                @Override public void visit(TypeidExpression expression) {
+                    var profile = TypeSemantics.profile(scopes.get(expression).file);
+                    expression.type().or(() -> expression.operand().flatMap(operand -> TypeSemantics.expressionType(operand, profile)))
+                            .map(type -> TypeSemantics.unqualified(TypeSemantics.withoutReference(type)))
+                            .filter(type -> type instanceof NamedType named && named.declaration().orElse(null) instanceof ClassDeclaration)
+                            .filter(type -> !completeType(type, positions.get(expression), new HashSet<>()))
+                            .ifPresent(type -> error(expression, "invalid-typeid", "typeid requires a complete class type"));
+                }
+                @Override public void visit(ConversionExpression expression) {
+                    if (!expression.isExplicit()) return;
+                    TypeNode target = TypeSemantics.unqualified(expression.targetType());
+                    if (target instanceof ArrayType || target instanceof FunctionType) error(expression, "invalid-cast", "Cast target cannot be an array or function type");
+                    if (expression.kind() == ConversionExpression.Kind.CONST_CAST
+                            && !(target instanceof PointerType || target instanceof ReferenceType || target instanceof MemberPointerType))
+                        error(expression, "invalid-cast", "const_cast requires a pointer, reference or member-pointer target");
+                    if (expression.kind() == ConversionExpression.Kind.DYNAMIC_CAST && !(target instanceof PointerType || target instanceof ReferenceType))
+                        error(expression, "invalid-cast", "dynamic_cast requires a pointer or reference target");
+                }
+                @Override public void visit(InitializationExpression expression) {
+                    if (expression.form() != InitializationExpression.Form.TEMPORARY) return;
+                    expression.type().map(TypeSemantics::unqualified).ifPresent(type -> {
+                        if (type instanceof ArrayType || type instanceof FunctionType) error(expression, "invalid-cast", "Functional conversion cannot target an array or function type");
+                        if (type instanceof NamedType named && named.fundamentalKind().isPresent() && expression.arguments().size() > 1)
+                            error(expression, "invalid-cast", "Scalar functional conversion requires at most one argument");
+                    });
+                }
                 @Override public void visit(SizeofExpression expression) {
                     Scope scope = scopes.get(expression);
                     expression.type().or(() -> expression.operand().flatMap(operand -> TypeSemantics.expressionType(operand,
-                                    TypeSemantics.profile(scope.file))))
-                            .filter(type -> !completeType(type, positions.get(expression), new HashSet<>()))
-                            .ifPresent(type -> error(expression, "incomplete-type", "sizeof requires a complete type at this source position"));
+                                    TypeSemantics.profile(scope.file)))).ifPresent(type -> {
+                        TypeNode plain = TypeSemantics.unqualified(TypeSemantics.withoutReference(type));
+                        if (plain instanceof FunctionType || plain instanceof NamedType named && named.fundamentalKind().orElse(null) == FundamentalKind.VOID)
+                            error(expression, "invalid-sizeof", "sizeof requires an object type, not void or a function");
+                        else if (!completeType(type, positions.get(expression), new HashSet<>()))
+                            error(expression, "incomplete-type", "sizeof requires a complete type at this source position");
+                    });
+                    expression.operand().ifPresent(operand -> {
+                        Expression written = operand;
+                        while (written instanceof ConversionExpression conversion && !conversion.isExplicit()) written = conversion.operand();
+                        Declaration target = written instanceof NameExpression name ? name.target().orElse(null)
+                                : written instanceof MemberExpression member ? member.target().orElse(null) : null;
+                        if (target instanceof VariableDeclaration variable && variable.bitWidth().isPresent()) error(expression, "invalid-sizeof", "sizeof cannot be applied to a bit-field");
+                    });
                 }
             });
             return editor.build();
+        }
+        void validateNew(NewExpression expression) {
+            TypeNode type = expression.type().canonicalType();
+            var profile = TypeSemantics.profile(scopes.get(expression).file);
+            boolean first = true;
+            while (TypeSemantics.unqualified(type) instanceof ArrayType array) {
+                if (array.bound().isEmpty()) error(expression, "invalid-new", "Every allocated array dimension requires a bound");
+                else {
+                    TypeSemantics.expressionType(array.bound().orElseThrow(), profile)
+                            .map(boundType -> TypeSemantics.unqualified(TypeSemantics.withoutReference(boundType)))
+                            .ifPresent(boundType -> {
+                                if (boundType instanceof PointerType || boundType instanceof MemberPointerType
+                                        || boundType instanceof ArrayType || boundType instanceof FunctionType
+                                        || boundType instanceof NamedType named && named.fundamentalKind()
+                                            .filter(kind -> Set.of(FundamentalKind.VOID, FundamentalKind.FLOAT,
+                                                    FundamentalKind.DOUBLE, FundamentalKind.LONG_DOUBLE).contains(kind)).isPresent())
+                                    error(expression, "invalid-new", "Allocated array bound requires an integral or enumeration value");
+                            });
+                    var value = ConstantEvaluator.evaluate(array.bound().orElseThrow(), profile);
+                    if ((!first || expression.isParenthesizedType()) && value.isEmpty()
+                            && runtimeBound(array.bound().orElseThrow(), profile, Collections.newSetFromMap(new IdentityHashMap<>())))
+                        error(expression, "invalid-new", "Only the first unparenthesized new-array bound may be dynamic");
+                    final boolean outer = first;
+                    value.ifPresent(bound -> { if (bound.number().signum() < 0 || (!outer || expression.isParenthesizedType()) && bound.number().signum() == 0) error(expression, "invalid-new", "Invalid allocated array bound"); });
+                }
+                first = false; type = array.elementType().canonicalType();
+            }
+            TypeNode element = TypeSemantics.unqualified(type);
+            if (element instanceof ReferenceType || element instanceof FunctionType || element instanceof NamedType named && named.fundamentalKind().orElse(null) == FundamentalKind.VOID)
+                error(expression, "invalid-new", "new requires a non-reference object type");
+            else if (!completeType(element, positions.get(expression), new HashSet<>())) error(expression, "incomplete-type", "new requires a complete allocated type");
+            if (!first && !expression.initializerArguments().isEmpty()) error(expression, "invalid-new", "C++03 array new permits only an empty initializer");
+            if (!expression.hasInitializer() && type instanceof QualifiedType qualified && qualified.isConst()
+                    && element instanceof NamedType named && named.fundamentalKind().isPresent())
+                error(expression, "invalid-new", "Allocation of a const fundamental type requires an initializer");
+            if (element instanceof NamedType named && named.fundamentalKind().isPresent() && expression.initializerArguments().size() > 1)
+                error(expression, "invalid-new", "Scalar new requires at most one initializer argument");
+        }
+        /** Failure to evaluate is not proof of a runtime value: sizeof can be symbolic
+         * when the target profile intentionally leaves aggregate representation unknown. */
+        boolean runtimeBound(Expression expression, com.kniazkov.cpg.build.PlatformProfile profile, Set<Expression> active) {
+            if (!active.add(expression)) return false;
+            try {
+                if (ConstantEvaluator.evaluate(expression, profile).isPresent() || expression instanceof SizeofExpression) return false;
+                if (expression instanceof NameExpression || expression instanceof MemberExpression) {
+                    Declaration target = expression instanceof NameExpression name ? name.target().orElse(null)
+                            : ((MemberExpression) expression).target().orElse(null);
+                    if (target instanceof ParameterDeclaration) return true;
+                    if (target instanceof VariableDeclaration variable) {
+                        TypeNode type = variable.type().map(TypeNode::canonicalType).orElse(null);
+                        if (type == null) return false;
+                        if (!(type instanceof QualifiedType qualified) || !qualified.isConst() || qualified.isVolatile()) return true;
+                        return variable.initializer().map(value -> runtimeBound(value, profile, active)).orElse(false);
+                    }
+                    return false;
+                }
+                if (expression instanceof CallExpression || expression instanceof NewExpression || expression instanceof DeleteExpression
+                        || expression instanceof AssignmentExpression || expression instanceof CompoundAssignmentExpression
+                        || expression instanceof PrefixIncrementExpression || expression instanceof PrefixDecrementExpression
+                        || expression instanceof PostfixIncrementExpression || expression instanceof PostfixDecrementExpression) return true;
+                if (expression instanceof ConditionalExpression conditional) {
+                    var condition = ConstantEvaluator.evaluate(conditional.condition(), profile);
+                    if (condition.isPresent()) return runtimeBound(condition.orElseThrow().number().signum() == 0
+                            ? conditional.elseExpression() : conditional.thenExpression(), profile, active);
+                }
+                for (Node child : expression.children()) if (child instanceof Expression operand && runtimeBound(operand, profile, active)) return true;
+                return false;
+            } finally { active.remove(expression); }
+        }
+        void validateDelete(DeleteExpression expression) {
+            var profile = TypeSemantics.profile(scopes.get(expression).file);
+            TypeSemantics.expressionType(expression.operand(), profile).map(type -> TypeSemantics.unqualified(TypeSemantics.withoutReference(type))).ifPresent(type -> {
+                if (type instanceof PointerType pointer) {
+                    TypeNode pointee = TypeSemantics.unqualified(pointer.pointee());
+                    if (pointee instanceof FunctionType || pointee instanceof NamedType named && named.fundamentalKind().orElse(null) == FundamentalKind.VOID)
+                        error(expression, "invalid-delete", "delete requires a pointer to an object type");
+                } else if (type instanceof NamedType named && named.fundamentalKind().isPresent() || type instanceof MemberPointerType || type instanceof FunctionType)
+                    error(expression, "invalid-delete", "delete requires a pointer or a class convertible to a pointer");
+            });
         }
         void validateClasses() {
             for (Declaration declaration : declarations) {

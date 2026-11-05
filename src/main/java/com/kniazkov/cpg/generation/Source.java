@@ -43,7 +43,7 @@ public final class Source {
                         || n instanceof ScopeMemberExpression || n instanceof PointerMemberExpression
                         || n instanceof NameExpression name && name.name().contains("::")
                         || n instanceof AddressOfExpression || n instanceof DereferenceExpression
-                        || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CharacterLiteral || n instanceof StringLiteral
+                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CharacterLiteral || n instanceof StringLiteral
                         || n instanceof CommaExpression || n instanceof DotMemberPointerExpression || n instanceof ArrowMemberPointerExpression
                         || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion) || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression
                         || n instanceof ConditionalExpression
@@ -225,7 +225,7 @@ public final class Source {
             throw new IllegalArgumentException("Cannot translate C++ global variable or typedef declarations to Java");
         file.walk(new NodeVisitor() {
             @Override public void visit(Node n) {
-                if (target == Language.JAVA && (n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CharacterLiteral
+                if (target == Language.JAVA && (n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CharacterLiteral
                         || n instanceof StringLiteral || n instanceof CommaExpression || n instanceof DotMemberPointerExpression
                         || n instanceof ArrowMemberPointerExpression || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion)
                         || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression || n instanceof ConditionalExpression
@@ -357,9 +357,10 @@ public final class Source {
             case FloatingLiteral f -> f.spelling();
             case CharacterLiteral c -> c.spelling();
             case StringLiteral s -> s.spelling();
-            case ConversionExpression c -> c.isExplicit()
-                    ? "static_cast<" + declaration(c.targetType(), "") + ">(" + emit(c.operand(), 0) + ")"
-                    : emit(c.operand(), 0);
+            case ConversionExpression c -> conversion(c);
+            case TypeidExpression e -> "typeid(" + e.type().map(t -> declaration(t, "")).orElseGet(() -> emit(e.operand().orElseThrow(), 0)) + ")";
+            case NewExpression e -> newExpression(e);
+            case DeleteExpression e -> "(" + (e.isGlobal() ? "::" : "") + "delete" + (e.isArray() ? "[]" : "") + " (" + emit(e.operand(), 0) + "))";
             case CompoundAssignmentExpression a -> "(" + emit(a.target(), 0) + " " + a.operator() + " " + emit(a.value(), 0) + ")";
             case ConditionalExpression c -> "(" + emit(c.condition(), 0) + " ? " + emit(c.thenExpression(), 0)
                     + " : " + emit(c.elseExpression(), 0) + ")";
@@ -412,6 +413,32 @@ public final class Source {
         if (number.signum() < 0 && range.isPresent() && number.equals(range.orElseThrow().min()))
             return "((-(" + range.orElseThrow().max() + suffix + ")) - 1" + suffix + ")";
         return number + suffix;
+    }
+
+    private String conversion(ConversionExpression expression) {
+        if (!expression.isExplicit()) return emit(expression.operand(), 0);
+        String type = declaration(expression.targetType(), "");
+        String operand = emit(expression.operand(), 0);
+        if (expression.kind() == ConversionExpression.Kind.C_STYLE_CAST)
+            return "((" + type + ")(" + operand + "))";
+        String keyword = switch (expression.kind()) {
+            case STATIC_CAST -> "static_cast";
+            case DYNAMIC_CAST -> "dynamic_cast";
+            case CONST_CAST -> "const_cast";
+            case REINTERPRET_CAST -> "reinterpret_cast";
+            default -> throw unsupported(expression);
+        };
+        return keyword + "<" + type + ">(" + operand + ")";
+    }
+
+    private String newExpression(NewExpression expression) {
+        String placement = expression.placementArguments().isEmpty() ? "" : "(" + expression.placementArguments().stream()
+                .map(argument -> emit(argument, 0)).collect(Collectors.joining(", ")) + ") ";
+        String type = declaration(expression.type(), "");
+        if (expression.isParenthesizedType()) type = "(" + type + ")";
+        String initializer = expression.hasInitializer() ? "(" + expression.initializerArguments().stream()
+                .map(argument -> emit(argument, 0)).collect(Collectors.joining(", ")) + ")" : "";
+        return "(" + (expression.isGlobal() ? "::" : "") + "new " + placement + type + initializer + ")";
     }
 
     /** Prints the declarator around its name; grouping follows the type tree's binding. */

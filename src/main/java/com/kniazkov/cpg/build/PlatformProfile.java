@@ -19,13 +19,14 @@ public final class PlatformProfile {
     private static final List<String> SCALARS = List.of("bool", "char", "short", "int", "long",
             "long long", "wchar_t", "float", "double", "long double", "pointer");
     private static final Set<String> SETTINGS = Set.of("inherits", "name", "bitsPerByte", "sizes", "alignments",
-            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout");
+            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding");
     private static final PlatformProfile DEFAULT = new Builder(true).build();
     private final String name;
     private final int bitsPerByte;
     private final Map<String, Integer> sizes, alignments;
     private final boolean charSigned;
     private final String wcharType, sizeType, sourceEncoding, executionEncoding, wideExecutionEncoding, aggregateLayout;
+    private final String fieldAlignment, aggregateAlignment, tailPadding;
 
     private PlatformProfile(Builder b) {
         name = nonempty(b.name, "name"); bitsPerByte = b.bitsPerByte;
@@ -73,6 +74,9 @@ public final class PlatformProfile {
         aggregateLayout = nonempty(b.aggregateLayout, "aggregateLayout");
         if (!Set.of("sequential", "unknown").contains(aggregateLayout))
             throw invalid("aggregateLayout must be sequential or unknown");
+        fieldAlignment = policy(b.fieldAlignment, "fieldAlignment", Set.of("natural", "packed1", "unknown"));
+        aggregateAlignment = policy(b.aggregateAlignment, "aggregateAlignment", Set.of("maximum-field", "unknown"));
+        tailPadding = policy(b.tailPadding, "tailPadding", Set.of("alignment", "unknown"));
     }
 
     public static PlatformProfile defaults() { return DEFAULT; }
@@ -88,6 +92,10 @@ public final class PlatformProfile {
     public String executionEncoding() { return executionEncoding; }
     public String wideExecutionEncoding() { return wideExecutionEncoding; }
     public String aggregateLayout() { return aggregateLayout; }
+    /** Natural scalar alignment or one-target-byte packing for every ordinary field. */
+    public String fieldAlignment() { return fieldAlignment; }
+    public String aggregateAlignment() { return aggregateAlignment; }
+    public String tailPadding() { return tailPadding; }
     public Map<String, Integer> sizes() { return sizes; }
     public Map<String, Integer> alignments() { return alignments; }
     public OptionalInt sizeBits(String type) { return optional(sizes.get(storageType(type))); }
@@ -142,6 +150,7 @@ public final class PlatformProfile {
         map.put("charSigned", charSigned); map.put("wcharType", wcharType); map.put("sizeType", sizeType);
         map.put("sourceEncoding", sourceEncoding); map.put("executionEncoding", executionEncoding);
         map.put("wideExecutionEncoding", wideExecutionEncoding); map.put("aggregateLayout", aggregateLayout);
+        map.put("fieldAlignment", fieldAlignment); map.put("aggregateAlignment", aggregateAlignment); map.put("tailPadding", tailPadding);
         return Collections.unmodifiableMap(map);
     }
     /** Stable, semantic identity; a display-name change alone does not create a new variant. */
@@ -198,7 +207,14 @@ public final class PlatformProfile {
         if (settings.containsKey("executionEncoding")) b.executionEncoding(string(settings.get("executionEncoding"), "executionEncoding"));
         if (settings.containsKey("wideExecutionEncoding")) b.wideExecutionEncoding(string(settings.get("wideExecutionEncoding"), "wideExecutionEncoding"));
         if (settings.containsKey("aggregateLayout")) b.aggregateLayout(string(settings.get("aggregateLayout"), "aggregateLayout"));
+        if (settings.containsKey("fieldAlignment")) b.fieldAlignment(string(settings.get("fieldAlignment"), "fieldAlignment"));
+        if (settings.containsKey("aggregateAlignment")) b.aggregateAlignment(string(settings.get("aggregateAlignment"), "aggregateAlignment"));
+        if (settings.containsKey("tailPadding")) b.tailPadding(string(settings.get("tailPadding"), "tailPadding"));
         return b.build();
+    }
+    private static String policy(String value, String field, Set<String> allowed) {
+        if (!allowed.contains(nonempty(value, field))) throw invalid(field + " must be one of " + allowed);
+        return value;
     }
     private static int integer(Object value, String field) {
         try {
@@ -244,9 +260,11 @@ public final class PlatformProfile {
         private boolean charSigned = true;
         private String wcharType = "int", sizeType = "unsigned long", sourceEncoding = "UTF-8", executionEncoding = "UTF-8", wideExecutionEncoding = "UTF-32";
         private String aggregateLayout = "unknown";
+        private String fieldAlignment = "unknown", aggregateAlignment = "unknown", tailPadding = "unknown";
         private Builder(boolean defaults) {
             if (defaults) {
                 name = "default-lp64"; aggregateLayout = "sequential";
+                fieldAlignment = "natural"; aggregateAlignment = "maximum-field"; tailPadding = "alignment";
                 int[] bits = {8, 8, 16, 32, 64, 64, 32, 32, 64, 128, 64};
                 for (int i = 0; i < bits.length; i++) { sizes.put(SCALARS.get(i), bits[i]); alignments.put(SCALARS.get(i), bits[i]); }
             }
@@ -255,6 +273,7 @@ public final class PlatformProfile {
             name = p.name; bitsPerByte = p.bitsPerByte; sizes.putAll(p.sizes); alignments.putAll(p.alignments);
             charSigned = p.charSigned; wcharType = p.wcharType; sizeType = p.sizeType; sourceEncoding = p.sourceEncoding;
             executionEncoding = p.executionEncoding; wideExecutionEncoding = p.wideExecutionEncoding; aggregateLayout = p.aggregateLayout;
+            fieldAlignment = p.fieldAlignment; aggregateAlignment = p.aggregateAlignment; tailPadding = p.tailPadding;
         }
         public Builder name(String value) { name = value; return this; }
         public Builder bitsPerByte(int value) { bitsPerByte = value; return this; }
@@ -272,6 +291,9 @@ public final class PlatformProfile {
             sourceEncoding = source; executionEncoding = execution; wideExecutionEncoding = wide; return this;
         }
         public Builder aggregateLayout(String value) { aggregateLayout = value; return this; }
+        public Builder fieldAlignment(String value) { fieldAlignment = value; return this; }
+        public Builder aggregateAlignment(String value) { aggregateAlignment = value; return this; }
+        public Builder tailPadding(String value) { tailPadding = value; return this; }
         public PlatformProfile build() { return new PlatformProfile(this); }
         private static String key(String type) {
             String key = storageType(type); if (!SCALARS.contains(key)) throw invalid("unknown scalar type " + type); return key;

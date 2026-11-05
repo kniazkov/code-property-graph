@@ -653,3 +653,48 @@ optional copy elision and full interprocedural lifetime effects are not claimed 
 these APIs. See the [native acceptance fixture](../src/test/resources/cpp03/classes-initialization/README.md).
 
 `FunctionFlow.complete()` is false for unsupported constructor hierarchies; its edge lists are empty, JSON exports `flowComplete: false`, and data-flow/unread-write analysis does not treat it as a complete result.
+
+## Object sizes, casts and allocation (#28)
+
+`SizeofExpression` and `TypeidExpression` preserve either an owned written type
+or an owned expression operand. `sizeof` does not evaluate its operand. RTTI's
+polymorphic-expression evaluation and runtime lookup are not replaced by invented
+calls. `ConversionExpression.kind()` distinguishes `STATIC_CAST`, `DYNAMIC_CAST`,
+`CONST_CAST`, `REINTERPRET_CAST` and `C_STYLE_CAST`; functional notation uses typed
+`InitializationExpression` with `TEMPORARY` form. Cast validity, RTTI execution and
+user-defined conversion/overload selection are not fully implemented.
+
+`NewExpression.type()` owns the allocated type, including `ArrayType` bounds.
+`placementArguments()` and `initializerArguments()` are distinct owned lists;
+`hasInitializer()` distinguishes `new T` from `new T()`. `isGlobal()` and
+`isParenthesizedType()` retain the written allocation form. `DeleteExpression`
+owns `operand()` and records `isArray()` and `isGlobal()`. These are source
+operations, not fabricated calls to allocation functions, constructors or
+destructors. Allocation-function lookup, exception cleanup and runtime heap
+lifetime are not asserted by this syntax model.
+
+C++ generation retains these forms and parenthesizes operands to preserve
+precedence. Java generation rejects them. JSON exports the owned operands,
+`conversionKind`, allocation argument lists and form flags; DOT includes cast,
+placement and array-delete labels. Snapshot copying retains all owned syntax and
+redirects semantic references into the copy.
+
+The target profile separates nominal type identity from object representation.
+`fieldAlignment` (`natural`, `packed1`, `unknown`), `aggregateAlignment`
+(`maximum-field`, `unknown`) and `tailPadding` (`alignment`, `unknown`) govern
+supported aggregate layout. Defaults use natural field alignment, maximum field
+alignment and aligned tail padding. A self-contained `inherits: none` profile
+that omits these policies leaves aggregate layout unknown. `packed1` is a target
+layout policy, not an injected source pragma or a claim about the host compiler.
+
+`TypeSemantics.layout(ClassDeclaration, profile)` and `describe`/`sizeof` handle
+complete supported aggregates, nested aggregates and arrays. Static fields do not
+occupy object storage; empty aggregates occupy one byte. Unions, bases, virtual
+members, nonaggregates, bit-fields, reference fields, unresolved or recursive
+layout remain unknown. With an eight-bit byte and four-byte `int`, `struct S {
+char a; int b; };` has size 8 under natural four-byte alignment and 5 under packed
+one-byte alignment. Unknown policy keeps `sizeof(S)` symbolic. `ArrayType.bound()`
+continues to own `sizeof(S) + 1` and its declaration reference: reanalysis with a
+known profile can derive 9 without replacing the written expression or changing
+the original snapshot. Changing `long` from 64 to 32 bits changes `sizeof(long)`
+from 8 to 4, but never merges the overload identities of `int` and `long`.

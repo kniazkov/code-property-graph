@@ -248,7 +248,8 @@ final class TypeParser {
         return name.toString();
     }
     record Declarator(String name, Function<NodeBuilder<? extends TypeNode>, NodeBuilder<? extends TypeNode>> apply) {}
-    Declarator declarator(boolean abstractAllowed) {
+    Declarator declarator(boolean abstractAllowed) { return declarator(abstractAllowed, false); }
+    private Declarator declarator(boolean abstractAllowed, boolean newType) {
         var start = tokens.start();
         var prefixes = new ArrayList<Function<NodeBuilder<? extends TypeNode>, NodeBuilder<? extends TypeNode>>>();
         while (true) {
@@ -272,16 +273,16 @@ final class TypeParser {
         }
         String name = "";
         Function<NodeBuilder<? extends TypeNode>, NodeBuilder<? extends TypeNode>> direct = Function.identity();
-        if (tokens.peek().equals("(") && groupingAhead()) {
+        if (!newType && tokens.peek().equals("(") && groupingAhead()) {
             tokens.advance(); var nested = declarator(abstractAllowed); tokens.expect(")"); name = nested.name(); direct = nested.apply();
         } else if (tokens.take("~")) name = "~" + tokens.identifier();
-        else if (tokens.take("operator")) { tokens.expect("="); name = "operator="; }
+        else if (tokens.take("operator")) name = operatorName();
         else if (tokens.isIdentifier()) {
             name = tokens.identifier();
             while (tokens.take("::")) {
                 name += "::";
                 if (tokens.take("~")) name += "~";
-                if (tokens.take("operator")) { tokens.expect("="); name += "operator="; }
+                if (tokens.take("operator")) name += operatorName();
                 else name += tokens.identifier();
             }
         }
@@ -295,7 +296,7 @@ final class TypeParser {
                 var bound = tokens.peek().equals("]") ? null : expressions.parse(); tokens.expect("]");
                 var previous = direct;
                 direct = base -> { var array = ArrayType.create().setElementType(base); if (bound != null) array.setBound(bound); return previous.apply(tokens.span(start, array)); };
-            } else if (tokens.peek().equals("(") && functionClauseAhead()) {
+            } else if (!newType && tokens.peek().equals("(") && functionClauseAhead()) {
                 tokens.advance();
                 List<NodeBuilder<? extends ParameterDeclaration>> parameters = new ArrayList<>();
                 boolean variadic = false;
@@ -389,6 +390,15 @@ final class TypeParser {
         throw new IllegalArgumentException("Unsupported type syntax " + type.getClass().getName());
     }
 
+    private String operatorName() {
+        if (tokens.take("=")) return "operator=";
+        String operation = tokens.peek();
+        if (!operation.equals("new") && !operation.equals("delete")) throw tokens.error("Unsupported operator function name");
+        tokens.advance();
+        if (tokens.take("[")) { tokens.expect("]"); operation += "[]"; }
+        return "operator " + operation;
+    }
+
     private boolean functionClauseAhead() {
         if (tokens.peek(1).equals(")") || tokens.peek(1).equals("...")) return true;
         int position = tokens.checkpoint(); tokens.advance();
@@ -412,6 +422,13 @@ final class TypeParser {
     }
     private NodeBuilder<? extends TypeNode> qualify(NodeBuilder<? extends TypeNode> base, boolean c, boolean v, TokenCursor.Mark start) {
         return c || v ? tokens.span(start, QualifiedType.create().setBaseType(base).setConst(c).setVolatile(v)) : base;
+    }
+    NodeBuilder<? extends TypeNode> newType() {
+        var specs = specifiers();
+        if (specs.typedef() || !specs.modifiers().isEmpty()) throw tokens.error("Storage specifier in new-type-id");
+        var declaration = declarator(true, true);
+        if (!declaration.name().isEmpty()) throw tokens.error("Name is not allowed in a new-type-id");
+        return declaration.apply().apply(specs.type().get());
     }
     NodeBuilder<? extends TypeNode> abstractType() {
         var specs = specifiers();

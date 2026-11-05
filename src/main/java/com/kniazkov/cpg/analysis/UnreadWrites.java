@@ -2,6 +2,7 @@
 package com.kniazkov.cpg.analysis;
 
 import com.kniazkov.cpg.model.*;
+import com.kniazkov.cpg.build.PlatformProfile;
 import java.util.*;
 
 /** Reports reachable local writes whose stored value reaches no read in the function. */
@@ -18,29 +19,37 @@ public final class UnreadWrites {
     public static Project analyze(Project resolved) {
         Project project = DataFlow.analyze(resolved);
         Map<Node, Diagnostic> findings = new IdentityHashMap<>();
-        Set<CallableDeclaration> cpp = Collections.newSetFromMap(new IdentityHashMap<>());
+        Map<CallableDeclaration, PlatformProfile> cpp = new IdentityHashMap<>();
         for (SourceFile file : project.files()) if (file.language() == Language.CPP)
             file.walk(new NodeVisitor() {
-                @Override public void visit(CallableDeclaration fn) { cpp.add(fn); }
+                @Override public void visit(CallableDeclaration fn) { cpp.put(fn, TypeSemantics.profile(file)); }
             });
-        for (var flow : project.flows()) inspect(flow, cpp.contains(flow.entry()), findings);
+        for (var flow : project.flows()) inspect(flow, cpp.get(flow.entry()), findings);
         return project.withDiagnostics(CODE, findings);
     }
 
-    private static void inspect(FunctionFlow flow, boolean cpp, Map<Node, Diagnostic> findings) {
+    private static void inspect(FunctionFlow flow, PlatformProfile profile, Map<Node, Diagnostic> findings) {
         if (!flow.complete()) return;
         Map<Node, String> candidates = new IdentityHashMap<>();
         Set<Node> read = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Declaration> escaped = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Node> unevaluated = Collections.newSetFromMap(new IdentityHashMap<>());
-        if (cpp) flow.entry().body().orElseThrow().walk(new NodeVisitor() {
+        if (profile != null) flow.entry().body().orElseThrow().walk(new NodeVisitor() {
+            @Override public void visit(TypeidExpression typeid) {
+                if (TypeSemantics.typeidOperandUnevaluated(typeid, profile)) mark(typeid);
+            }
+            private void mark(Node size) {
+                size.walk(new NodeVisitor() {
+                    @Override public void visit(Node node) { unevaluated.add(node); }
+                });
+            }
             @Override public void visit(SizeofExpression size) {
                 size.walk(new NodeVisitor() {
                     @Override public void visit(Node node) { unevaluated.add(node); }
                 });
             }
         });
-        if (cpp) flow.entry().body().orElseThrow().walk(new NodeVisitor() {
+        if (profile != null) flow.entry().body().orElseThrow().walk(new NodeVisitor() {
             // External code may retain a pointer or a reference to the local and read it later.
             @Override public void visit(AddressOfExpression address) {
                 if (!unevaluated.contains(address)) escape(address.operand());

@@ -31,6 +31,13 @@ public final class TypeSemantics {
     }
 
     public static Optional<BigInteger> sizeof(SizeofExpression expression, PlatformProfile profile) {
+        // Allocation result signatures intentionally detach class bindings. The written
+        // allocated type is still available here, without evaluating or copying new.
+        if (expression.operand().orElse(null) instanceof DereferenceExpression dereference
+                && dereference.operand() instanceof NewExpression allocation) {
+            TypeNode allocated = unqualified(allocation.type());
+            return sizeof(allocated instanceof ArrayType array ? array.elementType() : allocation.type(), profile);
+        }
         return expression.type().or(() -> expression.operand().flatMap(value -> expressionType(value, profile)))
                 .flatMap(type -> sizeof(type, profile));
     }
@@ -46,8 +53,13 @@ public final class TypeSemantics {
             if (type instanceof ReferenceType reference) return facts(reference.referredType(), profile, active);
             if (type instanceof NamedType name) {
                 if (name.alias().isPresent()) return facts(name.alias().orElseThrow().type(), profile, active);
-                if (name.fundamentalKind().isEmpty() || name.fundamentalKind().orElseThrow() == FundamentalKind.VOID)
-                    return UNKNOWN;
+                if (name.fundamentalKind().isEmpty()) {
+                    var owner = ClassSemantics.objectClass(name);
+                    return owner.flatMap(value -> layout(value, profile, active))
+                            .map(value -> new Facts(Optional.of(value.sizeBytes()), OptionalInt.of(value.alignmentBits()), Optional.empty()))
+                            .orElse(UNKNOWN);
+                }
+                if (name.fundamentalKind().orElseThrow() == FundamentalKind.VOID) return UNKNOWN;
                 String spelling = name.fundamentalKind().orElseThrow().spelling();
                 return scalar(spelling, profile);
             }
@@ -74,20 +86,36 @@ public final class TypeSemantics {
         public AggregateLayout { offsets = List.copyOf(offsets); }
     }
     public static Optional<AggregateLayout> layout(List<? extends TypeNode> fields, PlatformProfile profile) {
-        if (!profile.aggregateLayout().equals("sequential")) return Optional.empty();
+        return layout(fields, profile, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+    /** Only complete plain aggregates have a representation under this policy. Unions,
+     * bases, bit-fields, references and non-aggregates need ABI rules we do not model. */
+    public static Optional<AggregateLayout> layout(ClassDeclaration owner, PlatformProfile profile) {
+        return layout(owner, profile, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+    private static Optional<AggregateLayout> layout(ClassDeclaration owner, PlatformProfile profile, Set<TypeNode> active) {
+        if (!owner.isDefinition() || owner.keyword().equals("union") || !ClassSemantics.aggregate(owner)) return Optional.empty();
+        var fields = owner.members().stream().filter(VariableDeclaration.class::isInstance)
+                .map(VariableDeclaration.class::cast).filter(field -> !field.modifiers().contains("static")).toList();
+        if (fields.stream().anyMatch(field -> field.bitWidth().isPresent() || field.type().isEmpty())) return Optional.empty();
+        return layout(fields.stream().map(field -> field.type().orElseThrow()).toList(), profile, active);
+    }
+    private static Optional<AggregateLayout> layout(List<? extends TypeNode> fields, PlatformProfile profile, Set<TypeNode> active) {
+        if (!profile.aggregateLayout().equals("sequential") || profile.fieldAlignment().equals("unknown")
+                || !profile.aggregateAlignment().equals("maximum-field") || !profile.tailPadding().equals("alignment")) return Optional.empty();
         BigInteger offset = BigInteger.ZERO;
         int maximumAlignment = profile.bitsPerByte();
         var offsets = new ArrayList<BigInteger>();
         for (TypeNode field : fields) {
             // References require an ABI representation, unlike sizeof(reference).
             if (unqualified(field) instanceof ReferenceType) return Optional.empty();
-            var facts = describe(field, profile);
-            if (facts.sizeBytes().isEmpty() || facts.alignmentBits().isEmpty()) return Optional.empty();
-            int alignment = facts.alignmentBits().getAsInt();
+            var facts = facts(field, profile, active);
+            if (facts.size.isEmpty() || !profile.fieldAlignment().equals("packed1") && facts.alignment.isEmpty()) return Optional.empty();
+            int alignment = profile.fieldAlignment().equals("packed1") ? profile.bitsPerByte() : facts.alignment.orElseThrow();
             if (alignment % profile.bitsPerByte() != 0) return Optional.empty();
             offset = align(offset, BigInteger.valueOf(alignment / profile.bitsPerByte()));
             offsets.add(offset);
-            offset = offset.add(facts.sizeBytes().orElseThrow());
+            offset = offset.add(facts.size.orElseThrow());
             maximumAlignment = Math.max(maximumAlignment, alignment);
         }
         return Optional.of(new AggregateLayout(offsets,
@@ -132,6 +160,14 @@ public final class TypeSemantics {
                 .setBound(IntegerLiteral.create().setValue(literal.codeUnits().size() + 1)).build());
         if (expression instanceof ConversionExpression conversion) return Optional.of(conversion.targetType());
         if (expression instanceof SizeofExpression) return sizeType(profile).map(TypeSemantics::named);
+        if (expression instanceof NewExpression allocation) {
+            TypeNode allocated = unqualified(allocation.type());
+            TypeNode pointee = allocated instanceof ArrayType array ? array.elementType() : allocation.type();
+            return Optional.of(PointerType.create().setPointee(signatureType(pointee)).build());
+        }
+        if (expression instanceof DeleteExpression) return Optional.of(named("void"));
+        if (expression instanceof TypeidExpression) return Optional.of(QualifiedType.create()
+                .setBaseType(NamedType.create().setName("std::type_info")).setConst(true).build());
         if (expression instanceof NameExpression name) return declarationType(name.target());
         if (expression instanceof MemberExpression member) return declarationType(member.target());
         if (expression instanceof CallExpression call) return callType(call, profile).map(FunctionType::returnType);
@@ -196,7 +232,17 @@ public final class TypeSemantics {
         }
         return Optional.empty();
     }
+    /** Without a complete polymorphic-class analysis, class operands remain potentially
+     * evaluated. Known non-class operands and written type operands are unevaluated. */
+    public static boolean typeidOperandUnevaluated(TypeidExpression expression, PlatformProfile profile) {
+        if (expression.type().isPresent()) return true;
+        return expression.operand().flatMap(operand -> expressionType(operand, profile)).map(TypeSemantics::unqualified)
+                .map(type -> type instanceof PointerType || type instanceof MemberPointerType || type instanceof ArrayType
+                        || type instanceof FunctionType || type instanceof NamedType name && name.fundamentalKind().isPresent())
+                .orElse(false);
+    }
     public static ValueCategory valueCategory(Expression expression, PlatformProfile profile) {
+        if (expression instanceof TypeidExpression) return ValueCategory.LVALUE;
         if (expression instanceof StringLiteral || expression instanceof DereferenceExpression || expression instanceof IndexExpression
                 || expression instanceof AssignmentExpression || expression instanceof CompoundAssignmentExpression
                 || expression instanceof PrefixIncrementExpression || expression instanceof PrefixDecrementExpression) return ValueCategory.LVALUE;

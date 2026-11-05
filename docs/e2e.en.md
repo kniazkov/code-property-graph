@@ -193,3 +193,30 @@ class-parameter signatures. Run `mvn verify`; the focused native command is
 No native check is skipped when a compiler is unavailable.
 
 At milestone #27 the full inventory requires **21 scenarios and 23 corpus/harness results**, without failures, errors or skips.
+
+## Object sizes, casts and allocation (#28)
+
+`ObjectMemoryExportTest` checks source generation/reparse for C-style, functional
+and all four named casts, type/expression `typeid`, scalar/array allocation and
+deletion, placement allocation, global allocation/deletion, parenthesized types
+and the distinction between omitted and empty initialization. It also checks
+copy/JSON stability, graph labels and Java rejection. A parsed cast is not a
+claim that the cast is valid for every class hierarchy: native acceptance uses
+well-formed source and the model retains unsupported runtime semantics.
+
+Profile tests compare aligned and packed `char`/`int` aggregate layout (8/5
+bytes), unknown-layout symbolic bounds and immutable profile reanalysis, plus
+64/32-bit `long` size (8/4 bytes) without losing nominal overload identities.
+Native compiler checks use the host-compatible profile, not a packed profile
+without corresponding compiler options. See the [model contract](model-guide.en.md#object-sizes-casts-and-allocation-28).
+
+Mandatory `casts-memory` runs original, regenerated and folded C++03 under both
+GCC and Clang: aggregate sizeof and symbolic array bounds, value-initialized
+scalar/array allocation, evaluated allocation bounds, placement new, scalar and
+array deletion, valid cast forms, unsigned wrap and retained executed effects.
+Scalar typeid and sizeof operands must remain unevaluated. CLI/API/JSON/SVG,
+copy/reference ownership and reparse are checked; sizeof an incomplete class is
+rejected by CLI and both native compilers. Run:
+`mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=casts-memory verify`.
+At #28 the unfiltered corpus contains **22 scenarios and 24 results including
+infrastructure tests**, with no skipped compiler checks.

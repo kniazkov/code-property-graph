@@ -7,7 +7,7 @@ import java.util.Optional;
 
 /** An implicit conversion emits only its operand; a written cast keeps its own range and type. */
 public final class ConversionExpression extends Expression {
-    public enum Kind { STATIC_CAST, LVALUE_TO_RVALUE, ARRAY_TO_POINTER, FUNCTION_TO_POINTER,
+    public enum Kind { STATIC_CAST, DYNAMIC_CAST, CONST_CAST, REINTERPRET_CAST, C_STYLE_CAST, LVALUE_TO_RVALUE, ARRAY_TO_POINTER, FUNCTION_TO_POINTER,
         INTEGRAL_PROMOTION, FLOATING_PROMOTION, ARITHMETIC_CONVERSION, QUALIFICATION, NULL_POINTER, REFERENCE_BINDING }
     private Expression operand;
     private TypeNode targetType;

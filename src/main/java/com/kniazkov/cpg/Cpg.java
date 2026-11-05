@@ -139,6 +139,15 @@ public final class Cpg {
         // original parser diagnostics intact rather than analyzing an incomplete program.
         if (options.stage() == Stage.PARSED || result.hasErrors()) return result;
         result = NameResolver.resolve(result);
+        // Green rewrites clear annotations. Do not erase the invalid syntax that
+        // produced semantic errors before the folding stage can observe them.
+        boolean[] semanticError = {false};
+        result.walk(new NodeVisitor() {
+            @Override public void visit(Node node) {
+                semanticError[0] |= node.diagnostics().stream().anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR);
+            }
+        });
+        if (semanticError[0]) return result;
         if (options.stage() != Stage.RESOLVED) result = com.kniazkov.cpg.analysis.TypeNormalizer.green(ConsoleNormalizer.green(result));
         if (options.stage() == Stage.FOLDED) result = ConstantFolder.fold(result);
         // Transformations deliberately drop annotations; recompute links and build diagnostics.

@@ -14,6 +14,9 @@ public final class ConstantFolder {
      * division by zero or an out-of-range intermediate prevents folding its parent.
      * All replacements are published together through the project editor. */
     public static Project fold(Project project) {
+        // Replacing even an unevaluated branch can erase the syntax that explains an
+        // error. Preserve the complete erroneous snapshot rather than conceal it.
+        if (project.hasErrors() || ConstantEvaluator.hasSemanticErrors(project)) return project;
         var editor = new ProjectEditor(project);
         var order = new ArrayList<Node>();
         for (SourceFile file : project.files()) {
@@ -70,9 +73,15 @@ public final class ConstantFolder {
         var profile = TypeSemantics.profile(file);
         file.walk(new NodeVisitor() {
             @Override public void visit(Expression expression) {
-                if (expression instanceof IntegerLiteral) return;
+                if (expression instanceof IntegerLiteral || expression instanceof BooleanLiteral) return;
                 ConstantEvaluator.evaluate(expression, profile).ifPresent(value -> {
-                    // A bool/char/short value has no equivalent ordinary integer-literal spelling.
+                    if (value.type().spelling().equals("bool")) {
+                        var literal = BooleanLiteral.create().setValue(value.number().signum() != 0);
+                        expression.range().ifPresent(literal::setRange);
+                        editor.replace(expression, literal.build());
+                        return;
+                    }
+                    // A char/short value has no equivalent ordinary integer-literal spelling.
                     if (!Set.of("int", "unsigned int", "long", "unsigned long").contains(value.type().spelling())) return;
                     var literal = IntegerLiteral.create().setValue(value.number());
                     if (!value.type().spelling().equals("int")) literal.setCppType(value.type().spelling());

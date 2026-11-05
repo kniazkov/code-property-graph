@@ -10,6 +10,8 @@ import java.util.regex.Pattern;
 final class TokenCursor {
     private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*");
     private static final Set<String> RESERVED = Set.of("class", "int", "void", "return", "if", "else", "while", "for", "public", "static", "bool", "char", "signed", "unsigned", "short", "long", "wchar_t", "float", "double", "const", "volatile", "typedef", "struct", "union", "enum", "extern", "inline", "register", "mutable", "private", "protected", "sizeof", "namespace", "using", "auto");
+    private static final Set<String> CPP_OBJECT_KEYWORDS = Set.of("new", "delete", "typeid", "static_cast", "dynamic_cast", "const_cast", "reinterpret_cast");
+    private boolean reserved(String name) { return RESERVED.contains(name) || language == Language.CPP && CPP_OBJECT_KEYWORDS.contains(name); }
     private final String file;
     private final Language language;
     private final List<Token> tokens;
@@ -108,7 +110,7 @@ final class TokenCursor {
     }
     boolean isIdentifier() {
         String name = peek();
-        return (language == Language.CPP ? CppLexer.isIdentifier(name) : IDENTIFIER.matcher(name).matches()) && !RESERVED.contains(name);
+        return (language == Language.CPP ? CppLexer.isIdentifier(name) : IDENTIFIER.matcher(name).matches()) && !reserved(name);
     }
 
     /** Reads the next spelling without consuming it. */
@@ -148,7 +150,7 @@ final class TokenCursor {
     /** Consumes an identifier permitted by the supported grammar. */
     String identifier() {
         String name = peek();
-        if (!(language == Language.CPP ? CppLexer.isIdentifier(name) : IDENTIFIER.matcher(name).matches()) || RESERVED.contains(name)) throw error("Expected identifier");
+        if (!(language == Language.CPP ? CppLexer.isIdentifier(name) : IDENTIFIER.matcher(name).matches()) || reserved(name)) throw error("Expected identifier");
         advance();
         return name;
     }
