@@ -3,6 +3,7 @@ package com.kniazkov.cpg.serialization;
 
 import com.kniazkov.cpg.model.*;
 import com.kniazkov.cpg.analysis.ClassSemantics;
+import com.kniazkov.cpg.analysis.InheritanceSemantics;
 import com.kniazkov.json.*;
 import java.io.IOException;
 import java.nio.file.*;
@@ -135,6 +136,12 @@ public final class ProjectJson {
                     if (c.variadic()) obj.put("variadic", true);
                     if (c.isConst()) obj.put("const", true);
                     if (c.isVolatile()) obj.put("volatile", true);
+                    if (c.isPureVirtual()) obj.put("pureVirtual", true);
+                    if (InheritanceSemantics.isVirtual(project, c)) obj.put("virtual", true);
+                    var overrides = InheritanceSemantics.overrides(project, c);
+                    var overriddenBy = InheritanceSemantics.overriddenBy(project, c);
+                    if (!overrides.isEmpty()) obj.array("overridesIds", a -> overrides.forEach(method -> a.add(ids.get(method))));
+                    if (!overriddenBy.isEmpty()) obj.array("overriddenByIds", a -> overriddenBy.forEach(method -> a.add(ids.get(method))));
                 }
                 case BlockStatement b -> obj.put("items", nodes(b.items()));
                 case VariableDeclaration v -> {
@@ -219,6 +226,10 @@ public final class ProjectJson {
                 case CallExpression c -> { obj.put("callee", node(c.callee())).put("arguments", nodes(c.arguments()))
                         .put("resolution", lower(c.resolution()))
                         .array("candidateIds", a -> c.candidates().forEach(candidate -> a.add(ids.get(candidate))));
+                    c.target().ifPresent(target -> obj.put("staticTargetId", ids.get(target)));
+                    if (c.isVirtualDispatch()) obj.put("virtualDispatch", true)
+                            .put("virtualTargetsComplete", c.virtualTargetsComplete())
+                            .array("virtualTargetIds", a -> c.virtualTargets().forEach(target -> a.add(ids.get(target))));
                     if (!c.defaultArguments().isEmpty()) obj.array("defaultArguments", a -> c.defaultArguments().forEach(argument -> a.object(value -> value
                                 .put("parameterIndex", argument.parameterIndex()).put("declarationId", ids.get(argument.declaration()))
                                 .put("parameterId", ids.get(argument.parameter())).put("expressionId", ids.get(argument.expression())))));

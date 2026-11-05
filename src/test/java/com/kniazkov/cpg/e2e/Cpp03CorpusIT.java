@@ -66,6 +66,15 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("inheritance-virtual".equals(settings.getProperty("mode"))) {
+            var output = InheritanceVirtualAcceptance.verify(fixture, work);
+            for (Path source : List.of(output.original(), output.generated(), output.folded())) nativePrograms(work, source, "", 0);
+            for (String compiler : List.of("g++", "clang++")) {
+                Result rejected = command(List.of(compiler, "-std=c++03", "-pedantic-errors", "-fsyntax-only", output.invalid().resolve("main.cpp").toString()), work);
+                assertNotEquals(0, rejected.status(), "Repeated nonvirtual base member access must be ambiguous: " + compiler);
+            }
+            return;
+        }
         if ("casts-memory".equals(settings.getProperty("mode"))) {
             var output = CastsMemoryAcceptance.verify(fixture, work);
             for (Path source : List.of(output.original(), output.generated(), output.folded())) nativePrograms(work, source, "", 0);

@@ -12,6 +12,8 @@ public final class ClassSemantics {
     public enum SpecialKind { DEFAULT_CONSTRUCTOR, COPY_CONSTRUCTOR, COPY_ASSIGNMENT, DESTRUCTOR }
     public enum Origin { IMPLICIT, USER_DECLARED, SUPPRESSED }
     public enum InitializationKind { DEFAULT, ZERO, COPY, DIRECT, AGGREGATE, VALUE }
+    /** Virtual bases are initialized only by the most-derived complete object. */
+    public enum ConstructionContext { COMPLETE_OBJECT, BASE_SUBOBJECT }
     public enum Storage { AUTOMATIC, STATIC, TEMPORARY, SUBOBJECT }
     public enum LifetimeEnd { BLOCK_EXIT, PROGRAM_EXIT, FULL_EXPRESSION, REFERENCE_LIFETIME }
     /** A special member's declaration status; implicit members have no invented source node. */
@@ -71,13 +73,23 @@ public final class ClassSemantics {
                 || owner.typeIdentity().isPresent() && owner.typeIdentity().equals(declaration.typeIdentity()))
                 .orElseGet(() -> named.name().equals(owner.name()));
     }
-    /** Direct non-virtual bases in declaration order, then non-static fields in declaration order.
-     * Virtual-base traversal is a separate hierarchy analysis, so it is rejected rather than guessed. */
+    /** Complete-object plan: virtual bases once in depth-first, left-to-right hierarchy order,
+     * then direct non-virtual bases and fields. This is not an unconditional constructor CFG:
+     * the same constructor invoked for a base subobject does not initialize virtual bases. */
     public static List<Subobject> constructionOrder(ClassDeclaration owner, CallableDeclaration constructor) {
+        return constructionOrder(owner, constructor, ConstructionContext.COMPLETE_OBJECT);
+    }
+    /** Plans only this constructor's subobjects, not the nested internals of each base or field. */
+    public static List<Subobject> constructionOrder(ClassDeclaration owner, CallableDeclaration constructor,
+            ConstructionContext context) {
         if (constructor.kind() != CallableDeclaration.Kind.CONSTRUCTOR) throw new IllegalArgumentException("Expected constructor");
-        if (!hasCompleteNonvirtualHierarchy(owner)) throw new IllegalArgumentException("Virtual or unresolved base ordering requires hierarchy analysis");
+        Objects.requireNonNull(context);
+        if (!hasCompleteHierarchy(owner)) throw new IllegalArgumentException("Unresolved, incomplete or cyclic base hierarchy");
         var result = new ArrayList<Subobject>();
-        for (var base : owner.bases()) {
+        var bases = new ArrayList<BaseSpecifier>();
+        if (context == ConstructionContext.COMPLETE_OBJECT) bases.addAll(virtualBases(owner));
+        owner.bases().stream().filter(base -> !base.isVirtual()).forEach(bases::add);
+        for (var base : bases) {
             ClassDeclaration baseClass = objectClass(base.type()).orElseThrow();
             result.add(new Subobject(base, constructor.initializers().stream().filter(value -> initializedBase(value)
                     .filter(target -> sameClass(baseClass, target)).isPresent()).findFirst()));
@@ -88,23 +100,55 @@ public final class ClassSemantics {
         }
         return List.copyOf(result);
     }
-    /** True only when every reachable base is defined, resolved and non-virtual. */
-    public static boolean hasCompleteNonvirtualHierarchy(ClassDeclaration owner) {
-        return nonvirtual(owner, Collections.newSetFromMap(new IdentityHashMap<>()));
+    /** Ordered unique virtual subobjects, represented by the first encountered written base edge.
+     * All returned edges belong to the supplied hierarchy's snapshot, possibly an ancestor. */
+    public static List<BaseSpecifier> virtualBases(ClassDeclaration owner) {
+        if (!hasCompleteHierarchy(owner)) throw new IllegalArgumentException("Unresolved, incomplete or cyclic base hierarchy");
+        var result = new ArrayList<BaseSpecifier>();
+        collectVirtualBases(owner, result, new ArrayList<>());
+        return List.copyOf(result);
     }
-    private static boolean nonvirtual(ClassDeclaration owner, Set<ClassDeclaration> active) {
-        if (!owner.isDefinition() || !active.add(owner)) return false;
+    private static void collectVirtualBases(ClassDeclaration owner, List<BaseSpecifier> result,
+            List<ClassDeclaration> seen) {
+        for (var base : owner.bases()) {
+            var target = objectClass(base.type()).orElseThrow();
+            if (base.isVirtual()) {
+                if (seen.stream().anyMatch(previous -> sameClass(previous, target))) continue;
+                seen.add(target);
+            }
+            collectVirtualBases(target, result, seen);
+            if (base.isVirtual()) result.add(base);
+        }
+    }
+    /** True only when every reachable base is defined and resolved, with no inheritance cycle. */
+    public static boolean hasCompleteHierarchy(ClassDeclaration owner) {
+        return completeHierarchy(owner, false, new ArrayList<>());
+    }
+    /** Also excludes virtual bases: suitable for context-independent constructor flow. */
+    public static boolean hasCompleteNonvirtualHierarchy(ClassDeclaration owner) {
+        return completeHierarchy(owner, true, new ArrayList<>());
+    }
+    private static boolean completeHierarchy(ClassDeclaration owner, boolean nonvirtual, List<ClassDeclaration> active) {
+        if (!owner.isDefinition() || active.stream().anyMatch(previous -> sameClass(previous, owner))) return false;
+        active.add(owner);
         try {
             for (var base : owner.bases()) {
-                if (base.isVirtual()) return false;
+                if (nonvirtual && base.isVirtual()) return false;
                 var target = objectClass(base.type());
-                if (target.isEmpty() || !nonvirtual(target.orElseThrow(), active)) return false;
+                if (target.isEmpty() || !completeHierarchy(target.orElseThrow(), nonvirtual, active)) return false;
             }
             return true;
-        } finally { active.remove(owner); }
+        } finally { active.removeLast(); }
     }
+    /** Reverse complete-object construction plan, excluding the destructor body itself. */
     public static List<Subobject> destructionOrder(ClassDeclaration owner, CallableDeclaration constructor) {
-        var result = new ArrayList<>(constructionOrder(owner, constructor)); Collections.reverse(result); return List.copyOf(result);
+        return destructionOrder(owner, constructor, ConstructionContext.COMPLETE_OBJECT);
+    }
+    public static List<Subobject> destructionOrder(ClassDeclaration owner, CallableDeclaration constructor,
+            ConstructionContext context) {
+        var result = new ArrayList<>(constructionOrder(owner, constructor, context));
+        Collections.reverse(result);
+        return List.copyOf(result);
     }
     /** Resolves the class named through a base initializer, retaining its written alias separately. */
     public static Optional<ClassDeclaration> initializedBase(MemberInitializer initializer) {

@@ -14,7 +14,7 @@ public abstract class CallableDeclaration extends Declaration {
     public Kind kind() { return kind; }
     public List<MemberInitializer> initializers() { return initializers; }
     private String name;
-    private boolean variadic, isConst, isVolatile;
+    private boolean variadic, isConst, isVolatile, pureVirtual;
     private List<String> modifiers = List.of();
     private TypeNode returnType;
     private TypeNode writtenType;
@@ -36,6 +36,8 @@ public abstract class CallableDeclaration extends Declaration {
     public boolean variadic() { return variadic; }
     public boolean isConst() { return isConst; }
     public boolean isVolatile() { return isVolatile; }
+    /** Whether the declaration explicitly contains a pure-specifier (= 0). */
+    public boolean isPureVirtual() { return pureVirtual; }
 
     /** Returns the modifiers of this syntax node. */
     public List<String> modifiers() {
@@ -86,6 +88,7 @@ public abstract class CallableDeclaration extends Declaration {
         builder.name = name;
         builder.kind = kind;
         builder.initializers = context.copyAll(initializers, MemberInitializer.class);
+        builder.pureVirtual = pureVirtual;
         builder.variadic = variadic; builder.isConst = isConst; builder.isVolatile = isVolatile;
         builder.modifiers = new ArrayList<>(modifiers);
         builder.returnType = returnType == null ? null : context.edge(returnType, TypeNode.class);
@@ -108,7 +111,7 @@ public abstract class CallableDeclaration extends Declaration {
         public B setInitializers(List<? extends NodeBuilder<? extends MemberInitializer>> values) { initializers = new ArrayList<>(List.copyOf(values)); return self(); }
         public B addInitializer(NodeBuilder<? extends MemberInitializer> value) { initializers.add(Objects.requireNonNull(value)); return self(); }
         private String name;
-        private boolean variadic, isConst, isVolatile;
+        private boolean variadic, isConst, isVolatile, pureVirtual;
         private List<String> modifiers = new ArrayList<>();
         private NodeBuilder<? extends TypeNode> returnType;
         private NodeBuilder<? extends TypeNode> writtenType;
@@ -127,6 +130,9 @@ public abstract class CallableDeclaration extends Declaration {
         public boolean variadic() { return variadic; }
         public boolean isConst() { return isConst; }
         public boolean isVolatile() { return isVolatile; }
+        /** Whether the declaration explicitly contains a pure-specifier (= 0). */
+        public boolean isPureVirtual() { return pureVirtual; }
+        public B setPureVirtual(boolean value) { pureVirtual = value; return self(); }
         public B setVariadic(boolean value) { variadic = value; return self(); }
         public B setConst(boolean value) { isConst = value; return self(); }
         public B setVolatile(boolean value) { isVolatile = value; return self(); }
@@ -219,6 +225,7 @@ public abstract class CallableDeclaration extends Declaration {
             node.kind = kind;
             node.initializers = context.copyAll(initializers);
             node.name = requiredText(name, "CallableDeclaration.name");
+            node.pureVirtual = pureVirtual;
             node.variadic = variadic; node.isConst = isConst; node.isVolatile = isVolatile;
             node.modifiers = List.copyOf(modifiers);
             node.returnType = returnType == null ? null : context.copy(returnType);

@@ -11,6 +11,13 @@ public final class CallExpression extends Expression {
     private Expression callee;
     private List<Expression> arguments = List.of();
     private CallableDeclaration target;
+    private boolean virtualDispatch, virtualTargetsComplete;
+    private List<CallableDeclaration> virtualTargets = List.of();
+    /** Static overload selection remains in target(); these are possible runtime implementations. */
+    public boolean isVirtualDispatch() { return virtualDispatch; }
+    public List<CallableDeclaration> virtualTargets() { return virtualTargets; }
+    /** False when unknown dynamic types or incomplete hierarchy information may add implementations. */
+    public boolean virtualTargetsComplete() { return virtualTargetsComplete; }
     private List<DefaultArgument> defaultArguments = List.of();
 
     /** A non-owning link to the visible declaration supplying an omitted argument. */
@@ -46,6 +53,7 @@ public final class CallExpression extends Expression {
             }
         }
     }
+    /** AMBIGUOUS may contain one declaration reached through distinct base subobjects. */
     public enum Resolution { UNRESOLVED, RESOLVED, AMBIGUOUS, ODR_CONFLICT }
     private List<CallableDeclaration> candidates = List.of();
     private Resolution resolution = Resolution.UNRESOLVED;
@@ -78,6 +86,7 @@ public final class CallExpression extends Expression {
     @Override
     public List<Node> references() {
         List<Node> result = new ArrayList<>(candidates);
+        for (var implementation : virtualTargets) if (!result.contains(implementation)) result.add(implementation);
         for (var argument : defaultArguments) {
             for (Node reference : List.of(argument.declaration(), argument.parameter(), argument.expression()))
                 if (!result.contains(reference)) result.add(reference);
@@ -108,6 +117,9 @@ public final class CallExpression extends Expression {
         builder.target = target == null ? null : context.edge(target, CallableDeclaration.class);
         builder.candidates = context.copyAll(candidates, CallableDeclaration.class);
         builder.resolution = resolution;
+        builder.virtualDispatch = virtualDispatch;
+        builder.virtualTargetsComplete = virtualTargetsComplete;
+        builder.virtualTargets = context.copyAll(virtualTargets, CallableDeclaration.class);
         for (var argument : defaultArguments) builder.defaultArguments.add(new DefaultArgumentBuilder(argument.parameterIndex(),
                 context.edge(argument.declaration(), CallableDeclaration.class), context.edge(argument.parameter(), ParameterDeclaration.class)));
         return builder;
@@ -118,6 +130,18 @@ public final class CallExpression extends Expression {
         private NodeBuilder<? extends Expression> callee;
         private List<NodeBuilder<? extends Expression>> arguments = new ArrayList<>();
         private NodeBuilder<? extends CallableDeclaration> target;
+        private boolean virtualDispatch, virtualTargetsComplete;
+        private List<NodeBuilder<? extends CallableDeclaration>> virtualTargets = new ArrayList<>();
+        public boolean isVirtualDispatch() { return virtualDispatch; }
+        public boolean virtualTargetsComplete() { return virtualTargetsComplete; }
+        public List<NodeBuilder<? extends CallableDeclaration>> virtualTargets() { return List.copyOf(virtualTargets); }
+        public Builder setVirtualTargets(List<? extends NodeBuilder<? extends CallableDeclaration>> values, boolean complete) {
+            virtualTargets = new ArrayList<>(List.copyOf(values));
+            virtualDispatch = true; virtualTargetsComplete = complete; return this;
+        }
+        public Builder clearVirtualTargets() {
+            virtualTargets.clear(); virtualDispatch = false; virtualTargetsComplete = false; return this;
+        }
         private List<NodeBuilder<? extends CallableDeclaration>> candidates = new ArrayList<>();
         private Resolution resolution = Resolution.UNRESOLVED;
         private List<DefaultArgumentBuilder> defaultArguments = new ArrayList<>();
@@ -126,12 +150,13 @@ public final class CallExpression extends Expression {
             clearExpressionInfo(); defaultArguments = new ArrayList<>(List.copyOf(values)); return this;
         }
         public Builder clearDefaultArguments() { clearExpressionInfo(); defaultArguments.clear(); return this; }
-        public Builder setCandidates(List<? extends NodeBuilder<? extends CallableDeclaration>> values, Resolution status) { clearExpressionInfo(); clearDefaultArguments();
+        public Builder setCandidates(List<? extends NodeBuilder<? extends CallableDeclaration>> values, Resolution status) { clearExpressionInfo(); clearDefaultArguments(); clearVirtualTargets();
             candidates = new ArrayList<>(values);
             resolution = Objects.requireNonNull(status);
             if (status == Resolution.RESOLVED && candidates.size() != 1
                     || status == Resolution.UNRESOLVED && !candidates.isEmpty()
-                    || (status == Resolution.AMBIGUOUS || status == Resolution.ODR_CONFLICT) && candidates.size() < 2)
+                    || status == Resolution.AMBIGUOUS && candidates.isEmpty()
+                    || status == Resolution.ODR_CONFLICT && candidates.size() < 2)
                 throw new IllegalArgumentException("Candidate count does not match resolution status");
             target = status == Resolution.RESOLVED ? candidates.getFirst() : null;
             return this;
@@ -153,29 +178,29 @@ public final class CallExpression extends Expression {
             return Optional.ofNullable(target);
         }
 
-        public Builder setCallee(NodeBuilder<? extends Expression> callee) { clearExpressionInfo(); clearDefaultArguments();
+        public Builder setCallee(NodeBuilder<? extends Expression> callee) { clearExpressionInfo(); clearDefaultArguments(); clearVirtualTargets();
             this.callee = Objects.requireNonNull(callee);
             return this;
         }
 
-        public Builder setArguments(List<? extends NodeBuilder<? extends Expression>> arguments) { clearExpressionInfo(); clearDefaultArguments();
+        public Builder setArguments(List<? extends NodeBuilder<? extends Expression>> arguments) { clearExpressionInfo(); clearDefaultArguments(); clearVirtualTargets();
             this.arguments = new ArrayList<>(List.copyOf(arguments));
             return this;
         }
 
-        public Builder addArgument(NodeBuilder<? extends Expression> value) { clearExpressionInfo(); clearDefaultArguments();
+        public Builder addArgument(NodeBuilder<? extends Expression> value) { clearExpressionInfo(); clearDefaultArguments(); clearVirtualTargets();
             arguments.add(Objects.requireNonNull(value));
             return this;
         }
 
-        public Builder setTarget(NodeBuilder<? extends CallableDeclaration> target) { clearExpressionInfo(); clearDefaultArguments();
+        public Builder setTarget(NodeBuilder<? extends CallableDeclaration> target) { clearExpressionInfo(); clearDefaultArguments(); clearVirtualTargets();
             this.target = Objects.requireNonNull(target);
             candidates = new ArrayList<>(List.of(target));
             resolution = Resolution.RESOLVED;
             return this;
         }
 
-        public Builder clearTarget() { clearExpressionInfo(); clearDefaultArguments();
+        public Builder clearTarget() { clearExpressionInfo(); clearDefaultArguments(); clearVirtualTargets();
             this.target = null;
             candidates.clear();
             resolution = Resolution.UNRESOLVED;
@@ -194,6 +219,9 @@ public final class CallExpression extends Expression {
             node.target = target == null ? null : context.copy(target);
             node.candidates = context.copyAll(candidates);
             node.resolution = resolution;
+            node.virtualDispatch = virtualDispatch;
+            node.virtualTargetsComplete = virtualTargetsComplete;
+            node.virtualTargets = context.copyAll(virtualTargets);
             node.defaultArguments = defaultArguments.stream().map(value -> new DefaultArgument(value.parameterIndex(),
                     context.copy(value.declaration()), context.copy(value.parameter()))).toList();
         }

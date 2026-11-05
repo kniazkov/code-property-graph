@@ -102,6 +102,14 @@ public final class ProjectEditor {
         resolutions.put(call, new Resolution(List.copyOf(candidates), status));
     }
 
+    private record VirtualTargets(List<CallableDeclaration> targets, boolean complete) {}
+    private final Map<CallExpression, VirtualTargets> virtualTargets = new IdentityHashMap<>();
+    /** Records conservative runtime implementations separately from static overload selection. */
+    public void virtualTargets(CallExpression call, List<CallableDeclaration> targets, boolean complete) {
+        requireMember(call); targets.forEach(this::requireMember);
+        virtualTargets.put(call, new VirtualTargets(List.copyOf(targets), complete));
+    }
+
     private final Map<CallExpression, List<CallExpression.DefaultArgument>> defaults = new IdentityHashMap<>();
     /** Records source-point default providers without making them children of the call. */
     public void defaultArguments(CallExpression call, List<CallExpression.DefaultArgument> arguments) {
@@ -157,13 +165,20 @@ public final class ProjectEditor {
         requireMember(call); requireMember(target); calls.put(call, target);
     }
 
-    private boolean invalidateAffected(Node node, EditContext context) {
+    private boolean invalidateAffected(Node node, EditContext context, boolean hierarchyChanged) {
         boolean changed = replacements.containsKey(node) || removed.contains(node) || conversions.containsKey(node);
-        for (Node child : node.children()) changed |= invalidateAffected(child, context);
+        for (Node child : node.children()) changed |= invalidateAffected(child, context, hierarchyChanged);
         if (changed && node instanceof Expression && !removed.contains(node)) context.copy(node).clearExpressionInfo();
         if (node instanceof CallExpression call && !defaults.containsKey(call) && syntaxChanged(call))
             context.edit(call, CallExpression.Builder.class).setDefaultArguments(List.of());
+        if (node instanceof CallExpression call && !virtualTargets.containsKey(call) && (hierarchyChanged || syntaxChanged(call)))
+            context.edit(call, CallExpression.Builder.class).clearVirtualTargets();
         return changed;
+    }
+
+    private boolean containsHierarchyDeclaration(Node node) {
+        return node instanceof ClassDeclaration || node instanceof CallableDeclaration || node instanceof BaseSpecifier
+                || node.children().stream().anyMatch(this::containsHierarchyDeclaration);
     }
 
     private boolean syntaxChanged(Node node) {
@@ -264,8 +279,16 @@ public final class ProjectEditor {
                 arguments.stream().map(argument -> new CallExpression.DefaultArgumentBuilder(argument.parameterIndex(),
                         context.edge(argument.declaration(), CallableDeclaration.class),
                         context.edge(argument.parameter(), ParameterDeclaration.class))).toList()));
+        virtualTargets.forEach((call, value) -> context.edit(call, CallExpression.Builder.class)
+                .setVirtualTargets(context.copyAll(value.targets(), CallableDeclaration.class), value.complete()));
         typeRepresentations.forEach((type, representation) -> context.copy(type).setTypeRepresentation(representation));
-        invalidateAffected(source, context);
+        // Until dependency-scoped reanalysis is requested, declaration syntax edits
+        // conservatively invalidate dispatch facts throughout the snapshot.
+        boolean hierarchyChanged = members.stream().anyMatch(node ->
+                (node instanceof ClassDeclaration || node instanceof CallableDeclaration || node instanceof BaseSpecifier) && syntaxChanged(node))
+                || replacements.keySet().stream().anyMatch(this::containsHierarchyDeclaration)
+                || removed.stream().anyMatch(this::containsHierarchyDeclaration);
+        invalidateAffected(source, context, hierarchyChanged);
         conversionSources.forEach((expression, type) -> context.edit(expression, ConversionExpression.Builder.class).setSourceType(type));
         expressions.forEach((expression, info) -> context.copy(expression).setExpressionInfo(info));
         var build = new BuildContext();

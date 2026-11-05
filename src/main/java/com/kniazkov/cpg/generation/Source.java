@@ -194,7 +194,7 @@ public final class Source {
                 || !declaration.languageLinkage().equals("C++")
                 || declaration instanceof VariableDeclaration variable && (!variable.modifiers().isEmpty() || variable.bitWidth().isPresent() || variable.initializer().orElse(null) instanceof InitializationExpression)
                 || declaration instanceof ParameterDeclaration parameter && (!parameter.modifiers().isEmpty() || parameter.defaultValue().isPresent())
-                || declaration instanceof CallableDeclaration callable && (callable.kind() != CallableDeclaration.Kind.FUNCTION || callable.variadic() || callable.isConst() || callable.isVolatile()
+                || declaration instanceof CallableDeclaration callable && (callable.kind() != CallableDeclaration.Kind.FUNCTION || callable.variadic() || callable.isPureVirtual() || callable.isConst() || callable.isVolatile()
                         || callable.writtenType().isPresent() || callable.modifiers().stream()
                         .anyMatch(m -> Set.of("extern", "inline", "virtual", "friend").contains(m)));
     }
@@ -325,7 +325,7 @@ public final class Source {
             case CallableDeclaration f -> linkage(f, pad + (f.isFriend() ? "friend " : "") + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
                     + (f.writtenType().isPresent() ? declaration(f.writtenType().orElseThrow(), f.name()) + ";\n"
                         : callableHead(f)
-                            + f.body().map(b -> " " + emit(b, level)).orElse(";\n")), level);
+                            + f.body().map(b -> " " + emit(b, level)).orElse(f.isPureVirtual() ? " = 0;\n" : ";\n")), level);
             case ParameterDeclaration p -> String.join("", p.modifiers().stream().map(m -> m + " ").toList())
                     + declaration(p.type().orElseThrow(), p.name())
                     + p.defaultValue().map(value -> " = " + emit(value, 0)).orElse("");

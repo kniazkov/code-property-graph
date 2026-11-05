@@ -220,3 +220,30 @@ rejected by CLI and both native compilers. Run:
 `mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=casts-memory verify`.
 At #28 the unfiltered corpus contains **22 scenarios and 24 results including
 infrastructure tests**, with no skipped compiler checks.
+
+## Inheritance and virtual methods (#29)
+
+`VirtualInheritanceExportTest` checks pure virtual source/reparse, out-of-class
+definitions, no-call bidirectional override exports, JSON copy stability,
+project-owned references, distinct static/default/virtual-target fields and DOT
+labels. It also checks that omitted arguments stay omitted and Java generation
+rejects pure virtual syntax even without a repeated `virtual` keyword.
+Run `mvn -Dtest=VirtualInheritanceExportTest test`.
+The acceptance scenarios exercise single, multiple and virtual inheritance,
+shared virtual-base diamonds, two independent overridden bases and static
+selection of different default arguments. Native execution verifies original
+and generated C++03 under GCC and Clang; graph target sets remain conservative
+analysis, not a native-runtime prediction or full overload ranking.
+See the [model contract](model-guide.en.md#inheritance-and-virtual-methods-29).
+
+Mandatory `inheritance-virtual` checks defaults 1/2 selected through the base
+reference/direct derived call, one implementation overriding two independent
+base declarations, a pure interface, and a shared virtual-base diamond with
+construction/destruction trace `12344321`. Repeated non-virtual base ambiguity
+is a separate negative case. Run:
+`mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=inheritance-virtual verify`.
+At #29 the unfiltered corpus requires **23 scenarios and 25 results including
+infrastructure tests**, with no failed or skipped compiler checks.
+Construction-order API tests distinguish complete-object and base-subobject
+contexts; callable CFGs deliberately remain incomplete where the invocation
+context in a virtual hierarchy is unknown.
