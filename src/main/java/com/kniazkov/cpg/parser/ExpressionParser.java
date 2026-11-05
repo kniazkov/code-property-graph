@@ -151,12 +151,13 @@ final class ExpressionParser {
             } catch (ParseException ignored) { /* Ordinary expression or qualified name. */ }
             tokens.restore(checkpoint);
         }
-        if (language == Language.CPP && tokens.take("static_cast")) {
+        if (language == Language.CPP && java.util.Set.of("static_cast", "dynamic_cast", "const_cast", "reinterpret_cast").contains(tokens.peek())) {
+            String cast = tokens.peek(); tokens.advance();
             tokens.expect("<");
             var target = types.abstractType();
             tokens.expect(">"); tokens.expect("(");
             value = ConversionExpression.create().setTargetType(target).setOperand(nestedExpression(0))
-                    .setExplicit(true).setKind(ConversionExpression.Kind.STATIC_CAST);
+                    .setExplicit(true).setKind(ConversionExpression.Kind.valueOf(cast.toUpperCase(java.util.Locale.ROOT)));
             tokens.expect(")");
             return postfix(start, tokens.span(start, value));
         }
@@ -172,27 +173,72 @@ final class ExpressionParser {
             };
             return tokens.span(start, value);
         }
-        if (language == Language.CPP && tokens.take("sizeof")) {
-            var size = SizeofExpression.create();
+        if (language == Language.CPP && (tokens.peek().equals("sizeof") || tokens.peek().equals("typeid"))) {
+            boolean size = tokens.take("sizeof");
+            if (!size) tokens.expect("typeid");
+            NodeBuilder<? extends TypeNode> type = null;
+            NodeBuilder<? extends Expression> operand = null;
             if (tokens.peek().equals("(")) {
-                var operandStart = tokens.start();
-                tokens.advance();
-                if (types != null && types.startsType()) {
-                    size.setType(types.abstractType());
-                    tokens.expect(")");
-                } else {
-                    var operand = nestedExpression(0);
-                    tokens.expect(")");
-                    // Here parentheses group a unary-expression, not a type-id.
-                    // Its postfix suffixes therefore belong inside sizeof.
-                    size.setOperand(postfix(operandStart, tokens.span(operandStart, operand)));
+                var operandStart = tokens.start(); tokens.advance();
+                type = parenthesizedType();
+                if (type == null) {
+                    operand = nestedExpression(0); tokens.expect(")");
+                    if (size) operand = postfix(operandStart, tokens.span(operandStart, operand));
                 }
-            } else size.setOperand(primary());
-            return tokens.span(start, size);
+            } else {
+                if (!size) throw tokens.error("typeid requires parentheses");
+                operand = primary();
+            }
+            if (size) {
+                var result = SizeofExpression.create();
+                if (type != null) result.setType(type); else result.setOperand(operand);
+                return tokens.span(start, result);
+            }
+            var result = TypeidExpression.create();
+            if (type != null) result.setType(type); else result.setOperand(operand);
+            return postfix(start, tokens.span(start, result));
+        }
+        if (language == Language.CPP && (tokens.peek().equals("new") || tokens.peek().equals("delete")
+                || tokens.peek().equals("::") && java.util.Set.of("new", "delete").contains(tokens.peek(1)))) {
+            boolean global = tokens.take("::");
+            if (tokens.take("delete")) {
+                boolean array = tokens.take("["); if (array) tokens.expect("]");
+                return tokens.span(start, DeleteExpression.create().setGlobal(global).setArray(array).setOperand(primary()));
+            }
+            tokens.expect("new");
+            var allocation = NewExpression.create().setGlobal(global);
+            NodeBuilder<? extends TypeNode> type = null;
+            if (tokens.take("(")) {
+                type = parenthesizedType();
+                if (type != null) allocation.setParenthesizedType(true);
+                else {
+                    do { allocation.addPlacementArgument(nestedExpression(1)); } while (tokens.take(","));
+                    tokens.expect(")");
+                }
+            }
+            if (type == null) {
+                if (tokens.take("(")) {
+                    type = types.abstractType(); tokens.expect(")"); allocation.setParenthesizedType(true);
+                } else type = types.newType();
+            }
+            allocation.setType(type);
+            if (tokens.take("(")) {
+                allocation.setHasInitializer(true);
+                if (!tokens.take(")")) {
+                    do { allocation.addInitializerArgument(nestedExpression(1)); } while (tokens.take(","));
+                    tokens.expect(")");
+                }
+            }
+            return tokens.span(start, allocation);
         }
         if (language == Language.CPP && tokens.take("&")) return tokens.span(start, AddressOfExpression.create().setOperand(primary()));
         if (language == Language.CPP && tokens.take("*")) return tokens.span(start, DereferenceExpression.create().setOperand(primary()));
-        if (tokens.take("(")) { value = nestedExpression(0); tokens.expect(")"); }
+        if (tokens.take("(")) {
+            var target = language == Language.CPP ? parenthesizedType() : null;
+            if (target != null) return tokens.span(start, ConversionExpression.create().setTargetType(target)
+                    .setOperand(primary()).setExplicit(true).setKind(ConversionExpression.Kind.C_STYLE_CAST));
+            value = nestedExpression(0); tokens.expect(")");
+        }
         else if (tokens.take("-")) {
             if (language == Language.JAVA && tokens.take("2147483648")) return tokens.span(start, IntegerLiteral.create().setValue(Integer.MIN_VALUE));
             return tokens.span(start, NegateExpression.create().setOperand(primary()));
@@ -207,6 +253,18 @@ final class ExpressionParser {
         } else if (language == Language.CPP && tokens.take("::")) value = NameExpression.create().setName("::" + tokens.identifier());
         else value = NameExpression.create().setName(tokens.identifier());
         return postfix(start, tokens.span(start, value));
+    }
+
+    /** Called after '('; commit only a complete type-id followed by ')'. */
+    private NodeBuilder<? extends TypeNode> parenthesizedType() {
+        if (types == null || !types.startsType()) return null;
+        int checkpoint = tokens.checkpoint();
+        try {
+            var type = types.abstractType();
+            if (tokens.take(")")) return type;
+        } catch (ParseException ignored) { /* It may instead be an expression. */ }
+        tokens.restore(checkpoint);
+        return null;
     }
 
     private NodeBuilder<? extends Expression> postfix(TokenCursor.Mark start, NodeBuilder<? extends Expression> value) {

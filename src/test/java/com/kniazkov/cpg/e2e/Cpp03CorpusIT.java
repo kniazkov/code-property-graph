@@ -66,6 +66,15 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("casts-memory".equals(settings.getProperty("mode"))) {
+            var output = CastsMemoryAcceptance.verify(fixture, work);
+            for (Path source : List.of(output.original(), output.generated(), output.folded())) nativePrograms(work, source, "", 0);
+            for (String compiler : List.of("g++", "clang++")) {
+                Result rejected = command(List.of(compiler, "-std=c++03", "-pedantic-errors", "-fsyntax-only", output.invalid().resolve("main.cpp").toString()), work);
+                assertNotEquals(0, rejected.status(), "sizeof incomplete class must be rejected: " + compiler);
+            }
+            return;
+        }
         if ("classes-initialization".equals(settings.getProperty("mode"))) {
             var output = ClassesInitializationAcceptance.verify(fixture, work);
             for (Path source : List.of(output.original(), output.generated(), output.folded())) nativePrograms(work, source, "", 0);

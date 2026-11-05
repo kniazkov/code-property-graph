@@ -112,9 +112,12 @@ class ExpressionSemanticsTest {
     @Test void foldingDoesNotEraseSideEffectsOrTruncateWideLiterals() throws Exception {
         var project = read("int main(){ int x=0; false && ++x; true ? ++x : ++x; (x++,3); 4294967295U + 1U; }");
         var folded = ConstantFolder.fold(project);
-        assertEquals(3,nodes(folded,PrefixIncrementExpression.class).size());
+        // The false && operand is never executed; both potentially executed conditional arms remain.
+        assertEquals(2,nodes(folded,PrefixIncrementExpression.class).size());
+        assertEquals(2,nodes(nodes(folded,ConditionalExpression.class).getFirst(),PrefixIncrementExpression.class).size());
+        assertFalse(assertInstanceOf(BooleanLiteral.class,nodes(folded,ExpressionStatement.class).getFirst().expression()).value());
         assertEquals(1,nodes(folded,PostfixIncrementExpression.class).size());
-        assertEquals(1,nodes(folded,LogicalAndExpression.class).size());
+        assertEquals(0,nodes(folded,LogicalAndExpression.class).size());
         assertEquals(1,nodes(folded,ConditionalExpression.class).size());
         assertEquals(1,nodes(folded,CommaExpression.class).size());
         assertTrue(nodes(folded,IntegerLiteral.class).stream().anyMatch(value -> value.bigValue().signum()==0
@@ -156,7 +159,7 @@ class ExpressionSemanticsTest {
         assertDoesNotThrow(() -> ConstantFolder.fold(project));
         assertTrue(nodes(project,AddressOfExpression.class).getFirst().semanticInfo().orElseThrow().resultType().isEmpty());
         var folded = ConstantFolder.fold(project);
-        assertInstanceOf(ConversionExpression.class,initializer(folded,"b"));
+        assertTrue(assertInstanceOf(BooleanLiteral.class,initializer(folded,"b")).value());
         assertInstanceOf(ConversionExpression.class,initializer(folded,"s"));
     }
 

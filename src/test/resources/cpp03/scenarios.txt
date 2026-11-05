@@ -19,3 +19,5 @@ scopes-linkage
 literals-expressions
 functions-defaults
 classes-initialization
+
+casts-memory

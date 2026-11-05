@@ -177,6 +177,17 @@ public final class ProjectJson {
                     e.type().ifPresent(t -> obj.put("type", node(t)));
                     e.operand().ifPresent(operand -> obj.put("operand", node(operand)));
                 }
+                case TypeidExpression e -> {
+                    e.type().ifPresent(t -> obj.put("type", node(t)));
+                    e.operand().ifPresent(operand -> obj.put("operand", node(operand)));
+                }
+                case NewExpression e -> obj.put("type", node(e.type()))
+                        .put("placementArguments", nodes(e.placementArguments()))
+                        .put("initializerArguments", nodes(e.initializerArguments()))
+                        .put("hasInitializer", e.hasInitializer()).put("global", e.isGlobal())
+                        .put("parenthesizedType", e.isParenthesizedType());
+                case DeleteExpression e -> obj.put("operand", node(e.operand()))
+                        .put("array", e.isArray()).put("global", e.isGlobal());
                 case NameExpression e -> obj.put("name", e.name());
                 case IntegerLiteral i -> { obj.put("value", i.bigValue()); i.cppType().ifPresent(t -> obj.put("cppType", t));
                     i.spelling().ifPresent(spelling -> obj.put("spelling", spelling)); }
