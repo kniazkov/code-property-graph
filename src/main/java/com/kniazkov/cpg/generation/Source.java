@@ -39,7 +39,8 @@ public final class Source {
             @Override public void visit(Node n) {
                 if (n instanceof SourceFile file && file.hasErrors() || n instanceof ErrorExpression || hasSemanticError(n) || unrepresentableDeclaration(n))
                     targets.clear();
-                if (n instanceof IncludeDirective || n instanceof FunctionDeclaration
+                if (n instanceof Expression expression && !expression.operatorCandidates().isEmpty()
+                        || n instanceof IncludeDirective || n instanceof FunctionDeclaration
                         || n instanceof ScopeMemberExpression || n instanceof PointerMemberExpression
                         || n instanceof NameExpression name && name.name().contains("::")
                         || n instanceof AddressOfExpression || n instanceof DereferenceExpression
@@ -225,7 +226,8 @@ public final class Source {
             throw new IllegalArgumentException("Cannot translate C++ global variable or typedef declarations to Java");
         file.walk(new NodeVisitor() {
             @Override public void visit(Node n) {
-                if (target == Language.JAVA && (n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CharacterLiteral
+                if (target == Language.JAVA && (n instanceof Expression expression && !expression.operatorCandidates().isEmpty()
+                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CharacterLiteral
                         || n instanceof StringLiteral || n instanceof CommaExpression || n instanceof DotMemberPointerExpression
                         || n instanceof ArrowMemberPointerExpression || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion)
                         || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression || n instanceof ConditionalExpression
@@ -284,7 +286,10 @@ public final class Source {
         return access + (target == Language.CPP ? cls.keyword() : "class") + " " + cls.name() + (cls.bases().isEmpty() ? "" : " : " + cls.bases().stream().map(base -> emit(base, 0)).collect(Collectors.joining(", "))) + " {\n" + (target == Language.CPP ? cls.memberAccess() + ":\n" : "");
     }
     private String callableHead(CallableDeclaration f) {
-        String signature = f.name() + "(" + parameters(f.parameters(), f.variadic()) + ")"
+        String name = f.kind() == CallableDeclaration.Kind.CONVERSION
+                ? f.name().substring(0, f.name().lastIndexOf("operator"))
+                    + "operator " + declaration(f.conversionType().orElseThrow(), "") : f.name();
+        String signature = name + "(" + parameters(f.parameters(), f.variadic()) + ")"
                 + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : "");
         if (f.kind() == CallableDeclaration.Kind.FUNCTION) signature = declaration(f.returnType().orElseThrow(), signature);
         if (!f.initializers().isEmpty()) signature += " : " + f.initializers().stream().map(value -> emit(value, 0)).collect(Collectors.joining(", "));

@@ -9,7 +9,28 @@ import java.util.Objects;
  * @param <T> exact snapshot class allocated by this builder */
 public abstract class NodeBuilder<T extends Node> {
     ExpressionInfo expressionInfo;
-    public final void clearExpressionInfo() { expressionInfo = null; }
+    boolean syntaxEdited, operatorBindingCopied;
+    public final void clearExpressionInfo() { expressionInfo = null; syntaxEdited = true; clearOperatorBinding(); }
+    java.util.List<NodeBuilder<? extends CallableDeclaration>> operatorCandidates = java.util.List.of();
+    CallExpression.Resolution operatorResolution = CallExpression.Resolution.UNRESOLVED;
+    public final void clearOperatorBinding() {
+        operatorCandidates = java.util.List.of(); operatorResolution = CallExpression.Resolution.UNRESOLVED;
+    }
+    public final void setOperatorTarget(NodeBuilder<? extends CallableDeclaration> target) {
+        setOperatorCandidates(java.util.List.of(target), CallExpression.Resolution.RESOLVED);
+    }
+    /** UNRESOLVED may retain known candidates when operand types prevent selection.
+     * AMBIGUOUS may have no declaration candidates when only built-in alternatives compete. */
+    public final void setOperatorCandidates(java.util.List<? extends NodeBuilder<? extends CallableDeclaration>> values,
+            CallExpression.Resolution status) {
+        if (!Expression.class.isAssignableFrom(nodeType)) throw new IllegalStateException("Not an expression builder");
+        java.util.List<NodeBuilder<? extends CallableDeclaration>> candidates = java.util.List.copyOf(values);
+        Objects.requireNonNull(status);
+        if (status == CallExpression.Resolution.RESOLVED && candidates.size() != 1
+                || status == CallExpression.Resolution.ODR_CONFLICT && candidates.size() < 2)
+            throw new IllegalArgumentException("Candidate count does not match resolution status");
+        operatorBindingCopied = false; operatorCandidates = candidates; operatorResolution = status; expressionInfo = null;
+    }
     public final void setExpressionInfo(ExpressionInfo value) {
         if (!Expression.class.isAssignableFrom(nodeType)) throw new IllegalStateException("Not an expression builder");
         expressionInfo = Objects.requireNonNull(value);

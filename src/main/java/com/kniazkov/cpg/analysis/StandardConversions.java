@@ -30,15 +30,21 @@ public final class StandardConversions {
             if (file.language() != Language.CPP) continue;
             var profile = TypeSemantics.profile(file);
             file.walk(new NodeVisitor() {
+                @Override public void visit(Expression expression) {
+                    if (OperatorSemantics.mayInvokeUserCode(expression)) convertOperatorArguments(editor, expression, profile);
+                }
                 @Override public void visit(CallExpression call) {
+                    if (OperatorSemantics.mayInvokeUserCode(call)) { convertOperatorArguments(editor, call, profile); return; }
                     TypeSemantics.callType(call, profile).ifPresent(target -> {
-                        for (int i = 0; i < Math.min(call.arguments().size(), target.parameters().size()); i++) {
+                        // Direct declaration types retain nominal bindings needed by converting constructors.
+                        var parameters = call.target().map(CallableDeclaration::parameters).orElse(target.parameters());
+                        for (int i = 0; i < Math.min(call.arguments().size(), parameters.size()); i++) {
                             var argument = call.arguments().get(i);
-                            target.parameters().get(i).type().map(TypeSemantics::decay)
+                            parameters.get(i).type().map(TypeSemantics::decay)
                                     .ifPresent(type -> convert(editor, argument, type, profile));
                         }
                         // Default argument promotions only apply to arguments after an ellipsis.
-                        if (target.variadic()) for (int i = target.parameters().size(); i < call.arguments().size(); i++) {
+                        if (target.variadic()) for (int i = parameters.size(); i < call.arguments().size(); i++) {
                             var argument = call.arguments().get(i);
                             TypeSemantics.expressionType(argument, profile).ifPresent(type -> {
                                 if (TypeSemantics.floatingRank(type) == 1) convert(editor, argument, named("double"), profile);
@@ -62,21 +68,24 @@ public final class StandardConversions {
                     if (variable.type().isPresent()) variable.initializer().ifPresent(value -> convert(editor, value, variable.type().get(), profile));
                 }
                 @Override public void visit(AssignmentExpression assignment) {
+                    if (OperatorSemantics.mayInvokeUserCode(assignment)) { convertOperatorArguments(editor, assignment, profile); return; }
                     TypeSemantics.expressionType(assignment.target(), profile).ifPresent(type -> convert(editor, assignment.value(), type, profile));
                 }
                 @Override public void visit(UnaryExpression unary) {
+                    if (OperatorSemantics.mayInvokeUserCode(unary)) { convertOperatorArguments(editor, unary, profile); return; }
                     if (unary instanceof UnaryPlusExpression || unary instanceof NegateExpression || unary instanceof BitwiseNotExpression)
-                        TypeSemantics.expressionType(unary.operand(), profile).flatMap(type -> TypeSemantics.promoted(type, profile))
+                        OperatorSemantics.builtinOperandType(unary.operand(), profile).flatMap(type -> TypeSemantics.promoted(type, profile))
                                 .ifPresent(type -> convert(editor, unary.operand(), type, profile));
                     if (unary instanceof LogicalNotExpression) convert(editor, unary.operand(), named("bool"), profile);
                 }
                 @Override public void visit(BinaryExpression binary) {
+                    if (OperatorSemantics.mayInvokeUserCode(binary)) { convertOperatorArguments(editor, binary, profile); return; }
                     if (binary instanceof CommaExpression || binary instanceof IndexExpression
                             || binary instanceof DotMemberPointerExpression || binary instanceof ArrowMemberPointerExpression) return;
                     if (binary instanceof LogicalAndExpression || binary instanceof LogicalOrExpression) {
                         convert(editor, binary.left(), named("bool"), profile); convert(editor, binary.right(), named("bool"), profile); return;
                     }
-                    var a = TypeSemantics.expressionType(binary.left(), profile); var b = TypeSemantics.expressionType(binary.right(), profile);
+                    var a = OperatorSemantics.builtinOperandType(binary.left(), profile); var b = OperatorSemantics.builtinOperandType(binary.right(), profile);
                     if (a.isEmpty() || b.isEmpty()) return;
                     if (binary instanceof ShiftLeftExpression || binary instanceof ShiftRightExpression) {
                         if (TypeSemantics.integerType(a.get(), profile).isEmpty() || TypeSemantics.integerType(b.get(), profile).isEmpty()) return;
@@ -126,6 +135,17 @@ public final class StandardConversions {
             @Override public void visit(Node node) { node.diagnostics().forEach(diagnostic -> editor.diagnose(node, diagnostic)); }
         });
     }
+    private static void convertOperatorArguments(ProjectEditor editor, Expression expression, PlatformProfile profile) {
+        // These are function-parameter conversions, not built-in operator promotions.
+        if (OperatorSemantics.operatorName(expression) == null || expression.operatorTarget().isEmpty()) return;
+        var target = expression.operatorTarget().orElseThrow();
+        var operands = OperatorSemantics.operands(expression);
+        int offset = target instanceof MethodDeclaration && !target.isFriend() ? 1 : 0;
+        for (int i = 0; i < target.parameters().size() && i + offset < operands.size(); i++) {
+            var operand = operands.get(i + offset);
+            target.parameters().get(i).type().ifPresent(type -> convert(editor, operand, type, profile));
+        }
+    }
     private static void convert(ProjectEditor editor, Expression expression, TypeNode target, PlatformProfile profile) {
         List<ProjectEditor.ConversionStep> steps = sequence(expression, target, profile);
         if (!steps.isEmpty()) editor.convert(expression, steps);
@@ -138,6 +158,10 @@ public final class StandardConversions {
         var source = TypeSemantics.expressionType(expression, profile);
         if (source.isEmpty()) return List.of();
         TypeNode from = source.get();
+        var userConversion = OverloadResolution.conversion(expression, target, profile, true)
+                .filter(sequence -> sequence.rank() == OverloadResolution.Rank.USER_DEFINED && sequence.userDefined() != null);
+        if (userConversion.isPresent()) return List.of(new ProjectEditor.ConversionStep(from.canonicalIdentity(), target,
+                ConversionExpression.Kind.USER_DEFINED, userConversion.orElseThrow().userDefined()));
         var cleanTarget = detached(target);
         if (cleanTarget.isEmpty()) return List.of();
         target = cleanTarget.get();

@@ -80,6 +80,7 @@ final class ConstantEvaluator {
         return invalid[0];
     }
     private static Optional<Value> evaluate(Expression expression, PlatformProfile profile, Set<Expression> active) {
+        if (OperatorSemantics.mayInvokeUserCode(expression)) return Optional.empty();
         if (!active.add(expression)) return Optional.empty();
         try {
             if (expression instanceof IntegerLiteral literal) return literal(literal, profile);

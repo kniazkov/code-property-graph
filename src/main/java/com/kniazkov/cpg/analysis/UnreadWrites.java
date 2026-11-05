@@ -51,6 +51,10 @@ public final class UnreadWrites {
         });
         if (profile != null) flow.entry().body().orElseThrow().walk(new NodeVisitor() {
             // External code may retain a pointer or a reference to the local and read it later.
+            @Override public void visit(Expression expression) {
+                if (!unevaluated.contains(expression) && OperatorSemantics.mayInvokeUserCode(expression))
+                    OperatorSemantics.operands(expression).forEach(this::escape);
+            }
             @Override public void visit(AddressOfExpression address) {
                 if (!unevaluated.contains(address)) escape(address.operand());
             }

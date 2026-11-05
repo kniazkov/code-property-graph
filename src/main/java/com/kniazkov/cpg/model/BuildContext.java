@@ -31,12 +31,34 @@ final class BuildContext {
         return changed;
     }
 
+    /** Syntax edits invalidate copied operator bindings, never freshly supplied analysis. */
+    private boolean invalidateOperatorBindings(Node node, Set<Node> edited, Set<Node> copied, boolean declarationsChanged) {
+        boolean changed = edited.contains(node);
+        for (Node child : node.children()) changed |= invalidateOperatorBindings(child, edited, copied, declarationsChanged);
+        if (node instanceof Expression expression && copied.contains(node) && (changed || declarationsChanged)) {
+            expression.operatorCandidates = List.of();
+            expression.operatorResolution = CallExpression.Resolution.UNRESOLVED;
+            expression.expressionInfo = null;
+        }
+        return changed;
+    }
+
     /** Copies the reachable graph, validates ownership, then publishes its root. */
     <T extends Node> T build(NodeBuilder<T> root) {
         T result = copy(root);
         for (Node node : nodes.values()) if (node instanceof CallExpression call) call.validateDefaultArguments();
         validateStructure(result);
         invalidateDependentFacts(result);
+        Set<Node> edited = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<Node> copied = Collections.newSetFromMap(new IdentityHashMap<>());
+        boolean declarationsChanged = false;
+        for (var entry : nodes.entrySet()) {
+            if (entry.getKey().syntaxEdited) edited.add(entry.getValue());
+            if (entry.getKey().operatorBindingCopied) copied.add(entry.getValue());
+            if (entry.getKey().syntaxEdited && entry.getKey().editIdentity != null
+                    && entry.getValue() instanceof CallableDeclaration) declarationsChanged = true;
+        }
+        invalidateOperatorBindings(result, edited, copied, declarationsChanged);
         return result;
     }
 
@@ -57,6 +79,10 @@ final class BuildContext {
         if (node instanceof Expression expression) expression.expressionInfo = builder.expressionInfo;
         nodes.put(builder, node);
         builder.fillNode(node, this);
+        if (node instanceof Expression expression) {
+            expression.operatorCandidates = copyAll(builder.operatorCandidates);
+            expression.operatorResolution = builder.operatorResolution;
+        }
         if (node instanceof Declaration declaration) {
             declaration.typeIdentity = builder.declarationTypeIdentity;
             declaration.linkage = builder.declarationLinkage;

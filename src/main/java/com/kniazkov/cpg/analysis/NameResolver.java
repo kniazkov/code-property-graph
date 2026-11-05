@@ -5,14 +5,24 @@ import com.kniazkov.cpg.model.*;
 import java.util.*;
 
 /** Resolves written names first, then connects compatible declarations to definitions.
- * An overload set remains ambiguous: selecting the best overload is a separate analysis. */
+ * C++03 calls use conservative pairwise overload selection and argument-dependent lookup. */
 public final class NameResolver {
     private NameResolver() {}
     public static Project resolve(Project project) {
         // Type bindings must be published before signatures are compared. Both passes copy
         // through one identity context, including forward and cross-file reference cycles.
         Project typed = new Engine(StandardConversions.written(project)).bindNames();
-        return StandardConversions.analyze(new Engine(typed).linkDeclarations());
+        // Each publication makes nested call/operator result types available to its parent.
+        // The syntax depth bounds this propagation, without assuming a fixed nesting limit.
+        int depth = expressionDepth(typed);
+        for (int i = 0; i <= depth; i++) typed = new Engine(typed.edit().build()).linkDeclarations();
+        return StandardConversions.analyze(typed);
+    }
+
+    private static int expressionDepth(Node node) {
+        int depth = 0;
+        for (Node child : node.children()) depth = Math.max(depth, expressionDepth(child));
+        return depth + (node instanceof Expression ? 1 : 0);
     }
 
     private static final class Scope {
@@ -110,6 +120,7 @@ public final class NameResolver {
                 functionScopes.add(nested); callableScopes.put(nested, callable);
                 callable.writtenType().ifPresent(type -> index(type, scope));
                 callable.returnType().ifPresent(type -> index(type, scope));
+                callable.conversionType().ifPresent(type -> index(type, scope));
                 callable.parameters().forEach(parameter -> index(parameter, nested));
                 positions.put(callable, position++); // A function name follows its complete declarator.
                 callable.initializers().forEach(initializer -> index(initializer, nested));
@@ -411,6 +422,11 @@ public final class NameResolver {
             var direct = new ArrayList<Match>();
             for (Declaration declaration : scope.names.getOrDefault(name, List.of())) {
                 if (positions.get(declaration) > point && !(scope.classScope && completeClassContext)) continue;
+                // A namespace friend first declared in a class is visible through ADL only.
+                if (declaration.isFriend() && !tagsOnly && scope.names.getOrDefault(name, List.of()).stream()
+                        .noneMatch(other -> other != declaration && !other.isFriend() && positions.get(other) <= point
+                            && other instanceof CallableDeclaration a && declaration instanceof CallableDeclaration b
+                            && parameterSignature(a).equals(parameterSignature(b)))) continue;
                 if (tagsOnly && !(declaration instanceof ClassDeclaration || declaration instanceof EnumDeclaration || declaration instanceof UsingDeclaration)) continue;
                 if (declaration instanceof UsingDeclaration using) {
                     if (!active.add(using)) continue;
@@ -639,12 +655,14 @@ public final class NameResolver {
                 if (declaration instanceof CallableDeclaration callable && scopes.get(callable).file.language() == Language.CPP)
                     validateDefaults(callable);
             project.walk(new NodeVisitor() {
-                @Override public void visit(CallExpression call) { resolveCall(call); }
+                @Override public void visit(CallExpression call) { resolveCall(call); resolveOperator(call); }
+                @Override public void visit(Expression expression) { if (!(expression instanceof CallExpression)) resolveOperator(expression); }
                 @Override public void visit(NameExpression name) { diagnoseAmbiguity(name, name.name(), false); }
                 @Override public void visit(MemberExpression member) {
                     String name = expressionName(member); diagnoseAmbiguity(member, name == null ? member.member() : name, false);
                 }
                 @Override public void visit(NamedType type) { diagnoseAmbiguity(type, type.name(), type.elaboratedKeyword().isPresent()); }
+                @Override public void visit(VariableDeclaration variable) { validateInitialization(variable); }
                 @Override public void visit(NewExpression expression) { validateNew(expression); }
                 @Override public void visit(DeleteExpression expression) { validateDelete(expression); }
                 @Override public void visit(TypeidExpression expression) {
@@ -1030,18 +1048,76 @@ public final class NameResolver {
                             .map(CallableDeclaration.class::cast).filter(candidate -> qualify(scopes.get(candidate).qualified, candidate.name()).equals(written))
                             .filter(candidate -> differentPhysicalFile(scopes.get(call).file, scopes.get(candidate).file)).toList();
             }
-            if (declarations.size() > 1 && visible.stream().noneMatch(Match::ambiguous)) {
-                List<CallableDeclaration> viable = declarations.stream().filter(declaration -> {
-                    int count = call.arguments().size();
-                    if (!declaration.variadic() && count > declaration.parameters().size()) return false;
-                    Set<Integer> defaults = new HashSet<>();
-                    applicableDefaults(declaration, positions.get(call)).forEach(argument -> defaults.add(argument.parameterIndex()));
-                    for (int i = count; i < declaration.parameters().size(); i++) if (!defaults.contains(i)) return false;
-                    return true;
-                }).toList();
-                if (!viable.isEmpty()) {
-                    declarations = viable;
-                    visible = visible.stream().filter(match -> viable.contains(match.declaration())).toList();
+            OverloadResolution.Result selection = null;
+            if (scopes.get(call).file.language() == Language.CPP) {
+                // A member or block-scope function/nonfunction found by ordinary lookup suppresses ADL.
+                if (call.callee() instanceof NameExpression name && !name.name().contains("::")
+                        && visible.stream().noneMatch(match -> !(match.declaration() instanceof CallableDeclaration)
+                            || scopes.get(match.declaration()).classScope || scopes.get(match.declaration()).local)) {
+                    var combined = new ArrayList<>(visible);
+                    combined.addAll(adl(name.name(), call.arguments(), call));
+                    visible = distinct(combined);
+                    declarations = visible.stream().map(Match::declaration).filter(CallableDeclaration.class::isInstance)
+                            .map(CallableDeclaration.class::cast).toList();
+                }
+                // Redeclarations represent one candidate, but retain the latest source declaration
+                // so defaults are collected from the statically selected declaration scope.
+                var entities = new LinkedHashMap<String, CallableDeclaration>();
+                for (var declaration : declarations) entities.put(entityName(declaration) + ":" + signature(declaration), declaration);
+                declarations = new ArrayList<>(entities.values());
+                if (!declarations.isEmpty() && visible.stream().noneMatch(Match::ambiguous)) {
+                    var ranked = new ArrayList<OverloadResolution.Candidate>();
+                    for (CallableDeclaration declaration : declarations) {
+                        Set<Integer> available = new HashSet<>();
+                        applicableDefaults(declaration, positions.get(call)).forEach(argument -> available.add(argument.parameterIndex()));
+                        int required = declaration.parameters().size();
+                        while (required > 0 && available.contains(required - 1)) required--;
+                        var candidate = OverloadResolution.candidate(declaration, call.arguments(), TypeSemantics.profile(scopes.get(call).file), required, this::argumentType);
+                        if (candidate.isEmpty()) continue;
+                        if (scopeClass(scopes.get(declaration)) != null && !declaration.isFriend() && !declaration.modifiers().contains("static")) {
+                            int cv = 0;
+                            if (call.callee() instanceof MemberExpression member && !(member instanceof ScopeMemberExpression)) {
+                                TypeNode object = TypeSemantics.expressionType(member.receiver(), TypeSemantics.profile(scopes.get(call).file)).orElse(null);
+                                if (object != null && member instanceof PointerMemberExpression && TypeSemantics.unqualified(object) instanceof PointerType pointer) object = pointer.pointee();
+                                if (object != null) cv = TypeSemantics.qualifiers(object);
+                            } else {
+                                CallableDeclaration enclosing = null;
+                                for (Scope current = scopes.get(call); current != null && enclosing == null; current = current.parent) enclosing = callableScopes.get(current);
+                                if (enclosing != null) cv = (enclosing.isConst() ? 1 : 0) | (enclosing.isVolatile() ? 2 : 0);
+                            }
+                            int targetCv = (declaration.isConst() ? 1 : 0) | (declaration.isVolatile() ? 2 : 0);
+                            if ((cv & targetCv) != cv) continue;
+                            var sequences = new ArrayList<>(candidate.get().sequences());
+                            sequences.add(new OverloadResolution.Sequence(OverloadResolution.Rank.EXACT, Integer.bitCount(targetCv & ~cv), null, true));
+                            ranked.add(new OverloadResolution.Candidate(declaration, sequences));
+                        } else if (scopeClass(scopes.get(declaration)) != null && declaration.modifiers().contains("static")) {
+                            var sequences = new ArrayList<>(candidate.get().sequences());
+                            sequences.add(new OverloadResolution.Sequence(OverloadResolution.Rank.EXACT, -1, null, true));
+                            ranked.add(new OverloadResolution.Candidate(declaration, sequences));
+                        } else ranked.add(candidate.get());
+                    }
+                    selection = OverloadResolution.selectCandidates(ranked);
+                    if (selection.selected().isPresent()) {
+                        CallableDeclaration selected = selection.selected().get();
+                        declarations = List.of(selected);
+                        visible = List.of(new Match(selected, List.of()));
+                        if (call.callee() instanceof NameExpression name) editor.bind(name, selected);
+                        else if (call.callee() instanceof MemberExpression member) editor.bind(member, selected);
+                        checkSelectedAccess(call, selected);
+                        for (int i = 0; i < Math.min(call.arguments().size(), selected.parameters().size()); i++) {
+                            var parameter = selected.parameters().get(i).type();
+                            if (parameter.isPresent()) {
+                                OverloadResolution.conversion(call.arguments().get(i), parameter.get(), TypeSemantics.profile(scopes.get(call).file), true)
+                                        .map(OverloadResolution.Sequence::userDefined).ifPresent(conversion -> checkSelectedAccess(call, conversion));
+                                checkBaseConversionAccess(call, call.arguments().get(i), parameter.get());
+                            }
+                        }
+                    } else {
+                        if (selection.status() == CallExpression.Resolution.AMBIGUOUS)
+                            error(call, "ambiguous-overload", "No unique best viable overload");
+                        else if (selection.viable().isEmpty()) error(call, "no-viable-overload", "No overload accepts these arguments");
+                        else error(call, "unresolved-overload", "Overload selection depends on unsupported or unknown conversions");
+                    }
                 }
             }
             var candidates = new ArrayList<CallableDeclaration>();
@@ -1062,8 +1138,12 @@ public final class NameResolver {
                     : odr ? CallExpression.Resolution.ODR_CONFLICT
                     : visible.stream().anyMatch(Match::ambiguous) ? CallExpression.Resolution.AMBIGUOUS
                     : candidates.size() == 1 ? CallExpression.Resolution.RESOLVED : CallExpression.Resolution.AMBIGUOUS;
+            if (selection != null && selection.selected().isEmpty()) {
+                status = selection.status();
+                if (status == CallExpression.Resolution.UNRESOLVED) candidates.clear();
+            }
             editor.resolve(call, candidates, status);
-            resolveDefaults(call, visible);
+            resolveDefaults(call, selection != null && selection.selected().isEmpty() && declarations.size() > 1 ? List.of() : visible);
             Match staticMatch = unique(visible);
             if (status == CallExpression.Resolution.RESOLVED && staticMatch != null
                     && staticMatch.declaration() instanceof CallableDeclaration selected
@@ -1077,7 +1157,7 @@ public final class NameResolver {
                     enclosing = callableScopes.get(current);
                 boolean thisReceiver = call.callee() instanceof NameExpression
                         || call.callee() instanceof MemberExpression member && member.receiver() instanceof NameExpression name && name.name().equals("this");
-                if (thisReceiver && enclosing != null && enclosing.kind() != CallableDeclaration.Kind.FUNCTION) {
+                if (thisReceiver && enclosing != null && (enclosing.kind() == CallableDeclaration.Kind.CONSTRUCTOR || enclosing.kind() == CallableDeclaration.Kind.DESTRUCTOR)) {
                     ClassDeclaration constructing = scopeClass(scopes.get(enclosing));
                     if (constructing != null) {
                         List<CallableDeclaration> allowed = virtualCandidates.stream().filter(candidate -> {
@@ -1098,6 +1178,177 @@ public final class NameResolver {
             }
 
             if (odr) error(call, "odr-conflict", "Multiple definitions in one translation unit or selected build composition");
+        }
+        EnumDeclaration argumentEnum(Expression argument) {
+            Declaration target = argument instanceof NameExpression name ? name.target().orElse(null)
+                    : argument instanceof MemberExpression member ? member.target().orElse(null) : null;
+            if (!(target instanceof EnumeratorDeclaration enumerator)) return null;
+            return declarations.stream().filter(EnumDeclaration.class::isInstance).map(EnumDeclaration.class::cast)
+                    .filter(owner -> owner.enumerators().contains(enumerator)).findFirst().orElse(null);
+        }
+        Optional<TypeNode> argumentType(Expression argument) {
+            var type = TypeSemantics.expressionType(argument, TypeSemantics.profile(scopes.get(argument).file));
+            if (type.isPresent()) return type;
+            EnumDeclaration enumeration = argumentEnum(argument);
+            return enumeration == null ? Optional.empty() : Optional.of(NamedType.create()
+                    .setName(enumeration.typeIdentity().orElse(enumeration.name())).setDeclaration(enumeration.edit()).build());
+        }
+        List<Match> adl(String name, List<Expression> arguments, Node use) {
+            var result = new ArrayList<Match>();
+            Set<Scope> namespaces = Collections.newSetFromMap(new IdentityHashMap<>());
+            for (ClassDeclaration associated : OverloadResolution.associatedClasses(arguments, TypeSemantics.profile(scopes.get(use).file))) {
+                ClassDeclaration owner = declarations.stream().filter(ClassDeclaration.class::isInstance).map(ClassDeclaration.class::cast)
+                        .filter(candidate -> ClassSemantics.sameClass(candidate, associated)).filter(ClassDeclaration::isDefinition).findFirst().orElse(associated);
+                Scope scope = scopes.get(owner);
+                while (scope != null && scope.classScope) scope = scope.parent;
+                if (scope != null) namespaces.add(scope);
+                for (Node member : owner.members()) if (member instanceof CallableDeclaration callable && callable.isFriend()
+                        && name(callable).equals(name)) result.add(new Match(callable, List.of()));
+            }
+            // Enumeration arguments contribute their enclosing namespace as well.
+            for (Expression argument : arguments) {
+                EnumDeclaration enumeration = argumentEnum(argument);
+                if (enumeration != null) namespaces.add(scopes.get(enumeration));
+            }
+            for (Expression argument : arguments) argumentType(argument).ifPresent(type -> associatedEnumScopes(type, namespaces));
+            for (Scope scope : namespaces) for (Declaration declaration : scope.names.getOrDefault(name, List.of()))
+                if (declaration instanceof CallableDeclaration && positions.get(declaration) <= positions.get(use))
+                    result.add(new Match(declaration, List.of()));
+            return distinct(result);
+        }
+        void associatedEnumScopes(TypeNode type, Set<Scope> namespaces) {
+            type = TypeSemantics.unqualified(TypeSemantics.withoutReference(type));
+            if (type instanceof PointerType pointer) associatedEnumScopes(pointer.pointee(), namespaces);
+            else if (type instanceof ArrayType array) associatedEnumScopes(array.elementType(), namespaces);
+            else if (type instanceof NamedType named && named.declaration().orElse(null) instanceof EnumDeclaration enumeration) {
+                for (Declaration candidate : declarations) if (candidate instanceof EnumDeclaration && candidate.typeIdentity().equals(enumeration.typeIdentity())) {
+                    Scope scope = scopes.get(candidate); if (scope != null) namespaces.add(scope);
+                }
+            }
+        }
+        void resolveOperator(Expression expression) {
+            if (scopes.get(expression).file.language() != Language.CPP) return;
+            String name = OperatorSemantics.operatorName(expression);
+            if (name == null) return;
+            List<Expression> operands = OperatorSemantics.operands(expression);
+            if (operands.isEmpty()) return;
+            var associated = OverloadResolution.associatedClasses(operands, TypeSemantics.profile(scopes.get(expression).file));
+            boolean enumOperand = operands.stream().anyMatch(operand -> argumentType(operand).map(TypeSemantics::unqualified)
+                    .filter(NamedType.class::isInstance).map(NamedType.class::cast).flatMap(NamedType::declaration)
+                    .filter(EnumDeclaration.class::isInstance).isPresent());
+            if (associated.isEmpty() && !enumOperand) return;
+            var found = new ArrayList<>(lookup(name, scopes.get(expression), positions.get(expression), new HashSet<>()));
+            found.addAll(adl(name, operands, expression));
+            ClassDeclaration receiver = TypeSemantics.expressionType(operands.getFirst(), TypeSemantics.profile(scopes.get(expression).file))
+                    .flatMap(ClassSemantics::objectClass).orElse(null);
+            if (receiver != null && introduced.get(receiver) != null)
+                found.addAll(direct(name, introduced.get(receiver), Integer.MAX_VALUE, new HashSet<>(), false, true));
+            var entities = new LinkedHashMap<String, CallableDeclaration>();
+            for (Match match : found) if (match.declaration() instanceof CallableDeclaration callable) {
+                var definitions = callableGroup(callable, scopes.get(expression).file).stream().filter(candidate -> candidate.body().isPresent()).toList();
+                entities.put(entityName(callable) + ":" + signature(callable), definitions.size() == 1 ? definitions.getFirst() : callable);
+            }
+            var result = OperatorSemantics.resolve(expression, List.copyOf(entities.values()), TypeSemantics.profile(scopes.get(expression).file), editor, this::argumentType);
+            result.selected().ifPresent(selected -> checkSelectedAccess(expression, selected));
+            if (result.status() == CallExpression.Resolution.AMBIGUOUS) error(expression, "ambiguous-overload", "No unique best operator overload");
+        }
+        void validateInitialization(VariableDeclaration variable) {
+            if (scopes.get(variable).file.language() != Language.CPP || variable.type().isEmpty() || variable.initializer().isEmpty()) return;
+            ClassDeclaration owner = ClassSemantics.objectClass(variable.type().get()).orElse(null);
+            if (owner == null || ClassSemantics.aggregate(owner)) return;
+            Expression initializer = variable.initializer().get();
+            boolean direct = initializer instanceof InitializationExpression init && init.form() == InitializationExpression.Form.DIRECT;
+            if (!direct) {
+                var source = TypeSemantics.expressionType(initializer, TypeSemantics.profile(scopes.get(variable).file));
+                if (source.isEmpty() || source.get().canonicalIdentity().equals(variable.type().get().canonicalIdentity())) return;
+            }
+            List<Expression> arguments = direct ? ((InitializationExpression)initializer).arguments() : List.of(initializer);
+            var constructors = owner.members().stream().filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast)
+                    .filter(callable -> callable.kind() == CallableDeclaration.Kind.CONSTRUCTOR)
+                    .filter(callable -> direct || !callable.modifiers().contains("explicit")).toList();
+            if (constructors.isEmpty()) return; // Implicit special members have no source declaration.
+            var selected = OverloadResolution.select(constructors, arguments, TypeSemantics.profile(scopes.get(variable).file));
+            if (selected.selected().isPresent()) checkSelectedAccess(variable, selected.selected().get());
+            else if (selected.status() == CallExpression.Resolution.AMBIGUOUS) error(variable, "ambiguous-overload", "Constructor overload is ambiguous");
+            else if (selected.viable().isEmpty()) error(variable, "no-viable-overload", "No constructor accepts these initializer arguments");
+        }
+        void checkBaseConversionAccess(Node use, Expression argument, TypeNode target) {
+            TypeNode source = argumentType(argument).orElse(null);
+            if (source == null) return;
+            source = TypeSemantics.unqualified(TypeSemantics.withoutReference(source));
+            target = TypeSemantics.unqualified(TypeSemantics.withoutReference(target));
+            if (source instanceof PointerType from && target instanceof PointerType to) { source = from.pointee(); target = to.pointee(); }
+            ClassDeclaration from = ClassSemantics.objectClass(source).orElse(null), to = ClassSemantics.objectClass(target).orElse(null);
+            if (from == null || to == null || ClassSemantics.sameClass(from, to) || !hasBase(from, to, new HashSet<>())) return;
+            Set<String> subobjects = new HashSet<>();
+            baseSubobjects(from, to, "root", new HashSet<>(), subobjects);
+            if (subobjects.size() > 1) {
+                error(use, "ambiguous-base-conversion", "The selected conversion reaches more than one base subobject"); return;
+            }
+            ClassDeclaration context = null;
+            for (Scope scope = scopes.get(use); scope != null && context == null; scope = scope.parent) context = scopeClass(scope);
+            if (!accessibleBase(from, to, context, new HashSet<>())) error(use, "inaccessible-base-conversion", "The selected conversion uses an inaccessible base class");
+        }
+        void baseSubobjects(ClassDeclaration from, ClassDeclaration to, String path, Set<ClassDeclaration> visiting, Set<String> result) {
+            if (ClassSemantics.sameClass(from, to)) { result.add(path); return; }
+            if (!visiting.add(from)) return;
+            int index = 0;
+            for (BaseSpecifier base : from.bases()) {
+                ClassDeclaration parent = ClassSemantics.objectClass(base.type()).orElse(null);
+                String child = base.isVirtual() ? "virtual:" + (parent == null ? "?" : parent.typeIdentity().orElse(parent.name())) : path + "/" + index;
+                index++;
+                if (parent != null) baseSubobjects(parent, to, child, visiting, result);
+            }
+            visiting.remove(from);
+        }
+        boolean hasBase(ClassDeclaration from, ClassDeclaration to, Set<ClassDeclaration> seen) {
+            if (!seen.add(from)) return false;
+            for (BaseSpecifier base : from.bases()) {
+                ClassDeclaration parent = ClassSemantics.objectClass(base.type()).orElse(null);
+                if (parent != null && (ClassSemantics.sameClass(parent, to) || hasBase(parent, to, seen))) return true;
+            }
+            return false;
+        }
+        boolean accessibleBase(ClassDeclaration from, ClassDeclaration to, ClassDeclaration context, Set<ClassDeclaration> seen) {
+            if (ClassSemantics.sameClass(from, to)) return true;
+            if (!seen.add(from)) return false;
+            for (BaseSpecifier base : from.bases()) {
+                ClassDeclaration parent = ClassSemantics.objectClass(base.type()).orElse(null);
+                boolean access = base.access().equals("public") || context != null && (ClassSemantics.sameClass(context, from)
+                        || base.access().equals("protected") && InheritanceSemantics.derivesFrom(context, from));
+                if (parent != null && access && accessibleBase(parent, to, context, seen)) return true;
+            }
+            return false;
+        }
+        void checkSelectedAccess(Node use, CallableDeclaration selected) {
+            ClassDeclaration owner = scopeClass(scopes.get(selected));
+            if (owner == null || selected.isFriend()) return;
+            String access = selected.access().orElseGet(() -> callableGroup(selected, scopes.get(use).file).stream()
+                    .map(Declaration::access).flatMap(Optional::stream).findFirst().orElse(owner.memberAccess()));
+            if (access.equals("public")) return;
+            ClassDeclaration context = null;
+            for (Scope scope = scopes.get(use); scope != null && context == null; scope = scope.parent) context = scopeClass(scope);
+            if (context != null && ClassSemantics.sameClass(context, owner)) return;
+            if (context != null && access.equals("protected") && hasBase(context, owner, new HashSet<>())) {
+                boolean permittedObject = true;
+                if (!selected.modifiers().contains("static") && use instanceof CallExpression call
+                        && call.callee() instanceof MemberExpression member && !(member instanceof ScopeMemberExpression)) {
+                    ClassDeclaration receiver = receiverClass(member.receiver(), member instanceof PointerMemberExpression);
+                    permittedObject = receiver != null && (ClassSemantics.sameClass(receiver, context) || hasBase(receiver, context, new HashSet<>()));
+                } else if (!selected.modifiers().contains("static") && selected.kind() == CallableDeclaration.Kind.FUNCTION
+                        && name(selected).startsWith("operator") && use instanceof Expression expression
+                        && (!(expression instanceof CallExpression call) || argumentType(call.callee()).flatMap(ClassSemantics::objectClass).isPresent())) {
+                    var operands = OperatorSemantics.operands(expression);
+                    ClassDeclaration receiver = operands.isEmpty() ? null : argumentType(operands.getFirst()).flatMap(ClassSemantics::objectClass).orElse(null);
+                    permittedObject = receiver != null && (ClassSemantics.sameClass(receiver, context) || hasBase(receiver, context, new HashSet<>()));
+                }
+                if (permittedObject) return;
+            }
+            CallableDeclaration enclosing = null;
+            for (Scope scope = scopes.get(use); scope != null && enclosing == null; scope = scope.parent) enclosing = callableScopes.get(scope);
+            if (enclosing != null) for (Node member : owner.members()) if (member instanceof CallableDeclaration friend && friend.isFriend()
+                    && entityName(friend).equals(entityName(enclosing)) && signature(friend).equals(signature(enclosing))) return;
+            error(use, "inaccessible-overload", "The selected overload is " + access + " in " + owner.name());
         }
         List<CallableDeclaration> callableGroup(CallableDeclaration declaration, SourceFile caller) {
             List<CallableDeclaration> local = groups.get(keys.get(declaration)).stream()
