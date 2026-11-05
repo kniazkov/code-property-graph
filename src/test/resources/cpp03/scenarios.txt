@@ -42,3 +42,6 @@ template-instantiation
 
 # Demand-only standard declarations and concrete library members
 lazy-library
+
+# Safe common vector semantics and preserved C++03 copy behavior.
+vector-semantics

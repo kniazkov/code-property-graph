@@ -59,7 +59,12 @@ public final class ConstantFolder {
         // Recompute green array facts if a symbolic bound was replaced by its value.
         boolean greenTypes = project.files().stream().anyMatch(file -> file.language() == Language.CPP
                 && hasGreenTypes(file));
-        return greenTypes ? TypeNormalizer.green(folded) : folded;
+        if (greenTypes) folded = TypeNormalizer.green(folded);
+        // A changed operand invalidates sequence metadata and its concrete template
+        // declarations. Re-resolve before publishing fresh green sequence references.
+        if (!project.dynamicArrayTypes().isEmpty() || !project.dynamicArraySemantics().isEmpty())
+            folded = DynamicArraySemantics.green(NameResolver.resolve(folded));
+        return folded;
     }
 
     private static boolean hasGreenTypes(SourceFile file) {

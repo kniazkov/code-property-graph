@@ -290,8 +290,19 @@ final class ExpressionParser {
         if (template && !tokens.peek().equals("<")) throw tokens.error("template disambiguator requires a template-id");
         return builder;
     }
+    /** Preserve the qualifier for parser lookup: std::allocator is not an unqualified allocator. */
+    private String qualifiedExpressionName(NodeBuilder<? extends Expression> value) {
+        if (value instanceof NameExpression.Builder name) return name.name().orElse("");
+        if (value instanceof ScopeMemberExpression.Builder member) {
+            String owner=member.receiver().map(this::qualifiedExpressionName).orElse("");
+            return owner + "::" + member.member().orElse("");
+        }
+        return "";
+    }
     private boolean templateIdAhead(NodeBuilder<? extends Expression> value) {
         if (value instanceof NameExpression.Builder name) return !name.hasTemplateArguments() && types.templateName(name.name().orElse(""));
+        if (value instanceof ScopeMemberExpression.Builder member) return !member.hasTemplateArguments()
+                && (member.templateKeyword() || types.templateName(qualifiedExpressionName(value)));
         if (value instanceof MemberExpression.Builder<?, ?> member) return !member.hasTemplateArguments() && (member.templateKeyword() || types.templateName(member.member().orElse("")));
         return false;
     }

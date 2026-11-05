@@ -152,7 +152,10 @@ public final class Cpg {
         if (options.stage() != Stage.RESOLVED) result = com.kniazkov.cpg.analysis.TypeNormalizer.green(ConsoleNormalizer.green(result));
         if (options.stage() == Stage.FOLDED) result = ConstantFolder.fold(result);
         // Transformations deliberately drop annotations; recompute links and build diagnostics.
-        if (options.stage() != Stage.RESOLVED) result = NameResolver.resolve(result);
+        if (options.stage() != Stage.RESOLVED) {
+            result = NameResolver.resolve(result);
+            result = com.kniazkov.cpg.analysis.DynamicArraySemantics.green(result);
+        }
         return UnreadWrites.analyze(result);
     }
 

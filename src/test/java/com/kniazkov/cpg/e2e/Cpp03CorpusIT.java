@@ -66,6 +66,10 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("vector-semantics".equals(settings.getProperty("mode"))) {
+            for (Path source : VectorSemanticsAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
+            return;
+        }
         if ("lazy-library".equals(settings.getProperty("mode"))) {
             for (Path source : LazyLibraryAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
             return;

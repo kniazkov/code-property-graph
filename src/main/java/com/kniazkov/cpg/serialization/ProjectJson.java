@@ -50,6 +50,8 @@ public final class ProjectJson {
             project.standardLibrary().ifPresent(library -> library.walk(index));
             project.templateInstances().forEach(instance -> instance.walk(index));
             project.classTemplateInstances().forEach(instance -> instance.walk(index));
+            project.dynamicArrayTypes().forEach(type -> type.walk(index));
+            project.dynamicArraySemantics().forEach(operation -> operation.walk(index));
             for (var flow : project.flows()) for (var vertex : flow.auxiliaryVertices()) ids.put(vertex, ids.size());
             project.externalInputs().forEach(input -> input.walk(index));
             for (SourceFile file : java.util.stream.Stream.concat(project.files().stream(), project.librarySources().stream()).toList()) file.provenance().ifPresent(p -> units.put(p.unit(), ids.get(file)));
@@ -57,6 +59,19 @@ public final class ProjectJson {
             for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n)
                 for (Comment comment : n.commentReferences()) edge(n, comment, "HAS_COMMENT");
             for (FlowVertex vertex : ids.keySet()) {
+                if (vertex instanceof DynamicArrayType type) {
+                    if (type.concreteClass() != null) edge(type, type.concreteClass(), "DYNAMIC_ARRAY_CLASS");
+                    edge(type, type.elementType(), "ELEMENT_TYPE");
+                    type.writtenTypes().forEach(site -> edge(site, type, "COMMON_TYPE"));
+                }
+                if (vertex instanceof DynamicArrayOperation operation) {
+                    edge(operation.syntax(), operation, "COMMON_OPERATION");
+                    edge(operation, operation.type(), "DYNAMIC_ARRAY_TYPE");
+                    edge(operation, operation.destination(), "DESTINATION");
+                    operation.sources().forEach(source -> edge(operation, source, "SOURCE"));
+                    edge(operation, operation.selectedTarget(), "CPP_TARGET");
+                    operation.elementCopyConstructor().ifPresent(target -> edge(operation, target, "ELEMENT_COPY_CONSTRUCTOR"));
+                }
                 if (vertex instanceof VariableDeclaration variable) {
                     variable.constructorTarget().ifPresent(target -> edge(variable, target, "CONSTRUCTOR_TARGET"));
                     variable.destructorTarget().ifPresent(target -> edge(variable, target, "DESTRUCTOR_TARGET"));
@@ -102,6 +117,8 @@ public final class ProjectJson {
                     if (!p.librarySources().isEmpty()) obj.array("librarySources", a -> p.librarySources().forEach(header -> a.add(ids.get(header))));
                     if (!p.templateInstances().isEmpty()) obj.put("templateInstances", nodes(p.templateInstances()));
                     if (!p.classTemplateInstances().isEmpty()) obj.put("classTemplateInstances", nodes(p.classTemplateInstances()));
+                    if (!p.dynamicArrayTypes().isEmpty()) obj.put("dynamicArrayTypes", nodes(p.dynamicArrayTypes()));
+                    if (!p.dynamicArraySemantics().isEmpty()) obj.put("dynamicArraySemantics", nodes(p.dynamicArraySemantics()));
                     if (p.hasErrors()) {
                         obj.put("hasErrors", true);
                         obj.array("diagnosticGroups", a -> p.diagnosticGroups().forEach(g -> a.add(diagnosticGroup(g))));
@@ -112,6 +129,18 @@ public final class ProjectJson {
                         p.composition().ifPresent(c -> v.object("composition", o -> o.put("name", c.name())
                                 .array("variantIds", a -> a.addAll(c.variantIds()))));
                     }));
+                }
+                case DynamicArrayType type -> {
+                    obj.put("elementTypeId", ids.get(type.elementType()))
+                        .array("writtenTypeIds", a -> type.writtenTypes().forEach(site -> a.add(ids.get(site))));
+                    if (type.concreteClass() != null) obj.put("concreteClassId", ids.get(type.concreteClass()));
+                }
+                case DynamicArrayOperation operation -> {
+                    obj.put("operation", lower(operation.kind())).put("syntaxId", ids.get(operation.syntax()))
+                        .put("destinationId", ids.get(operation.destination())).put("typeId", ids.get(operation.type()))
+                        .put("selectedTargetId", ids.get(operation.selectedTarget()))
+                        .array("sourceIds", a -> operation.sources().forEach(source -> a.add(ids.get(source))));
+                    operation.elementCopyConstructor().ifPresent(target -> obj.put("elementCopyConstructorId", ids.get(target)));
                 }
                 case StandardLibrary library -> obj.put("headers", nodes(library.headers()));
                 case ClassTemplateInstance instance -> {

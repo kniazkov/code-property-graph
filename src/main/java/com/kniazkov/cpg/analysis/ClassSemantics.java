@@ -9,6 +9,15 @@ import java.util.*;
  * are deliberately not invented. Returned node references belong to the supplied snapshot. */
 public final class ClassSemantics {
     private ClassSemantics() {}
+    /** Selects the source copy constructor; implicit copy operations have no invented declaration. */
+    public static Optional<CallableDeclaration> selectedElementCopyConstructor(TypeNode element, Expression source, com.kniazkov.cpg.build.PlatformProfile profile) {
+        Expression argument=source;
+        if(argument==null) argument=NameExpression.create().setName("__copy_source").setTarget(VariableDeclaration.create().setName("__copy_source")
+                .setType(QualifiedType.create().setBaseType(element.edit()).setConst(true))).build();
+        final Expression selectedSource=argument;
+        return objectClass(element).flatMap(owner -> OverloadResolution.select(specialMembers(owner).stream()
+                .filter(m->m.kind()==SpecialKind.COPY_CONSTRUCTOR).flatMap(m->m.declarations().stream()).toList(),List.of(selectedSource),profile).selected());
+    }
     public enum SpecialKind { DEFAULT_CONSTRUCTOR, COPY_CONSTRUCTOR, COPY_ASSIGNMENT, DESTRUCTOR }
     public enum Origin { IMPLICIT, USER_DECLARED, SUPPRESSED, UNKNOWN }
     public enum InitializationKind { DEFAULT, ZERO, COPY, DIRECT, AGGREGATE, VALUE }

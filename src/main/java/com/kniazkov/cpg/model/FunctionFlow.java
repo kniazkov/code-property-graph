@@ -30,6 +30,11 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
         return auxiliaryVertices().stream().filter(v -> v.kind() == AuxiliaryFlowVertex.Kind.EXCEPTIONAL_EXIT).findFirst();
     }
 
+    private static boolean dataEndpoint(Node node, Set<Node> evaluated, Set<FlowVertex> members) {
+        return evaluated.contains(node) || node instanceof DynamicArrayOperation operation
+                && members.contains(operation.syntax());
+    }
+
     public FunctionFlow {
         Objects.requireNonNull(entry);
         if (exit != entry.exit()) throw new IllegalArgumentException("Exit belongs to another callable");
@@ -71,7 +76,7 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
         // Project.withFlows separately verifies every auxiliary object is project-owned.
         for (var auxiliary : indices.values()) auxiliary.object().ifPresent(evaluated::add);
         for (DataEdge edge : data) {
-            if (!evaluated.contains(edge.from()) || !evaluated.contains(edge.to()))
+            if (!dataEndpoint(edge.from(), evaluated, members) || !dataEndpoint(edge.to(), evaluated, members))
                 throw new IllegalArgumentException("Foreign data-flow endpoint");
         }
     }
