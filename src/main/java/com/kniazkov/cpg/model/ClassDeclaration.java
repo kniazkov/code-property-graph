@@ -9,11 +9,16 @@ import java.util.Optional;
 /** A named class with ordered declarations. */
 public final class ClassDeclaration extends Declaration {
     private String name;
+    private String keyword = "class";
+    private String memberAccess = "public";
     private List<String> modifiers = List.of();
     private List<Declaration> members = List.of();
 
     private ClassDeclaration() {
     }
+
+    public String keyword() { return keyword; }
+    public String memberAccess() { return memberAccess; }
 
     public String name() {
         return name;
@@ -53,6 +58,7 @@ public final class ClassDeclaration extends Declaration {
         Builder builder = new Builder();
         context.register(this, builder);
         builder.name = name;
+        builder.keyword = keyword; builder.memberAccess = memberAccess;
         builder.modifiers = new ArrayList<>(modifiers);
         builder.members = context.copyAll(members, Declaration.class);
         return builder;
@@ -61,6 +67,8 @@ public final class ClassDeclaration extends Declaration {
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<ClassDeclaration> {
         private String name;
+        private String keyword = "class";
+        private String memberAccess = "public";
         private List<String> modifiers = new ArrayList<>();
         private List<NodeBuilder<? extends Declaration>> members = new ArrayList<>();
 
@@ -79,6 +87,9 @@ public final class ClassDeclaration extends Declaration {
         public List<NodeBuilder<? extends Declaration>> members() {
             return List.copyOf(members);
         }
+
+        public Builder setKeyword(String value) { if (!List.of("class", "struct", "union").contains(value)) throw new IllegalArgumentException("Invalid class keyword"); keyword = value; return this; }
+        public Builder setMemberAccess(String value) { if (!List.of("public", "private", "protected").contains(value)) throw new IllegalArgumentException("Invalid access"); memberAccess = value; return this; }
 
         public Builder setName(String name) {
             this.name = Objects.requireNonNull(name);
@@ -113,6 +124,7 @@ public final class ClassDeclaration extends Declaration {
         @Override
         void fillNode(ClassDeclaration node, BuildContext context) {
             node.name = requiredText(name, "ClassDeclaration.name");
+            node.keyword = keyword; node.memberAccess = memberAccess;
             node.modifiers = List.copyOf(modifiers);
             node.members = context.copyAll(members);
         }

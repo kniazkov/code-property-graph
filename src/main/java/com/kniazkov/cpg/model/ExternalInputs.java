@@ -30,6 +30,13 @@ final class ExternalInputs {
                             name.equals("__cplusplus") ? "__cplusplus=199711L" : name));
                 roots.put("profile:c++03", profile);
             }
+            String platformKey = "profile:platform:" + unit.platform().identityHash();
+            if (!roots.containsKey(platformKey)) {
+                var platform = ExternalInput.create(platformKey, "platform-profile", unit.platform().stableIdentity());
+                unit.platform().predefinedMacros().forEach((name, value) ->
+                        platform.addInput(ExternalInput.create(platformKey + ":" + name, "predefined-macro", name + "=" + value)));
+                roots.put(platformKey, platform);
+            }
             var source = unit.configurationSource();
             String key = configurationKey(unit);
             if (!seen.add(key)) continue;
@@ -46,6 +53,7 @@ final class ExternalInputs {
             }
             if (!source.arguments().isEmpty()) entry.addInput(ExternalInput.create(key + ":argv", "arguments",
                     source.arguments().toString()));
+            entry.addInput(ExternalInput.create(key + ":platform", "platform-selection", platformKey));
             if (unit.standard() != null) entry.addInput(ExternalInput.create(key + ":standard", "language-standard", unit.standard()));
             if (source.standardOverrideKind() != null) entry.addInput(ExternalInput.create(key + ":standard-override", source.standardOverrideKind(), unit.standard()));
             for (int i = 0; i < unit.macros().size(); i++) {

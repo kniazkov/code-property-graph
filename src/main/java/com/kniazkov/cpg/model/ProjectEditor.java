@@ -9,6 +9,14 @@ public final class ProjectEditor {
     private final Set<Node> members = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<Node, Node> replacements = new IdentityHashMap<>();
     private final Set<Node> removed = Collections.newSetFromMap(new IdentityHashMap<>());
+    private final Map<TypeNode, TypeRepresentation> typeRepresentations = new IdentityHashMap<>();
+
+    /** Records green facts without cloning referenced typedef declarations outside the project. */
+    public void describe(TypeNode type, TypeRepresentation representation) {
+        requireMember(type);
+        typeRepresentations.put(type, Objects.requireNonNull(representation));
+    }
+
     private final Map<NameExpression, Declaration> names = new IdentityHashMap<>();
     private final Map<CallExpression, CallableDeclaration> calls = new IdentityHashMap<>();
 
@@ -74,6 +82,7 @@ public final class ProjectEditor {
         calls.forEach((use, target) -> context.edit(use, CallExpression.Builder.class).setTarget(context.edge(target, CallableDeclaration.class)));
         resolutions.forEach((use, value) -> context.edit(use, CallExpression.Builder.class)
                 .setCandidates(context.copyAll(value.candidates(), CallableDeclaration.class), value.status()));
+        typeRepresentations.forEach((type, representation) -> context.copy(type).setTypeRepresentation(representation));
         return root.build();
     }
 }

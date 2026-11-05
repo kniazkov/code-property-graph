@@ -31,11 +31,21 @@ public final class UnreadWrites {
         Map<Node, String> candidates = new IdentityHashMap<>();
         Set<Node> read = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Declaration> escaped = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<Node> unevaluated = Collections.newSetFromMap(new IdentityHashMap<>());
+        if (cpp) flow.entry().body().orElseThrow().walk(new NodeVisitor() {
+            @Override public void visit(SizeofExpression size) {
+                size.walk(new NodeVisitor() {
+                    @Override public void visit(Node node) { unevaluated.add(node); }
+                });
+            }
+        });
         if (cpp) flow.entry().body().orElseThrow().walk(new NodeVisitor() {
             // External code may retain a pointer or a reference to the local and read it later.
-            @Override public void visit(AddressOfExpression address) { escape(address.operand()); }
+            @Override public void visit(AddressOfExpression address) {
+                if (!unevaluated.contains(address)) escape(address.operand());
+            }
             @Override public void visit(CallExpression call) {
-                if (call.target().isEmpty()) call.arguments().forEach(this::escape);
+                if (!unevaluated.contains(call) && call.target().isEmpty()) call.arguments().forEach(this::escape);
             }
             private void escape(Expression expr) {
                 if (expr instanceof AssignmentExpression a) escape(a.target());

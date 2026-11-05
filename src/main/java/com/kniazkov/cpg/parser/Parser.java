@@ -14,6 +14,8 @@ public final class Parser {
     private final Language language;
     private final TokenCursor tokens;
     private final StatementParser statements;
+    private final ExpressionParser expressions;
+    private final TypeParser types;
     private final ParseRecovery recovery;
 
     private Parser(String file, Language language, java.util.List<Token> input, Preprocessing preprocessing) {
@@ -25,7 +27,10 @@ public final class Parser {
         this.file = java.nio.file.Path.of(file).toAbsolutePath().normalize().toString();
         this.language = language;
         tokens = new TokenCursor(this.file, input, language, preprocessing);
-        statements = new StatementParser(tokens, new ExpressionParser(tokens, language, recovery), recovery);
+        expressions = new ExpressionParser(tokens, language, recovery);
+        types = new TypeParser(tokens, expressions);
+        expressions.setTypes(types);
+        statements = new StatementParser(tokens, expressions, recovery, types);
     }
 
     private static java.util.List<Token> parserTokens(CppPreprocessor.Result result, Preprocessing provenance) { return parserTokens(result, provenance, false, null); }
@@ -196,7 +201,8 @@ public final class Parser {
     }
 
     private static String externalSourceKey(com.kniazkov.cpg.build.Build.TranslationUnit unit, CppPreprocessor.Definition definition) {
-        if (definition.originKind().equals("predefined")) return "profile:c++03:" + definition.sourceKey();
+        if (definition.originKind().equals("predefined")) return java.util.Set.of("__LINE__", "__FILE__", "__DATE__", "__TIME__", "__cplusplus").contains(definition.sourceKey())
+                ? "profile:c++03:" + definition.sourceKey() : "profile:platform:" + unit.platform().identityHash() + ":" + definition.sourceKey();
         if (!definition.originKind().equals("command-line")) return definition.sourceKey();
         int ordinal = Integer.parseInt(definition.sourceKey());
         var source = unit.configurationSource();
@@ -219,14 +225,12 @@ public final class Parser {
                     boolean system = include.group(1) != null;
                     tokens.advance();
                     result.addItem(tokens.span(start, IncludeDirective.create().setSystem(system).setHeader(include.group(system ? 1 : 2))));
-                } else if (tokens.peek().equals("class") || tokens.peek().equals("public")) {
+                } else if (language == Language.CPP && (tokens.peek().equals("class") || tokens.peek().equals("struct") || tokens.peek().equals("union")) && tokens.peek(2).equals("{")) {
+                    result.addItem(cppClass());
+                } else if (language == Language.JAVA && (tokens.peek().equals("class") || tokens.peek().equals("public"))) {
                     result.addItem(clazz());
-                } else if (language == Language.CPP && tokens.take("int")) {
-                    var returnType = tokens.span(start, type("int"));
-                    String name = tokens.identifier(); tokens.expect("("); tokens.expect(")");
-                    var function = FunctionDeclaration.create().setName(name).setReturnType(returnType);
-                    if (!tokens.take(";")) function.setBody(statements.block());
-                    result.addItem(tokens.span(start, function));
+                } else if (language == Language.CPP && types.startsType()) {
+                    for (var declaration : declarations(false)) result.addItem(declaration);
                 } else {
                     if (language == Language.CPP) tokens.checkUnsupportedDeclaration();
                     throw tokens.error("Unsupported top-level declaration");
@@ -243,6 +247,76 @@ public final class Parser {
 
     private static NamedType.Builder type(String name) {
         return NamedType.create().setName(name);
+    }
+
+    /** One declaration-specifier sequence may introduce several independently owned declarators. */
+    private java.util.List<NodeBuilder<? extends Declaration>> declarations(boolean member) {
+        var start = tokens.start();
+        var specs = types.specifiers();
+        var result = new java.util.ArrayList<NodeBuilder<? extends Declaration>>();
+        do {
+            var declarator = types.declarator(false);
+            var type = declarator.apply().apply(specs.type().get());
+            if (specs.typedef()) {
+                if (!specs.modifiers().isEmpty()) throw tokens.error("Storage specifier on typedef");
+                var declaration = TypedefDeclaration.create().setName(declarator.name()).setType(type);
+                types.declareAlias(declarator.name(), declaration);
+                result.add(tokens.span(start, declaration));
+            } else if (type instanceof FunctionType.Builder function) {
+                CallableDeclaration.Builder<?, ?> declaration = member ? MethodDeclaration.create() : FunctionDeclaration.create();
+                declaration.setName(declarator.name()).setReturnType(function.returnType().orElseThrow())
+                        .setParameters(function.parameters()).setModifiers(specs.modifiers()).setVariadic(function.variadic())
+                        .setConst(function.isConst()).setVolatile(function.isVolatile());
+                if (!member && (function.isConst() || function.isVolatile())) throw tokens.error("Free function cannot have cv qualifiers");
+                types.declareName(declarator.name());
+                if (tokens.peek().equals("{")) {
+                    types.pushScope();
+                    try {
+                        for (var parameter : function.parameters()) types.declareName(((ParameterDeclaration.Builder) parameter).name().orElse(""));
+                        declaration.setBody(statements.block());
+                    } finally { types.popScope(); }
+                    result.add(tokens.span(start, declaration));
+                    return result;
+                }
+                result.add(tokens.span(start, declaration));
+            } else {
+                if (type.build().canonicalType() instanceof FunctionType) throw tokens.error("Function declarations through typedef names are not yet supported");
+                if (!specs.modifiers().isEmpty()) throw tokens.error("Variable storage specifiers are not yet supported");
+                var declaration = VariableDeclaration.create().setName(declarator.name()).setType(type);
+                types.declareName(declarator.name());
+                if (tokens.take("=")) declaration.setInitializer(expressions.parse());
+                result.add(tokens.span(start, declaration));
+            }
+        } while (tokens.take(","));
+        tokens.expect(";");
+        if (result.size() == 1) tokens.span(start, result.getFirst());
+        return result;
+    }
+
+    private ClassDeclaration.Builder cppClass() {
+        var start = tokens.start(); String keyword = tokens.peek(); tokens.advance();
+        String name = tokens.identifier(); types.registerClass(name);
+        String access = keyword.equals("class") ? "private" : "public";
+        var result = ClassDeclaration.create().setName(name).setKeyword(keyword).setMemberAccess(access);
+        tokens.expect("{"); types.pushScope();
+        try {
+            while ((recovery == null || !recovery.stopped()) && !tokens.take("}")) {
+                if (java.util.Set.of("public", "private", "protected").contains(tokens.peek())) {
+                    String next = tokens.peek(); tokens.advance(); tokens.expect(":");
+                    if (!result.members().isEmpty() && !next.equals(access)) throw tokens.error("Mixed class access sections are not yet supported");
+                    access = next; result.setMemberAccess(access);
+                } else if (tokens.take(";")) { /* Empty member declaration. */ }
+                else for (var declaration : declarations(true)) result.addMember(declaration);
+            }
+        } catch (ParseException error) {
+            if (recovery == null) throw error;
+            recovery.stop(error, tokens.currentRange());
+        } finally { types.popScope(); }
+        if (recovery == null || !recovery.stopped()) {
+            try { tokens.expect(";"); }
+            catch (ParseException error) { if (recovery == null) throw error; recovery.stop(error, tokens.currentRange()); }
+        }
+        return tokens.span(start, result);
     }
 
     /** Parses the supported class form and dispatches each method body to the statement reader. */

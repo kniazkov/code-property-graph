@@ -1,0 +1,6 @@
+{
+  "inherits": "default",
+  "name": "long32",
+  "sizes": {"long": 32},
+  "alignments": {"long": 32}
+}

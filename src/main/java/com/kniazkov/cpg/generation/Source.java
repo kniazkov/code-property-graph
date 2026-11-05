@@ -37,8 +37,14 @@ public final class Source {
             @Override public void visit(PointerMemberExpression n) { targets.remove(Language.JAVA); }
             @Override public void visit(AddressOfExpression n) { targets.remove(Language.JAVA); }
             @Override public void visit(DereferenceExpression n) { targets.remove(Language.JAVA); }
+            @Override public void visit(TypeNode n) { if (!(n instanceof NamedType)) targets.remove(Language.JAVA); }
+            @Override public void visit(TypedefDeclaration n) { targets.remove(Language.JAVA); }
+            @Override public void visit(SizeofExpression n) { targets.remove(Language.JAVA); }
+            @Override public void visit(IntegerLiteral n) { if (n.cppType().isPresent()) targets.remove(Language.JAVA); }
             @Override public void visit(NamedType n) {
                 if (n.name().equals("String[]")) targets.remove(Language.CPP);
+                if (n.alias().isPresent() || n.fundamentalKind().isPresent()
+                        && !Set.of("void", "char", "short", "int", "long", "float", "double").contains(n.name())) targets.remove(Language.JAVA);
             }
             @Override public void visit(MethodDeclaration n) {
                 if (n.modifiers().contains("public")) targets.remove(Language.CPP);
@@ -131,7 +137,25 @@ public final class Source {
     }
 
     private void checkPortable(SourceFile file) {
+        if (target == Language.JAVA && file.items().stream().anyMatch(item -> item instanceof VariableDeclaration || item instanceof TypedefDeclaration))
+            throw new IllegalArgumentException("Cannot translate C++ global variable or typedef declarations to Java");
         file.walk(new NodeVisitor() {
+            @Override public void visit(TypeNode n) {
+                if (target != Language.JAVA) return;
+                if (!languages(n).contains(target)) throw unsupported(n);
+                if (n instanceof NamedType named && named.fundamentalKind().isPresent()) {
+                    if (!Set.of(FundamentalKind.INT, FundamentalKind.VOID).contains(named.fundamentalKind().orElseThrow())) throw unsupported(n);
+                    var profile = n.provenance().map(p -> p.unit().configuration()).map(c -> c.platform());
+                    if (named.fundamentalKind().orElseThrow() == FundamentalKind.INT && profile.isPresent()
+                            && profile.orElseThrow().sizeBits("int").orElse(0) != 32) throw unsupported(n);
+                }
+            }
+            @Override public void visit(IntegerLiteral n) { if (target == Language.JAVA && n.cppType().isPresent()) throw unsupported(n); }
+            @Override public void visit(TypedefDeclaration n) { if (target == Language.JAVA) throw unsupported(n); }
+            @Override public void visit(SizeofExpression n) { if (target == Language.JAVA) throw unsupported(n); }
+            @Override public void visit(AddressOfExpression n) { if (target == Language.JAVA) throw unsupported(n); }
+            @Override public void visit(DereferenceExpression n) { if (target == Language.JAVA) throw unsupported(n); }
+            @Override public void visit(PointerMemberExpression n) { if (target == Language.JAVA) throw unsupported(n); }
             @Override public void visit(IncludeDirective n) {
                 if (!n.system() || !n.header().equals("iostream")) throw unsupported(n);
             }
@@ -162,7 +186,7 @@ public final class Source {
 
     private String classStart(ClassDeclaration cls) {
         String access = target == Language.JAVA && cls.modifiers().contains("public") ? "public " : "";
-        return access + "class " + cls.name() + " {\n" + (target == Language.CPP ? "public:\n" : "");
+        return access + (target == Language.CPP ? cls.keyword() : "class") + " " + cls.name() + " {\n" + (target == Language.CPP ? cls.memberAccess() + ":\n" : "");
     }
     private String classEnd() { return target == Language.CPP ? "};\n" : "}\n"; }
 
@@ -177,13 +201,14 @@ public final class Source {
             case IncludeDirective i when target == Language.CPP -> "#include " + (i.system() ? "<" + i.header() + ">" : "\"" + i.header() + "\"") + "\n";
             case ClassDeclaration c -> classStart(c) + c.members().stream().map(m -> emit(m, level + 1)).collect(Collectors.joining("\n")) + classEnd();
             case CallableDeclaration f -> pad + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
-                    + emit(f.returnType().orElseThrow(), 0) + " " + f.name() + "("
-                    + f.parameters().stream().map(p -> emit(p, 0)).collect(Collectors.joining(", ")) + ")"
+                    + declaration(f.returnType().orElseThrow(), f.name() + "(" + parameters(f.parameters(), f.variadic()) + ")"
+                            + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : ""))
                     + f.body().map(b -> " " + emit(b, level)).orElse(";\n");
-            case ParameterDeclaration p -> emit(p.type().orElseThrow(), 0) + " " + p.name();
-            case NamedType t -> t.name();
+            case ParameterDeclaration p -> declaration(p.type().orElseThrow(), p.name());
+            case TypedefDeclaration d -> pad + "typedef " + declaration(d.type(), d.name()) + ";\n";
+            case TypeNode t -> declaration(t, "");
             case BlockStatement b -> "{\n" + b.items().stream().map(i -> emit(i, level + 1)).collect(Collectors.joining()) + pad + "}\n";
-            case VariableDeclaration v -> pad + emit(v.type().orElseThrow(), 0) + " " + v.name()
+            case VariableDeclaration v -> pad + declaration(v.type().orElseThrow(), v.name())
                     + v.initializer().map(i -> " = " + emit(i, 0)).orElse("") + ";\n";
             case ReturnStatement r -> pad + "return" + r.value().map(e -> " " + emit(e, 0)).orElse("") + ";\n";
             case ExpressionStatement s -> pad + (s.expression() instanceof AssignmentExpression a ? assignment(a) : emit(s.expression(), 0)) + ";\n";
@@ -194,7 +219,8 @@ public final class Source {
                     : "std::cout << " + emit(s.value(), 0) + " << std::endl;") + "\n";
             case AssignmentExpression a -> "(" + assignment(a) + ")";
             case Exit ignored -> "";
-            case IntegerLiteral i -> Integer.toString(i.value());
+            case IntegerLiteral i -> integerLiteral(i);
+            case SizeofExpression size -> "sizeof(" + size.type().map(t -> declaration(t, "")).orElseGet(() -> emit(size.operand().orElseThrow(), 0)) + ")";
             case NameExpression name -> name.name();
             case MemberExpression m -> emit(m.receiver(), 0) + separator(m) + m.member();
             case CallExpression c -> emit(c.callee(), 0) + "(" + c.arguments().stream().map(e -> emit(e, 0)).collect(Collectors.joining(", ")) + ")";
@@ -202,6 +228,47 @@ public final class Source {
             case BinaryExpression b -> "(" + emit(b.left(), 0) + " " + symbol(b) + " " + emit(b.right(), 0) + ")";
             default -> throw unsupported(n);
         };
+    }
+
+    private String integerLiteral(IntegerLiteral literal) {
+        if (target != Language.CPP) return Integer.toString(literal.value());
+        var profile = literal.provenance().map(p -> p.unit().configuration()).map(c -> c.platform())
+                .orElseGet(com.kniazkov.cpg.build.PlatformProfile::defaults);
+        var number = java.math.BigInteger.valueOf(literal.value());
+        String type = literal.cppType().orElseGet(() -> List.of("int", "long", "unsigned long").stream()
+                .filter(name -> profile.integerRange(name).map(range -> number.compareTo(range.min()) >= 0 && number.compareTo(range.max()) <= 0).orElse(false))
+                .findFirst().orElse("int"));
+        String suffix = switch (type) { case "unsigned int" -> "U"; case "long" -> "L"; case "unsigned long" -> "UL"; default -> ""; };
+        var range = profile.integerRange(type);
+        // The positive token in -MIN may require a wider (or unsigned) type.
+        // Express signed minima using two representable operands of the intended type.
+        if (number.signum() < 0 && range.isPresent() && number.equals(range.orElseThrow().min()))
+            return "((-(" + range.orElseThrow().max() + suffix + ")) - 1" + suffix + ")";
+        return literal.value() + (literal.cppType().isPresent() ? suffix : "");
+    }
+
+    /** Prints the declarator around its name; grouping follows the type tree's binding. */
+    private String declaration(TypeNode type, String name) { return declaration(type, name, ""); }
+    private String declaration(TypeNode type, String name, String qualifiers) {
+        return switch (type) {
+            case NamedType n -> n.name() + qualifiers + (name.isEmpty() ? "" : " " + name);
+            case QualifiedType q -> declaration(q.baseType(), name, qualifiers + (q.isConst() ? " const" : "") + (q.isVolatile() ? " volatile" : ""));
+            case PointerType p -> declaration(p.pointee(), grouped(p.pointee(), "*" + qualifiers + (qualifiers.isEmpty() ? "" : " ") + name));
+            case ReferenceType r -> declaration(r.referredType(), grouped(r.referredType(), "&" + name));
+            case MemberPointerType p -> declaration(p.pointee(), grouped(p.pointee(), declaration(p.ownerType(), "") + "::*" + qualifiers + (qualifiers.isEmpty() ? "" : " ") + name));
+            case ArrayType a -> declaration(a.elementType(), name + "[" + a.bound().map(e -> emit(e, 0)).orElse("") + "]", qualifiers);
+            case FunctionType f -> declaration(f.returnType(), name + "(" + parameters(f.parameters(), f.variadic()) + ")"
+                    + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : ""));
+            default -> throw unsupported(type);
+        };
+    }
+    private String grouped(TypeNode target, String declarator) {
+        while (target instanceof QualifiedType qualified) target = qualified.baseType();
+        return target instanceof ArrayType || target instanceof FunctionType ? "(" + declarator + ")" : declarator;
+    }
+    private String parameters(List<ParameterDeclaration> parameters, boolean variadic) {
+        String written = parameters.stream().map(p -> emit(p, 0)).collect(Collectors.joining(", "));
+        return written + (variadic ? (written.isEmpty() ? "" : ", ") + "..." : "");
     }
 
     private String body(Statement statement, int level) {

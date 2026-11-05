@@ -93,7 +93,7 @@ public final class ParameterDeclaration extends Declaration {
 
         @Override
         void fillNode(ParameterDeclaration node, BuildContext context) {
-            node.name = requiredText(name, "ParameterDeclaration.name");
+            node.name = Objects.requireNonNull(name, "ParameterDeclaration.name is required (empty for an abstract parameter)");
             node.type = type == null ? null : context.copy(type);
         }
     }
