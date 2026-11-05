@@ -30,3 +30,6 @@ statements-exceptions
 
 # Physical comments, attachments and explicit library cleanup
 comments-cleanup
+
+# Doxygen contexts, related parameters and documentation-safe renames
+doxygen-parameters
