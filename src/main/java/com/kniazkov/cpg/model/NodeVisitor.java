@@ -10,6 +10,15 @@ package com.kniazkov.cpg.model;
  * <p>One call to Node.accept dispatches once. Use Node.walk for a whole subtree.
  */
 public interface NodeVisitor {
+    default void visit(PointerType node) { visit((TypeNode) node); }
+    default void visit(ReferenceType node) { visit((TypeNode) node); }
+    default void visit(QualifiedType node) { visit((TypeNode) node); }
+    default void visit(ArrayType node) { visit((TypeNode) node); }
+    default void visit(FunctionType node) { visit((TypeNode) node); }
+    default void visit(MemberPointerType node) { visit((TypeNode) node); }
+    default void visit(TypedefDeclaration node) { visit((Declaration) node); }
+    default void visit(SizeofExpression node) { visit((Expression) node); }
+
     /** Visits a recovery placeholder through the ordinary expression family. */
     default void visit(ErrorExpression node) { visit((Expression) node); }
     /** Visits an owned external configuration input. */

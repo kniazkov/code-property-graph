@@ -21,9 +21,10 @@ class PackagedCliIT {
         String key = "cli:" + unit.variantId();
         var substitutions = new java.util.HashMap<String, String>(Map.of(
                 "FILE_PATH", cli.input.resolve("main.cpp").toString(), "CONFIG_KEY", key,
-                "ARGV_KEY", key + ":argv", "ARGV_TEXT", java.util.List.of("--from", "cpp", "--input", cli.input.toString(),
+                "PLATFORM_KEY", key + ":platform", "ARGV_KEY", key + ":argv", "ARGV_TEXT", java.util.List.of("--from", "cpp", "--input", cli.input.toString(),
                         "--json", "snapshot.json", "--out", "generated", "--stage", "resolved").toString()));
-        for (String name : java.util.List.of("__cplusplus", "__FILE__", "__LINE__", "__DATE__", "__TIME__"))
+        for (String name : java.util.stream.Stream.concat(java.util.stream.Stream.of("__cplusplus", "__FILE__", "__LINE__", "__DATE__", "__TIME__"),
+                com.kniazkov.cpg.build.PlatformProfile.defaults().predefinedMacros().keySet().stream()).toList())
             substitutions.put("PREDEFINED_" + name, cli.input.resolve("<predefined:" + name + ">").toString());
         run.snapshot().exactly("/json/return-zero-cli.json", substitutions);
         assertFalse(run.stderr().contains("warning ["), run.stderr());

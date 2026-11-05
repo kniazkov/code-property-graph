@@ -2,7 +2,8 @@
 package com.kniazkov.cpg.parser;
 
 import java.math.BigInteger;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
+import com.kniazkov.cpg.build.PlatformProfile;
 import java.util.List;
 import static com.kniazkov.cpg.parser.PreprocessingToken.Kind.*;
 
@@ -10,28 +11,36 @@ import static com.kniazkov.cpg.parser.PreprocessingToken.Kind.*;
  * Evaluates the significant tokens of a macro-expanded C++03 #if expression.
  * The caller replaces defined expressions before invoking this helper.
  *
- * The preprocessing integer model uses 64-bit long and unsigned long. Signed
- * overflow is diagnosed, unsigned arithmetic wraps, signed division truncates
- * toward zero, and negative signed right shifts extend the sign bit. Ordinary
- * characters use UTF-8 with nonnegative single-byte values; multicharacter
- * literals pack bytes into the low 64 bits. Wide characters use Unicode scalar
- * values, 32-bit numeric escapes, and the final character of a multicharacter
- * literal. These choices specify the implementation-defined cases in 16.1.
+ * Integer arithmetic uses the profile's long width, including unsigned wrapping
+ * and signed-overflow diagnostics. Ordinary character constants pack execution
+ * encoding units into a nonnegative value; wide constants use the profile's
+ * encoding and wchar_t signedness. Multicharacter constants retain the low long
+ * bits (ordinary) or final wide code unit (wide), as implementation-defined choices.
  */
 final class CppConditionalExpression {
-    private static final BigInteger SIGNED_MAX = BigInteger.valueOf(Long.MAX_VALUE);
-    private static final BigInteger UNSIGNED_MAX = BigInteger.ONE.shiftLeft(64).subtract(BigInteger.ONE);
+    private final PlatformProfile profile;
+    private final int width;
+    private final BigInteger signedMax, signedMin, unsignedMax;
     private final List<PreprocessingToken> tokens;
     private int index;
 
-    private record Value(long bits, boolean unsigned) {
-        boolean truth() { return bits != 0; }
+    private record Value(BigInteger bits, boolean unsigned) {
+        boolean truth() { return bits.signum() != 0; }
     }
 
-    private CppConditionalExpression(List<PreprocessingToken> tokens) { this.tokens = tokens; }
+    private CppConditionalExpression(List<PreprocessingToken> tokens, PlatformProfile profile) {
+        this.tokens = tokens; this.profile = profile; width = profile.sizeBits("long").orElseThrow();
+        signedMax = BigInteger.ONE.shiftLeft(width - 1).subtract(BigInteger.ONE);
+        signedMin = BigInteger.ONE.shiftLeft(width - 1).negate();
+        unsignedMax = BigInteger.ONE.shiftLeft(width).subtract(BigInteger.ONE);
+    }
 
     static boolean evaluate(List<PreprocessingToken> tokens) {
-        var parser = new CppConditionalExpression(tokens);
+        return evaluate(tokens, PlatformProfile.defaults());
+    }
+
+    static boolean evaluate(List<PreprocessingToken> tokens, PlatformProfile profile) {
+        var parser = new CppConditionalExpression(tokens, profile);
         Value result = parser.conditional(true);
         if (parser.index != tokens.size())
             throw parser.error(tokens.get(parser.index), "Unexpected token in #if expression");
@@ -45,7 +54,7 @@ final class CppConditionalExpression {
         if (!take(":")) throw error(current(), "Expected ':' in #if expression");
         Value no = conditional(evaluate && !condition.truth());
         // The unselected operand still determines the usual arithmetic conversion.
-        return new Value(evaluate ? (condition.truth() ? yes.bits() : no.bits()) : 0,
+        return value(evaluate ? (condition.truth() ? yes.bits() : no.bits()) : BigInteger.ZERO,
                 yes.unsigned() || no.unsigned());
     }
 
@@ -89,12 +98,12 @@ final class CppConditionalExpression {
             index++;
             Value operand = unary(evaluate);
             if (spelling.equals("!")) return bool(evaluate && !operand.truth());
-            if (!evaluate) return new Value(0, operand.unsigned());
-            if (spelling.equals("-") && !operand.unsigned() && operand.bits() == Long.MIN_VALUE)
+            if (!evaluate) return new Value(BigInteger.ZERO, operand.unsigned());
+            if (spelling.equals("-") && !operand.unsigned() && operand.bits().equals(signedMin))
                 throw error(token, "Signed integer overflow in #if expression");
-            return new Value(switch (spelling) {
-                case "-" -> -operand.bits();
-                case "~" -> ~operand.bits();
+            return value(switch (spelling) {
+                case "-" -> operand.bits().negate();
+                case "~" -> operand.bits().not();
                 default -> operand.bits();
             }, operand.unsigned());
         }
@@ -118,44 +127,50 @@ final class CppConditionalExpression {
         boolean unsigned = left.unsigned() || right.unsigned();
         boolean comparison = precedence(op) <= 2 || precedence(op) == 6 || precedence(op) == 7;
         boolean shift = op.equals("<<") || op.equals(">>");
-        if (!evaluate) return new Value(0, !comparison && (shift ? left.unsigned() : unsigned));
-        long a = left.bits(), b = right.bits();
+        if (!evaluate) return new Value(BigInteger.ZERO, !comparison && (shift ? left.unsigned() : unsigned));
+        BigInteger a = unsigned && !shift ? left.bits().and(unsignedMax) : left.bits();
+        BigInteger b = unsigned && !shift ? right.bits().and(unsignedMax) : right.bits();
         if (shift) {
-            if (b < 0 || b >= 64) throw error(token, "Invalid shift count in #if expression");
-            return new Value(op.equals("<<") ? a << (int) b
-                    : left.unsigned() ? a >>> (int) b : a >> (int) b, left.unsigned());
+            if (b.signum() < 0 || b.compareTo(BigInteger.valueOf(width)) >= 0)
+                throw error(token, "Invalid shift count in #if expression");
+            return value(op.equals("<<") ? a.shiftLeft(b.intValue()) : a.shiftRight(b.intValue()), left.unsigned());
         }
-        int order = unsigned ? Long.compareUnsigned(a, b) : Long.compare(a, b);
+        int order = a.compareTo(b);
         if (comparison) return bool(switch (op) {
             case "||" -> left.truth() || right.truth();
             case "&&" -> left.truth() && right.truth();
-            case "==" -> a == b;
-            case "!=" -> a != b;
+            case "==" -> order == 0;
+            case "!=" -> order != 0;
             case "<" -> order < 0;
             case ">" -> order > 0;
             case "<=" -> order <= 0;
             case ">=" -> order >= 0;
             default -> throw new AssertionError(op);
         });
-        if ((op.equals("/") || op.equals("%")) && b == 0)
+        if ((op.equals("/") || op.equals("%")) && b.signum() == 0)
             throw error(token, "Division by zero in #if expression");
-        if ((op.equals("/") || op.equals("%")) && !unsigned && a == Long.MIN_VALUE && b == -1)
+        if ((op.equals("/") || op.equals("%")) && !unsigned && a.equals(signedMin) && b.equals(BigInteger.ONE.negate()))
             throw error(token, "Signed integer overflow in #if expression");
-        try {
-            return new Value(switch (op) {
-                case "+" -> unsigned ? a + b : Math.addExact(a, b);
-                case "-" -> unsigned ? a - b : Math.subtractExact(a, b);
-                case "*" -> unsigned ? a * b : Math.multiplyExact(a, b);
-                case "/" -> unsigned ? Long.divideUnsigned(a, b) : a / b;
-                case "%" -> unsigned ? Long.remainderUnsigned(a, b) : a % b;
-                case "&" -> a & b;
-                case "^" -> a ^ b;
-                case "|" -> a | b;
-                default -> throw new AssertionError(op);
-            }, unsigned);
-        } catch (ArithmeticException exception) {
+        BigInteger result = switch (op) {
+            case "+" -> a.add(b);
+            case "-" -> a.subtract(b);
+            case "*" -> a.multiply(b);
+            case "/" -> a.divide(b);
+            case "%" -> a.remainder(b);
+            case "&" -> a.and(b);
+            case "^" -> a.xor(b);
+            case "|" -> a.or(b);
+            default -> throw new AssertionError(op);
+        };
+        if (!unsigned && (result.compareTo(signedMin) < 0 || result.compareTo(signedMax) > 0))
             throw error(token, "Signed integer overflow in #if expression");
-        }
+        return value(result, unsigned);
+    }
+
+    private Value value(BigInteger bits, boolean unsigned) {
+        bits = bits.and(unsignedMax);
+        if (!unsigned && bits.testBit(width - 1)) bits = bits.subtract(unsignedMax.add(BigInteger.ONE));
+        return new Value(bits, unsigned);
     }
 
     private Value integer(PreprocessingToken token) {
@@ -170,10 +185,10 @@ final class CppConditionalExpression {
         if (radix == 16) digits = digits.substring(2);
         BigInteger value = new BigInteger(digits, radix);
         boolean unsigned = suffix.indexOf('u') >= 0 || suffix.indexOf('U') >= 0;
-        if (value.compareTo(UNSIGNED_MAX) > 0 || (!unsigned && suffix.isEmpty()
-                && radix == 10 && value.compareTo(SIGNED_MAX) > 0))
+        if (value.compareTo(unsignedMax) > 0 || (!unsigned && suffix.isEmpty()
+                && radix == 10 && value.compareTo(signedMax) > 0))
             throw error(token, "Integer literal out of range in #if expression");
-        return new Value(value.longValue(), unsigned || value.compareTo(SIGNED_MAX) > 0);
+        return value(value, unsigned || value.compareTo(signedMax) > 0);
     }
 
     private Value character(PreprocessingToken token) {
@@ -183,11 +198,15 @@ final class CppConditionalExpression {
         int end = spelling.length() - 1;
         if (cursor >= end || spelling.charAt(end) != '\'')
             throw error(token, "Invalid character literal in #if expression");
-        long value = 0;
+        BigInteger value = BigInteger.ZERO;
+        int charBits = wide ? profile.sizeBits("wchar_t").orElseThrow() : profile.bitsPerByte();
+        BigInteger charMask = BigInteger.ONE.shiftLeft(charBits).subtract(BigInteger.ONE);
+        boolean wideUnsigned = profile.integerRange("wchar_t").orElseThrow().min().signum() == 0;
         while (cursor < end) {
             int codePoint = spelling.codePointAt(cursor);
             cursor += Character.charCount(codePoint);
             boolean numeric = false;
+            BigInteger numericValue = null;
             if (codePoint == '\\') {
                 if (cursor >= end) throw error(token, "Invalid character escape in #if expression");
                 char escape = spelling.charAt(cursor++);
@@ -201,7 +220,8 @@ final class CppConditionalExpression {
                     int radix = escape == 'x' ? 16 : 8;
                     while (cursor < limit && digit(spelling.charAt(cursor), radix)) cursor++;
                     if (cursor == start) throw error(token, "Invalid character escape in #if expression");
-                    codePoint = new BigInteger(spelling.substring(start, cursor), radix).intValue();
+                    numericValue = new BigInteger(spelling.substring(start, cursor), radix);
+                    codePoint = numericValue.intValue();
                     numeric = true;
                 } else if (escape == 'u' || escape == 'U') {
                     int length = escape == 'u' ? 4 : 8;
@@ -216,12 +236,22 @@ final class CppConditionalExpression {
                     cursor += length;
                 } else throw error(token, "Invalid character escape in #if expression");
             }
-            if (wide) value = codePoint;
-            else if (numeric) value = (value << 8) | (codePoint & 0xffL);
-            else for (byte octet : new String(Character.toChars(codePoint)).getBytes(StandardCharsets.UTF_8))
-                value = (value << 8) | (octet & 0xffL);
+            if (wide) {
+                value = numeric ? numericValue.and(charMask) : BigInteger.valueOf(codePoint);
+                if (!numeric && profile.wideExecutionEncoding().equals("UTF-16") && codePoint > 0xffff)
+                    value = BigInteger.valueOf(Character.lowSurrogate(codePoint));
+                if (!wideUnsigned && value.testBit(charBits - 1)) value = value.subtract(charMask.add(BigInteger.ONE));
+            } else if (numeric) value = value.shiftLeft(charBits).or(numericValue.and(charMask));
+            else {
+                String character = new String(Character.toChars(codePoint));
+                Charset encoding = Charset.forName(profile.executionEncoding());
+                if (!encoding.newEncoder().canEncode(character))
+                    throw error(token, "Character is not representable in " + profile.executionEncoding());
+                for (byte octet : character.getBytes(encoding))
+                    value = value.shiftLeft(charBits).or(BigInteger.valueOf(octet & 0xffL));
+            }
         }
-        return new Value(value, false);
+        return value(value, wide && wideUnsigned);
     }
 
     private static boolean digit(char ch, int radix) {
@@ -229,7 +259,7 @@ final class CppConditionalExpression {
                 || radix == 16 && (ch >= 'a' && ch <= 'f' || ch >= 'A' && ch <= 'F');
     }
 
-    private static Value bool(boolean value) { return new Value(value ? 1 : 0, false); }
+    private static Value bool(boolean value) { return new Value(value ? BigInteger.ONE : BigInteger.ZERO, false); }
     private PreprocessingToken current() { return index < tokens.size() ? tokens.get(index) : null; }
     private boolean take(String spelling) {
         if (current() == null || !current().canonicalSpelling().equals(spelling)) return false;

@@ -3,7 +3,7 @@
 
 [Русская версия](model-guide.ru.md) · [README](../README.md)
 
-This guide describes the public API and input grammar implemented as of 4 November 2026. The examples use Java 21. When adding a construct, update both editions, the coverage table at the end and the corresponding parser or CLI test.
+This guide describes the public API and input grammar implemented as of 5 November 2026. The examples use Java 21. When adding a construct, update both editions, the coverage table at the end and the corresponding parser or CLI test.
 
 ## Read a project snapshot
 
@@ -25,7 +25,7 @@ The example reads a program in which the initial value of `score` is overwritten
 |---|---|
 | `PARSED` | Original syntax with source positions. Each callable already owns its exit. Name resolution and analysis have not run yet. |
 | `RESOLVED` | Resolved names and calls, CFG, DFG and diagnostics on the original constructs. Choose this stage to inspect the input program. |
-| `GREEN` | Recognized console output becomes a `PrintStatement` after resolution. Flow edges and warnings describe the transformed tree. |
+| `GREEN` | Recognized console output becomes a `PrintStatement` after resolution. C++ written types gain profile-dependent semantic descriptors without losing their spelling. Flow edges and warnings describe the transformed tree. |
 | `FOLDED` | Safe constant arithmetic has also been folded. Flows and warnings are computed on the final tree. This is the CLI default. |
 
 ## Node structure and properties
@@ -165,20 +165,20 @@ This table covers the normal `Cpg.read` entry point. The model also provides cla
 
 | Construct | Java (`.java`) | C++ (`.cpp`) |
 |---|---|---|
-| Top level | `class C { … }`, `public class C { … }` | `class C { public: … };`, `int main() { … }` |
+| Top level | `class C { … }`, `public class C { … }` | `class`/`struct`, function declarations and definitions, variables and `typedef` (see #23) |
 | Class method | `public static void main(String[] args)` | `static void main()` |
-| Local declarations | `int x = expression;` | `int x = expression;` |
-| Literals and arithmetic | Decimal signed 32-bit integers, grouping, unary and binary `+`, `-`, binary `*`, `/` | Same, plus `<<` |
-| Assignment and comparison | `=` (including chains), `== != < <= > >=` | Same |
-| Access and calls | `obj.member`, `f(a, b)`, `C.main(args)` | `obj.member`, `f(a, b)`, `C::main()` |
+| Local declarations | `int x = expression;` | Fundamental/named types, recursive declarators, comma-separated declarations and `typedef` (see #23) |
+| Literals and arithmetic | Decimal signed 32-bit integers, grouping, unary and binary `+`, `-`, binary `*`, `/` | Decimal/octal/hex integers and `U`/`L`/`UL` suffixes with signed-32-bit payload; the same arithmetic plus `<<` |
+| Assignment and comparison | `=` (including chains), `== != < <= > >=` | Same; type/expression `sizeof` with conservative target-dependent facts (see #23) |
+| Access and calls | `obj.member`, `f(a, b)`, `C.main(args)` | `obj.member`, `f(a, b)`, `C::main()`, address-of `&x`, dereference `*p` |
 | Control | Blocks, `if`, `if/else`, `while`, `return;`, `return expr;` | Same |
 | Comments and directives | `//`, `/* … */` | Both comment forms; includes, macros and conditional directives (see #15–#19 below) |
 | Console normalization | `System.out.println(x)` | `std::cout << x << std::endl` |
 | Damaged input | Strict failure | Strict `Cpg.read`; opt-in diagnostic recovery with `ErrorExpression` (see #21) |
 
-The Java main parameter name can vary. Coverage describes syntax recognition; full compiler type and semantic checks are outside its scope. Configured C++ headers are expanded; preprocessing coverage is described separately below and does not expand the syntax grammar. General function signatures, constructors, templates, general arrays, strings, `for`, `break` and `continue` are outside the current input grammar.
+The Java main parameter name can vary. Coverage describes syntax recognition; full compiler type and semantic checks are outside its scope. Configured C++ headers are expanded; preprocessing coverage is described separately below and does not expand the syntax grammar. Recursive function, pointer and array declarators are described in #23. Constructors, templates, general initialization, array subscripting, strings, `for`, `break` and `continue` remain outside the current input grammar; recognizing a declaration does not implement all operations on its type.
 
-**Model nodes available ahead of the parser** include remainder `%`, right shift `>>`, logical negation `!`, address-of `&x`, dereference `*p` and pointer member access `p->field`. C, Python, JavaScript and Ascend C have no input parser yet. Cross-language generation covers small Java/C++ programs with the supported main and console forms. See the README for translation constraints.
+**Model nodes available ahead of the parser** include remainder `%`, right shift `>>`, logical negation `!` and pointer member access `p->field`. C, Python, JavaScript and Ascend C have no input parser yet. Cross-language generation covers small Java/C++ programs with the supported main and console forms. See the README for translation constraints.
 
 [Grammar implementation](../src/main/java/com/kniazkov/cpg/parser) · [Analysis passes](../src/main/java/com/kniazkov/cpg/analysis) · [Model classes](../src/main/java/com/kniazkov/cpg/model)
 
@@ -201,8 +201,9 @@ Each `Build.TranslationUnit` records a `PhysicalSource`, working directory,
 ordered `IncludePath` entries and ordered `MacroOperation` define/undefine
 operations, and its command's standard. `IncludeInstance` identifies an
 occurrence separately from physical source and translation-unit context.
-These are input records, not new syntax nodes or claims of implemented macro
-expansion. Header processing is still pending.
+These are input records rather than new syntax nodes. Configured header
+processing and macro expansion are described below; #23 adds a target platform
+to each translation unit.
 
 The effective standard is the explicit API/CLI override, then the record's last
 `-std`, then C++03. A C++11 database entry fails with its filename unless it is
@@ -312,7 +313,7 @@ JSON adds `externalInputs` to the project and catalog arrays to each source file
 
 The preprocessing expression evaluator is separate from the smaller syntax parser. It supports C++03 integer bases and `U`/`L` suffixes, ordinary/wide character constants, `true`/`false`, unary arithmetic/logical operators, arithmetic, shifts, comparisons, bitwise/logical operators and `?:` with precedence and short-circuiting. Remaining identifiers/keywords become zero, except boolean literals and alternative operator tokens. Skipped operands are still syntax-checked. Floating literals, `LL`/binary literals, casts, calls, assignment and comma expressions are rejected.
 
-Implementation-defined choices are fixed here, not inferred from the host compiler and not yet a configurable target profile: signed/unsigned preprocessing integers are 64 bits, unsigned arithmetic wraps, signed division truncates toward zero, signed right shift extends the sign, and left shift keeps the low 64 bits. Evaluated signed arithmetic overflow, division by zero and shift counts outside 0–63 are diagnosed. Ordinary character values use UTF-8 bytes, numeric escapes use their low byte, and multicharacter constants pack the low 64 bits. Wide constants use Unicode scalar values, signed 32-bit numeric escapes, and the final character of a multicharacter literal. These choices may differ from a native compiler and do not define the future ordinary-expression type/encoding model.
+Since #23, implementation-defined choices come from the effective [platform profile](#platform-profiles-and-recursive-declarators-23), never from the host compiler. Preprocessing signed/unsigned arithmetic uses the profile’s `long` width (64 bits by default); unsigned arithmetic wraps, signed division truncates toward zero, signed right shift extends the sign, and left shift retains the target-width low bits. Evaluated signed arithmetic overflow, division by zero and shift counts outside that width are diagnosed. Ordinary character constants pack bytes from `executionEncoding` into target-byte slots; numeric escapes retain the low target byte. Each packed execution octet is nonnegative independently of plain `char` signedness; the complete packed value retains the low `long` bits. Wide character constants use `wcharType` signedness and width, and the final UTF-16 code unit or UTF-32 scalar selected by `wideExecutionEncoding`. Multicharacter packing remains an explicit implementation choice, not a promise to match every native compiler. Full literal and conversion semantics for ordinary expressions remain in #25.
 
 Unchanged conditional source is regenerated byte-for-byte, including inactive fragments. Acceptance is covered by `CppConditionalExpressionTest`, `CppPreprocessorTest`, `ConditionalCatalogModelTest`, `ConditionalCatalogIT` and the mandatory [conditional-catalog fixture](../src/test/resources/cpp03/conditional-catalog/README.md). Editing an active branch while validating all alternate builds and shared-source conflicts is described in #20 below.
 
@@ -380,3 +381,91 @@ Assignment recovery cannot cross an unmatched enclosing delimiter: `(x = ;`, `if
 On a damaged project, root JSON adds `diagnosticGroups`. Every group includes its key, message, all three counts and full `occurrences`; each occurrence includes the original recovery fields plus primary range, reason, related ranges and available context. Context serializes include/expansion values, not node pointers, and omits `variantId` when null. File `parseProblems` and `ErrorExpression.problem` use the same occurrence schema. Healthy snapshots omit the root error fields, so their existing golden JSON is unchanged.
 
 The CLI prints one `error [code]` at each group's primary position, followed by the translation-unit/variant/occurrence counts and distinct, deterministically ordered `note [role]` lines for related ranges. Grouping does not discard occurrence evidence or merge independent errors after recovery. Current grouping covers preprocessing/parsing `ParseProblem` values, not all semantic-analysis diagnostics or a general dependency/suppression engine. Existing status 1, diagnostic exports and source-generation guards remain unchanged. [Fixture ranges and commands](../src/test/resources/cpp03/diagnostic-provenance/README.md) and `DiagnosticProvenanceIT` verify API/CLI JSON equality, exact coordinates, reverse traversal and snapshot preservation.
+
+## Platform profiles and recursive declarators (#23)
+
+### Target settings and units
+
+`com.kniazkov.cpg.build.PlatformProfile` is an immutable target description, independent of the machine running Java or the native test compiler. `PlatformProfile.defaults()` and `builder()` use the following complete default table. **Both columns are in bits**; a target byte has `bitsPerByte = 8`, and `sizeof` returns a count of target bytes.
+
+| Storage category | Size, bits | Alignment, bits |
+|---|---:|---:|
+| `bool` | 8 | 8 |
+| `char`, `signed char`, `unsigned char` | 8 | 8 |
+| `short`, `unsigned short` | 16 | 16 |
+| `int`, `unsigned int` | 32 | 32 |
+| `long`, `unsigned long` | 64 | 64 |
+| `long long`, `unsigned long long` (profile storage only) | 64 | 64 |
+| `wchar_t` | 32 | 32 |
+| `float` | 32 | 32 |
+| `double` | 64 | 64 |
+| `long double` | 128 | 128 |
+| Ordinary pointer | 64 | 64 |
+
+Signed and unsigned variants share storage settings, not type identity. The default display name is `default-lp64`. Plain `char` is signed by default; `wcharType` is `int`, `sizeType` is `unsigned long`, source and ordinary execution encodings are `UTF-8`, and the wide execution encoding is `UTF-32`. The integer range model is two’s complement without padding, with `bool` restricted to 0..1. `integerRange(type)` returns arbitrary-precision limits; `sizeBits`, `sizeBytes` and `alignmentBits` expose storage facts. The `long long` entry does **not** enable C++11 type syntax or `LL` literals in C++03. No floating-point arithmetic format or member-pointer ABI is inferred from this table.
+
+For example, save this partial override as `long32.json`:
+
+```json
+{
+  "inherits": "default",
+  "name": "long32",
+  "sizes": {"long": 32},
+  "alignments": {"long": 32}
+}
+```
+
+`PlatformProfile.read(path)` loads this JSON, and `fromSettings(map)` accepts the same schema. `inherits` is required and must be `"default"` or `"none"`. With `"default"`, omitted settings inherit the documented defaults; an explicit `"alignments": {"long": null}` instead makes long alignment unknown. Reducing the long size without changing its inherited 64-bit alignment is invalid. With `"none"`, supply `bitsPerByte`, every scalar `sizes` entry, `charSigned`, `wcharType`, `sizeType`, all three encoding settings and `aggregateLayout`; `name` is optional and omitted alignments are unknown. The storage keys are `bool`, `char`, `short`, `int`, `long`, `long long`, `wchar_t`, `float`, `double`, `long double`, `pointer`. `toSettings()` emits the complete effective profile with `inherits: "none"` and explicit nulls for unknown alignments, suitable for round-tripping.
+
+`bitsPerByte` is between 8 and 4096; each scalar size is at most 4096 bits. Sizes and known alignments must be positive whole target bytes; each alignment divides its size and is a power of two target bytes. Validation also checks integer/floating width ordering, the underlying `wcharType` width, wide-encoding capacity, valid encodings and supported `sizeType` (`unsigned int` or `unsigned long`). `sourceEncoding` accepts an available Java charset; `executionEncoding` is restricted to `UTF-8`, `ISO-8859-1` or `US-ASCII`, and `wideExecutionEncoding` to `UTF-16` or `UTF-32`. `wcharType` must be a C++03 integer type, excluding `bool`, `wchar_t` itself and `long long`. Invalid or unknown settings are configuration errors, not guessed host defaults. A 16-bit target byte is supported when all affected sizes/alignments are consistent; `long = 64` then means `sizeof(long) = 4`, not 8.
+
+### Selecting a profile
+
+```java
+import com.kniazkov.cpg.build.PlatformProfile;
+
+PlatformProfile long32 = PlatformProfile.builder().name("long32")
+        .sizeBits("long", 32).alignmentBits("long", 32).build();
+Cpg.Options options = new Cpg.Options(Language.CPP, Cpg.Stage.FOLDED)
+        .withPlatform(long32);
+Project project = Cpg.read(Path.of("src/test/resources/cpp03/platform-declarators/sources"), options);
+```
+
+`Build.TranslationUnit.platform()` stores the effective profile; `unit.withPlatform(profile)` selects one per translation unit. Existing constructors retain the default profile. An optional compilation-database entry field `"platformProfile": {...}` accepts an inline settings object using the same schema, not a filename. `Options.withPlatform(profile)` or CLI `--platform-profile FILE` overrides every imported unit; without an override, per-entry settings win over defaults. These settings apply to C++ input only.
+
+```sh
+java -jar target/cpg-0.0.1-SNAPSHOT.jar --from cpp --stage folded \
+  --input src/test/resources/cpp03/platform-declarators/sources \
+  --platform-profile src/test/resources/cpp03/platform-declarators/long32.json \
+  --json target/platform-long32.json
+```
+
+The profile is retained through preprocessing, snapshot edits and source-generation replay. `stableIdentity()` includes effective semantic settings but excludes the display name; `TranslationUnit.variantId()` includes that identity. Changing only the name creates no new variant, while changing widths, alignments, encodings or layout does. Two profiles for one physical `.cpp` can therefore coexist in a project. This is configuration identity, not a claim that the host compiler uses either target ABI. Exported build units carry the complete effective `platform` object (the database input field is named `platformProfile`). `externalInputs` owns a `platform-profile` root with its predefined macro children and each configuration’s `platform-selection` entry, including folder input without a build object.
+
+Source files and headers are decoded with `sourceEncoding`. For C++→C++ output, the packaged CLI encodes generated roots and headers with their captured effective source encoding. Conflicting encodings for one physical file or text unrepresentable in that encoding fail before any requested export is written. `Cpg.sources` returns encoding-neutral Java strings; Java/cross-language CLI output remains UTF-8.
+
+Predefined target facts include `__CHAR_BIT__`, `__SIZEOF_SHORT__`, `__SIZEOF_INT__`, `__SIZEOF_LONG__`, `__SIZEOF_LONG_LONG__`, `__SIZEOF_FLOAT__`, `__SIZEOF_DOUBLE__`, `__SIZEOF_LONG_DOUBLE__`, `__SIZEOF_POINTER__`, `__SIZEOF_WCHAR_T__`, `__SCHAR_MAX__`, `__SHRT_MAX__`, `__INT_MAX__`, `__LONG_MAX__`, `__WCHAR_TYPE__`, `__WCHAR_MAX__` and `__SIZE_TYPE__`. Unsigned plain char/wchar add `__CHAR_UNSIGNED__`/`__WCHAR_UNSIGNED__`. These facts are reserved against source/command redefinition or undefinition; no compiler or OS identity macros are invented. The profile also controls [preprocessing expression choices](#conditional-compilation-catalog-and-external-inputs-19).
+
+### Written types and structural identity
+
+The parser builds nested `NamedType`, `QualifiedType`, `PointerType`, `ReferenceType`, `ArrayType`, `FunctionType` and `MemberPointerType` nodes. `NamedType.fundamentalKind()` classifies fundamental spellings. `TypedefDeclaration.type()` owns the aliased syntax; a use retains its written `NamedType.name()` and its `alias()` reference. For `typedef int Count; Count value;`, the written type is `Count`, while `canonicalIdentity()` resolves the alias to `int`.
+
+Declarators are composed from the declared name outward, including parentheses, abstract parameter/type-id declarators, comma-separated declarations, cv levels, function parameters and variadic function types. Consequently `int *a[3]` is an array of pointers, `int (*a)[3]` a pointer to an array, and `int (*f)(double)` a pointer to a function. `int C::*p` has a separate owner type and pointee; a reference is not an ordinary pointer. `ArrayType.bound()` owns an optional expression rather than requiring an integer length. Builders, Visitor dispatch, immutable copying, JSON and C++ generation retain these structures. Typedef recognition respects the implemented global/block/prototype scopes. Function-pointer aliases are supported; a bare function alias declaration such as `typedef int F(double); F f;` is diagnosed as unsupported rather than silently treated as a variable (#24). Simple class/struct bodies support a single access section; variable storage specifiers, default arguments, direct initialization, mixed access sections and full declaration validity are deferred.
+
+`TypeNode.canonicalType()` follows outer typedef aliases; `canonicalIdentity()` recursively records the structure and qualifiers, with function-parameter array/function adjustment and top-level parameter cv handling. Target width is not part of language identity: 32-bit `int` and 32-bit `long` remain different. Portable integer bound arithmetic whose unsuffixed literals and intermediate results fit −32767..32767 is canonicalized, so `int[1+2]` and `int[3]` share an identity; negative division/remainder and target-dependent bounds stay symbolic. This is a structural identity for the implemented syntax, not full C++ type equivalence or overload resolution: unresolved named types and remaining symbolic bound spellings still need later semantic work. General declaration/linkage resolution is #24; overloads, ADL and complete source-type identity are #30.
+
+### Green facts, sizeof and conservative folding
+
+`TypeSemantics.profile(file)` retrieves the owning translation unit’s profile. `describe(type, profile)` returns a `TypeRepresentation` with `canonicalIdentity`, `profileIdentity`, optional `sizeBits`, `sizeBytes`, `alignmentBits` and `integerRange`. `TypeNormalizer.green(project)` attaches it as `TypeNode.semanticType()` without replacing the written nodes or typedef links. `GREEN` and `FOLDED` run this pass; an unchanged edit preserves the facts, while an edit changing the canonical identity invalidates stale facts. Re-run normalization after changing the type or profile. JSON represents typedef references with `aliasId`, recursive types with their owned children and `canonicalIdentity`, and green facts in `semanticType`; unknown fact fields are omitted. `integerRange` uses `minimum`/`maximum`. This omission differs from explicit null alignment entries in an effective profile.
+
+`TypeSemantics.sizeof(type, profile)` and `sizeof(sizeOfExpression, profile)` return `Optional<BigInteger>` in **target bytes**. Known cases include fundamental object types, ordinary pointers, references to a known referent, and arrays with a known element size and positive constant bound. Restricted expression typing handles resolved variables/parameters and other supported expressions; a direct array operand does not decay to a pointer, while an array/function parameter has the adjusted pointer type. `SizeofExpression` owns exactly one type or expression operand. The expression is unevaluated; its syntax is not a runtime data read or write.
+
+`TypeSemantics.layout(fields, profile)` is a separate helper for a supplied ordered list of ordinary non-static object fields. With `aggregateLayout: "sequential"`, each field starts at its alignment, aggregate alignment is the maximum field alignment, and total size includes tail padding to that alignment (minimum one target byte for an empty list). For `char, int`, the default offsets are 0 and 4 target bytes, size 8 and aggregate alignment 32 bits. Overriding int alignment to 8 bits gives offsets 0 and 1, size 5 and alignment 8 bits. `aggregateLayout: "unknown"`, any unknown required size/alignment, or a reference field returns no layout. An unknown alignment alone does not erase a known scalar `sizeof`.
+
+This helper does not derive a complete class layout from `struct` syntax. `void`, function types, incomplete/unresolved classes, member pointers and unmodelled class/base/vtable layouts have no justified size. Such `sizeof` expressions and symbolic bounds remain uncollapsed; this is not yet the complete invalid-`sizeof` diagnostic work of #28. In particular, a structural field list is not a promise of a native C++ ABI.
+
+The ordinary C++ parser recognizes decimal, octal and hexadecimal integers with `U`, `L` and combined suffixes, choosing C++03 candidate types from the target range. Values outside the signed-32-bit node payload are still diagnosed; complete literal values and written-form preservation remain in #25.
+
+C++ constant folding uses the effective integer ranges, promotions and signed/unsigned arithmetic for the supported integer `+`, `-`, `*`, `/` and model-level `%` expressions and unary `+`/`-`, including known `sizeof` values in array bounds. Unsigned results wrap at target width; signed overflow and division by zero prevent folding instead of inventing a value. Internal arithmetic uses `BigInteger`, but published `IntegerLiteral.value()` remains bounded to signed 32-bit storage: larger proven results remain expressions. Synthesized non-int constants retain `cppType` and the corresponding C++ suffix. Full source literal forms, expression conversions and operator coverage are #25; arbitrary symbolic object layout and invalid-`sizeof` diagnosis are #28. Java’s existing folding and translation tests remain unchanged.
+
+The [platform-declarators fixture](../src/test/resources/cpp03/platform-declarators/README.md) and [E2E contract](e2e.en.md#platform-profiles-and-declarators-23) exercise these boundaries through the public API and packaged CLI. Native execution validates the default fixture only; custom-profile facts are compared through API/CLI rather than asserting a foreign ABI on the host compiler.

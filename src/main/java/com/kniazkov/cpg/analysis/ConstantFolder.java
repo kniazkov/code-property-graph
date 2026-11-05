@@ -4,7 +4,8 @@ package com.kniazkov.cpg.analysis;
 import com.kniazkov.cpg.model.*;
 import java.util.*;
 
-/** Evaluates signed 32-bit arithmetic over immutable syntax nodes. Every accepted result fits the prototype integer model. */
+/** Evaluates immutable integer expressions using the owning C++ translation unit's profile.
+ * Java retains its existing conservative signed-32-bit behavior. */
 public final class ConstantFolder {
     private ConstantFolder() {}
 
@@ -15,9 +16,13 @@ public final class ConstantFolder {
     public static Project fold(Project project) {
         var editor = new ProjectEditor(project);
         var order = new ArrayList<Node>();
-        project.walk(new NodeVisitor() {
-            @Override public void visit(Node node) { order.add(node); }
-        });
+        for (SourceFile file : project.files()) {
+            if (file.language() == Language.CPP) {
+                foldCpp(file, editor);
+            } else file.walk(new NodeVisitor() {
+                @Override public void visit(Node node) { order.add(node); }
+            });
+        }
         Map<Node, Integer> constants = new IdentityHashMap<>();
         for (Node node : order.reversed()) {
             if (node instanceof IntegerLiteral literal) {
@@ -46,6 +51,37 @@ public final class ConstantFolder {
                 editor.replace(node, literal.build());
             }
         }
-        return editor.build();
+        Project folded = editor.build();
+        // Recompute green array facts if a symbolic bound was replaced by its value.
+        boolean greenTypes = project.files().stream().anyMatch(file -> file.language() == Language.CPP
+                && hasGreenTypes(file));
+        return greenTypes ? TypeNormalizer.green(folded) : folded;
+    }
+
+    private static boolean hasGreenTypes(SourceFile file) {
+        boolean[] result = {false};
+        file.walk(new NodeVisitor() {
+            @Override public void visit(TypeNode type) { result[0] |= type.semanticType().isPresent(); }
+        });
+        return result[0];
+    }
+
+    private static void foldCpp(SourceFile file, ProjectEditor editor) {
+        var profile = TypeSemantics.profile(file);
+        file.walk(new NodeVisitor() {
+            @Override public void visit(Expression expression) {
+                if (expression instanceof IntegerLiteral) return;
+                ConstantEvaluator.evaluate(expression, profile).ifPresent(value -> {
+                    // The ordinary literal model remains deliberately bounded until its own milestone.
+                    // A large internal value may prove a parent constant but is never truncated for publication.
+                    if (value.number().compareTo(java.math.BigInteger.valueOf(Integer.MIN_VALUE)) < 0
+                            || value.number().compareTo(java.math.BigInteger.valueOf(Integer.MAX_VALUE)) > 0) return;
+                    var literal = IntegerLiteral.create().setValue(value.number().intValueExact());
+                    if (!value.type().spelling().equals("int")) literal.setCppType(value.type().spelling());
+                    expression.range().ifPresent(literal::setRange);
+                    editor.replace(expression, literal.build());
+                });
+            }
+        });
     }
 }

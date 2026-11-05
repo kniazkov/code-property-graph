@@ -9,6 +9,7 @@ import java.util.Optional;
 /** A method or free function with explicit placement. */
 public abstract class CallableDeclaration extends Declaration {
     private String name;
+    private boolean variadic, isConst, isVolatile;
     private List<String> modifiers = List.of();
     private TypeNode returnType;
     private List<ParameterDeclaration> parameters = List.of();
@@ -22,6 +23,10 @@ public abstract class CallableDeclaration extends Declaration {
     public String name() {
         return name;
     }
+
+    public boolean variadic() { return variadic; }
+    public boolean isConst() { return isConst; }
+    public boolean isVolatile() { return isVolatile; }
 
     /** Returns the modifiers of this syntax node. */
     public List<String> modifiers() {
@@ -68,6 +73,7 @@ public abstract class CallableDeclaration extends Declaration {
         Builder<?, ?> builder = emptyBuilder();
         context.register(this, builder);
         builder.name = name;
+        builder.variadic = variadic; builder.isConst = isConst; builder.isVolatile = isVolatile;
         builder.modifiers = new ArrayList<>(modifiers);
         builder.returnType = returnType == null ? null : context.edge(returnType, TypeNode.class);
         builder.parameters = context.copyAll(parameters, ParameterDeclaration.class);
@@ -81,6 +87,7 @@ public abstract class CallableDeclaration extends Declaration {
      * @param <B> concrete builder returned by fluent setters */
     public abstract static class Builder<T extends CallableDeclaration, B extends Builder<T, B>> extends NodeBuilder<T> {
         private String name;
+        private boolean variadic, isConst, isVolatile;
         private List<String> modifiers = new ArrayList<>();
         private NodeBuilder<? extends TypeNode> returnType;
         private List<NodeBuilder<? extends ParameterDeclaration>> parameters = new ArrayList<>();
@@ -91,6 +98,13 @@ public abstract class CallableDeclaration extends Declaration {
         Builder(Class<T> type) {
             super(type);
         }
+
+        public boolean variadic() { return variadic; }
+        public boolean isConst() { return isConst; }
+        public boolean isVolatile() { return isVolatile; }
+        public B setVariadic(boolean value) { variadic = value; return self(); }
+        public B setConst(boolean value) { isConst = value; return self(); }
+        public B setVolatile(boolean value) { isVolatile = value; return self(); }
 
         /** Reads the current name from the builder. */
         public Optional<String> name() {
@@ -178,6 +192,7 @@ public abstract class CallableDeclaration extends Declaration {
         final void fillNode(T shell, BuildContext context) {
             CallableDeclaration node = shell;
             node.name = requiredText(name, "CallableDeclaration.name");
+            node.variadic = variadic; node.isConst = isConst; node.isVolatile = isVolatile;
             node.modifiers = List.copyOf(modifiers);
             node.returnType = returnType == null ? null : context.copy(returnType);
             node.parameters = context.copyAll(parameters);

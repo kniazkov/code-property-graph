@@ -15,7 +15,7 @@ public final class Main {
 
     private static final String USAGE = """
         Usage: java -jar cpg.jar --input DIR --from JAVA|CPP [--stage PARSED|RESOLVED|GREEN|FOLDED]
-                    [--cpp-standard c++03] [--to JAVA|CPP --out NEW_DIR] [--svg FILE] [--json FILE] [--provenance on|off]
+                    [--cpp-standard c++03] [--platform-profile FILE] [--to JAVA|CPP --out NEW_DIR] [--svg FILE] [--json FILE] [--provenance on|off]
         Choose one or more outputs: --out, --svg, --json. Defaults: FOLDED stage, source language as target.
         Use --compile-commands FILE instead of --input DIR to import a C++ build.
         SVG rendering requires Graphviz dot on PATH. Macro provenance is shown by default.
@@ -44,7 +44,7 @@ public final class Main {
         if (args.length == 4 && !args[0].startsWith("--"))
             args = new String[]{"--from", args[0], "--stage", args[1], "--input", args[2], "--out", args[3]};
         Map<String,String> flags = new HashMap<>();
-        Set<String> allowed = Set.of("--input", "--from", "--stage", "--to", "--out", "--svg", "--json", "--cpp-standard", "--compile-commands", "--provenance");
+        Set<String> allowed = Set.of("--input", "--from", "--stage", "--to", "--out", "--svg", "--json", "--cpp-standard", "--compile-commands", "--provenance", "--platform-profile");
         for (int i = 0; i < args.length; i += 2) {
             if (i + 1 >= args.length || !allowed.contains(args[i]) || args[i + 1].startsWith("--")
                     || flags.putIfAbsent(args[i], args[i+1]) != null) throw new IllegalArgumentException(USAGE);
@@ -60,7 +60,8 @@ public final class Main {
         if (!provenance.equals("on") && !provenance.equals("off"))
             throw new IllegalArgumentException("--provenance must be on or off");
         Cpg.Options options = new Cpg.Options(from, stage, flags.get("--cpp-standard"),
-                com.kniazkov.cpg.build.Build.ConfigurationSource.cli(Arrays.asList(args)));
+                com.kniazkov.cpg.build.Build.ConfigurationSource.cli(Arrays.asList(args)),
+                flags.containsKey("--platform-profile") ? com.kniazkov.cpg.build.PlatformProfile.read(Path.of(flags.get("--platform-profile"))) : null);
         Project project = flags.containsKey("--compile-commands")
                 ? Cpg.readCompilationDatabaseRecovering(Path.of(flags.get("--compile-commands")), options)
                 : Cpg.readRecovering(Path.of(flags.get("--input")), options);
@@ -80,6 +81,9 @@ public final class Main {
         // Never invoke any source emitter for an invalid project, including preserved-source
         // replay. Diagnostic exports are independent of the blocked source output.
         Map<String,String> generated = output == null || broken ? Map.of() : Cpg.sources(project, to);
+        // Encode every source before writing any export so malformed/unmappable text
+        // and conflicting physical-file encodings cannot leave partial output.
+        Map<String, byte[]> sourceBytes = encodedSources(project, to, generated);
         if (output != null && !broken && Files.exists(output)) throw new IllegalArgumentException("Output directory already exists: " + output);
         var destinations = new ArrayList<Path>();
         for (String name : generated.keySet()) {
@@ -122,10 +126,51 @@ public final class Main {
                 Path destination = output.resolve(entry.getKey()).normalize();
                 if (!destination.startsWith(output)) throw new IllegalArgumentException("Unsafe output path: " + entry.getKey());
                 Files.createDirectories(destination.getParent());
-                Files.writeString(destination, entry.getValue(), StandardOpenOption.CREATE_NEW);
+                Files.write(destination, sourceBytes.get(entry.getKey()), StandardOpenOption.CREATE_NEW);
             }
             System.out.println("Generated " + generated.size() + " " + to + " file(s) in " + output);
         }
+    }
+
+    private static Map<String, byte[]> encodedSources(Project project, Language target, Map<String, String> generated) {
+        var encodings = new HashMap<String, java.nio.charset.Charset>();
+        var rootNames = new HashMap<String, Set<java.nio.charset.Charset>>();
+        Path base = null;
+        if (target == Language.CPP && !generated.isEmpty()) {
+            for (var file : project.files()) if (file.language() == Language.CPP && file.provenance().isPresent()) {
+                var unit = file.provenance().orElseThrow().unit();
+                Path directory = Path.of(unit.translationUnit()).getParent();
+                if (base == null) base = directory;
+                else while (!directory.startsWith(base)) base = base.getParent();
+                var charset = java.nio.charset.Charset.forName(unit.configuration().platform().sourceEncoding());
+                for (String path : unit.sources().keySet()) putEncoding(encodings, path, charset);
+                rootNames.computeIfAbsent(file.path(), ignored -> new HashSet<>()).add(charset);
+            }
+        }
+        var result = new LinkedHashMap<String, byte[]>();
+        for (var entry : generated.entrySet()) {
+            var charset = base == null ? null : encodings.get(base.resolve(entry.getKey()).normalize().toString());
+            if (charset == null) {
+                var candidates = rootNames.getOrDefault(entry.getKey(), Set.of(java.nio.charset.StandardCharsets.UTF_8));
+                if (candidates.size() != 1) throw new IllegalArgumentException("Conflicting source encodings for " + entry.getKey());
+                charset = candidates.iterator().next();
+            }
+            try {
+                var buffer = charset.newEncoder().encode(java.nio.CharBuffer.wrap(entry.getValue()));
+                byte[] bytes = new byte[buffer.remaining()]; buffer.get(bytes);
+                result.put(entry.getKey(), bytes);
+            } catch (java.nio.charset.CharacterCodingException ex) {
+                throw new IllegalArgumentException("Generated source " + entry.getKey() + " is not representable in " + charset, ex);
+            }
+        }
+        return result;
+    }
+
+    private static void putEncoding(Map<String, java.nio.charset.Charset> encodings, String path,
+            java.nio.charset.Charset charset) {
+        var previous = encodings.putIfAbsent(path, charset);
+        if (previous != null && !previous.equals(charset))
+            throw new IllegalArgumentException("Conflicting source encodings for " + path + ": " + previous + " and " + charset);
     }
 
     /** One primary error per root cause, with distinct evidence retained as labeled notes. */
