@@ -150,7 +150,7 @@ public final class ControlFlow {
                     && !(e instanceof ConversionExpression) && !(e instanceof ConditionDeclarationExpression)) return true;
             return node.children().stream().anyMatch(this::unsupportedEvaluation);
         }
-        /** A catalogue pair<iterator,bool> carries no user record lifetime. Do not
+        /** A catalogue {@code pair<iterator,bool>} carries no user record lifetime. Do not
          * generalize this exception to arbitrary record-valued library calls. */
         boolean trivialAssociativeInsertResult(Expression expression) {
             if (!(expression instanceof CallExpression call)) return false;
