@@ -18,11 +18,14 @@ final class PreservedSource {
     private record Edit(Context context, Patch patch) {}
     private record Requirement(Context context, String text) {}
 
-    static boolean applicable(Project project) {
+    static boolean captured(Project project) {
         return !project.files().isEmpty()
                 && project.files().stream().allMatch(f -> f.language() == Language.CPP
-                    && f.provenance().map(p -> p.unit().configuration() != null).orElse(false))
-                && (project.files().stream().map(f -> f.provenance().orElseThrow().unit().translationUnit())
+                    && f.provenance().map(p -> p.unit().configuration() != null).orElse(false));
+    }
+
+    static boolean applicable(Project project) {
+        return captured(project) && (project.files().stream().anyMatch(f -> !f.comments().isEmpty()) || project.files().stream().map(f -> f.provenance().orElseThrow().unit().translationUnit())
                     .distinct().count() < project.files().size() || project.files().stream().anyMatch(f -> {
                     var unit = f.provenance().orElseThrow().unit();
                     return !unit.branches().isEmpty() || !unit.expansions().isEmpty() || unit.sources().size() > 1 || hasDirectives(unit);
@@ -39,7 +42,10 @@ final class PreservedSource {
         return false;
     }
 
-    static Map<String, String> files(Project project) {
+    static Map<String, String> files(Project project) { return emit(project, false); }
+    static Map<String, String> physicalSources(Project project) { return emit(project, true); }
+
+    private static Map<String, String> emit(Project project, boolean physicalOutput) {
         var originals = new LinkedHashMap<String, String>();
         var records = new ArrayList<Preprocessing>();
         Path base = null;
@@ -60,6 +66,8 @@ final class PreservedSource {
         Project desired = normalize(project);
         var patches = new ArrayList<Edit>();
         for (int i = 0; i < baseline.files().size(); i++) {
+            if (!commentSignature(baseline.files().get(i)).equals(commentSignature(desired.files().get(i))))
+                throw unsupported("comment catalogue was edited; use the explicit comment-removal utility or canonical Source.render");
             var pairs = new ArrayList<Pair>();
             var changes = new ArrayList<Pair>();
             diff(baseline.files().get(i), desired.files().get(i), pairs, changes);
@@ -105,7 +113,7 @@ final class PreservedSource {
                                 + " in " + range.file() + "; use a narrower replacement");
                 patches.add(new Edit(new Context(i, includeId),
                         new Patch(range.file(), range.start().offset(), range.end().offset(),
-                                Source.renderFragment(selected.after(), Language.CPP, insideBlock(baseline.files().get(i), selected.before(), false)))));
+                                retainedComments(unit, range) + Source.renderFragment(selected.after(), Language.CPP, insideBlock(baseline.files().get(i), selected.before(), false)))));
             }
         }
         // Include unchanged active occurrences in reconciliation, not just edited
@@ -124,6 +132,7 @@ final class PreservedSource {
         for (int i = 0; i < checked.files().size(); i++)
             if (!render(checked.files().get(i)).equals(render(desired.files().get(i))))
                 throw unsupported("emitted source changes the effective expansion of " + records.get(i).translationUnit());
+        if (physicalOutput) return Collections.unmodifiableMap(emitted);
         Map<String, String> result = new LinkedHashMap<>();
         for (var entry : emitted.entrySet()) {
             Path physical = Path.of(entry.getKey());
@@ -273,7 +282,18 @@ final class PreservedSource {
         return normalize(project.build());
     }
     private static Project normalize(Project project) { return ConsoleNormalizer.green(NameResolver.resolve(project)); }
-    private static String render(Node node) { return Source.render(node, Language.CPP); }
+    private static String render(Node node) { return Source.renderFragment(node, Language.CPP, false); }
+
+    private static List<String> commentSignature(SourceFile file) {
+        return file.comments().stream().map(comment -> comment.kind() + "|" + comment.range() + "|" + comment.text()).toList();
+    }
+
+    private static String retainedComments(Preprocessing unit, SourceRange range) {
+        return com.kniazkov.cpg.parser.CppLexer.scan(range.file(), unit.sources().get(range.file()))
+                .comments().stream().filter(comment -> comment.range().start().offset() >= range.start().offset()
+                    && comment.range().end().offset() <= range.end().offset())
+                .map(comment -> Source.terminateComment(comment.text())).collect(java.util.stream.Collectors.joining());
+    }
 
     private static boolean insideBlock(Node root, Node target, boolean local) {
         if (root == target) return local;
@@ -303,13 +323,17 @@ final class PreservedSource {
             }
             changes.add(pair); return;
         }
-        if (before.getClass() != after.getClass() || before.children().size() != after.children().size()) {
+        var oldChildren = syntaxChildren(before);
+        var newChildren = syntaxChildren(after);
+        if (before.getClass() != after.getClass() || oldChildren.size() != newChildren.size()) {
             changes.add(pair); return;
         }
         int count = changes.size();
-        for (int i = 0; i < before.children().size(); i++) diff(before.children().get(i), after.children().get(i), pairs, changes);
+        for (int i = 0; i < oldChildren.size(); i++) diff(oldChildren.get(i), newChildren.get(i), pairs, changes);
         if (count == changes.size()) changes.add(pair);
     }
+
+    private static List<Node> syntaxChildren(Node node) { return node.children().stream().filter(child -> !(child instanceof Comment)).toList(); }
 
     private static boolean changedType(Node before, Node after) {
         var oldTypes = before.children().stream().filter(TypeNode.class::isInstance).toList();

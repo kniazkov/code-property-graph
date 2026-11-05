@@ -58,6 +58,14 @@ public abstract class NodeBuilder<T extends Node> {
     public final void setDefinition(NodeBuilder<? extends Declaration> value) { definition = Objects.requireNonNull(value); }
     public final void clearDefinition() { definition = null; }
     Object editIdentity;
+    java.util.List<NodeBuilder<? extends Comment>> commentReferences = java.util.List.of();
+    public final void setCommentReferences(java.util.List<? extends NodeBuilder<? extends Comment>> values) {
+        commentReferences = java.util.List.copyOf(values);
+    }
+    public final void addCommentReference(NodeBuilder<? extends Comment> value) {
+        var values = new java.util.ArrayList<>(commentReferences);
+        values.add(Objects.requireNonNull(value)); commentReferences = java.util.List.copyOf(values);
+    }
     SourceRange origin;
     TokenProvenance provenance;
     TypeRepresentation typeRepresentation;

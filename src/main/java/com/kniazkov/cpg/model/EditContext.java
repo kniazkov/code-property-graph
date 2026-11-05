@@ -96,6 +96,7 @@ final class EditContext {
         if (builders.putIfAbsent(node, builder) != null) {
             throw new IllegalStateException("Node already registered");
         }
+        builder.commentReferences = copyAll(node.commentReferences(), Comment.class);
         if (node instanceof Expression expression) {
             builder.operatorCandidates = copyAll(expression.operatorCandidates(), CallableDeclaration.class);
             builder.operatorResolution = expression.operatorResolution();
