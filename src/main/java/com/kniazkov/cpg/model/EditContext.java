@@ -12,6 +12,15 @@ import java.util.Map;
  * Independent edit calls allocate independent maps. */
 final class EditContext {
     private EditContext referenceContext;
+    private java.util.Set<Node> localDeclarations = java.util.Set.of();
+    /** Independent owned syntax copy with shared external declaration references. */
+    EditContext fork(Node owned, Map<Node, Node> substitutions) {
+        var result = new EditContext(substitutions, java.util.Set.of());
+        result.referenceContext = this;
+        result.localDeclarations = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        owned.walk(new NodeVisitor() { @Override public void visit(Declaration node) { result.localDeclarations.add(node); } });
+        return result;
+    }
     private final Map<Node, NodeBuilder<?>> builders = new IdentityHashMap<>();
 
     private final Map<Node, Node> replacements;
@@ -36,9 +45,13 @@ final class EditContext {
     /** Applies scheduled replacements at an edge and verifies the destination slot type. */
     @SuppressWarnings("unchecked")
     <T extends Node> NodeBuilder<? extends T> edge(Node node, Class<T> type) {
-        if (referenceContext != null && node instanceof Declaration) return referenceContext.edge(node, type);
+        if (referenceContext != null && node instanceof Declaration && !localDeclarations.contains(node)) return referenceContext.edge(node, type);
         Node replacement = replacements.getOrDefault(node, node);
-        NodeBuilder<? extends T> result = copy(type.cast(replacement));
+        NodeBuilder<? extends T> result;
+        if (replacement != node && replacement instanceof TypeNode && referenceContext != null) {
+            var occurrence = new EditContext(); occurrence.referenceContext = referenceContext;
+            result = occurrence.copy(type.cast(replacement));
+        } else result = copy(type.cast(replacement));
         if (replacement != node) {
             if (result.origin == null) result.origin = node.origin;
             if (result.provenance == null) result.provenance = node.provenance;
@@ -92,11 +105,11 @@ final class EditContext {
         builder.origin = node.origin;
         builder.provenance = node.provenance;
         if (node instanceof TypeNode type) builder.typeRepresentation = type.semanticType().orElse(null);
-        if (node instanceof Expression expression) builder.expressionInfo = expression.semanticInfo().orElse(null);
+        if (node instanceof Expression expression) { builder.expressionInfo = expression.semanticInfo().orElse(null); builder.dependent = expression.dependent(); }
         if (builders.putIfAbsent(node, builder) != null) {
             throw new IllegalStateException("Node already registered");
         }
-        builder.commentReferences = copyAll(node.commentReferences(), Comment.class);
+        builder.commentReferences = (referenceContext == null ? this : referenceContext).copyAll(node.commentReferences(), Comment.class);
         if (node instanceof Expression expression) {
             builder.operatorCandidates = copyAll(expression.operatorCandidates(), CallableDeclaration.class);
             builder.operatorResolution = expression.operatorResolution();

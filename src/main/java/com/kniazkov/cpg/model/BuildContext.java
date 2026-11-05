@@ -46,6 +46,14 @@ final class BuildContext {
     /** Copies the reachable graph, validates ownership, then publishes its root. */
     <T extends Node> T build(NodeBuilder<T> root) {
         T result = copy(root);
+        if (result instanceof Project project) {
+            var discarded = project.invalidateTemplateInstances();
+            if (!discarded.isEmpty()) {
+                Set<Node> retained = Collections.newSetFromMap(new IdentityHashMap<>());
+                collect(project, retained);
+                nodes.entrySet().removeIf(entry -> !retained.contains(entry.getValue()));
+            }
+        }
         for (Node node : nodes.values()) if (node instanceof CallExpression call) call.validateDefaultArguments();
         validateStructure(result);
         invalidateDependentFacts(result);
@@ -76,7 +84,7 @@ final class BuildContext {
         node.origin = builder.origin;
         node.provenance = builder.provenance;
         if (node instanceof TypeNode type) type.representation = builder.typeRepresentation;
-        if (node instanceof Expression expression) expression.expressionInfo = builder.expressionInfo;
+        if (node instanceof Expression expression) { expression.expressionInfo = builder.expressionInfo; expression.dependent = builder.dependent; }
         nodes.put(builder, node);
         builder.fillNode(node, this);
         node.commentReferences = copyAll(builder.commentReferences);
@@ -124,6 +132,10 @@ final class BuildContext {
             });
             Set<Node> owned = Collections.newSetFromMap(new IdentityHashMap<>());
             collect(root, owned);
+            for (Node node : owned) {
+                if (java.util.stream.Stream.concat(node.references().stream(), node.commentReferences().stream()).anyMatch(reference -> !owned.contains(reference)))
+                    throw new IllegalStateException("Project reference points outside its syntax tree");
+            }
             if (owned.size() != nodes.size()) {
                 throw new IllegalStateException("Project reference points outside its syntax tree");
             }

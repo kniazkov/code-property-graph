@@ -8,6 +8,8 @@ import java.util.Objects;
  * Reusing a builder as a reference target preserves object identity in the snapshot.
  * @param <T> exact snapshot class allocated by this builder */
 public abstract class NodeBuilder<T extends Node> {
+    boolean dependent;
+    public NodeBuilder<T> setDependent(boolean value) { dependent = value; return this; }
     ExpressionInfo expressionInfo;
     boolean syntaxEdited, operatorBindingCopied;
     public final void clearExpressionInfo() { expressionInfo = null; syntaxEdited = true; clearOperatorBinding(); }

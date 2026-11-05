@@ -26,10 +26,11 @@ public final class StandardConversions {
 
     public static Project analyze(Project project) {
         var editor = new ProjectEditor(project);
-        for (var file : project.files()) {
+        for (var root : SourceContexts.roots(project)) {
+            var file = root.source();
             if (file.language() != Language.CPP) continue;
             var profile = TypeSemantics.profile(file);
-            file.walk(new NodeVisitor() {
+            root.node().walk(new NodeVisitor() {
                 @Override public void visit(Expression expression) {
                     if (OperatorSemantics.mayInvokeUserCode(expression)) convertOperatorArguments(editor, expression, profile);
                 }
@@ -108,13 +109,15 @@ public final class StandardConversions {
         preserveDiagnostics(project, editor);
         Project converted = editor.build();
         var facts = new ProjectEditor(converted);
-        for (var file : converted.files()) if (file.language() == Language.CPP) {
+        for (var root : SourceContexts.roots(converted)) {
+            var file = root.source();
+            if (file.language() != Language.CPP) continue;
             var profile = TypeSemantics.profile(file);
             boolean[] green = {false};
-            file.walk(new NodeVisitor() {
+            root.node().walk(new NodeVisitor() {
                 @Override public void visit(TypeNode type) { green[0] |= type.semanticType().isPresent(); }
             });
-            file.walk(new NodeVisitor() {
+            root.node().walk(new NodeVisitor() {
                 @Override public void visit(TypeNode type) {
                     if (green[0]) facts.describe(type, TypeSemantics.describe(type, profile));
                 }

@@ -233,7 +233,8 @@ public final class Source {
                 || declaration instanceof NamespaceDeclaration || declaration instanceof NamespaceAliasDeclaration
                 || declaration instanceof UsingDirective || declaration instanceof UsingDeclaration
                 || declaration instanceof EnumDeclaration || declaration instanceof EnumeratorDeclaration
-                || declaration instanceof ClassDeclaration cls && (!cls.isDefinition() || !cls.keyword().equals("class") || !cls.bases().isEmpty())
+                || declaration instanceof TemplateParameterDeclaration
+                || declaration instanceof ClassDeclaration cls && (!cls.templateParameters().isEmpty() || !cls.isDefinition() || !cls.keyword().equals("class") || !cls.bases().isEmpty())
                 || !declaration.languageLinkage().equals("C++")
                 || declaration instanceof VariableDeclaration variable && (!variable.modifiers().isEmpty() || variable.bitWidth().isPresent() || variable.initializer().orElse(null) instanceof InitializationExpression)
                 || declaration instanceof ParameterDeclaration parameter && (!parameter.modifiers().isEmpty() || parameter.defaultValue().isPresent())
@@ -329,6 +330,33 @@ public final class Source {
         return classStart(cls) + "    " + signature + " " + emit(body, 1) + classEnd();
     }
 
+    private String templateHead(List<TemplateParameterDeclaration> parameters, int level) {
+        return parameters.isEmpty() ? "" : "    ".repeat(level) + "template <"
+                + parameters.stream().map(this::templateParameter).collect(Collectors.joining(", ")) + " >\n";
+    }
+
+    private String templateParameter(TemplateParameterDeclaration parameter) {
+        String written = switch (parameter.kind()) {
+            case TYPE -> parameter.keyword() + (parameter.name().isEmpty() ? "" : " " + parameter.name());
+            case VALUE -> declaration(parameter.type().orElseThrow(), parameter.name());
+            case TEMPLATE -> "template <" + parameter.templateParameters().stream().map(this::templateParameter)
+                    .collect(Collectors.joining(", ")) + " > " + parameter.keyword() + " " + parameter.name();
+        };
+        return written + parameter.defaultArgument().map(argument -> " = " + emit(argument, 0)).orElse("");
+    }
+
+    private String templateArguments(boolean present, List<TemplateArgument> arguments) {
+        // C++03 closes nested template-ids using separate > tokens.
+        return present ? "<" + arguments.stream().map(argument -> emit(argument, 0)).collect(Collectors.joining(", ")) + " >" : "";
+    }
+
+    private String namedType(NamedType type) {
+        String name = type.qualifier().map(qualifier -> namedType(qualifier) + "::"
+                + (type.templateKeyword() ? "template " : "") + type.name().substring(type.name().lastIndexOf("::") + 2))
+                .orElseGet(() -> (type.templateKeyword() ? "template " : "") + type.name());
+        return (type.typenameKeyword() ? "typename " : "") + name + templateArguments(type.hasTemplateArguments(), type.templateArguments());
+    }
+
     private String classStart(ClassDeclaration cls) {
         String access = cls.isFriend() && target == Language.CPP ? "friend " : target == Language.JAVA && cls.modifiers().contains("public") ? "public " : "";
         return access + (target == Language.CPP ? cls.keyword() : "class") + " " + cls.name() + (cls.bases().isEmpty() ? "" : " : " + cls.bases().stream().map(base -> emit(base, 0)).collect(Collectors.joining(", "))) + " {\n" + (target == Language.CPP ? cls.memberAccess() + ":\n" : "");
@@ -367,7 +395,8 @@ public final class Source {
         return switch (n) {
             case Comment ignored -> "";
             case DocumentationEntry ignored -> "";
-            case TemplateParameterDeclaration p -> p.keyword() + " " + p.name();
+            case TemplateParameterDeclaration p -> templateParameter(p);
+            case TemplateArgument a -> a.type().map(t -> declaration(t, "")).orElseGet(() -> emit(a.expression().orElseThrow(), 0));
             case SourceFile f -> f.items().stream().map(item -> emit(item, level)).collect(Collectors.joining("\n"));
             case IncludeDirective i when target == Language.CPP -> "#include " + (i.system() ? "<" + i.header() + ">" : "\"" + i.header() + "\"") + "\n";
             case NamespaceDeclaration namespace -> pad + "namespace" + (namespace.anonymous() ? "" : " " + namespace.name()) + " {\n"
@@ -378,9 +407,9 @@ public final class Source {
             case EnumDeclaration enumeration -> pad + "enum" + (enumeration.name().isEmpty() ? "" : " " + enumeration.name()) + " { "
                     + enumeration.enumerators().stream().map(value -> emit(value, 0)).collect(Collectors.joining(", ")) + " };\n";
             case EnumeratorDeclaration value -> value.name() + value.value().map(expression -> " = " + emit(expression, 0)).orElse("");
-            case ClassDeclaration c -> c.implicit() ? "" : !c.isDefinition() ? pad + (c.isFriend() ? "friend " : "") + c.keyword() + " " + c.name() + ";\n"
-                    : pad + classStart(c) + classMembers(c, level + 1) + pad + classEnd();
-            case CallableDeclaration f -> linkage(f, (f.templateParameters().isEmpty() ? "" : pad + "template <" + f.templateParameters().stream().map(p -> emit(p, 0)).collect(Collectors.joining(", ")) + ">\n") + pad + (f.isFriend() ? "friend " : "") + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
+            case ClassDeclaration c -> c.implicit() ? "" : !c.isDefinition() ? templateHead(c.templateParameters(), level) + pad + (c.isFriend() ? "friend " : "") + c.keyword() + " " + c.name() + ";\n"
+                    : templateHead(c.templateParameters(), level) + pad + classStart(c) + classMembers(c, level + 1) + pad + classEnd();
+            case CallableDeclaration f -> linkage(f, templateHead(f.templateParameters(), level) + pad + (f.isFriend() ? "friend " : "") + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
                     + (f.writtenType().isPresent() ? declaration(f.writtenType().orElseThrow(), f.name()) + ";\n"
                         : callableHead(f)
                             + f.body().map(b -> " " + emit(b, level) + f.handlers().stream().map(h -> emit(h, level)).collect(Collectors.joining())).orElse(f.isPureVirtual() ? " = 0;\n" : ";\n")), level);
@@ -444,8 +473,8 @@ public final class Source {
             case PostfixIncrementExpression u -> "((" + emit(u.operand(), 0) + ")++)";
             case PostfixDecrementExpression u -> "((" + emit(u.operand(), 0) + ")--)";
             case SizeofExpression size -> "sizeof(" + size.type().map(t -> declaration(t, "")).orElseGet(() -> emit(size.operand().orElseThrow(), 0)) + ")";
-            case NameExpression name -> name.name();
-            case MemberExpression m -> emit(m.receiver(), 0) + separator(m) + m.member();
+            case NameExpression name -> (name.templateKeyword() ? "template " : "") + name.name() + templateArguments(name.hasTemplateArguments(), name.templateArguments());
+            case MemberExpression m -> emit(m.receiver(), 0) + separator(m) + (m.templateKeyword() ? "template " : "") + m.member() + templateArguments(m.hasTemplateArguments(), m.templateArguments());
             case CallExpression c -> emit(c.callee(), 0) + "(" + c.arguments().stream().map(e -> emit(e, 0)).collect(Collectors.joining(", ")) + ")";
             // Parenthesizing a qualified member operand changes &C::m into an invalid object access.
             case AddressOfExpression u when u.operand() instanceof ScopeMemberExpression
@@ -521,7 +550,7 @@ public final class Source {
     private String declaration(TypeNode type, String name) { return declaration(type, name, ""); }
     private String declaration(TypeNode type, String name, String qualifiers) {
         return switch (type) {
-            case NamedType n -> n.elaboratedKeyword().map(keyword -> keyword + " ").orElse("") + n.name() + qualifiers + (name.isEmpty() ? "" : " " + name);
+            case NamedType n -> n.elaboratedKeyword().map(keyword -> keyword + " ").orElse("") + namedType(n) + qualifiers + (name.isEmpty() ? "" : " " + name);
             case QualifiedType q -> declaration(q.baseType(), name, qualifiers + (q.isConst() ? " const" : "") + (q.isVolatile() ? " volatile" : ""));
             case PointerType p -> declaration(p.pointee(), grouped(p.pointee(), "*" + qualifiers + (qualifiers.isEmpty() ? "" : " ") + name));
             case ReferenceType r -> declaration(r.referredType(), grouped(r.referredType(), "&" + name));

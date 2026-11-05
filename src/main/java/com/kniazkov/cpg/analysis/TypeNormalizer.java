@@ -8,9 +8,11 @@ public final class TypeNormalizer {
     private TypeNormalizer() {}
     public static Project green(Project project) {
         var editor = new ProjectEditor(project);
-        for (SourceFile file : project.files()) if (file.language() == Language.CPP) {
+        for (var root : SourceContexts.roots(project)) {
+            SourceFile file = root.source();
+            if (file.language() != Language.CPP) continue;
             var profile = TypeSemantics.profile(file);
-            file.walk(new NodeVisitor() {
+            root.node().walk(new NodeVisitor() {
                 @Override public void visit(TypeNode type) { editor.describe(type, TypeSemantics.describe(type, profile)); }
             });
         }

@@ -27,11 +27,11 @@ public final class TypeIdentity {
         if (!seen.add(type)) throw new IllegalStateException("Cyclic type identity");
         try {
             return switch (type) {
-                case NamedType n -> n.fundamentalKind().map(FundamentalKind::spelling).orElseGet(() -> "named(" + n.declaration().map(declaration -> dependentNames.getOrDefault(declaration, declaration.typeIdentity().orElse(n.name()))).orElse(n.name()) + ")");
+                case NamedType n -> namedIdentity(n, seen, dependentNames);
                 case QualifiedType q -> qualified(q.baseType(), q.isConst(), q.isVolatile(), seen, dependentNames);
                 case PointerType p -> "pointer(" + identity(p.pointee(), seen, dependentNames) + ")";
                 case ReferenceType r -> "reference(" + identity(r.referredType(), seen, dependentNames) + ")";
-                case ArrayType a -> "array(" + bound(a) + "," + identity(a.elementType(), seen, dependentNames) + ")";
+                case ArrayType a -> "array(" + bound(a, seen, dependentNames) + "," + identity(a.elementType(), seen, dependentNames) + ")";
                 case FunctionType f -> "function(" + f.parameters().stream().map(p -> parameter(p.type().orElseThrow(), seen, dependentNames)).collect(Collectors.joining(","))
                         + (f.variadic() ? ",..." : "") + ")->" + identity(f.returnType(), seen, dependentNames)
                         + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : "");
@@ -50,7 +50,7 @@ public final class TypeIdentity {
         // Typedef-applied array cv belongs to every array element; references ignore it.
         if (type instanceof ArrayType a) {
             if (!seen.add(type)) throw new IllegalStateException("Cyclic array type identity");
-            try { return "array(" + bound(a) + "," + qualified(a.elementType(), c, v, seen, dependentNames) + ")"; }
+            try { return "array(" + bound(a, seen, dependentNames) + "," + qualified(a.elementType(), c, v, seen, dependentNames) + ")"; }
             finally { seen.remove(type); }
         }
         if (type instanceof ReferenceType) return identity(type, seen, dependentNames);
@@ -78,8 +78,48 @@ public final class TypeIdentity {
         if (type instanceof FunctionType f) return "pointer(" + identity(f, seen, dependentNames) + ")";
         return identity(type, seen, dependentNames);
     }
-    private static String bound(ArrayType type) {
-        return type.bound().map(e -> portableInteger(e).map(Object::toString).orElseGet(() -> e.source(Language.CPP))).orElse("");
+    private static String namedIdentity(NamedType type, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
+        if (type.fundamentalKind().isPresent()) return type.fundamentalKind().orElseThrow().spelling();
+        String name = type.declaration().map(declaration -> dependentNames.getOrDefault(declaration,
+                declaration.typeIdentity().orElse(type.name()))).orElse(type.name());
+        if (type.qualifier().filter(qualifier -> contextualQualifier(qualifier, dependentNames)).isPresent()) {
+            name = identity(type.qualifier().orElseThrow(), seen, dependentNames) + "::" + type.name().substring(type.name().lastIndexOf("::") + 2);
+        }
+        return "named(" + name + arguments(type.templateArguments(), type.hasTemplateArguments(), seen, dependentNames) + ")";
+    }
+    private static boolean contextualQualifier(NamedType type, Map<? extends Declaration, String> dependentNames) {
+        return type.hasTemplateArguments() || type.declaration().filter(dependentNames::containsKey).isPresent()
+                || type.qualifier().map(qualifier -> contextualQualifier(qualifier, dependentNames)).orElse(false);
+    }
+    private static String arguments(List<TemplateArgument> arguments, boolean present, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
+        if (!present) return "";
+        return arguments.stream().map(argument -> argument.kind().name() + "(" + argument.type()
+                .map(type -> identity(type, seen, dependentNames)).orElseGet(() -> expression(argument.expression().orElseThrow(), seen, dependentNames)) + ")")
+                .collect(Collectors.joining(",", "<", ">"));
+    }
+    /** Structural value syntax normalizes bound parameter references by declaration position. */
+    private static String expression(Expression value, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
+        if (value instanceof IntegerLiteral literal) return "integer(" + literal.cppType().orElse("int") + ":" + literal.bigValue() + ")";
+        if (value instanceof BooleanLiteral literal) return "boolean(" + literal.value() + ")";
+        if (value instanceof CharacterLiteral literal) return "character(" + literal.cppType() + ":" + literal.value() + ")";
+        if (value instanceof FloatingLiteral literal) return "floating(" + literal.cppType() + ":" + literal.value().stripTrailingZeros() + ")";
+        if (value instanceof StringLiteral literal) return "string(" + literal.wide() + ":" + literal.codeUnits() + ")";
+        if (value instanceof NameExpression name) return "name(" + name.target().map(target -> dependentNames.getOrDefault(target,
+                target.typeIdentity().orElse(name.name()))).orElse(name.name())
+                + arguments(name.templateArguments(), name.hasTemplateArguments(), seen, dependentNames) + ")";
+        if (value instanceof MemberExpression member) return value.getClass().getSimpleName() + "(" + expression(member.receiver(), seen, dependentNames)
+                + "," + member.member() + arguments(member.templateArguments(), member.hasTemplateArguments(), seen, dependentNames) + ")";
+        String tag = value.getClass().getSimpleName();
+        if (value instanceof ConversionExpression conversion) tag += ":" + conversion.kind();
+        if (value instanceof CompoundAssignmentExpression assignment) tag += ":" + assignment.operator();
+        return tag + value.children().stream().map(child -> {
+            if (child instanceof Expression childExpression) return expression(childExpression, seen, dependentNames);
+            if (child instanceof TypeNode type) return identity(type, seen, dependentNames);
+            throw new IllegalArgumentException("Unsupported value-argument child " + child.getClass().getName());
+        }).collect(Collectors.joining(",", "(", ")"));
+    }
+    private static String bound(ArrayType type, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
+        return type.bound().map(e -> portableInteger(e).map(Object::toString).orElseGet(() -> expression(e, seen, dependentNames))).orElse("");
     }
     /** Only folds values representable by every C++03 signed int. Target-dependent bounds stay symbolic. */
     private static Optional<Integer> portableInteger(Expression expression) {

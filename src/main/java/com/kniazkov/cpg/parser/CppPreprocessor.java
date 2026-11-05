@@ -165,7 +165,7 @@ public final class CppPreprocessor {
     }
 
     // Deliberately only the library header currently modeled by the parser.
-    private static final Set<String> OPAQUE_HEADERS = Set.of("iostream");
+    private static final Set<String> OPAQUE_HEADERS = Set.of("iostream", "vector");
     private record Macro(long id, String name, List<String> parameters, List<Work> replacement, SourceRange definition, SourceRange fullDefinition) {}
     private record Work(ExpandedToken value, Set<String> hidden, boolean paste,
             boolean anchor, List<Fragment> fragments) {

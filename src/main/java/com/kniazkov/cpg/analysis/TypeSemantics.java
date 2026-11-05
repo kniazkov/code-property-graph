@@ -9,6 +9,18 @@ import java.util.*;
 /** Conservative scalar, pointer and array layout. No host ABI is consulted.
  * Function, void, incomplete, member-pointer and unmodelled class layouts remain unknown. */
 public final class TypeSemantics {
+    /** Dependency is structural; unknown concrete names are not assumed to be dependent. */
+    public static boolean dependent(Node node) {
+        if (node instanceof NamedType type && (type.dependent() || type.declaration().orElse(null) instanceof TemplateParameterDeclaration)) return true;
+        if (node instanceof NameExpression name && name.target().isPresent()) {
+            Declaration target = name.target().get();
+            if (target instanceof TemplateParameterDeclaration) return true;
+            if (target instanceof ParameterDeclaration parameter && parameter.type().map(TypeSemantics::dependent).orElse(false)) return true;
+            if (target instanceof VariableDeclaration variable && variable.type().map(TypeSemantics::dependent).orElse(false)) return true;
+        }
+        return node.children().stream().anyMatch(TypeSemantics::dependent);
+    }
+
     private TypeSemantics() {}
 
     /** The effective profile belongs to the TU occurrence, not to the physical header path. */
@@ -94,6 +106,7 @@ public final class TypeSemantics {
         return layout(owner, profile, Collections.newSetFromMap(new IdentityHashMap<>()));
     }
     private static Optional<AggregateLayout> layout(ClassDeclaration owner, PlatformProfile profile, Set<TypeNode> active) {
+        if (LibraryDeclarations.isLibrary(owner) || !owner.templateParameters().isEmpty()) return Optional.empty();
         if (!owner.isDefinition() || owner.keyword().equals("union") || !ClassSemantics.aggregate(owner)) return Optional.empty();
         var fields = owner.members().stream().filter(VariableDeclaration.class::isInstance)
                 .map(VariableDeclaration.class::cast).filter(field -> !field.modifiers().contains("static")).toList();
@@ -345,6 +358,7 @@ public final class TypeSemantics {
     }
     private static Optional<TypeNode> declarationType(Optional<Declaration> declaration) {
         return declaration.flatMap(target -> {
+            if (target instanceof TemplateParameterDeclaration parameter) return parameter.type();
             if (target instanceof VariableDeclaration variable) return variable.type();
             if (target instanceof ParameterDeclaration parameter) return parameter.type().map(TypeSemantics::decay);
             if (target instanceof CallableDeclaration callable) {
