@@ -43,7 +43,7 @@ public final class Source {
                         || n instanceof ScopeMemberExpression || n instanceof PointerMemberExpression
                         || n instanceof NameExpression name && name.name().contains("::")
                         || n instanceof AddressOfExpression || n instanceof DereferenceExpression
-                        || n instanceof FloatingLiteral || n instanceof CharacterLiteral || n instanceof StringLiteral
+                        || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CharacterLiteral || n instanceof StringLiteral
                         || n instanceof CommaExpression || n instanceof DotMemberPointerExpression || n instanceof ArrowMemberPointerExpression
                         || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion) || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression
                         || n instanceof ConditionalExpression
@@ -186,14 +186,15 @@ public final class Source {
 
     /** These source constructs have no supported Java translation. */
     private static boolean cppOnlyDeclaration(Declaration declaration) {
-        return declaration instanceof NamespaceDeclaration || declaration instanceof NamespaceAliasDeclaration
+        return declaration.isFriend() || declaration.access().filter(access -> !access.equals("public")).isPresent()
+                || declaration instanceof NamespaceDeclaration || declaration instanceof NamespaceAliasDeclaration
                 || declaration instanceof UsingDirective || declaration instanceof UsingDeclaration
                 || declaration instanceof EnumDeclaration || declaration instanceof EnumeratorDeclaration
-                || declaration instanceof ClassDeclaration cls && (!cls.isDefinition() || !cls.keyword().equals("class"))
+                || declaration instanceof ClassDeclaration cls && (!cls.isDefinition() || !cls.keyword().equals("class") || !cls.bases().isEmpty())
                 || !declaration.languageLinkage().equals("C++")
-                || declaration instanceof VariableDeclaration variable && !variable.modifiers().isEmpty()
+                || declaration instanceof VariableDeclaration variable && (!variable.modifiers().isEmpty() || variable.bitWidth().isPresent() || variable.initializer().orElse(null) instanceof InitializationExpression)
                 || declaration instanceof ParameterDeclaration parameter && (!parameter.modifiers().isEmpty() || parameter.defaultValue().isPresent())
-                || declaration instanceof CallableDeclaration callable && (callable.variadic() || callable.isConst() || callable.isVolatile()
+                || declaration instanceof CallableDeclaration callable && (callable.kind() != CallableDeclaration.Kind.FUNCTION || callable.variadic() || callable.isConst() || callable.isVolatile()
                         || callable.writtenType().isPresent() || callable.modifiers().stream()
                         .anyMatch(m -> Set.of("extern", "inline", "virtual", "friend").contains(m)));
     }
@@ -224,7 +225,7 @@ public final class Source {
             throw new IllegalArgumentException("Cannot translate C++ global variable or typedef declarations to Java");
         file.walk(new NodeVisitor() {
             @Override public void visit(Node n) {
-                if (target == Language.JAVA && (n instanceof FloatingLiteral || n instanceof CharacterLiteral
+                if (target == Language.JAVA && (n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CharacterLiteral
                         || n instanceof StringLiteral || n instanceof CommaExpression || n instanceof DotMemberPointerExpression
                         || n instanceof ArrowMemberPointerExpression || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion)
                         || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression || n instanceof ConditionalExpression
@@ -279,8 +280,26 @@ public final class Source {
     }
 
     private String classStart(ClassDeclaration cls) {
-        String access = target == Language.JAVA && cls.modifiers().contains("public") ? "public " : "";
-        return access + (target == Language.CPP ? cls.keyword() : "class") + " " + cls.name() + " {\n" + (target == Language.CPP ? cls.memberAccess() + ":\n" : "");
+        String access = cls.isFriend() && target == Language.CPP ? "friend " : target == Language.JAVA && cls.modifiers().contains("public") ? "public " : "";
+        return access + (target == Language.CPP ? cls.keyword() : "class") + " " + cls.name() + (cls.bases().isEmpty() ? "" : " : " + cls.bases().stream().map(base -> emit(base, 0)).collect(Collectors.joining(", "))) + " {\n" + (target == Language.CPP ? cls.memberAccess() + ":\n" : "");
+    }
+    private String callableHead(CallableDeclaration f) {
+        String signature = f.name() + "(" + parameters(f.parameters(), f.variadic()) + ")"
+                + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : "");
+        if (f.kind() == CallableDeclaration.Kind.FUNCTION) signature = declaration(f.returnType().orElseThrow(), signature);
+        if (!f.initializers().isEmpty()) signature += " : " + f.initializers().stream().map(value -> emit(value, 0)).collect(Collectors.joining(", "));
+        return signature;
+    }
+    private String classMembers(ClassDeclaration cls, int level) {
+        StringBuilder result = new StringBuilder();
+        String access = cls.memberAccess();
+        for (Declaration member : cls.members()) {
+            String next = member.access().orElse(access);
+            if (target == Language.CPP && !next.equals(access)) result.append("    ".repeat(level - 1)).append(next).append(":\n");
+            result.append(emit(member, level)).append("\n");
+            access = next;
+        }
+        return result.toString();
     }
     private String classEnd() { return target == Language.CPP ? "};\n" : "}\n"; }
 
@@ -301,12 +320,11 @@ public final class Source {
             case EnumDeclaration enumeration -> pad + "enum" + (enumeration.name().isEmpty() ? "" : " " + enumeration.name()) + " { "
                     + enumeration.enumerators().stream().map(value -> emit(value, 0)).collect(Collectors.joining(", ")) + " };\n";
             case EnumeratorDeclaration value -> value.name() + value.value().map(expression -> " = " + emit(expression, 0)).orElse("");
-            case ClassDeclaration c -> c.implicit() ? "" : !c.isDefinition() ? pad + c.keyword() + " " + c.name() + ";\n"
-                    : pad + classStart(c) + c.members().stream().map(m -> emit(m, level + 1)).collect(Collectors.joining("\n")) + pad + classEnd();
-            case CallableDeclaration f -> linkage(f, pad + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
+            case ClassDeclaration c -> c.implicit() ? "" : !c.isDefinition() ? pad + (c.isFriend() ? "friend " : "") + c.keyword() + " " + c.name() + ";\n"
+                    : pad + classStart(c) + classMembers(c, level + 1) + pad + classEnd();
+            case CallableDeclaration f -> linkage(f, pad + (f.isFriend() ? "friend " : "") + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
                     + (f.writtenType().isPresent() ? declaration(f.writtenType().orElseThrow(), f.name()) + ";\n"
-                        : declaration(f.returnType().orElseThrow(), f.name() + "(" + parameters(f.parameters(), f.variadic()) + ")"
-                            + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : ""))
+                        : callableHead(f)
                             + f.body().map(b -> " " + emit(b, level)).orElse(";\n")), level);
             case ParameterDeclaration p -> String.join("", p.modifiers().stream().map(m -> m + " ").toList())
                     + declaration(p.type().orElseThrow(), p.name())
@@ -317,7 +335,8 @@ public final class Source {
             case VariableDeclaration v -> linkage(v, pad + String.join("", v.modifiers().stream().map(m -> m + " ").toList())
                     + (!v.isDefinition() && v.languageLinkage().equals("C") && !v.modifiers().contains("extern") ? "extern " : "")
                     + declaration(v.type().orElseThrow(), v.name())
-                    + v.initializer().map(i -> " = " + emit(i, 0)).orElse("") + ";\n", level);
+                    + v.bitWidth().map(i -> " : " + emit(i, 0)).orElse("")
+                    + v.initializer().map(i -> (i instanceof InitializationExpression init && init.form() == InitializationExpression.Form.DIRECT ? "" : " = ") + emit(i, 0)).orElse("") + ";\n", level);
             case ReturnStatement r -> pad + "return" + r.value().map(e -> " " + emit(e, 0)).orElse("") + ";\n";
             case ExpressionStatement s -> pad + (s.expression() instanceof AssignmentExpression a ? assignment(a) : emit(s.expression(), 0)) + ";\n";
             case IfStatement i -> pad + "if (" + emit(i.condition(), 0) + ") " + body(i.thenBranch(), level)
@@ -326,6 +345,12 @@ public final class Source {
             case PrintStatement s -> pad + (target == Language.JAVA ? "System.out.println(" + emit(s.value(), 0) + ");"
                     : "std::cout << " + emit(s.value(), 0) + " << std::endl;") + "\n";
             case AssignmentExpression a -> "(" + assignment(a) + ")";
+            case BaseSpecifier b -> (b.isVirtual() ? "virtual " : "") + b.access() + " " + declaration(b.type(), "");
+            case MemberInitializer i -> i.name() + "(" + i.arguments().stream().map(argument -> emit(argument, 0)).collect(Collectors.joining(", ")) + ")";
+            case InitializationExpression i -> i.type().map(type -> declaration(type, "")).orElse("")
+                    + (i.form() == InitializationExpression.Form.AGGREGATE ? "{" : "(")
+                    + i.arguments().stream().map(argument -> emit(argument, 0)).collect(Collectors.joining(", "))
+                    + (i.form() == InitializationExpression.Form.AGGREGATE ? "}" : ")");
             case Exit ignored -> "";
             case IntegerLiteral i -> integerLiteral(i);
             case BooleanLiteral b -> Boolean.toString(b.value());

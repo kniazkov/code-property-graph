@@ -172,4 +172,24 @@ mvn verify
 python3 scripts/check-cpp03-reports.py
 ```
 
-The full inventory now requires **twenty scenarios and twenty-two corpus/harness results**, with no failures, errors or skips. Run the report guard only after the unfiltered corpus. Existing Java tests, SQUARE editing, `scripts/demo.sh`, Maven/Javadoc and both strict compilers remain required. The [model guide](model-guide.en.md#functions-and-default-arguments-26) defines the non-owning defaults contract and remaining overload/virtual-dispatch limits.
+At milestone #26 the inventory required **twenty scenarios and twenty-two corpus/harness results**, with no failures, errors or skips. Run the report guard only after the unfiltered corpus. Existing Java tests, SQUARE editing, `scripts/demo.sh`, Maven/Javadoc and both strict compilers remain required. The [model guide](model-guide.en.md#functions-and-default-arguments-26) defines the non-owning defaults contract and remaining overload/virtual-dispatch limits.
+
+## Classes and initialization (#27)
+
+The mandatory [classes-initialization](../src/test/resources/cpp03/classes-initialization/README.md)
+scenario runs API, packaged CLI, JSON/SVG, copy/rebuild and regeneration checks.
+GCC and Clang compile original, regenerated and folded sources in strict C++03;
+all three programs must exit 0. The trace checks base/field construction despite
+reordered written initializers and reverse destruction, observable copy/assignment,
+aggregate zero-fill, union storage, static construction once and temporary lifetime
+extension. A C++11 direct-list initializer is rejected by CLI and both compilers.
+
+`ClassInitializationParserTest`, `ClassInitializationSemanticsTest`,
+`ClassInitializationExportTest` and `ClassesInitializationIT` additionally check
+mixed access, nested classes, bit-fields, friendship, qualified definitions,
+implicit-special-member descriptors, lexical lifetime plans and ownership-safe
+class-parameter signatures. Run `mvn verify`; the focused native command is
+`mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=classes-initialization verify`.
+No native check is skipped when a compiler is unavailable.
+
+At milestone #27 the full inventory requires **21 scenarios and 23 corpus/harness results**, without failures, errors or skips.

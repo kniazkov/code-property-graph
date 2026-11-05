@@ -15,13 +15,34 @@ public final class ControlFlow {
 
     /** Computes one CFG for each callable with a body, replacing previous flow results. */
     public static Project analyze(Project project) {
+        var unsupported = new ArrayList<CallableDeclaration>();
+        project.walk(new NodeVisitor() { @Override public void visit(CallableDeclaration function) {
+            if (function.body().isPresent() && initializers(project, function).isEmpty()) unsupported.add(function);
+        }});
+        var findings = new IdentityHashMap<Node, Diagnostic>();
+        for (var function : unsupported) findings.put(function, new Diagnostic("unsupported-constructor-flow", Diagnostic.Severity.WARNING,
+                "Constructor flow requires resolved non-virtual base hierarchy; no partial flow is published"));
+        final Project snapshot = project.withDiagnostics("unsupported-constructor-flow", findings);
         List<FunctionFlow> flows = new ArrayList<>();
-        project.walk(new NodeVisitor() {
+        snapshot.walk(new NodeVisitor() {
             @Override public void visit(CallableDeclaration fn) {
-                fn.body().ifPresent(body -> flows.add(new Builder(fn.exit()).build(fn, body)));
+                fn.body().ifPresent(body -> flows.add(initializers(snapshot, fn)
+                        .map(initializers -> new Builder(fn.exit()).build(fn, body, initializers))
+                        .orElseGet(() -> new FunctionFlow(fn, fn.exit(), List.of(), List.of(), false))));
             }
         });
-        return project.withFlows(flows);
+        return snapshot.withFlows(flows);
+    }
+
+    private static Optional<List<MemberInitializer>> initializers(Project project, CallableDeclaration function) {
+        if (function.kind() != CallableDeclaration.Kind.CONSTRUCTOR) return Optional.of(List.of());
+        var owners = new ArrayList<ClassDeclaration>();
+        project.walk(new NodeVisitor() { @Override public void visit(ClassDeclaration cls) {
+            if (cls.isDefinition() && (cls.members().contains(function) || function.previousDeclaration().filter(cls.members()::contains).isPresent()
+                    || cls.typeIdentity().filter(identity -> function.name().equals(identity + "::" + cls.name())).isPresent())) owners.add(cls);
+        }});
+        if (owners.size() != 1 || !ClassSemantics.hasCompleteNonvirtualHierarchy(owners.getFirst())) return Optional.empty();
+        return Optional.of(ClassSemantics.constructionOrder(owners.getFirst(), function).stream().flatMap(item -> item.writtenInitializer().stream()).toList());
     }
 
     private static final class Builder {
@@ -30,8 +51,9 @@ public final class ControlFlow {
         Builder(Exit exit) { this.exit = exit; }
         private final List<ControlEdge> edges = new ArrayList<>();
 
-        FunctionFlow build(CallableDeclaration fn, BlockStatement body) {
+        FunctionFlow build(CallableDeclaration fn, BlockStatement body, List<MemberInitializer> initializers) {
             var start = connect(body, exit, Branch.NEXT);
+            for (var initializer : initializers.reversed()) { edges.add(new ControlEdge(initializer, start, Branch.NEXT)); start = initializer; }
             edges.add(new ControlEdge(fn, start, Branch.ENTRY));
             // Keep unreachable syntax in the AST, without inventing executable paths to it.
             Map<FlowVertex,List<FlowVertex>> successors = new HashMap<>();

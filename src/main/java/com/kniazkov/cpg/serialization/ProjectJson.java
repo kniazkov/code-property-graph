@@ -2,6 +2,7 @@
 package com.kniazkov.cpg.serialization;
 
 import com.kniazkov.cpg.model.*;
+import com.kniazkov.cpg.analysis.ClassSemantics;
 import com.kniazkov.json.*;
 import java.io.IOException;
 import java.nio.file.*;
@@ -109,12 +110,22 @@ public final class ProjectJson {
                     value.value().ifPresent(expression -> obj.put("value", node(expression)));
                 }
                 case ClassDeclaration c -> {
+                    if (c.isDefinition() && c.members().stream().anyMatch(member -> member.access().isPresent())) {
+                        obj.put("aggregate", ClassSemantics.aggregate(c));
+                        obj.array("specialMembers", values -> ClassSemantics.specialMembers(c).forEach(member -> values.add(Json.object()
+                                .put("kind", member.kind().name()).put("origin", member.origin().name())
+                                .array("declarationIds", declarations -> member.declarations().forEach(declaration -> declarations.add(ids.get(declaration)))).build())));
+                    }
+                    if (!c.bases().isEmpty()) obj.put("bases", nodes(c.bases()));
                     if (c.implicit()) obj.put("implicit", true);
                     obj.put("name", c.name()).array("modifiers", a -> a.addAll(c.modifiers())).put("members", nodes(c.members()));
                     if (!c.keyword().equals("class")) obj.put("keyword", c.keyword());
                     if (!c.memberAccess().equals("public")) obj.put("memberAccess", c.memberAccess());
                 }
                 case CallableDeclaration c -> {
+                    if (project.flows().stream().anyMatch(flow -> flow.entry() == c && !flow.complete())) obj.put("flowComplete", false);
+                    if (c.kind() != CallableDeclaration.Kind.FUNCTION) obj.put("callableKind", c.kind().name());
+                    if (!c.initializers().isEmpty()) obj.put("initializers", nodes(c.initializers()));
                     obj.put("name", c.name()).array("modifiers", a -> a.addAll(c.modifiers()));
                     c.returnType().ifPresent(t -> obj.put("returnType", node(t)));
                     c.writtenType().ifPresent(t -> obj.put("writtenType", node(t)));
@@ -127,11 +138,18 @@ public final class ProjectJson {
                 }
                 case BlockStatement b -> obj.put("items", nodes(b.items()));
                 case VariableDeclaration v -> {
+                    v.bitWidth().ifPresent(value -> obj.put("bitWidth", node(value)));
                     obj.put("name", v.name());
                     if (!v.modifiers().isEmpty()) obj.array("modifiers", a -> a.addAll(v.modifiers()));
                     v.type().ifPresent(t -> obj.put("type", node(t)));
                     v.initializer().ifPresent(i -> obj.put("initializer", node(i)));
                 }
+                case BaseSpecifier b -> obj.put("access", b.access()).put("virtual", b.isVirtual()).put("type", node(b.type()));
+                case InitializationExpression i -> {
+                    obj.put("form", i.form().name()).put("arguments", nodes(i.arguments()));
+                    i.type().ifPresent(type -> obj.put("type", node(type)));
+                }
+                case MemberInitializer i -> { obj.put("name", i.name()).put("arguments", nodes(i.arguments())); i.target().ifPresent(target -> obj.put("targetId", ids.get(target))); }
                 case ParameterDeclaration p -> {
                     obj.put("name", p.name());
                     if (!p.modifiers().isEmpty()) obj.array("modifiers", a -> a.addAll(p.modifiers()));
@@ -208,6 +226,8 @@ public final class ProjectJson {
                 value.put("category", lower(info.category()));
             }));
             if (n instanceof Declaration declaration) {
+                if (declaration.isFriend()) obj.put("friend", true);
+                declaration.access().ifPresent(value -> obj.put("access", value));
                 declaration.typeIdentity().ifPresent(identity -> obj.put("typeIdentity", identity));
                 if (declaration.linkage() != Declaration.Linkage.NONE) obj.put("linkage", lower(declaration.linkage()));
                 if (!declaration.languageLinkage().equals("C++")) obj.put("languageLinkage", declaration.languageLinkage());

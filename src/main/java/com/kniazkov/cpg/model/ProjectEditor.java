@@ -85,6 +85,9 @@ public final class ProjectEditor {
 
     public void unbind(NameExpression use) { requireMember(use); names.put(use, null); }
 
+    private final Map<MemberInitializer, Declaration> initializerNames = new IdentityHashMap<>();
+    public void bind(MemberInitializer use, Declaration target) { requireMember(use); if (target != null) requireMember(target); initializerNames.put(use, target); }
+
     private final Map<MemberExpression, Declaration> memberNames = new IdentityHashMap<>();
     public void bind(MemberExpression use, Declaration target) {
         requireMember(use); if (target != null) requireMember(target); memberNames.put(use, target);
@@ -213,6 +216,10 @@ public final class ProjectEditor {
         var root = context.edit(source, Project.Builder.class);
         names.forEach((use, target) -> {
             var builder = context.edit(use, NameExpression.Builder.class).clearTarget();
+            if (target != null) builder.setTarget(context.edge(target, Declaration.class));
+        });
+        initializerNames.forEach((use, target) -> {
+            var builder = context.edit(use, MemberInitializer.Builder.class).clearTarget();
             if (target != null) builder.setTarget(context.edge(target, Declaration.class));
         });
         memberNames.forEach((use, target) -> {

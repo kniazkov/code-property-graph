@@ -77,6 +77,13 @@ final class TypeParser {
         Scope captured = scope;
         return () -> { Scope previous = scope; scope = captured; try { action.run(); } finally { scope = previous; } };
     }
+    void inQualifier(String qualifiedName, Runnable action) {
+        int at = qualifiedName.lastIndexOf("::");
+        Scope saved = scope;
+        Scope owner = at < 0 ? null : namespace(qualifiedName.substring(0, at));
+        if (owner != null) scope = owner;
+        try { action.run(); } finally { scope = saved; }
+    }
     void registerClass(String name) {
         scope.tags.add(name);
         Scope qualifier = scope.nested.computeIfAbsent(name, ignored -> new Scope(scope));
@@ -161,6 +168,14 @@ final class TypeParser {
             name.append("::").append(tokens.peek(offset + 1)); offset += 2;
         }
         return name.toString();
+    }
+    boolean functionalTypeAhead() {
+        if (FUNDAMENTAL.contains(tokens.peek())) return tokens.peek(1).equals("(");
+        String name = nameAhead(0);
+        if (!className(name)) return false;
+        int offset = tokens.peek().equals("::") ? 2 : 1;
+        while (tokens.peek(offset).equals("::") && CppLexer.isIdentifier(tokens.peek(offset + 1))) offset += 2;
+        return tokens.peek(offset).equals("(");
     }
     boolean startsType() {
         String word = tokens.peek();
@@ -259,14 +274,29 @@ final class TypeParser {
         Function<NodeBuilder<? extends TypeNode>, NodeBuilder<? extends TypeNode>> direct = Function.identity();
         if (tokens.peek().equals("(") && groupingAhead()) {
             tokens.advance(); var nested = declarator(abstractAllowed); tokens.expect(")"); name = nested.name(); direct = nested.apply();
-        } else if (tokens.isIdentifier()) name = tokens.identifier();
+        } else if (tokens.take("~")) name = "~" + tokens.identifier();
+        else if (tokens.take("operator")) { tokens.expect("="); name = "operator="; }
+        else if (tokens.isIdentifier()) {
+            name = tokens.identifier();
+            while (tokens.take("::")) {
+                name += "::";
+                if (tokens.take("~")) name += "~";
+                if (tokens.take("operator")) { tokens.expect("="); name += "operator="; }
+                else name += tokens.identifier();
+            }
+        }
         else if (!abstractAllowed) throw tokens.error("Expected declarator name");
+        Scope declarationScope = scope;
+        int qualification = name.lastIndexOf("::");
+        if (qualification >= 0) { Scope owner = namespace(name.substring(0, qualification)); if (owner != null) scope = owner; }
+        try {
         while (true) {
             if (tokens.take("[")) {
                 var bound = tokens.peek().equals("]") ? null : expressions.parse(); tokens.expect("]");
                 var previous = direct;
                 direct = base -> { var array = ArrayType.create().setElementType(base); if (bound != null) array.setBound(bound); return previous.apply(tokens.span(start, array)); };
-            } else if (tokens.take("(")) {
+            } else if (tokens.peek().equals("(") && functionClauseAhead()) {
+                tokens.advance();
                 List<NodeBuilder<? extends ParameterDeclaration>> parameters = new ArrayList<>();
                 boolean variadic = false;
                 pushPrototypeScope();
@@ -302,6 +332,7 @@ final class TypeParser {
             for (var prefix : prefixes) base = prefix.apply(base);
             return result.apply(base);
         });
+        } finally { scope = declarationScope; }
     }
     /** Defaults are written only in a function declaration, not in a function type-id. */
     void validateDefaultPlacement(NodeBuilder<? extends TypeNode> builder, boolean functionDeclaration) {
@@ -358,6 +389,11 @@ final class TypeParser {
         throw new IllegalArgumentException("Unsupported type syntax " + type.getClass().getName());
     }
 
+    private boolean functionClauseAhead() {
+        if (tokens.peek(1).equals(")") || tokens.peek(1).equals("...")) return true;
+        int position = tokens.checkpoint(); tokens.advance();
+        try { return startsType(); } finally { tokens.restore(position); }
+    }
     private boolean groupingAhead() {
         String next = tokens.peek(1);
         return next.equals("*") || next.equals("&") || next.equals("(") || memberPointerAhead(1)
