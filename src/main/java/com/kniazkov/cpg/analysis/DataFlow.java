@@ -159,7 +159,7 @@ public final class DataFlow {
                 consume(conditional.elseExpression(), conditional, negative, sink);
                 state.definitions.clear(); state.merge(positive); state.merge(negative);
             }
-        } else if (value instanceof CallExpression call && language == Language.CPP && call.arguments().size() > 1) {
+        } else if (value instanceof CallExpression call && language == Language.CPP) {
             consume(call.callee(), call, state, sink);
             arguments(call, state, sink);
         } else {
@@ -200,7 +200,9 @@ public final class DataFlow {
     private void arguments(CallExpression call, State state, Sink sink) {
         List<State> writes = new ArrayList<>();
         State possibleLast = new State();
-        for (Expression arg : call.arguments()) {
+        var arguments = new ArrayList<Expression>(call.arguments());
+        call.defaultArguments().forEach(argument -> arguments.add(argument.expression()));
+        for (Expression arg : arguments) {
             State effect = new State();
             evaluate(arg, effect, (from, to, kind) -> {});
             writes.add(effect);
@@ -210,7 +212,7 @@ public final class DataFlow {
             State before = state.copy();
             for (int j = 0; j < writes.size(); j++)
                 if (j != i) before.merge(writes.get(j));
-            consume(call.arguments().get(i), call, before, sink);
+            consume(arguments.get(i), call, before, sink);
         }
         possibleLast.definitions.forEach(state.definitions::put);
     }

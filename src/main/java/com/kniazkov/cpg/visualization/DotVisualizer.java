@@ -125,6 +125,12 @@ public final class DotVisualizer {
                         .append(" [label=<&#160;ref>, style=dashed, constraint=false];\n");
             }
             if (node instanceof NamedType type) resolution(type);
+            if (node instanceof CallExpression call) for (var argument : call.defaultArguments()) {
+                String label = "default argument " + argument.parameterIndex();
+                semanticEdge(call, argument.declaration(), label + " declaration");
+                semanticEdge(call, argument.parameter(), label + " parameter");
+                semanticEdge(call, argument.expression(), label + " expression");
+            }
             if (node instanceof Declaration declaration) {
                 declaration.previousDeclaration().ifPresent(previous -> semanticEdge(node, previous, "previous declaration"));
                 declaration.definition().ifPresent(definition -> semanticEdge(node, definition, "definition"));

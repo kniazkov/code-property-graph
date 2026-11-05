@@ -19,6 +19,8 @@ final class BuildContext {
     private boolean invalidateDependentFacts(Node node) {
         boolean changed = false;
         for (Node child : node.children()) changed |= invalidateDependentFacts(child);
+        if (node instanceof CallExpression call)
+            changed |= call.defaultArguments().stream().anyMatch(argument -> argument.expression().semanticInfo().isEmpty());
         if (node instanceof Expression expression) {
             if (changed && expression.expressionInfo != null) {
                 expression.expressionInfo = null;
@@ -32,6 +34,7 @@ final class BuildContext {
     /** Copies the reachable graph, validates ownership, then publishes its root. */
     <T extends Node> T build(NodeBuilder<T> root) {
         T result = copy(root);
+        for (Node node : nodes.values()) if (node instanceof CallExpression call) call.validateDefaultArguments();
         validateStructure(result);
         invalidateDependentFacts(result);
         return result;

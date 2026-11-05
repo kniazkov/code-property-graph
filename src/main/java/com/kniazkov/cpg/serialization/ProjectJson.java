@@ -136,6 +136,7 @@ public final class ProjectJson {
                     obj.put("name", p.name());
                     if (!p.modifiers().isEmpty()) obj.array("modifiers", a -> a.addAll(p.modifiers()));
                     p.type().ifPresent(t -> obj.put("type", node(t)));
+                    p.defaultValue().ifPresent(value -> obj.put("defaultValue", node(value)));
                 }
                 case NamedType t -> {
                     obj.put("name", t.name());
@@ -186,9 +187,13 @@ public final class ProjectJson {
                 case PrintStatement p -> obj.put("value", node(p.value()));
                 case ExpressionStatement e -> obj.put("expression", node(e.expression()));
                 case AssignmentExpression a -> obj.put("target", node(a.target())).put("value", node(a.value()));
-                case CallExpression c -> obj.put("callee", node(c.callee())).put("arguments", nodes(c.arguments()))
+                case CallExpression c -> { obj.put("callee", node(c.callee())).put("arguments", nodes(c.arguments()))
                         .put("resolution", lower(c.resolution()))
                         .array("candidateIds", a -> c.candidates().forEach(candidate -> a.add(ids.get(candidate))));
+                    if (!c.defaultArguments().isEmpty()) obj.array("defaultArguments", a -> c.defaultArguments().forEach(argument -> a.object(value -> value
+                                .put("parameterIndex", argument.parameterIndex()).put("declarationId", ids.get(argument.declaration()))
+                                .put("parameterId", ids.get(argument.parameter())).put("expressionId", ids.get(argument.expression())))));
+                }
                 case MemberExpression m -> {
                     obj.put("receiver", node(m.receiver())).put("member", m.member());
                     m.target().ifPresent(target -> obj.put("targetId", ids.get(target)));

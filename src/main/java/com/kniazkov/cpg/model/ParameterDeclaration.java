@@ -11,6 +11,7 @@ public final class ParameterDeclaration extends Declaration {
     private String name;
     private List<String> modifiers = List.of();
     private TypeNode type;
+    private Expression defaultValue;
 
     private ParameterDeclaration() {
     }
@@ -25,12 +26,16 @@ public final class ParameterDeclaration extends Declaration {
         return Optional.ofNullable(type);
     }
 
+    /** The written default belongs to this declaration, never to a call using it. */
+    public Optional<Expression> defaultValue() { return Optional.ofNullable(defaultValue); }
+
     @Override
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         if (type != null) {
             children.add(type);
         }
+        if (defaultValue != null) children.add(defaultValue);
         return List.copyOf(children);
     }
 
@@ -55,6 +60,7 @@ public final class ParameterDeclaration extends Declaration {
         builder.name = name;
         builder.modifiers = new ArrayList<>(modifiers);
         builder.type = type == null ? null : context.edge(type, TypeNode.class);
+        builder.defaultValue = defaultValue == null ? null : context.edge(defaultValue, Expression.class);
         return builder;
     }
 
@@ -63,6 +69,11 @@ public final class ParameterDeclaration extends Declaration {
         private String name;
         private List<String> modifiers = new ArrayList<>();
         private NodeBuilder<? extends TypeNode> type;
+        private NodeBuilder<? extends Expression> defaultValue;
+
+        public Optional<NodeBuilder<? extends Expression>> defaultValue() { return Optional.ofNullable(defaultValue); }
+        public Builder setDefaultValue(NodeBuilder<? extends Expression> value) { defaultValue = Objects.requireNonNull(value); return this; }
+        public Builder clearDefaultValue() { defaultValue = null; return this; }
 
         private Builder() {
             super(ParameterDeclaration.class);
@@ -104,6 +115,7 @@ public final class ParameterDeclaration extends Declaration {
             node.modifiers = List.copyOf(modifiers);
             node.name = Objects.requireNonNull(name, "ParameterDeclaration.name is required (empty for an abstract parameter)");
             node.type = type == null ? null : context.copy(type);
+            node.defaultValue = defaultValue == null ? null : context.copy(defaultValue);
         }
     }
 }

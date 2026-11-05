@@ -17,3 +17,4 @@ diagnostic-provenance
 platform-declarators
 scopes-linkage
 literals-expressions
+functions-defaults

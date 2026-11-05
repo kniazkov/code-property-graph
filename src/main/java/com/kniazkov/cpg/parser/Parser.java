@@ -263,6 +263,7 @@ public final class Parser {
             declaratorCount++;
             var declarator = types.declarator(false);
             var type = declarator.apply().apply(specs.type().get());
+            types.validateDefaultPlacement(type, !specs.typedef());
             var function = types.functionType(type);
             result.addAll(types.takeImplicitDeclarations());
             if (specs.typedef()) {

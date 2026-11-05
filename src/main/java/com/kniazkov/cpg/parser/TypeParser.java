@@ -281,8 +281,12 @@ final class TypeParser {
                             if (specifiers.modifiers().stream().anyMatch(m -> !m.equals("register")) || specifiers.modifiers().size() > 1)
                                 throw tokens.error("Only register storage is permitted on C++03 parameters");
                             var parameter = declarator(true);
-                            parameters.add(tokens.span(parameterStart, ParameterDeclaration.create().setName(parameter.name()).setModifiers(specifiers.modifiers()).setType(parameter.apply().apply(specifiers.type().get()))));
+                            var declaration = ParameterDeclaration.create().setName(parameter.name()).setModifiers(specifiers.modifiers())
+                                    .setType(parameter.apply().apply(specifiers.type().get()));
                             declareName(parameter.name());
+                            if (tokens.take("=")) declaration.setDefaultValue(expressions.parse());
+                            parameters.add(tokens.span(parameterStart, declaration));
+                            if (tokens.take("...")) { variadic = true; break; }
                         } while (tokens.take(","));
                     }
                     tokens.expect(")");
@@ -299,6 +303,18 @@ final class TypeParser {
             return result.apply(base);
         });
     }
+    /** Defaults are written only in a function declaration, not in a function type-id. */
+    void validateDefaultPlacement(NodeBuilder<? extends TypeNode> builder, boolean functionDeclaration) {
+        TypeNode root = builder.build();
+        root.walk(new NodeVisitor() {
+            @Override public void visit(FunctionType function) {
+                if ((!functionDeclaration || function != root)
+                        && function.parameters().stream().anyMatch(parameter -> parameter.defaultValue().isPresent()))
+                    throw tokens.error("Default arguments are permitted only in function declarations");
+            }
+        });
+    }
+
     /** Obtains fresh signature children, retaining shared typedef reference targets. */
     FunctionType.Builder functionType(NodeBuilder<? extends TypeNode> type) {
         if (type instanceof FunctionType.Builder direct) return direct;
@@ -366,6 +382,8 @@ final class TypeParser {
         if (specs.typedef() || !specs.modifiers().isEmpty()) throw tokens.error("Storage specifier in type-id");
         var declaration = declarator(true);
         if (!declaration.name().isEmpty()) throw tokens.error("Name is not allowed in an abstract type-id");
-        return declaration.apply().apply(specs.type().get());
+        var result = declaration.apply().apply(specs.type().get());
+        validateDefaultPlacement(result, false);
+        return result;
     }
 }

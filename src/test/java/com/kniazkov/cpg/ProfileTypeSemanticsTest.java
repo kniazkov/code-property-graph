@@ -60,7 +60,7 @@ class ProfileTypeSemanticsTest {
         assertTrue(TypeSemantics.sizeof(MemberPointerType.create().setOwnerType(type("Owner")).setPointee(type("int")).build(), DEFAULT).isEmpty());
     }
     @Test void integerIntermediatesHonorTargetLongWithoutTruncation() throws Exception {
-        String text = "int main() { return (2147483647L + 1L) / 2L; }";
+        String text = "long main() { return (2147483647L + 1L) / 2L; }";
         var value = assertInstanceOf(IntegerLiteral.class, returnValue(read(text, Cpg.Stage.FOLDED, DEFAULT)));
         assertEquals(1073741824, value.value());
         assertEquals(Optional.of("long"), value.cppType());
@@ -76,7 +76,7 @@ class ProfileTypeSemanticsTest {
     }
     @Test void sizeofUnsignedTypeSurvivesFoldingAndReparsing() throws Exception {
         for (PlatformProfile profile : List.of(DEFAULT, long32())) {
-            var project = read("int main() { return (sizeof(int) - 5) + 6; }", Cpg.Stage.FOLDED, profile);
+            var project = read("unsigned long main() { return (sizeof(int) - 5) + 6; }", Cpg.Stage.FOLDED, profile);
             var literal = assertInstanceOf(IntegerLiteral.class, returnValue(project));
             assertEquals(5, literal.value());
             assertEquals(Optional.of("unsigned long"), literal.cppType());

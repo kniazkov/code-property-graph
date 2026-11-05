@@ -192,9 +192,10 @@ public final class Source {
                 || declaration instanceof ClassDeclaration cls && (!cls.isDefinition() || !cls.keyword().equals("class"))
                 || !declaration.languageLinkage().equals("C++")
                 || declaration instanceof VariableDeclaration variable && !variable.modifiers().isEmpty()
-                || declaration instanceof ParameterDeclaration parameter && !parameter.modifiers().isEmpty()
-                || declaration instanceof CallableDeclaration callable && callable.modifiers().stream()
-                        .anyMatch(m -> Set.of("extern", "inline", "virtual", "friend").contains(m));
+                || declaration instanceof ParameterDeclaration parameter && (!parameter.modifiers().isEmpty() || parameter.defaultValue().isPresent())
+                || declaration instanceof CallableDeclaration callable && (callable.variadic() || callable.isConst() || callable.isVolatile()
+                        || callable.writtenType().isPresent() || callable.modifiers().stream()
+                        .anyMatch(m -> Set.of("extern", "inline", "virtual", "friend").contains(m)));
     }
 
     /** Validates a relative output path before any filesystem write. */
@@ -308,7 +309,8 @@ public final class Source {
                             + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : ""))
                             + f.body().map(b -> " " + emit(b, level)).orElse(";\n")), level);
             case ParameterDeclaration p -> String.join("", p.modifiers().stream().map(m -> m + " ").toList())
-                    + declaration(p.type().orElseThrow(), p.name());
+                    + declaration(p.type().orElseThrow(), p.name())
+                    + p.defaultValue().map(value -> " = " + emit(value, 0)).orElse("");
             case TypedefDeclaration d -> pad + "typedef " + declaration(d.type(), d.name()) + ";\n";
             case TypeNode t -> declaration(t, "");
             case BlockStatement b -> block(b, level);

@@ -35,8 +35,7 @@ class ScopedResolutionTest {
         assertSame(shadow, uses.get(1).target().orElseThrow());
         assertSame(shadow, uses.get(2).target().orElseThrow());
         assertSame(global, uses.get(3).target().orElseThrow());
-        assertInstanceOf(ParameterDeclaration.class, nodes(project, ReturnStatement.class).getFirst().value()
-                .map(NameExpression.class::cast).orElseThrow().target().orElseThrow());
+        assertInstanceOf(ParameterDeclaration.class, nodes(nodes(project, ReturnStatement.class).getFirst(), NameExpression.class).getFirst().target().orElseThrow());
         Project early = resolve("int f() { return later; } int later = 2;");
         assertTrue(nodes(early, NameExpression.class).getFirst().target().isEmpty());
     }

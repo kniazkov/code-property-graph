@@ -11,6 +11,41 @@ public final class CallExpression extends Expression {
     private Expression callee;
     private List<Expression> arguments = List.of();
     private CallableDeclaration target;
+    private List<DefaultArgument> defaultArguments = List.of();
+
+    /** A non-owning link to the visible declaration supplying an omitted argument. */
+    public record DefaultArgument(int parameterIndex, CallableDeclaration declaration, ParameterDeclaration parameter) {
+        public DefaultArgument {
+            if (parameterIndex < 0) throw new IllegalArgumentException("Negative parameter index");
+            Objects.requireNonNull(declaration); Objects.requireNonNull(parameter);
+        }
+        public Expression expression() { return parameter.defaultValue().orElseThrow(); }
+    }
+
+    /** Mutable graph counterparts are resolved together in the enclosing build session. */
+    public record DefaultArgumentBuilder(int parameterIndex, NodeBuilder<? extends CallableDeclaration> declaration,
+            NodeBuilder<? extends ParameterDeclaration> parameter) {
+        public DefaultArgumentBuilder {
+            if (parameterIndex < 0) throw new IllegalArgumentException("Negative parameter index");
+            Objects.requireNonNull(declaration); Objects.requireNonNull(parameter);
+        }
+    }
+
+    public List<DefaultArgument> defaultArguments() { return defaultArguments; }
+
+    /** Drop stale derived links after a declaration's default or parameter list was edited. */
+    void validateDefaultArguments() {
+        int expected = arguments.size();
+        for (var value : defaultArguments) {
+            if (value.parameterIndex() != expected++ || value.parameter().defaultValue().isEmpty()
+                    || value.parameterIndex() >= value.declaration().parameters().size()
+                    || value.declaration().parameters().get(value.parameterIndex()) != value.parameter()) {
+                defaultArguments = List.of();
+                expressionInfo = null;
+                return;
+            }
+        }
+    }
     public enum Resolution { UNRESOLVED, RESOLVED, AMBIGUOUS, ODR_CONFLICT }
     private List<CallableDeclaration> candidates = List.of();
     private Resolution resolution = Resolution.UNRESOLVED;
@@ -42,7 +77,12 @@ public final class CallExpression extends Expression {
 
     @Override
     public List<Node> references() {
-        return List.copyOf(candidates);
+        List<Node> result = new ArrayList<>(candidates);
+        for (var argument : defaultArguments) {
+            for (Node reference : List.of(argument.declaration(), argument.parameter(), argument.expression()))
+                if (!result.contains(reference)) result.add(reference);
+        }
+        return List.copyOf(result);
     }
 
     @Override
@@ -68,6 +108,8 @@ public final class CallExpression extends Expression {
         builder.target = target == null ? null : context.edge(target, CallableDeclaration.class);
         builder.candidates = context.copyAll(candidates, CallableDeclaration.class);
         builder.resolution = resolution;
+        for (var argument : defaultArguments) builder.defaultArguments.add(new DefaultArgumentBuilder(argument.parameterIndex(),
+                context.edge(argument.declaration(), CallableDeclaration.class), context.edge(argument.parameter(), ParameterDeclaration.class)));
         return builder;
     }
 
@@ -78,7 +120,13 @@ public final class CallExpression extends Expression {
         private NodeBuilder<? extends CallableDeclaration> target;
         private List<NodeBuilder<? extends CallableDeclaration>> candidates = new ArrayList<>();
         private Resolution resolution = Resolution.UNRESOLVED;
-        public Builder setCandidates(List<? extends NodeBuilder<? extends CallableDeclaration>> values, Resolution status) { clearExpressionInfo();
+        private List<DefaultArgumentBuilder> defaultArguments = new ArrayList<>();
+        public List<DefaultArgumentBuilder> defaultArguments() { return List.copyOf(defaultArguments); }
+        public Builder setDefaultArguments(List<DefaultArgumentBuilder> values) {
+            clearExpressionInfo(); defaultArguments = new ArrayList<>(List.copyOf(values)); return this;
+        }
+        public Builder clearDefaultArguments() { clearExpressionInfo(); defaultArguments.clear(); return this; }
+        public Builder setCandidates(List<? extends NodeBuilder<? extends CallableDeclaration>> values, Resolution status) { clearExpressionInfo(); clearDefaultArguments();
             candidates = new ArrayList<>(values);
             resolution = Objects.requireNonNull(status);
             if (status == Resolution.RESOLVED && candidates.size() != 1
@@ -105,29 +153,29 @@ public final class CallExpression extends Expression {
             return Optional.ofNullable(target);
         }
 
-        public Builder setCallee(NodeBuilder<? extends Expression> callee) { clearExpressionInfo();
+        public Builder setCallee(NodeBuilder<? extends Expression> callee) { clearExpressionInfo(); clearDefaultArguments();
             this.callee = Objects.requireNonNull(callee);
             return this;
         }
 
-        public Builder setArguments(List<? extends NodeBuilder<? extends Expression>> arguments) { clearExpressionInfo();
+        public Builder setArguments(List<? extends NodeBuilder<? extends Expression>> arguments) { clearExpressionInfo(); clearDefaultArguments();
             this.arguments = new ArrayList<>(List.copyOf(arguments));
             return this;
         }
 
-        public Builder addArgument(NodeBuilder<? extends Expression> value) { clearExpressionInfo();
+        public Builder addArgument(NodeBuilder<? extends Expression> value) { clearExpressionInfo(); clearDefaultArguments();
             arguments.add(Objects.requireNonNull(value));
             return this;
         }
 
-        public Builder setTarget(NodeBuilder<? extends CallableDeclaration> target) { clearExpressionInfo();
+        public Builder setTarget(NodeBuilder<? extends CallableDeclaration> target) { clearExpressionInfo(); clearDefaultArguments();
             this.target = Objects.requireNonNull(target);
             candidates = new ArrayList<>(List.of(target));
             resolution = Resolution.RESOLVED;
             return this;
         }
 
-        public Builder clearTarget() { clearExpressionInfo();
+        public Builder clearTarget() { clearExpressionInfo(); clearDefaultArguments();
             this.target = null;
             candidates.clear();
             resolution = Resolution.UNRESOLVED;
@@ -146,6 +194,8 @@ public final class CallExpression extends Expression {
             node.target = target == null ? null : context.copy(target);
             node.candidates = context.copyAll(candidates);
             node.resolution = resolution;
+            node.defaultArguments = defaultArguments.stream().map(value -> new DefaultArgument(value.parameterIndex(),
+                    context.copy(value.declaration()), context.copy(value.parameter()))).toList();
         }
     }
 }
