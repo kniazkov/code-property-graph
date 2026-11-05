@@ -66,6 +66,10 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("lazy-library".equals(settings.getProperty("mode"))) {
+            for (Path source : LazyLibraryAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
+            return;
+        }
         if ("template-instantiation".equals(settings.getProperty("mode"))) {
             var output = TemplateInstantiationAcceptance.verify(fixture, work);
             for (Path source : output.sources()) nativePrograms(work, source, "", 0);

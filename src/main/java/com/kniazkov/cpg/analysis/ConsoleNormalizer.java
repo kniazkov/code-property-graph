@@ -12,10 +12,13 @@ public final class ConsoleNormalizer {
         return expression instanceof NameExpression n && n.name().equals(name) && n.target().isEmpty();
     }
 
-    /** Matches a scoped C++ stream name with an unresolved std qualifier. */
+    /** Matches external or catalogue-owned streams without accepting user shadows. */
     private static boolean stream(Expression expression, String member) {
         return expression instanceof ScopeMemberExpression access && access.member().equals(member)
-                && external(access.receiver(), "std");
+                && (external(access.receiver(), "std") || access.receiver() instanceof NameExpression qualifier
+                    && qualifier.name().equals("std")
+                    && qualifier.target().filter(LibraryDeclarations::isLibrary).isPresent())
+                && (access.target().isEmpty() || access.target().filter(LibraryDeclarations::isLibrary).isPresent());
     }
 
     /** Recognizes the supported console forms after name resolution, respecting local shadowing. */

@@ -11,7 +11,7 @@ public final class NameResolver {
     public static Project resolve(Project project) {
         // Type bindings must be published before signatures are compared. Both passes copy
         // through one identity context, including forward and cross-file reference cycles.
-        Project typed = new Engine(StandardConversions.written(LibraryDeclarations.install(project))).bindNames();
+        Project typed = new Engine(StandardConversions.written(LibraryDeclarations.candidates(project))).bindNames();
         typed = new Engine(ClassTemplateSemantics.analyze(typed)).bindNames();
         boolean resourceLimit=false;
         for (int round = 0; round < 64; round++) {
@@ -43,7 +43,7 @@ public final class NameResolver {
                     "Template instantiation resource limit reached (64 rounds, 256 instances or 20000 nodes)"));
             typed=limited.build();
         }
-        return typed;
+        return LibraryGraph.materialize(typed);
     }
 
     private static int expressionDepth(Node node) {
@@ -87,29 +87,51 @@ public final class NameResolver {
         final Map<Declaration, Scope> introduced = new IdentityHashMap<>();
         final Map<SourceFile, Scope> roots = new IdentityHashMap<>();
         final List<Declaration> declarations = new ArrayList<>();
+        final List<CallableDeclaration> callableDefinitions = new ArrayList<>();
         final Map<NamedType, Match> typeBindings = new IdentityHashMap<>();
         final Map<Declaration, Declaration.Linkage> linkages = new IdentityHashMap<>();
         final Map<Declaration, String> keys = new IdentityHashMap<>();
         final Map<String, List<Declaration>> groups = new LinkedHashMap<>();
         final Set<Declaration> conflicting = Collections.newSetFromMap(new IdentityHashMap<>());
         int position;
+        final Map<SourceFile,Map<String,Integer>> libraryActivation=new IdentityHashMap<>();
+        final Map<SourceFile,Set<SourceFile>> visibleLibraries=new IdentityHashMap<>();
         boolean instantiationLimitReached;
         Engine(Project project) {
             this.project = project; editor = new ProjectEditor(project).retainDiagnostics();
-            for (SourceFile file : java.util.stream.Stream.concat(project.librarySources().stream(), project.files().stream()).toList()) {
-                Scope root = new Scope(null, file, "", false, false, false);
-                roots.put(file, root);
-                if (project.files().contains(file)) for (SourceFile library : project.librarySources())
-                    if (LibraryDeclarations.visible(file, library)) {
-                        Scope shared = roots.get(library);
-                        shared.names.forEach((name, values) -> root.names.put(name, new ArrayList<>(values)));
-                        shared.nested.forEach((name, child) -> root.nested.put(name, importScope(child, root)));
-                    }
+            for(SourceFile source:java.util.stream.Stream.concat(project.librarySources().stream(),project.files().stream()).toList()) {
+                var visible=Collections.newSetFromMap(new IdentityHashMap<SourceFile,Boolean>());
+                for(SourceFile library:project.librarySources()) if(LibraryDeclarations.visible(source,library)) visible.add(library);
+                visibleLibraries.put(source,visible);
+            }
+            for (SourceFile library : project.librarySources()) {
+                Scope root = new Scope(null, library, "", false, false, false);
+                roots.put(library, root); index(library, root);
+            }
+            var originalLibraries = new IdentityHashMap<SourceFile, Scope>();
+            for (SourceFile library : project.librarySources()) originalLibraries.put(library, importScope(roots.get(library), null));
+            for (SourceFile library : project.librarySources()) for (SourceFile dependency : project.librarySources())
+                if (dependency != library && visibleLibraries.get(library).contains(dependency)) mergeScope(roots.get(library), originalLibraries.get(dependency));
+            for (SourceFile file : project.files()) {
+                Scope root = new Scope(null, file, "", false, false, false); roots.put(file, root);
+                for (SourceFile library : project.librarySources()) if (visibleLibraries.get(file).contains(library)) mergeScope(root, originalLibraries.get(library));
                 index(file, root);
+                var active=new HashMap<String,Integer>(); libraryActivation.put(file,active);
+                file.walk(new NodeVisitor(){@Override public void visit(IncludeDirective include){
+                    if(include.system()) for(String header:LibraryDeclarations.activatedHeaders(include.header()))
+                        active.merge(header,positions.get(include),Math::min);
+                }});
             }
             for (ClassTemplateInstance instance : project.classTemplateInstances()) {
                 Scope root = roots.get(instance.source());
-                Scope isolated = new Scope(root, instance.source(), instance.identity(), false, false, false);
+                Scope lexical=root;
+                Scope original=scopes.get(instance.origin());
+                if(original!=null && !original.qualified.isEmpty()) {
+                    Scope candidate=root;
+                    for(String part:original.qualified.split("::")) candidate=candidate==null ? null : candidate.nested.get(part);
+                    if(candidate!=null) lexical=candidate;
+                }
+                Scope isolated = new Scope(lexical, instance.source(), instance.identity(), false, false, false);
                 scopes.put(instance, isolated); positions.put(instance, position++);
                 instance.arguments().forEach(argument -> index(argument, isolated));
                 index(instance.declaration(),isolated);
@@ -125,11 +147,29 @@ public final class NameResolver {
         }
 
         Scope importScope(Scope original, Scope parent) {
-            var copy = new Scope(parent, parent.file, original.qualified, original.local, original.anonymous, original.classScope);
+            var copy = new Scope(parent, parent == null ? original.file : parent.file, original.qualified, original.local, original.anonymous, original.classScope);
             original.names.forEach((name, values) -> copy.names.put(name, new ArrayList<>(values)));
             original.nested.forEach((name, child) -> copy.nested.put(name, importScope(child, copy)));
             copy.directives.addAll(original.directives); copy.anonymousNamespaces.addAll(original.anonymousNamespaces);
             return copy;
+        }
+
+        void mergeScope(Scope target, Scope source) {
+            source.names.forEach((name, values) -> {
+                var existing=target.names.computeIfAbsent(name, ignored->new ArrayList<>());
+                for(Declaration value:values) if(!existing.contains(value)) existing.add(value);
+            });
+            source.nested.forEach((name, child) -> {
+                Scope existing=target.nested.get(name);
+                if(existing==null) target.nested.put(name,importScope(child,target));
+                else if(existing.classScope || child.classScope) {
+                    // Forward declarations and definitions share a type, not their
+                    // template-parameter scopes. Never merge distinct CharT/T bindings.
+                    if(source.names.getOrDefault(name,List.of()).stream().anyMatch(d->d instanceof ClassDeclaration && d.isDefinition()))
+                        target.nested.put(name,importScope(child,target));
+                } else mergeScope(existing,child);
+            });
+            for(UsingDirective directive:source.directives) if(!target.directives.contains(directive)) target.directives.add(directive);
         }
 
         void index(Node node, Scope scope) {
@@ -177,6 +217,7 @@ public final class NameResolver {
                 owner.members().forEach(member -> index(member, nested));
                 classEnds.put(owner, position);
             } else if (node instanceof CallableDeclaration callable) {
+                if(callable.body().isPresent()) callableDefinitions.add(callable);
                 Scope nested = new Scope(scope, scope.file, qualify(scope.qualified, callable.name()), true, scope.anonymous, false);
                 functionScopes.add(nested); callableScopes.put(nested, callable);
                 callable.templateParameters().forEach(parameter -> index(parameter, nested));
@@ -529,7 +570,13 @@ public final class NameResolver {
             return true;
         }
         boolean sameConversions(OverloadResolution.Candidate a, OverloadResolution.Candidate b) {
-            return a.sequences().equals(b.sequences());
+            if(a.sequences().size()!=b.sequences().size()) return false;
+            for(int i=0;i<a.sequences().size();i++) {
+                var x=a.sequences().get(i); var y=b.sequences().get(i);
+                if(x.rank()==OverloadResolution.Rank.UNKNOWN || x.rank()!=y.rank() || x.userDefined()!=y.userDefined()
+                        || x.referenceBinding()==y.referenceBinding() && x.qualification()!=y.qualification()) return false;
+            }
+            return true;
         }
         int preference(CallableDeclaration a, CallableDeclaration b,int argumentCount) {
             if (a == null) return b == null ? 0 : 1;
@@ -583,7 +630,8 @@ public final class NameResolver {
                     Match match = unique(matches);
                     if(match==null && matches.stream().allMatch(candidate->candidate.declaration() instanceof ClassDeclaration))
                         match=matches.stream().filter(candidate->((ClassDeclaration)candidate.declaration()).templateKind()==TemplateKind.PRIMARY).findFirst().orElse(null);
-                    for(ClassTemplateInstance instance:project.classTemplateInstances()) if(instance.requests().contains(type)) match=new Match(instance.declaration(),List.of());
+                    for(ClassTemplateInstance instance:project.classTemplateInstances())
+                        if(instance.requests().contains(type) || type.declaration().orElse(null)==instance.declaration()) match=new Match(instance.declaration(),List.of());
                     // Derived function-typedef signatures retain the typedef's original
                     // scope rather than rebinding its aliases at the new declarator.
                     if (type.range().isEmpty() && type.provenance().isEmpty() && type.alias().isPresent())
@@ -824,9 +872,20 @@ public final class NameResolver {
             }
             visiting.remove(cls);
         }
+        boolean libraryVisibleAt(Declaration declaration, int point) {
+            SourceFile definition=scopes.get(declaration).file;
+            Scope occurrence=pointScopes.get(point);
+            if(!LibraryDeclarations.isLibrary(definition) || occurrence==null || occurrence.file==definition) return true;
+            if(LibraryDeclarations.isLibrary(occurrence.file)) return visibleLibraries.getOrDefault(occurrence.file,Set.of()).contains(definition);
+            return libraryActivation.getOrDefault(occurrence.file,Map.of()).getOrDefault(LibraryDeclarations.headerName(definition),Integer.MAX_VALUE)<=point;
+        }
         List<Match> ownDirect(String name, Scope scope, int point, Set<Declaration> active, boolean tagsOnly, boolean completeClassContext) {
             var direct = new ArrayList<Match>();
+            ClassDeclaration injected=scope.classScope ? scopeClass(scope) : null;
+            if(injected!=null && LibraryDeclarations.isLibrary(injected) && injected.name().equals(name))
+                return List.of(new Match(injected,List.of()));
             for (Declaration declaration : scope.names.getOrDefault(name, List.of())) {
+                if (!libraryVisibleAt(declaration, point)) continue;
                 if (positions.get(declaration) > point && !(scope.classScope && completeClassContext)) continue;
                 // A namespace friend first declared in a class is visible through ADL only.
                 if (declaration.isFriend() && !tagsOnly && scope.names.getOrDefault(name, List.of()).stream()
@@ -961,6 +1020,15 @@ public final class NameResolver {
         Match unique(List<Match> matches) {
             if (matches.stream().anyMatch(Match::ambiguous)) return null;
             if (matches.size() == 1) return matches.getFirst();
+            if (!matches.isEmpty() && matches.stream().allMatch(m -> m.declaration() instanceof ClassDeclaration && LibraryDeclarations.isLibrary(m.declaration()))
+                    && matches.stream().map(m -> entityName(m.declaration())).distinct().count()==1
+                    && matches.stream().map(m -> TypeSemantics.profile(scopes.get(m.declaration()).file).stableIdentity()).distinct().count()==1) {
+                var primaries=matches.stream().filter(m->((ClassDeclaration)m.declaration()).templateKind()==TemplateKind.PRIMARY).toList();
+                if(!primaries.isEmpty()) return primaries.stream().filter(m->m.declaration().isDefinition()).findFirst().orElse(primaries.getFirst());
+            }
+            if (!matches.isEmpty() && matches.stream().allMatch(m -> m.declaration() instanceof NamespaceDeclaration && LibraryDeclarations.isLibrary(m.declaration()))
+                    && matches.stream().map(m -> entityName(m.declaration())).distinct().count() == 1)
+                return matches.getFirst();
             if (matches.size() > 1 && matches.stream().allMatch(m -> m.declaration() instanceof CallableDeclaration)
                     && matches.stream().map(m -> signature((CallableDeclaration)m.declaration())).distinct().count() == 1
                     && matches.stream().allMatch(m -> scopes.get(m.declaration()) == scopes.get(matches.getFirst().declaration())))
@@ -1267,7 +1335,7 @@ public final class NameResolver {
         void diagnoseAmbiguity(Node node, String name, boolean tagsOnly) {
             var matches = node instanceof MemberExpression member && !(member instanceof ScopeMemberExpression)
                     ? memberMatches(member) : lookup(name, scopes.get(node), positions.get(node), new HashSet<>(), tagsOnly);
-            if (matches.stream().anyMatch(Match::ambiguous) || matches.size() > 1 && !matches.stream().allMatch(match -> match.declaration() instanceof CallableDeclaration))
+            if (unique(matches) == null && (matches.stream().anyMatch(Match::ambiguous) || matches.size() > 1 && !matches.stream().allMatch(match -> match.declaration() instanceof CallableDeclaration)))
                 error(node, "ambiguous-name", "Ambiguous name at this source position: " + name);
         }
         Declaration.Linkage linkage(Declaration declaration) {
@@ -1331,7 +1399,8 @@ public final class NameResolver {
                     && (declaration instanceof FunctionDeclaration || declaration instanceof VariableDeclaration);
             String qualified = declaration.languageLinkage().equals("C") && external ? name(declaration)
                     : entityName(declaration);
-            String owner = external && project.composition().isPresent() ? "build" : "tu" + project.files().indexOf(scope.file);
+            String owner = LibraryDeclarations.isLibrary(scope.file) ? "library:" + TypeSemantics.profile(scope.file).stableIdentity()
+                    : external && project.composition().isPresent() ? "build" : "tu" + project.files().indexOf(scope.file);
             return owner + ":" + declaration.languageLinkage() + ":" + qualified + ":" + category;
         }
         void connect(List<Declaration> group) {
@@ -1359,7 +1428,7 @@ public final class NameResolver {
                 // Multiple inline header instances retain the definition in their own TU.
                 if (definition == null && !multiple) definition = definitions.stream()
                         .filter(candidate -> scopes.get(candidate).file == scopes.get(declaration).file).findFirst().orElse(null);
-                editor.declare(declaration, linkages.get(declaration), isDefinition(declaration), previous,
+                editor.declare(declaration, linkages.get(declaration), isDefinition(declaration), LibraryDeclarations.isLibrary(declaration) ? null : previous,
                         definition == declaration ? null : definition);
                 previous = declaration;
             }
@@ -1811,7 +1880,7 @@ public final class NameResolver {
             if (linkages.get(declaration) != Declaration.Linkage.EXTERNAL || scope.classScope
                     || local.stream().anyMatch(candidate -> candidate.body().isPresent())) return local;
             // Unknown compositions expose alternatives as candidates, never an ODR error.
-            return declarations.stream().filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast)
+            return java.util.stream.Stream.concat(local.stream(),callableDefinitions.stream()).distinct()
                     .filter(candidate -> linkages.get(candidate) == Declaration.Linkage.EXTERNAL)
                     .filter(candidate -> candidate.languageLinkage().equals(declaration.languageLinkage()))
                     .filter(candidate -> signature(candidate).equals(signature(declaration)))

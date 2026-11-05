@@ -966,19 +966,41 @@ mutated. The initial #34 contract reported `basic-type-substitution` and
 `complete = false`; the #35 instantiation and diagnostic contract below supersedes
 that initial status without claiming full C++03 conformance.
 
-A deliberately small `<vector>` declaration catalogue enables the prerequisite
-`count(std::vector<int>)` example. `Project.librarySources()` owns that catalogue
-once per distinct target platform profile, separately from physical user source.
-Only translation units with the active opaque system include see it; an explicit
-configured replacement header is parsed normally instead. The view contains
-`std::allocator`'s template declaration and vector's template parameters, real
-constructor declarations/defaults, `size_type` and const `size()` declaration.
-It contains no implementation bodies, data layout, allocator behavior or container
-effect summary, and is not the general standard-library catalogue planned for #36.
-Native tests compile against the toolchain's actual `<vector>`.
+The #36 catalogue replaces the initial #34 vector-only prerequisite. The full
+built-in declaration data stays outside every returned Project. `standardLibrary()`
+is an optional owned `StandardLibrary` collection with owned `headers()`; the
+legacy `librarySources()` API is a flattened non-owning view of these same files.
+Active modeled includes hold `libraryHeader()` references. Physical replacement
+headers remain ordinary project source and never acquire catalogue privileges.
+Header visibility follows the requesting translation unit and include position.
+
+Only demanded declarations, their owner chain, selected specializations and required
+dependencies are published. Merely visiting an overload candidate does not retain
+it. Unused include headers may remain empty; removing the last include/use removes
+the collection. Full catalogue token/source payloads are not copied into retained
+header provenance. Generic classes live once under their header. Concrete class
+instances remain in `classTemplateInstances()`, with only demanded concrete members;
+`Declaration.templateOrigin()` links these members to their generic declarations.
+Selected library object lifetimes are exposed by
+`VariableDeclaration.constructorTarget()` and `destructorTarget()`.
+
+`OpaqueLibraryType` records an implementation-defined type identity and its known
+category without inventing ABI width, storage layout or a class definition.
+The catalogue provides declarations only, with no container implementation or
+allocator behavior. Resolved library calls without behavior models remain C++
+calls. DFG conservatively preserves incoming definitions and adds possible writes
+to receivers, exposed arguments and accessible storage instead of claiming purity.
+Opaque construction and destruction also affect accessible storage at their CFG
+points. Their DFG source is the owned object declaration, with lifetime target links;
+this is a conservative dependency, not an invented written call.
+See `library-catalogue.en.md` for per-family declaration and behavior coverage.
+Native acceptance uses real toolchain headers; normal analysis needs only the JDK.
 
 JSON exports written syntax, library declarations and semantic instances as
-separate owned collections with reference IDs; DOT labels catalogue and instance
+separate owned collections with reference IDs. JSON `standardLibrary` owns headers,
+while compatibility `librarySources` contains their IDs. `LIBRARY_HEADER`,
+`TEMPLATE_ORIGIN`, `CONSTRUCTOR_TARGET` and `DESTRUCTOR_TARGET` are typed semantic
+edges (also exported in DOT); DOT labels catalogue and instance
 nodes. Copies reconnect those references inside the new snapshot. Physical source
 emission visits only `Project.files()`, preserving the original include and generic
 body without emitting catalogue declarations or instance bodies. These boundaries

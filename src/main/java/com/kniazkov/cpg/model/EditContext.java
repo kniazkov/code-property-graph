@@ -117,6 +117,7 @@ final class EditContext {
             builder.operatorBindingCopied = true;
         }
         if (node instanceof Declaration declaration) {
+            builder.templateOrigin = declaration.templateOrigin().isEmpty() ? null : edge(declaration.templateOrigin().orElseThrow(), Declaration.class);
             builder.declarationTypeIdentity = declaration.typeIdentity().orElse(null);
             builder.declarationLinkage = declaration.linkage();
             builder.languageLinkage = declaration.languageLinkage();

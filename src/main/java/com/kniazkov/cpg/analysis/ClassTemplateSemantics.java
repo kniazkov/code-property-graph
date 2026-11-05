@@ -23,6 +23,7 @@ public final class ClassTemplateSemantics {
             @Override public void visit(CallableDeclaration method) { unusedMethods.add(method); }
         }));
         unusedMethods.removeAll(demandedMethods(project).keySet());
+        for (SourceFile file : project.librarySources()) collect(file, file, "", false, declarations, new ArrayList<>(), new int[]{0}, unusedMethods);
         for (SourceFile file : project.files()) collect(file, file, "", false, declarations, uses, new int[]{0}, unusedMethods);
         // Dependent types become concrete only inside their own instantiated body.
         for (ClassTemplateInstance instance : project.classTemplateInstances())
@@ -261,8 +262,8 @@ public final class ClassTemplateSemantics {
         if (bound instanceof ClassDeclaration) {
             Located origin = declarations.stream().filter(d -> d.declaration() == bound).findFirst().orElse(null);
             if (origin != null) {
-                var result = declarations.stream().filter(d -> d.file() == use.file() && d.position() < use.position()
-                        && d.scope().equals(origin.scope()) && d.declaration().name().equals(origin.declaration().name())).toList();
+                var result = declarations.stream().filter(d -> d.scope().equals(origin.scope()) && d.declaration().name().equals(origin.declaration().name())
+                        && (d.file() == use.file() && d.position() < use.position() || LibraryDeclarations.visible(use.file(), d.file()))).toList();
                 if (result.stream().anyMatch(d -> d.declaration().templateKind() == TemplateKind.PRIMARY)) return result;
             }
         }
@@ -270,7 +271,7 @@ public final class ClassTemplateSemantics {
         while (true) {
             String target = use.name().startsWith("::") ? use.name().substring(2) : qualify(scope, use.name());
             var result = declarations.stream().filter(d -> qualify(d.scope(), d.declaration().name()).equals(target))
-                    .filter(d -> d.file() == use.file() && d.position() < use.position()).toList();
+                    .filter(d -> (d.file() == use.file() && d.position() < use.position() || LibraryDeclarations.visible(use.file(), d.file()))).toList();
             if (result.stream().anyMatch(d -> d.declaration().templateKind() == TemplateKind.PRIMARY)) return result;
             if (scope.isEmpty() || use.name().startsWith("::")) return List.of();
             int separator = scope.lastIndexOf("::"); scope = separator < 0 ? "" : scope.substring(0, separator);
@@ -455,7 +456,11 @@ public final class ClassTemplateSemantics {
         if (type instanceof NamedType n) {
             var p = parameter(n, List.copyOf(bindings.keySet()));
             if (p != null && !n.hasTemplateArguments()) return bindings.get(p).type().orElse(type);
-            if (n.hasTemplateArguments()) return n.edit().setTemplateArguments(n.templateArguments().stream().map(a -> substitute(a, bindings).edit()).toList()).build();
+            if (n.hasTemplateArguments()) {
+                var arguments=n.templateArguments().stream().map(a -> substitute(a,bindings)).toList();
+                return n.edit().setTemplateArguments(arguments.stream().map(TemplateArgument::edit).toList())
+                        .setDependent(arguments.stream().anyMatch(TypeSemantics::dependent) || n.qualifier().map(TypeSemantics::dependent).orElse(false)).build();
+            }
         }
         if (type instanceof PointerType p) return p.edit().setPointee(substituteType(p.pointee(), bindings).edit()).build();
         if (type instanceof ReferenceType r) return r.edit().setReferredType(substituteType(r.referredType(), bindings).edit()).build();

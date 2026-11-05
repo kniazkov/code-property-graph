@@ -152,6 +152,12 @@ public final class DotVisualizer {
                 if (expression.operatorTarget().isEmpty()) for (var candidate : expression.operatorCandidates())
                     semanticEdge(expression, candidate, "operator candidate (" + expression.operatorResolution().name().toLowerCase(java.util.Locale.ROOT) + ")");
             }
+            if (node instanceof IncludeDirective include) include.libraryHeader().ifPresent(header -> semanticEdge(include, header, "LIBRARY_HEADER"));
+            if (node instanceof VariableDeclaration variable) {
+                variable.constructorTarget().ifPresent(target -> semanticEdge(variable, target, "CONSTRUCTOR_TARGET"));
+                variable.destructorTarget().ifPresent(target -> semanticEdge(variable, target, "DESTRUCTOR_TARGET"));
+            }
+            if (node instanceof Declaration declaration) declaration.templateOrigin().ifPresent(origin -> semanticEdge(declaration, origin, "TEMPLATE_ORIGIN"));
             if (node instanceof TemplateInstance instance) for (Node request : instance.requests()) {
                 semanticEdge(request, instance, "INSTANTIATION_CAUSE");
                 semanticEdge(instance, request, "INSTANTIATION_REQUEST");
@@ -442,6 +448,11 @@ public final class DotVisualizer {
         @Override
         public void visit(IncludeDirective node) {
             detail = node.header();
+        }
+
+        @Override
+        public void visit(StandardLibrary node) {
+            detail = "Demand-materialized standard library";
         }
 
         @Override

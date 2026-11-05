@@ -93,6 +93,7 @@ final class BuildContext {
             expression.operatorResolution = builder.operatorResolution;
         }
         if (node instanceof Declaration declaration) {
+            declaration.templateOrigin = builder.templateOrigin == null ? null : copy(builder.templateOrigin);
             declaration.typeIdentity = builder.declarationTypeIdentity;
             declaration.linkage = builder.declarationLinkage;
             declaration.languageLinkage = builder.languageLinkage;

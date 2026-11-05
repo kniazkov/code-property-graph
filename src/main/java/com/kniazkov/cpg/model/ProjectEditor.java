@@ -190,6 +190,7 @@ public final class ProjectEditor {
         });
         var semantic = Collections.newSetFromMap(new IdentityHashMap<Node, Boolean>());
         source.templateInstances().forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node n) { semantic.add(n); } }));
+        source.classTemplateInstances().forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node n) { semantic.add(n); } }));
         for (Node member : members) {
             if (!semantic.contains(member) && !subtree.contains(member) && java.util.stream.Stream.concat(member.references().stream(), member.commentReferences().stream()).anyMatch(subtree::contains))
                 throw new IllegalStateException("Node has incoming references");

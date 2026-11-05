@@ -8,6 +8,20 @@ import java.util.Optional;
 
 /** A variable with optional written type and initializer. */
 public final class VariableDeclaration extends Declaration {
+    private CallableDeclaration constructorTarget, destructorTarget;
+    /** Selected declaration-only library lifetime operations; no behavior is implied. */
+    public Optional<CallableDeclaration> constructorTarget() { return Optional.ofNullable(constructorTarget); }
+    public Optional<CallableDeclaration> destructorTarget() { return Optional.ofNullable(destructorTarget); }
+    void invalidateLifetimeTargets(java.util.Set<Node> discarded) {
+        if(discarded.contains(constructorTarget)) constructorTarget=null;
+        if(discarded.contains(destructorTarget)) destructorTarget=null;
+    }
+    @Override public List<Node> references() {
+        var result=new ArrayList<Node>(super.references());
+        if(constructorTarget!=null) result.add(constructorTarget);
+        if(destructorTarget!=null) result.add(destructorTarget);
+        return List.copyOf(result);
+    }
     private String name;
     private List<String> modifiers = List.of();
     private TypeNode type;
@@ -64,6 +78,8 @@ public final class VariableDeclaration extends Declaration {
         Builder builder = new Builder();
         context.register(this, builder);
         builder.name = name;
+        builder.constructorTarget=constructorTarget==null ? null : context.edge(constructorTarget,CallableDeclaration.class);
+        builder.destructorTarget=destructorTarget==null ? null : context.edge(destructorTarget,CallableDeclaration.class);
         builder.bitWidth = bitWidth == null ? null : context.edge(bitWidth, Expression.class);
         builder.modifiers = new ArrayList<>(modifiers);
         builder.type = type == null ? null : context.edge(type, TypeNode.class);
@@ -73,6 +89,10 @@ public final class VariableDeclaration extends Declaration {
 
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<VariableDeclaration> {
+        private NodeBuilder<? extends CallableDeclaration> constructorTarget, destructorTarget;
+        public Builder setLifetimeTargets(NodeBuilder<? extends CallableDeclaration> constructor,NodeBuilder<? extends CallableDeclaration> destructor) {
+            constructorTarget=constructor; destructorTarget=destructor; return this;
+        }
         private String name;
         private List<String> modifiers = new ArrayList<>();
         private NodeBuilder<? extends TypeNode> type;
@@ -108,21 +128,25 @@ public final class VariableDeclaration extends Declaration {
         }
 
         public Builder setType(NodeBuilder<? extends TypeNode> type) {
+            constructorTarget=null; destructorTarget=null;
             this.type = Objects.requireNonNull(type);
             return this;
         }
 
         public Builder clearType() {
+            constructorTarget=null; destructorTarget=null;
             this.type = null;
             return this;
         }
 
         public Builder setInitializer(NodeBuilder<? extends Expression> initializer) {
+            constructorTarget=null;
             this.initializer = Objects.requireNonNull(initializer);
             return this;
         }
 
         public Builder clearInitializer() {
+            constructorTarget=null;
             this.initializer = null;
             return this;
         }
@@ -134,6 +158,8 @@ public final class VariableDeclaration extends Declaration {
 
         @Override
         void fillNode(VariableDeclaration node, BuildContext context) {
+            node.constructorTarget=constructorTarget==null ? null : context.copy(constructorTarget);
+            node.destructorTarget=destructorTarget==null ? null : context.copy(destructorTarget);
             node.name = bitWidth == null ? requiredText(name, "VariableDeclaration.name") : Objects.requireNonNull(name);
             node.bitWidth = bitWidth == null ? null : context.copy(bitWidth);
             node.modifiers = List.copyOf(modifiers);

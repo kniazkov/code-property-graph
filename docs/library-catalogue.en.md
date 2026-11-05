@@ -1,0 +1,120 @@
+# C++03 standard-library declaration inventory
+
+The built-in catalogue recognizes all 50 C++03 standard headers and 18 deprecated
+C compatibility spellings. C++11, TR1 and vendor headers are excluded. The complete
+available declaration dataset stays outside `Project`, in `StandardLibraryCatalogue`
+and its C/stream helpers. Only demanded declarations, required dependencies and
+structural owners enter a resolved snapshot. Including a header or considering an
+overload is not a request to import every declaration.
+
+This inventory separates **declaration interfaces** from **behavioral coverage**.
+All callable entries are declarations without bodies. Their existence does not
+claim that every possible template instantiation or overload expression is already
+semantically supported, nor that an implementation strategy or ABI layout is known.
+The #36 acceptance path exercises concrete vector types and demanded members;
+[#37](https://github.com/kniazkov/code-property-graph/issues/37)–
+[#41](https://github.com/kniazkov/code-property-graph/issues/41) add behavioral and
+family-specific semantic acceptance. Source-level macros are identified separately.
+
+## Namespace and target policy
+
+- C++ headers expose the declared names in `std`; C compatibility headers expose
+  their C names globally. The optional additional global names from `<c...>` and
+  optional `std` names from `<...h>` are not promised. Global allocation functions
+  from `<new>` remain global. Dependency and name indexes are deterministic.
+- `size_t` uses `PlatformProfile.sizeType()`. The current `ptrdiff_t` policy chooses
+  its signed counterpart (`unsigned int` → `int`, `unsigned long` → `long`). This
+  explicit conventional policy is **not an ISO ABI guarantee**; the profile does
+  not yet have an independent `ptrdiff_t` setting.
+- Implementation-defined types use `OpaqueLibraryType`: arithmetic, integer,
+  object or unspecified category, a stable identity, and unknown representation.
+  This includes C handles/state/time types, stream offsets/flags, container
+  iterators/size types, and unspecified manipulator/proxy results. These are not
+  fake class layouts or guessed aliases to host scalar types. The internal parser
+  placeholder syntax is accepted only in trusted catalogue fragments.
+- Named aliases retain their declarations. Nested opaque identities include their
+  owner and are specialized for concrete template instances. C and C++ spellings
+  of the same C-library type can refer to the same abstract type identity.
+- Public or protected members specified by the standard are interfaces, not a
+  physical layout description. No container size, growth factor, allocation
+  strategy, iterator invalidation, purity, exception outcome or green equivalence
+  may be inferred from the catalogue. Standard class layout remains unknown.
+- `vector<bool, Allocator>` has its own partial-specialization interface, nested
+  reference proxy, bool `const_reference`, opaque pointers and flip/swap members.
+  It is not silently represented as primary-template `bool&` element access.
+
+## Header/family matrix
+
+Every declaration row below has **no behavior summary in this catalogue**. Resolved
+ordinary C++ calls retain conservative unknown effects. Existing console
+normalization is a separate pass, not an effect summary inferred from declarations.
+“Header only” refers to a macro-only header, not successful macro expansion.
+
+| Headers | Declaration interfaces | Semantic/behavior follow-up |
+|---|---|---|
+| `vector` | Primary and bool specialization; constructors, assign/access/capacity/iteration/modifiers; comparisons and swap | #37–38; proxy and allocator effects remain distinct |
+| `deque`, `list` | Constructors/assignment/allocator, forward/reverse iteration, access/capacity/modifiers, comparisons/swap; list splice/remove/unique/merge/sort/reverse | #39 |
+| `map`, `set` | Both unique and multi variants, value/key/allocator/comparator types, construction, insertion/erasure, lookup/bounds/equal_range, observers and nonmembers | #39; unique/multi insertion results differ |
+| `queue`, `stack` | queue, priority_queue, stack; typedefs/defaults, protected adapters, constructors, access/push/pop; queue/stack comparisons | #39; no priority_queue equality or C++11 adapter swap |
+| `string` | char_traits and char/wchar specializations; basic_string constructors, assignment, access/iteration/capacity, append/assign/insert/erase/replace, searches/substr/compare, concatenation/comparison/swap, stream extraction/insertion/getline | #40 |
+| `iterator` | Category tags, iterator/traits with pointer specializations, reverse/insertion/stream adapters, advance/distance and helper functions | #40–41; opaque istreambuf postfix result rather than a fictitious public proxy name |
+| `algorithm` | C++03 search/count/mismatch/equal; copy/swap/transform; replace/fill/generate/remove/unique; reverse/rotate/shuffle; partition/sort/bounds/merge/set/heap; min/max and permutations, with predicate/comparator overloads | #40; no C++11 additions |
+| `numeric` | Both overloads of accumulate, inner_product, partial_sum and adjacent_difference | #40 |
+| `functional` | unary/binary_function, arithmetic/comparison/logical functors with C++03 bases, negators, binders, function-pointer and const/nonconst member-pointer adapters | #40 |
+| `utility` | pair with public types/data/constructors, six comparisons and make_pair | #41; generic swap belongs to algorithm in C++03 |
+| `memory` | allocator and void specialization/rebind/comparisons, auto_ptr conversions, raw_storage_iterator, temporary buffers, uninitialized algorithms | #41; no allocation/lifetime summaries |
+| `exception` | exception/bad_exception, copy/assignment/what, terminate/unexpected handlers and uncaught_exception | #41 |
+| `new` | bad_alloc/nothrow/new_handler; 12 global allocation/deallocation overloads, including nothrow and placement forms | #41 |
+| `stdexcept` | Nine exception classes, hierarchy, string constructors and root what overrides | #41 |
+| `typeinfo` | type_info comparisons/before/name and inaccessible copy operations, bad_cast/bad_typeid interfaces | #41 |
+| `limits` | numeric_limits member interface, 14 C++03 scalar specializations, float_round_style/float_denorm_style | #41; target-specific constants are not invented |
+| `bitset` | Reference proxy, scalar/string construction, bit/shift operators, access/tests/count/conversions and stream operators | #41; C++03 to_string template parameters remain explicit |
+| `complex` | Primary plus float/double/long-double specializations, scalar/complex arithmetic and comparisons, values/polar/transcendentals and stream operators | #41 |
+| `valarray` | valarray, slice/gslice, four proxy families, access/subsets/assignments/reductions/shift/apply/resize, arithmetic/logical/comparison and math nonmembers | #41; expression-template implementation choices are not represented as concrete layouts |
+| `iosfwd` | Forward stream templates, character aliases, fpos and abstract stream offset/position types | #41; string streams and stringbuf retain Allocator parameter |
+| `ios` | ios_base flags/state/callbacks/storage/locale/Init/failure, basic_ios, manipulators | #41 |
+| `iostream` | Eight standard narrow/wide stream objects | #41 |
+| `istream`, `ostream` | Stream construction, sentries, formatted/unformatted operations, positioning, character/pointer/operator and manipulator overloads, basic_iostream | #41 |
+| `streambuf` | Buffer public entry points and protected virtual hooks | #41 |
+| `fstream` | Filebuf and file stream classes, open/close/is_open/rdbuf and protected buffer hooks | #41 |
+| `sstream` | Stringbuf and string stream classes, construction/str/rdbuf and protected buffer hooks | #41 |
+| `iomanip` | Flag/base/fill/precision/width manipulators with abstract result types | #41 |
+| `locale` | locale/facet/id/category, facet access, classification, ctype and char specialization, codecvt, numeric/collation/time/money/message facets and byname variants | #41 |
+| `cstddef`, `stddef.h` | size_t/ptrdiff_t under explicit target policy | offsetof/NULL macro expansion: #41 |
+| `cstdio`, `stdio.h` | FILE/fpos_t, formatted/character/file/block I/O, positioning/status and file management, including va_list forms | Macros, I/O effects and target behavior: #41 |
+| `cstdlib`, `stdlib.h` | div_t/ldiv_t, allocation, process/environment, conversions, abs/div, random, search/sort and multibyte conversions | Macros and behavior: #41 |
+| `cstring`, `string.h` | Memory/string copy/concatenation/comparison/search/tokenization/transformation, const/mutable search overloads | Macros and behavior: #41 |
+| `cctype`, `ctype.h` | All 13 narrow classification/case functions | Locale-sensitive behavior: #41 |
+| `cmath`, `math.h` | C++03 floating overload families, decomposition/scaling and pow | Macros, numeric/domain behavior: #41 |
+| `clocale`, `locale.h` | lconv public interface, setlocale/localeconv | Macros and behavior: #41 |
+| `ctime`, `time.h` | Abstract clock_t/time_t, tm fields, clock/time/difftime/mktime, text/calendar conversions and strftime | Macros and behavior: #41 |
+| `cwchar`, `wchar.h` | Abstract mbstate_t/wint_t, wide I/O, string/memory operations, classification bridges, number/multibyte conversions and wcsftime | Macros and stateful behavior: #41 |
+| `cwctype`, `wctype.h` | Abstract wide types, classification/descriptors and transforms | Macros and behavior: #41 |
+| `csignal`, `signal.h` | Abstract sig_atomic_t, signal/raise | Signal constants and behavior: #41 |
+| `csetjmp`, `setjmp.h` | Abstract jmp_buf and longjmp | setjmp macro and control-flow behavior: #41 |
+| `cstdarg`, `stdarg.h` | Abstract va_list | va_* macros: #41 |
+| `cassert`, `assert.h` | Header only | assert macro: #41 |
+| `cerrno`, `errno.h` | Header only | errno/error macros: #41 |
+| `cfloat`, `float.h` | Header only | Floating characteristic macros: #41 |
+| `climits`, `limits.h` | Header only | Integer characteristic macros: #41 |
+| `ciso646`, `iso646.h` | Header only; alternative operator tokens are a language feature | No separate C++ declaration family |
+
+## Reproducible checks
+
+`mvn -Dtest=StandardLibraryCatalogueTest test` parses all 68 fragments with their
+dependencies for two size-type policies, verifies exact namespace type/template
+indexes and declared nested indexes, checks stream arities, bool proxy/opaque
+choices, global allocation overloads and representative member families, and
+rejects bodies. The deliberately nonexistent source directory and
+`Parser.parseLibrary` require no system C++ headers, compiler process or STL.
+
+`bash scripts/probe-cpp03-library-catalogue.sh` independently checks representative
+real-STL signatures with GCC and Clang in strict C++03 mode. Inputs live under
+`src/test/resources/library-catalogue/`. They do not pretend to implement the STL
+and are never read during ordinary analysis. Native signature probes and the
+lazy-library round-trip E2E complement, rather than replace, declaration parsing.
+Passing a fragment parse alone does not prove complete semantic support for all
+expressions using that fragment.
+
+Source basis: C++03 library synopsis, clauses 18–27 and Annex D, with applicable
+library defect corrections; [repository reference](standards/cpp/cpp03/README.ru.md).

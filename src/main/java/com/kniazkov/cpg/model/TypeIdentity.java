@@ -28,6 +28,7 @@ public final class TypeIdentity {
         try {
             return switch (type) {
                 case NamedType n -> namedIdentity(n, seen, dependentNames);
+                case OpaqueLibraryType o -> "opaque-library(" + o.identity() + ")";
                 case QualifiedType q -> qualified(q.baseType(), q.isConst(), q.isVolatile(), seen, dependentNames);
                 case PointerType p -> "pointer(" + identity(p.pointee(), seen, dependentNames) + ")";
                 case ReferenceType r -> "reference(" + identity(r.referredType(), seen, dependentNames) + ")";

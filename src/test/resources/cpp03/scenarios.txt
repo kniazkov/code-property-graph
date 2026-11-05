@@ -39,3 +39,6 @@ templates-dependent
 
 # Template substitution, cross-unit identity and nested diagnostics
 template-instantiation
+
+# Demand-only standard declarations and concrete library members
+lazy-library

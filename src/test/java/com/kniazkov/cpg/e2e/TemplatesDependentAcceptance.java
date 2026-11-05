@@ -50,7 +50,7 @@ final class TemplatesDependentAcceptance {
         var specialized=nodes(instance.declaration(),CallExpression.class).getFirst();assertFalse(specialized.dependent());
         var size=specialized.target().orElseThrow();assertEquals("size",size.name());assertTrue(size.isConst());
         var library=Collections.newSetFromMap(new IdentityHashMap<Node,Boolean>());for(var header:p.librarySources())library.addAll(nodes(header,Node.class));
-        assertTrue(library.contains(size));assertTrue(size.body().isEmpty(),"Catalogue provides a declaration, not an invented implementation");
+        assertTrue(library.contains(size.templateOrigin().orElseThrow()));assertTrue(p.classTemplateInstances().stream().anyMatch(i->nodes(i.declaration(),CallableDeclaration.class).contains(size)));assertTrue(size.body().isEmpty(),"Catalogue provides a declaration, not an invented implementation");
         var receiver=assertInstanceOf(NameExpression.class,assertInstanceOf(MemberExpression.class,specialized.callee()).receiver());
         assertSame(instance.declaration().parameters().getFirst(),receiver.target().orElseThrow());
         var buffer=nodes(file,ClassDeclaration.class).stream().filter(c->c.name().equals("Buffer")).findFirst().orElseThrow();
