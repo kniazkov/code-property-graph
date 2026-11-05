@@ -45,3 +45,6 @@ lazy-library
 
 # Safe common vector semantics and preserved C++03 copy behavior.
 vector-semantics
+
+# Vector access, capacity, modifiers, iterator and reference validity.
+vector-access

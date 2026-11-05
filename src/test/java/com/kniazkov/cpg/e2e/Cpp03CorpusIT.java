@@ -66,6 +66,10 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("vector-access".equals(settings.getProperty("mode"))) {
+            for (Path source : VectorAccessAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
+            return;
+        }
         if ("vector-semantics".equals(settings.getProperty("mode"))) {
             for (Path source : VectorSemanticsAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
             return;

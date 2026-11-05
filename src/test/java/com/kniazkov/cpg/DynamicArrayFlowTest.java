@@ -19,7 +19,7 @@ class DynamicArrayFlowTest {
     @Test void commonOperationsReadInputsAndDefineSubsequentContainerReads() {
         var p = analyze("int f(){ int n=2; std::vector<int> a(n,7); a.push_back(9); return a.size(); }");
         assertFalse(p.hasErrors());
-        assertEquals(2, p.dynamicArraySemantics().size());
+        assertEquals(3, p.dynamicArraySemantics().size());
         var fill = p.dynamicArraySemantics().get(0);
         var append = p.dynamicArraySemantics().get(1);
         for (var operation : p.dynamicArraySemantics()) for (var input : operation.sources())

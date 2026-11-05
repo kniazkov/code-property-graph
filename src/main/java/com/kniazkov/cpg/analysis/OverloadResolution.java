@@ -63,7 +63,11 @@ public final class OverloadResolution {
         if (candidates.stream().anyMatch(c -> c.sequences().stream().anyMatch(s -> s.rank() == Rank.UNKNOWN))) {
             // An implementation-defined arithmetic type has a guaranteed standard
             // conversion but no known exact/promotion/conversion rank. One candidate
-            // needs no ranking; competing candidates remain deliberately unresolved.
+            // needs no ranking. Identical explicit conversions can also be ranked
+            // by the implicit object cv conversion alone.
+            var cvBest=candidates.stream().filter(a->a.sequences().stream().allMatch(s->s.knownViable() && s.rank()!=Rank.AMBIGUOUS)
+                    && candidates.stream().allMatch(b->a==b || sameExplicitParameters(a.declaration(),b.declaration()) && sameUnknownSequences(a,b) && better(a,b))).toList();
+            if(cvBest.size()==1)return new Result(CallExpression.Resolution.RESOLVED,Optional.of(cvBest.getFirst().declaration()),viable);
             if(candidates.size()==1 && candidates.getFirst().sequences().stream().allMatch(s->s.knownViable() && s.rank()!=Rank.AMBIGUOUS))
                 return new Result(CallExpression.Resolution.RESOLVED,Optional.of(candidates.getFirst().declaration()),viable);
             return new Result(CallExpression.Resolution.UNRESOLVED, Optional.empty(), viable);
@@ -72,6 +76,19 @@ public final class OverloadResolution {
         if (best.size() == 1 && best.getFirst().sequences().stream().noneMatch(sequence -> sequence.rank() == Rank.AMBIGUOUS))
             return new Result(CallExpression.Resolution.RESOLVED, Optional.of(best.getFirst().declaration()), viable);
         return new Result(CallExpression.Resolution.AMBIGUOUS, Optional.empty(), viable);
+    }
+    private static boolean sameUnknownSequences(Candidate a, Candidate b) {
+        if(a.sequences().size()!=b.sequences().size())return false;
+        for(int i=0;i<a.sequences().size();i++) {
+            var x=a.sequences().get(i);var y=b.sequences().get(i);
+            if((x.rank()==Rank.UNKNOWN || y.rank()==Rank.UNKNOWN) && !x.equals(y))return false;
+        }
+        return true;
+    }
+    private static boolean sameExplicitParameters(CallableDeclaration a, CallableDeclaration b) {
+        return a instanceof MethodDeclaration && b instanceof MethodDeclaration
+                && a.parameters().stream().map(p->p.type().map(TypeNode::canonicalIdentity).orElse("?")).toList()
+                .equals(b.parameters().stream().map(p->p.type().map(TypeNode::canonicalIdentity).orElse("?")).toList());
     }
     public static boolean better(Candidate a, Candidate b) {
         if (a.sequences().size() != b.sequences().size()) return false;
@@ -149,6 +166,15 @@ public final class OverloadResolution {
         source = source.canonicalType(); target = target.canonicalType();
         TypeNode sourceBase=TypeSemantics.unqualified(TypeSemantics.withoutReference(source));
         TypeNode targetBase=TypeSemantics.unqualified(TypeSemantics.withoutReference(target));
+        var fromIterator=LibraryIteratorSemantics.info(sourceBase);
+        var toIterator=LibraryIteratorSemantics.info(targetBase);
+        if(fromIterator.isPresent() && toIterator.isPresent() && !sourceBase.canonicalIdentity().equals(targetBase.canonicalIdentity())) {
+            if(!fromIterator.get().compatible(toIterator.get()) || fromIterator.get().readOnly() || !toIterator.get().readOnly())return Optional.empty();
+            if(TypeSemantics.unqualified(target) instanceof ReferenceType reference && TypeSemantics.qualifiers(reference.referredType())!=1)return Optional.empty();
+            // Conversion is required by the iterator contract, but its underlying
+            // implementation may be a qualification or a converting constructor.
+            return Optional.of(new Sequence(Rank.UNKNOWN,0,null,target instanceof ReferenceType,true));
+        }
         if((sourceBase instanceof OpaqueLibraryType || targetBase instanceof OpaqueLibraryType)
                 && !sourceBase.canonicalIdentity().equals(targetBase.canonicalIdentity()))
             return Optional.of(new Sequence(Rank.UNKNOWN,0,null,target instanceof ReferenceType,

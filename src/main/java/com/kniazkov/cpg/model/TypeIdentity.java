@@ -83,7 +83,15 @@ public final class TypeIdentity {
         if (type.fundamentalKind().isPresent()) return type.fundamentalKind().orElseThrow().spelling();
         String name = type.declaration().map(declaration -> dependentNames.getOrDefault(declaration,
                 declaration.typeIdentity().orElse(type.name()))).orElse(type.name());
-        if (type.qualifier().filter(qualifier -> contextualQualifier(qualifier, dependentNames)).isPresent()) {
+        // A resolved member of a concrete template instance has one declaration
+        // identity, whether spelled Owner<T>::Member or Member inside that class.
+        // Only unresolved/dependent qualifiers need their spelling reconstructed.
+        boolean concreteMember=type.declaration().filter(declaration->declaration instanceof ClassDeclaration || declaration instanceof EnumDeclaration)
+                .flatMap(Declaration::typeIdentity).isPresent()
+                && !type.dependent() && type.qualifier().filter(qualifier->!qualifier.dependent()).map(TypeIdentity::canonicalType).filter(NamedType.class::isInstance).map(NamedType.class::cast)
+                .flatMap(NamedType::declaration).filter(ClassDeclaration.class::isInstance).map(ClassDeclaration.class::cast)
+                .filter(owner->owner.templateKind()==TemplateKind.NONE && owner.hasTemplateArguments()).isPresent();
+        if (!concreteMember && type.qualifier().filter(qualifier -> contextualQualifier(qualifier, dependentNames)).isPresent()) {
             name = identity(type.qualifier().orElseThrow(), seen, dependentNames) + "::" + type.name().substring(type.name().lastIndexOf("::") + 2);
         }
         // A concrete class-instance declaration already carries normalized actual arguments,

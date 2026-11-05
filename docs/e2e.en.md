@@ -409,3 +409,11 @@ const Record copy-constructor selection, bool proxies and custom allocator effec
 The nested copy-overloads program checks observable const-copy selection without
 requiring an implementation-specific number of copies. Original, GREEN and FOLDED
 programs are compiled and run for both fixtures and both compilers.
+
+`vector-access` executes real C++03 access, checked out-of-range exception, reserve
+and resize, all insertion/erase forms, returned iterators, forward/reverse/const
+iteration, clear and swap. It verifies reference preservation before insertion with
+sufficient reserved capacity and the distinction between container and element
+references after swap. A possibly invalidated reference is inspected only in the
+graph, never dereferenced in the executable. API/JSON/SVG, copied snapshots and
+original/GREEN/FOLDED source runs are checked under both GCC and Clang.
