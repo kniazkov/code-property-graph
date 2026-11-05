@@ -10,6 +10,9 @@ import java.util.Optional;
 public abstract class MemberExpression extends Expression {
     private Expression receiver;
     private String member;
+    private Declaration target;
+    public Optional<Declaration> target() { return Optional.ofNullable(target); }
+    @Override public List<Node> references() { return target == null ? List.of() : List.of(target); }
 
     MemberExpression() {
     }
@@ -40,6 +43,7 @@ public abstract class MemberExpression extends Expression {
         context.register(this, builder);
         builder.receiver = context.edge(receiver, Expression.class);
         builder.member = member;
+        builder.target = target == null ? null : context.edge(target, Declaration.class);
         return builder;
     }
 
@@ -49,6 +53,10 @@ public abstract class MemberExpression extends Expression {
     public abstract static class Builder<T extends MemberExpression, B extends Builder<T, B>> extends NodeBuilder<T> {
         private NodeBuilder<? extends Expression> receiver;
         private String member;
+        private NodeBuilder<? extends Declaration> target;
+        public Optional<NodeBuilder<? extends Declaration>> target() { return Optional.ofNullable(target); }
+        public B setTarget(NodeBuilder<? extends Declaration> value) { target = Objects.requireNonNull(value); return self(); }
+        public B clearTarget() { target = null; return self(); }
 
         /** Binds this builder to the snapshot class used for identity lookups. */
         Builder(Class<T> type) {
@@ -85,6 +93,7 @@ public abstract class MemberExpression extends Expression {
             MemberExpression node = shell;
             node.receiver = context.copy(receiver);
             node.member = requiredText(member, "MemberExpression.member");
+            node.target = target == null ? null : context.copy(target);
         }
     }
 }

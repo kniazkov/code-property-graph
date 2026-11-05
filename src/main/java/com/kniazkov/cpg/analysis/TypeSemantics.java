@@ -118,18 +118,8 @@ public final class TypeSemantics {
         if (expression instanceof IntegerLiteral literal)
             return ConstantEvaluator.literal(literal, profile).map(value -> named(value.type().spelling()));
         if (expression instanceof SizeofExpression) return sizeType(profile).map(TypeSemantics::named);
-        if (expression instanceof NameExpression name) return name.target().flatMap(target -> {
-            if (target instanceof VariableDeclaration variable) return variable.type();
-            if (target instanceof ParameterDeclaration parameter) {
-                return parameter.type().map(type -> {
-                    var plain = unqualified(type);
-                    if (plain instanceof ArrayType array) return PointerType.create().setPointee(array.elementType().edit()).build();
-                    if (plain instanceof FunctionType) return PointerType.create().setPointee(type.edit()).build();
-                    return type;
-                });
-            }
-            return Optional.empty();
-        });
+        if (expression instanceof NameExpression name) return declarationType(name.target());
+        if (expression instanceof MemberExpression member) return declarationType(member.target());
         if (expression instanceof CallExpression call) return call.target().flatMap(CallableDeclaration::returnType);
         if (expression instanceof AssignmentExpression assignment) return expressionType(assignment.target(), profile);
         if (expression instanceof AddressOfExpression address)
@@ -158,6 +148,21 @@ public final class TypeSemantics {
             }
         }
         return Optional.empty();
+    }
+
+    private static Optional<TypeNode> declarationType(Optional<Declaration> declaration) {
+        return declaration.flatMap(target -> {
+            if (target instanceof VariableDeclaration variable) return variable.type();
+            if (target instanceof ParameterDeclaration parameter) {
+                return parameter.type().map(type -> {
+                    var plain = unqualified(type);
+                    if (plain instanceof ArrayType array) return PointerType.create().setPointee(array.elementType().edit()).build();
+                    if (plain instanceof FunctionType) return PointerType.create().setPointee(type.edit()).build();
+                    return type;
+                });
+            }
+            return Optional.empty();
+        });
     }
 
     static Optional<ConstantEvaluator.IntegerType> integerType(TypeNode type, PlatformProfile profile) {

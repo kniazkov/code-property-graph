@@ -23,7 +23,7 @@ public final class TypeIdentity {
         if (!seen.add(type)) throw new IllegalStateException("Cyclic type identity");
         try {
             return switch (type) {
-                case NamedType n -> n.fundamentalKind().map(FundamentalKind::spelling).orElse("named(" + n.name() + ")");
+                case NamedType n -> n.fundamentalKind().map(FundamentalKind::spelling).orElseGet(() -> "named(" + n.declaration().flatMap(Declaration::typeIdentity).orElse(n.name()) + ")");
                 case QualifiedType q -> qualified(q.baseType(), q.isConst(), q.isVolatile(), seen);
                 case PointerType p -> "pointer(" + identity(p.pointee(), seen) + ")";
                 case ReferenceType r -> "reference(" + identity(r.referredType(), seen) + ")";

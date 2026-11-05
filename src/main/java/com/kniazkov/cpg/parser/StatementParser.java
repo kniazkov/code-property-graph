@@ -9,6 +9,8 @@ final class StatementParser {
     private final ExpressionParser expressions;
     private final ParseRecovery recovery;
     private final TypeParser types;
+    private java.util.function.Supplier<java.util.List<NodeBuilder<? extends Declaration>>> declarationReader;
+    void setDeclarationReader(java.util.function.Supplier<java.util.List<NodeBuilder<? extends Declaration>>> value) { declarationReader = value; }
 
     StatementParser(TokenCursor tokens, ExpressionParser expressions) {
         this(tokens, expressions, null);
@@ -37,7 +39,7 @@ final class StatementParser {
                 if (tokens.take("}")) break;
                 var itemStart = tokens.start();
                 if (tokens.language() == Language.CPP && types.startsDeclaration()) {
-                    for (var declaration : declarations()) block.addItem(declaration);
+                    for (var declaration : declarationReader == null ? declarations() : declarationReader.get()) block.addItem(declaration);
                 } else if (tokens.take("int")) {
                     var type = tokens.span(itemStart, NamedType.create().setName("int"));
                     String name = tokens.identifier();
@@ -53,7 +55,11 @@ final class StatementParser {
                     }
                     tokens.expect(";");
                     block.addItem(tokens.span(itemStart, decl));
-                } else block.addItem(statement());
+                } else {
+                    var statement = statement();
+                    for (var declaration : types.takeImplicitDeclarations()) block.addItem(declaration);
+                    block.addItem(statement);
+                }
             } catch (ParseException error) {
                 if (recovery == null) throw error;
                 recovery.stop(error, tokens.currentRange());
@@ -66,23 +72,26 @@ final class StatementParser {
     private java.util.List<NodeBuilder<? extends Declaration>> declarations() {
         var start = tokens.start(); var specs = types.specifiers();
         var result = new java.util.ArrayList<NodeBuilder<? extends Declaration>>();
+        int declaratorCount = 0;
         do {
+            declaratorCount++;
             var declarator = types.declarator(false);
             var type = declarator.apply().apply(specs.type().get());
+            var function = types.functionType(type);
+            result.addAll(types.takeImplicitDeclarations());
             if (specs.typedef()) {
                 if (!specs.modifiers().isEmpty()) throw tokens.error("Storage specifier on typedef");
                 var declaration = TypedefDeclaration.create().setName(declarator.name()).setType(type);
                 types.declareAlias(declarator.name(), declaration); result.add(tokens.span(start, declaration));
-            } else if (type instanceof FunctionType.Builder function) {
+            } else if (function != null) {
                 var declaration = FunctionDeclaration.create().setName(declarator.name())
                         .setReturnType(function.returnType().orElseThrow()).setParameters(function.parameters())
                         .setVariadic(function.variadic()).setModifiers(specs.modifiers());
+                if (!(type instanceof FunctionType.Builder)) declaration.setWrittenType(type);
                 if (function.isConst() || function.isVolatile()) throw tokens.error("Free function cannot have cv qualifiers");
                 types.declareName(declarator.name()); result.add(tokens.span(start, declaration));
             } else {
-                if (type.build().canonicalType() instanceof FunctionType) throw tokens.error("Function declarations through typedef names are not yet supported");
-                if (!specs.modifiers().isEmpty()) throw tokens.error("Variable storage specifiers are not yet supported");
-                var declaration = VariableDeclaration.create().setName(declarator.name()).setType(type);
+                var declaration = VariableDeclaration.create().setName(declarator.name()).setType(type).setModifiers(specs.modifiers());
                 types.declareName(declarator.name());
                 if (tokens.take("=")) {
                     var initializerStart = tokens.start();
@@ -98,7 +107,7 @@ final class StatementParser {
             }
         } while (tokens.take(","));
         tokens.expect(";");
-        if (result.size() == 1) tokens.span(start, result.getFirst());
+        if (declaratorCount == 1) tokens.span(start, result.getLast());
         return result;
     }
 

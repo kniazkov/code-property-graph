@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 /** Shares one position among the declaration, statement and expression readers of one file. */
 final class TokenCursor {
     private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*");
-    private static final Set<String> RESERVED = Set.of("class", "int", "void", "return", "if", "else", "while", "for", "public", "static", "bool", "char", "signed", "unsigned", "short", "long", "wchar_t", "float", "double", "const", "volatile", "typedef", "struct", "union", "enum", "extern", "inline", "register", "mutable", "private", "protected", "sizeof");
+    private static final Set<String> RESERVED = Set.of("class", "int", "void", "return", "if", "else", "while", "for", "public", "static", "bool", "char", "signed", "unsigned", "short", "long", "wchar_t", "float", "double", "const", "volatile", "typedef", "struct", "union", "enum", "extern", "inline", "register", "mutable", "private", "protected", "sizeof", "namespace", "using", "auto");
     private final String file;
     private final Language language;
     private final List<Token> tokens;
@@ -28,6 +28,18 @@ final class TokenCursor {
     }
 
     record Mark(SourceRange range, int tokenIndex) {}
+    int checkpoint() { return position; }
+    void restore(int checkpoint) { position = checkpoint; }
+    /** Skips a delayed inline body while preserving lexer/edition failures. */
+    void skipBlock() {
+        expect("{"); int depth = 1;
+        while (depth > 0) {
+            if (peek().equals("<eof>")) throw error("Unterminated function body");
+            if (take("{")) depth++;
+            else if (take("}")) depth--;
+            else advance();
+        }
+    }
 
     private SourceRange range(Token token) {
         return new SourceRange(token.file() == null ? file : token.file(), token.start(), token.end());
