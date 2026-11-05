@@ -73,6 +73,72 @@ public final class Project extends Node {
     public List<DynamicArrayType> dynamicArrayTypes() { return dynamicArrayTypes; }
     private List<DynamicArrayOperation> dynamicArraySemantics = List.of();
     public List<DynamicArrayOperation> dynamicArraySemantics() { return dynamicArraySemantics; }
+    private List<Object> containerBindings;
+    private List<Object> containerBindings() {
+        var facts = new ArrayList<Object>();
+        var roots = new ArrayList<Node>(files); roots.addAll(librarySources);
+        roots.addAll(classTemplateInstances); roots.addAll(templateInstances);
+        for (Node root : roots) {
+            if (root instanceof SourceFile file) facts.add(com.kniazkov.cpg.analysis.TypeSemantics.profile(file).stableIdentity());
+            Node syntax = root instanceof ClassTemplateInstance instance ? instance.declaration()
+                    : root instanceof TemplateInstance instance ? instance.declaration() : root;
+            try { facts.add(com.kniazkov.cpg.generation.Source.render(syntax,
+                    root instanceof SourceFile file ? file.language() : Language.CPP)); }
+            catch (IllegalArgumentException unsupported) { facts.add("unrenderable"); }
+            root.walk(new NodeVisitor() { @Override public void visit(Node node) {
+                facts.add(node.editIdentity); facts.add(node.provenance());
+                facts.add(node.references().stream().map(target -> target.editIdentity).toList());
+                if (node instanceof TypeNode type) {
+                    facts.add(type.canonicalIdentity()); facts.add(type.semanticType());
+                }
+            } });
+        }
+        return List.copyOf(facts);
+    }
+    private List<String> containerSyntax;
+    /** Discard derived semantics if their written operands were detached by an edit. */
+    void validateContainerSemantics() {
+        if (containerTypes.isEmpty() && containerSemantics.isEmpty()) return;
+        List<String> syntax;
+        try { syntax = files.stream().map(file -> com.kniazkov.cpg.generation.Source.render(file, file.language())).toList(); }
+        catch (IllegalArgumentException exception) { syntax = null; }
+        var bindings = containerBindings();
+        if (syntax == null || containerSyntax != null && !containerSyntax.equals(syntax)
+                || containerBindings != null && !containerBindings.equals(bindings)) {
+            containerTypes = List.of(); containerSemantics = List.of(); containerSyntax = null; return;
+        }
+        boolean fresh = containerSyntax == null;
+        containerBindings = bindings;
+        containerSyntax = syntax;
+        var owned = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
+        files.forEach(file -> file.walk(new NodeVisitor() { @Override public void visit(Node n) { owned.add(n); } }));
+        librarySources.forEach(file -> file.walk(new NodeVisitor() { @Override public void visit(Node n) { owned.add(n); } }));
+        classTemplateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node n) { owned.add(n); } }));
+        templateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node n) { owned.add(n); } }));
+        if (fresh && containerTypes.stream().anyMatch(type -> !type.references().stream().allMatch(owned::contains)))
+            throw new IllegalStateException("Container type references foreign syntax");
+        containerTypes = containerTypes.stream().filter(type -> type.references().stream().allMatch(owned::contains)).toList();
+        owned.addAll(containerTypes);
+        // Temporal handle effects may reference other owned operations, never foreign graphs.
+        owned.addAll(containerSemantics);
+        if (fresh && containerSemantics.stream().anyMatch(operation -> !operation.references().stream().allMatch(owned::contains)))
+            throw new IllegalStateException("Container operation references foreign syntax");
+        boolean removed;
+        do {
+            var retained = containerSemantics.stream()
+                    .filter(operation -> operation.references().stream().allMatch(owned::contains)).toList();
+            removed = retained.size() != containerSemantics.size();
+            if (removed) {
+                owned.removeAll(containerSemantics);
+                owned.addAll(retained);
+                containerSemantics = retained;
+            }
+        } while (removed);
+    }
+    private List<ContainerType> containerTypes = List.of();
+    public List<ContainerType> containerTypes() { return containerTypes; }
+    private List<ContainerOperation> containerSemantics = List.of();
+    public List<ContainerOperation> containerSemantics() { return containerSemantics; }
     private List<SourceFile> files = List.of();
     private List<SourceFile> librarySources = List.of();
     private StandardLibrary standardLibrary;
@@ -230,6 +296,7 @@ public final class Project extends Node {
         copy.files = files;
         copy.classTemplateInstances = classTemplateInstances;
         copy.dynamicArrayBindings = dynamicArrayBindings; copy.dynamicArraySyntax = dynamicArraySyntax; copy.dynamicArraySemantics = dynamicArraySemantics; copy.dynamicArrayTypes = dynamicArrayTypes;
+        copy.containerBindings = containerBindings; copy.containerSyntax = containerSyntax; copy.containerSemantics = containerSemantics; copy.containerTypes = containerTypes;
         copy.standardLibrary = standardLibrary; copy.librarySources = librarySources; copy.templateInstances = templateInstances; copy.instanceSyntax = instanceSyntax;
         copy.externalInputs = externalInputs;
         copy.build = build;
@@ -244,7 +311,7 @@ public final class Project extends Node {
         walk(new NodeVisitor() { @Override public void visit(Node node) { nodes.add(node); } });
         for (FunctionFlow flow : copy.flows) {
             for (var edge : flow.data()) for (Node endpoint : List.of(edge.from(), edge.to()))
-                if (endpoint instanceof DynamicArrayOperation && !nodes.contains(endpoint))
+                if ((endpoint instanceof DynamicArrayOperation || endpoint instanceof ContainerOperation) && !nodes.contains(endpoint))
                     throw new IllegalArgumentException("Foreign dynamic-array flow operation");
             for (var auxiliary : flow.auxiliaryVertices()) {
                 if (auxiliary.object().filter(n -> !nodes.contains(n)).isPresent()
@@ -316,7 +383,7 @@ public final class Project extends Node {
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         children.addAll(files);
-        if (standardLibrary != null) children.add(standardLibrary); children.addAll(templateInstances); children.addAll(classTemplateInstances); children.addAll(dynamicArraySemantics); children.addAll(dynamicArrayTypes);
+        if (standardLibrary != null) children.add(standardLibrary); children.addAll(templateInstances); children.addAll(classTemplateInstances); children.addAll(dynamicArraySemantics); children.addAll(dynamicArrayTypes); children.addAll(containerSemantics); children.addAll(containerTypes);
         children.addAll(externalInputs);
         return List.copyOf(children);
     }
@@ -345,8 +412,11 @@ public final class Project extends Node {
         builder.templateInstances = context.copyAll(templateInstances, TemplateInstance.class);
         builder.classTemplateInstances = context.copyAll(classTemplateInstances, ClassTemplateInstance.class);
         builder.dynamicArrayBindings = dynamicArrayBindings; builder.dynamicArraySyntax = dynamicArraySyntax;
+        builder.containerBindings = containerBindings; builder.containerSyntax = containerSyntax;
         builder.dynamicArrayTypes = context.copyAll(dynamicArrayTypes, DynamicArrayType.class);
+        builder.containerTypes = context.copyAll(containerTypes, ContainerType.class);
         builder.dynamicArraySemantics = context.copyAll(dynamicArraySemantics, DynamicArrayOperation.class);
+        builder.containerSemantics = context.copyAll(containerSemantics, ContainerOperation.class);
         builder.instanceSyntax = instanceSyntax;
         builder.build = build;
         builder.externalInputs = context.copyAll(externalInputs, ExternalInput.class);
@@ -360,11 +430,17 @@ public final class Project extends Node {
         private StandardLibrary.Builder libraryCollection;
         private List<NodeBuilder<? extends TemplateInstance>> templateInstances = new ArrayList<>();
         private List<Object> dynamicArrayBindings;
+        private List<Object> containerBindings;
         private List<String> dynamicArraySyntax;
+        private List<String> containerSyntax;
         private List<NodeBuilder<? extends DynamicArrayType>> dynamicArrayTypes = new ArrayList<>();
+        private List<NodeBuilder<? extends ContainerType>> containerTypes = new ArrayList<>();
         public Builder setDynamicArrayTypes(List<NodeBuilder<? extends DynamicArrayType>> value) { dynamicArrayTypes = new ArrayList<>(value); return this; }
+        public Builder setContainerTypes(List<NodeBuilder<? extends ContainerType>> value) { containerTypes = new ArrayList<>(value); return this; }
         private List<NodeBuilder<? extends DynamicArrayOperation>> dynamicArraySemantics = new ArrayList<>();
+        private List<NodeBuilder<? extends ContainerOperation>> containerSemantics = new ArrayList<>();
         public Builder setDynamicArraySemantics(List<NodeBuilder<? extends DynamicArrayOperation>> value) { dynamicArraySemantics = new ArrayList<>(value); dynamicArraySyntax = null; dynamicArrayBindings = null; return this; }
+        public Builder setContainerSemantics(List<NodeBuilder<? extends ContainerOperation>> value) { containerSemantics = new ArrayList<>(value); containerSyntax = null; containerBindings = null; return this; }
         private List<NodeBuilder<? extends ClassTemplateInstance>> classTemplateInstances = new ArrayList<>();
         Builder addClassTemplateInstance(ClassTemplateInstance.Builder value) { classTemplateInstances.add(value); return this; }
         private List<String> instanceSyntax;
@@ -410,8 +486,11 @@ public final class Project extends Node {
             }
             node.classTemplateInstances = context.copyAll(classTemplateInstances);
             node.dynamicArrayBindings = dynamicArrayBindings; node.dynamicArraySyntax = dynamicArraySyntax;
+            node.containerBindings = containerBindings; node.containerSyntax = containerSyntax;
             node.dynamicArrayTypes = context.copyAll(dynamicArrayTypes);
+            node.containerTypes = context.copyAll(containerTypes);
             node.dynamicArraySemantics = context.copyAll(dynamicArraySemantics);
+            node.containerSemantics = context.copyAll(containerSemantics);
             node.templateInstances = context.copyAll(templateInstances); node.instanceSyntax = instanceSyntax;
             node.build = build;
             var inputs = new java.util.LinkedHashMap<String, ExternalInput.Builder>();

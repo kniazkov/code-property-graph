@@ -40,10 +40,13 @@ public final class ClassTemplateInstances {
                     @Override public void visit(OpaqueLibraryType n) {
                         var opaque=fork.edit(n,OpaqueLibraryType.Builder.class).setIdentity(request.identity()+"::"+n.identity());
                         if(com.kniazkov.cpg.analysis.LibraryDeclarations.isLibrary(request.selected())
-                                && request.selected().name().equals("vector") && request.selected()==request.origin()
+                                && Set.of("vector","deque","list","set","multiset","map","multimap").contains(request.selected().name()) && request.selected()==request.origin()
                                 && (n.name().equals("iterator") || n.name().equals("const_iterator")))
                         {
                             opaque.setIteratorContainer(concrete);
+                            request.selected().members().stream().filter(TypedefDeclaration.class::isInstance)
+                                    .map(TypedefDeclaration.class::cast).filter(t->t.name().equals("value_type")).findFirst()
+                                    .ifPresent(t->opaque.setIteratorValueType(fork.edge(t,TypedefDeclaration.class)));
                             request.selected().members().stream().filter(TypedefDeclaration.class::isInstance)
                                     .map(TypedefDeclaration.class::cast).filter(t->t.name().equals("difference_type")).findFirst()
                                     .ifPresent(t->opaque.setIteratorDifferenceType(fork.edge(t.type(),TypeNode.class)));

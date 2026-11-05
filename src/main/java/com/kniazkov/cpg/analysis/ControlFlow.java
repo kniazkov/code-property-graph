@@ -140,10 +140,33 @@ public final class ControlFlow {
             if (node instanceof InitializationExpression e && e.form() == InitializationExpression.Form.TEMPORARY && e.type().flatMap(ClassSemantics::objectClass).isPresent()) return true;
             if (node instanceof Expression e && !(e instanceof InitializationExpression initialization && initialization.form() != InitializationExpression.Form.TEMPORARY)
                     && (e instanceof CallExpression || e.semanticInfo().map(info -> info.category() == ValueCategory.RVALUE).orElse(false))
-                    && TypeSemantics.expressionType(e, profile).flatMap(ClassSemantics::objectClass).isPresent()) return true;
+                    && TypeSemantics.expressionType(e, profile).flatMap(ClassSemantics::objectClass).isPresent()
+                    // A resolved class-reference return names existing storage; it
+                    // does not introduce the unsupported record temporary lifetime.
+                    && !(e instanceof CallExpression call && call.target().flatMap(CallableDeclaration::returnType)
+                            .map(TypeSemantics::unqualified).filter(ReferenceType.class::isInstance).isPresent())
+                    && !trivialAssociativeInsertResult(e)) return true;
             if (node instanceof Expression e && containsThrow(e) && !special(e)
                     && !(e instanceof ConversionExpression) && !(e instanceof ConditionDeclarationExpression)) return true;
             return node.children().stream().anyMatch(this::unsupportedEvaluation);
+        }
+        /** A catalogue pair<iterator,bool> carries no user record lifetime. Do not
+         * generalize this exception to arbitrary record-valued library calls. */
+        boolean trivialAssociativeInsertResult(Expression expression) {
+            if (!(expression instanceof CallExpression call)) return false;
+            var operation = project.containerSemantics().stream().filter(o -> o.syntax() == call
+                    && o.kind() == ContainerOperation.Kind.INSERT && o.type().uniqueKeys()
+                    && o.sources().size() == 1 && LibraryDeclarations.isLibrary(o.selectedTarget())).findFirst();
+            if (operation.isEmpty()) return false;
+            var result = TypeSemantics.expressionType(call, profile).map(TypeSemantics::unqualified).orElse(null);
+            if (!(result instanceof NamedType named)) return false;
+            var pair = ClassSemantics.objectClass(named).orElse(null);
+            if (pair == null || !pair.name().equals("pair") || !LibraryDeclarations.isLibrary(pair)) return false;
+            var arguments = named.templateArguments().isEmpty() ? pair.templateArguments() : named.templateArguments();
+            if (arguments.size() != 2 || arguments.get(1).type().map(TypeSemantics::unqualified)
+                    .map(TypeNode::canonicalIdentity).filter("bool"::equals).isEmpty()) return false;
+            return arguments.getFirst().type().flatMap(LibraryIteratorSemantics::info)
+                    .filter(info -> info.container() == operation.get().type().concreteClass()).isPresent();
         }
         boolean unsupportedObject(Node node) {
             return node instanceof VariableDeclaration v && v.type().map(TypeSemantics::unqualified).filter(ArrayType.class::isInstance).isPresent()
