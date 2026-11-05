@@ -8,6 +8,29 @@ import java.util.Objects;
 /** Root containing source files. */
 public final class Project extends Node {
     private List<SourceFile> files = List.of();
+    private List<SourceFile> librarySources = List.of();
+    private List<TemplateInstance> templateInstances = List.of();
+    private List<String> instanceSyntax;
+    /** Removes derived instances when a low-level builder changes written source. */
+    java.util.Set<Node> invalidateTemplateInstances() {
+        if (templateInstances.isEmpty()) { instanceSyntax = null; return java.util.Set.of(); }
+        List<String> syntax;
+        try { syntax = files.stream().map(file -> com.kniazkov.cpg.generation.Source.render(file, file.language())).toList(); }
+        catch (IllegalArgumentException exception) { syntax = null; } // Recovery/edit syntax cannot retain derived instances.
+        if (instanceSyntax == null && syntax != null) { instanceSyntax = syntax; return java.util.Set.of(); }
+        var written = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
+        files.forEach(file -> file.walk(new NodeVisitor() { @Override public void visit(Node node) { written.add(node); } }));
+        boolean owned = templateInstances.stream().allMatch(instance -> written.contains(instance.source())
+                && written.contains(instance.origin()) && written.contains(instance.cause()));
+        if (syntax != null && instanceSyntax != null && instanceSyntax.equals(syntax) && owned) return java.util.Set.of();
+        var discarded = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
+        templateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { discarded.add(node); } }));
+        files.forEach(file -> file.walk(new NodeVisitor() { @Override public void visit(CallExpression call) { call.invalidateTargets(discarded); } }));
+        templateInstances = List.of(); instanceSyntax = null;
+        return discarded;
+    }
+    public List<SourceFile> librarySources() { return librarySources; }
+    public List<TemplateInstance> templateInstances() { return templateInstances; }
     /** True when any translation unit contains a persistent parser error. */
     public boolean hasErrors() { return files.stream().anyMatch(SourceFile::hasErrors); }
     /** Every persistent parse-failure occurrence in stable physical/context order. */
@@ -91,7 +114,7 @@ public final class Project extends Node {
                 builder.clearDefinition(); builder.clearPreviousDeclaration();
             }
         });
-        root.setFiles(context.copyAll(selected, SourceFile.class)).setBuild(selectedBuild);
+        root.clearTemplateInstances().setFiles(context.copyAll(selected, SourceFile.class)).setBuild(selectedBuild);
         Project snapshot = root.build();
         if (snapshot.hasErrors()) return snapshot;
         return com.kniazkov.cpg.analysis.UnreadWrites.analyze(
@@ -107,6 +130,7 @@ public final class Project extends Node {
     public Project withFlows(List<FunctionFlow> results) {
         var copy = new Project();
         copy.files = files;
+        copy.librarySources = librarySources; copy.templateInstances = templateInstances; copy.instanceSyntax = instanceSyntax;
         copy.externalInputs = externalInputs;
         copy.build = build;
         copy.flows = List.copyOf(results);
@@ -189,6 +213,7 @@ public final class Project extends Node {
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         children.addAll(files);
+        children.addAll(librarySources); children.addAll(templateInstances);
         children.addAll(externalInputs);
         return List.copyOf(children);
     }
@@ -212,6 +237,9 @@ public final class Project extends Node {
         Builder builder = new Builder();
         context.register(this, builder);
         builder.files = context.copyAll(files, SourceFile.class);
+        builder.librarySources = context.copyAll(librarySources, SourceFile.class);
+        builder.templateInstances = context.copyAll(templateInstances, TemplateInstance.class);
+        builder.instanceSyntax = instanceSyntax;
         builder.build = build;
         builder.externalInputs = context.copyAll(externalInputs, ExternalInput.class);
         return builder;
@@ -220,6 +248,13 @@ public final class Project extends Node {
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<Project> {
         private List<NodeBuilder<? extends SourceFile>> files = new ArrayList<>();
+        private List<NodeBuilder<? extends SourceFile>> librarySources = new ArrayList<>();
+        private List<NodeBuilder<? extends TemplateInstance>> templateInstances = new ArrayList<>();
+        private List<String> instanceSyntax;
+        public Builder setLibrarySources(List<? extends NodeBuilder<? extends SourceFile>> values) { librarySources = new ArrayList<>(values); return this; }
+        public Builder addLibrarySource(NodeBuilder<? extends SourceFile> value) { librarySources.add(value); return this; }
+        Builder clearTemplateInstances() { templateInstances.clear(); return this; }
+        Builder addTemplateInstance(TemplateInstance.Builder value) { templateInstances.add(value); return this; }
         private com.kniazkov.cpg.build.Build build;
         private List<NodeBuilder<? extends ExternalInput>> externalInputs = new ArrayList<>();
         public Builder addExternalInput(ExternalInput.Builder value) { externalInputs.add(value); return this; }
@@ -251,6 +286,8 @@ public final class Project extends Node {
         @Override
         void fillNode(Project node, BuildContext context) {
             node.files = context.copyAll(files);
+            node.librarySources = context.copyAll(librarySources);
+            node.templateInstances = context.copyAll(templateInstances); node.instanceSyntax = instanceSyntax;
             node.build = build;
             var inputs = new java.util.LinkedHashMap<String, ExternalInput.Builder>();
             for (var input : externalInputs) {

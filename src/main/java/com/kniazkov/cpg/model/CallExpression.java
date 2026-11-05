@@ -8,6 +8,13 @@ import java.util.Optional;
 
 /** A call with arguments and an optional resolved target. */
 public final class CallExpression extends Expression {
+    void invalidateTargets(java.util.Set<Node> discarded) {
+        if (candidates.stream().anyMatch(discarded::contains)) {
+            target = null; candidates = List.of(); resolution = Resolution.UNRESOLVED;
+            expressionInfo = null;
+        }
+    }
+
     private Expression callee;
     private List<Expression> arguments = List.of();
     private CallableDeclaration target;

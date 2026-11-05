@@ -3,6 +3,9 @@ package com.kniazkov.cpg.model;
 
 /** A construct in value position. Includes assignments, calls and operations. An ExpressionStatement owns an expression in statement position. */
 public abstract class Expression extends Node {
+    boolean dependent;
+    /** True when lookup or type depends on an unsubstituted template parameter. */
+    public final boolean dependent() { return dependent; }
     ExpressionInfo expressionInfo;
     java.util.List<CallableDeclaration> operatorCandidates = java.util.List.of();
     CallExpression.Resolution operatorResolution = CallExpression.Resolution.UNRESOLVED;

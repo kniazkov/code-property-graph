@@ -26,13 +26,11 @@ public final class DataFlow {
     /** Uses the CFG for this snapshot (building it if necessary) and attaches deduplicated data edges. */
     public static Project analyze(Project project) {
         var cfg = project.flows().isEmpty() ? ControlFlow.analyze(project) : project;
-        Map<CallableDeclaration, Language> languages = new IdentityHashMap<>();
-        Map<CallableDeclaration, PlatformProfile> profiles = new IdentityHashMap<>();
-        for (SourceFile file : cfg.files()) file.walk(new NodeVisitor() {
-            @Override public void visit(CallableDeclaration fn) { languages.put(fn, file.language()); profiles.put(fn, TypeSemantics.profile(file)); }
-        });
-        return cfg.withFlows(cfg.flows().stream()
-                .map(flow -> new DataFlow(languages.get(flow.entry()), profiles.get(flow.entry())).analyzeFunction(flow)).toList());
+        var contexts = SourceContexts.index(cfg);
+        return cfg.withFlows(cfg.flows().stream().map(flow -> {
+            SourceFile source = SourceContexts.require(contexts, flow.entry());
+            return new DataFlow(source.language(), TypeSemantics.profile(source)).analyzeFunction(flow);
+        }).toList());
     }
 
     private FunctionFlow analyzeFunction(FunctionFlow flow) {

@@ -8,6 +8,8 @@ import java.util.Optional;
 
 /** A named class with ordered declarations. */
 public final class ClassDeclaration extends Declaration {
+    private List<TemplateParameterDeclaration> templateParameters = List.of();
+    public List<TemplateParameterDeclaration> templateParameters() { return templateParameters; }
     private String name;
     private boolean implicit;
     private String keyword = "class";
@@ -39,6 +41,7 @@ public final class ClassDeclaration extends Declaration {
     @Override
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
+        children.addAll(templateParameters);
         children.addAll(bases);
         children.addAll(members);
         return List.copyOf(children);
@@ -62,6 +65,7 @@ public final class ClassDeclaration extends Declaration {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
+        builder.templateParameters = context.copyAll(templateParameters, TemplateParameterDeclaration.class);
         builder.name = name;
         builder.bases = context.copyAll(bases, BaseSpecifier.class);
         builder.implicit = implicit;
@@ -77,6 +81,9 @@ public final class ClassDeclaration extends Declaration {
         public List<NodeBuilder<? extends BaseSpecifier>> bases() { return List.copyOf(bases); }
         public Builder setBases(List<? extends NodeBuilder<? extends BaseSpecifier>> values) { bases = new ArrayList<>(List.copyOf(values)); return this; }
         public Builder addBase(NodeBuilder<? extends BaseSpecifier> value) { bases.add(Objects.requireNonNull(value)); return this; }
+        private List<NodeBuilder<? extends TemplateParameterDeclaration>> templateParameters = new ArrayList<>();
+        public List<NodeBuilder<? extends TemplateParameterDeclaration>> templateParameters() { return List.copyOf(templateParameters); }
+        public Builder setTemplateParameters(List<? extends NodeBuilder<? extends TemplateParameterDeclaration>> values) { syntaxEdited = true; templateParameters = new ArrayList<>(values); return this; }
         private String name;
         private boolean implicit;
         public boolean implicit() { return implicit; }
@@ -137,6 +144,7 @@ public final class ClassDeclaration extends Declaration {
 
         @Override
         void fillNode(ClassDeclaration node, BuildContext context) {
+            node.templateParameters = context.copyAll(templateParameters);
             node.bases = context.copyAll(bases);
             node.name = requiredText(name, "ClassDeclaration.name");
             node.implicit = implicit;

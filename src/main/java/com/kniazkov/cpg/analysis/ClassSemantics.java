@@ -10,7 +10,7 @@ import java.util.*;
 public final class ClassSemantics {
     private ClassSemantics() {}
     public enum SpecialKind { DEFAULT_CONSTRUCTOR, COPY_CONSTRUCTOR, COPY_ASSIGNMENT, DESTRUCTOR }
-    public enum Origin { IMPLICIT, USER_DECLARED, SUPPRESSED }
+    public enum Origin { IMPLICIT, USER_DECLARED, SUPPRESSED, UNKNOWN }
     public enum InitializationKind { DEFAULT, ZERO, COPY, DIRECT, AGGREGATE, VALUE }
     /** Virtual bases are initialized only by the most-derived complete object. */
     public enum ConstructionContext { COMPLETE_OBJECT, BASE_SUBOBJECT }
@@ -34,7 +34,7 @@ public final class ClassSemantics {
                 .filter(field -> !field.modifiers().contains("static") && !field.name().isEmpty()).toList();
     }
     public static boolean aggregate(ClassDeclaration owner) {
-        return owner.bases().isEmpty()
+        return !LibraryDeclarations.isLibrary(owner) && owner.bases().isEmpty()
                 && owner.members().stream().noneMatch(member -> member instanceof CallableDeclaration callable
                         && (callable.kind() == CallableDeclaration.Kind.CONSTRUCTOR || callable.modifiers().contains("virtual")))
                 && fields(owner).stream().allMatch(field -> field.access().orElse(owner.memberAccess()).equals("public"));
@@ -46,6 +46,7 @@ public final class ClassSemantics {
         for (SpecialKind kind : SpecialKind.values()) {
             var declarations = functions.stream().filter(function -> matches(kind, owner, function)).toList();
             Origin origin = !declarations.isEmpty() ? Origin.USER_DECLARED
+                    : LibraryDeclarations.isLibrary(owner) ? Origin.UNKNOWN
                     : kind == SpecialKind.DEFAULT_CONSTRUCTOR && functions.stream().anyMatch(function -> function.kind() == CallableDeclaration.Kind.CONSTRUCTOR)
                     ? Origin.SUPPRESSED : Origin.IMPLICIT;
             result.add(new SpecialMember(kind, origin, declarations));
@@ -129,7 +130,7 @@ public final class ClassSemantics {
         return completeHierarchy(owner, true, new ArrayList<>());
     }
     private static boolean completeHierarchy(ClassDeclaration owner, boolean nonvirtual, List<ClassDeclaration> active) {
-        if (!owner.isDefinition() || active.stream().anyMatch(previous -> sameClass(previous, owner))) return false;
+        if (LibraryDeclarations.isLibrary(owner) || !owner.isDefinition() || active.stream().anyMatch(previous -> sameClass(previous, owner))) return false;
         active.add(owner);
         try {
             for (var base : owner.bases()) {

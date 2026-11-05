@@ -17,6 +17,8 @@ final class TypeParser {
         boolean prototype, classScope;
         final Map<String, Binding> names = new LinkedHashMap<>();
         final Set<String> tags = new HashSet<>();
+        final Set<String> enums = new HashSet<>();
+        final Set<String> templateTypes = new HashSet<>(), templateValues = new HashSet<>(), templates = new HashSet<>();
         final Map<String, Scope> nested = new LinkedHashMap<>();
         final List<Scope> using = new ArrayList<>();
         Scope(Scope parent) { this.parent = parent; }
@@ -84,13 +86,59 @@ final class TypeParser {
         if (owner != null) scope = owner;
         try { action.run(); } finally { scope = saved; }
     }
+    /** Parser-only type-name availability; semantic declarations come from the catalogue. */
+    void includeSystemHeader(String header) {
+        if (!header.equals("vector")) return;
+        Scope saved = scope; scope = root;
+        pushNamedScope("std");
+        try { registerClass("vector"); declareTemplate("vector"); registerClass("allocator"); declareTemplate("allocator"); }
+        finally { popScope(); scope = saved; }
+    }
+    void registerEnum(String name) { registerClass(name); scope.enums.add(name); }
+    void validateValueTemplateParameter(NodeBuilder<? extends TypeNode> builder) {
+        TypeNode type = TypeIdentity.canonicalType(builder.build());
+        while (type instanceof QualifiedType qualified) type = TypeIdentity.canonicalType(qualified.baseType());
+        if (!(type instanceof NamedType named)) return; // Pointers/references and adjusted arrays/functions are permitted.
+        if (named.fundamentalKind().isPresent()) {
+            if (Set.of("void", "float", "double", "long double").contains(named.fundamentalKind().orElseThrow().spelling()))
+                throw tokens.error("C++03 non-type template parameters require integral, enum, pointer or reference types");
+            return;
+        }
+        if (named.dependent()) return;
+        String name = named.name(); int separator = name.lastIndexOf("::");
+        if (separator >= 0) {
+            Scope owner = separator == 0 ? root : namespace(name.substring(0, separator));
+            if (owner != null && owner.enums.contains(name.substring(separator + 2))) return;
+        } else for (Scope current = scope; current != null; current = current.parent)
+            if (current.names.containsKey(name)) { if (current.enums.contains(name)) return; else break; }
+        if (className(name)) throw tokens.error("A C++03 non-type template parameter cannot have class type");
+    }
     void registerClass(String name) {
         scope.tags.add(name);
         Scope qualifier = scope.nested.computeIfAbsent(name, ignored -> new Scope(scope));
         qualifier.classScope = true;
         scope.names.putIfAbsent(name, new Binding(true, null, qualifier));
     }
-    void declareTemplateType(String name) { scope.names.put(name, new Binding(true, null, null)); }
+    void declareTemplateType(String name) { scope.names.put(name, new Binding(true, null, null)); scope.templateTypes.add(name); }
+    void declareTemplateValue(String name) { declareName(name); scope.templateValues.add(name); }
+    void declareTemplate(String name) { scope.templates.add(name); }
+    boolean templateName(String name) {
+        int separator = name.lastIndexOf("::");
+        if (separator >= 0) {
+            Scope owner = separator == 0 ? root : namespace(name.substring(0, separator));
+            return owner != null && owner.templates.contains(name.substring(separator + 2));
+        }
+        for (Scope current = scope; current != null; current = current.parent) if (current.templates.contains(name)) return true;
+        return false;
+    }
+    boolean dependentName(String name) {
+        String head = name.split("::")[0];
+        for (Scope current = scope; current != null; current = current.parent) {
+            if (current.templateTypes.contains(head) || current.templateValues.contains(head)) return true;
+            if (current.names.containsKey(head)) return false;
+        }
+        return false;
+    }
     void declareName(String name) { if (!name.isEmpty()) scope.names.put(name, new Binding(false, null, null)); }
     void declareAlias(String name, TypedefDeclaration.Builder declaration) {
         Scope qualifier = typeScope(declaration.type().orElseThrow(), Collections.newSetFromMap(new IdentityHashMap<>()));
@@ -172,28 +220,32 @@ final class TypeParser {
     }
     boolean functionalTypeAhead() {
         if (FUNDAMENTAL.contains(tokens.peek())) return tokens.peek(1).equals("(");
-        String name = nameAhead(0);
-        if (!className(name)) return false;
-        int offset = tokens.peek().equals("::") ? 2 : 1;
-        while (tokens.peek(offset).equals("::") && CppLexer.isIdentifier(tokens.peek(offset + 1))) offset += 2;
-        return tokens.peek(offset).equals("(");
+        if (!className(nameAhead(0))) return false;
+        int checkpoint = tokens.checkpoint();
+        try { writtenNamedType(); return tokens.peek().equals("("); }
+        catch (ParseException ignored) { return false; }
+        finally { tokens.restore(checkpoint); }
     }
     boolean startsType() {
         String word = tokens.peek();
         return FUNDAMENTAL.contains(word) || word.equals("const") || word.equals("volatile") || word.equals("typedef")
-                || STORAGE.contains(word) || Set.of("struct", "class", "union", "enum").contains(word)
+                || word.equals("typename") || STORAGE.contains(word) || Set.of("struct", "class", "union", "enum").contains(word)
                 || className(nameAhead(0));
     }
     boolean startsDeclaration() {
         if (Set.of("using", "class", "struct", "union", "enum").contains(tokens.peek())) return true;
         if (!startsType()) return false;
-        int next = tokens.peek().equals("::") ? 2 : 1;
-        while (tokens.peek(next).equals("::") && CppLexer.isIdentifier(tokens.peek(next + 1))) next += 2;
-        if (!tokens.peek(next).equals("(")) return true;
-        String inside = tokens.peek(next + 1);
-        return inside.equals("*") || inside.equals("&") || inside.equals("(") || memberPointerAhead(next + 1)
-                || CppLexer.isIdentifier(inside) && tokens.peek(next + 2).equals(")");
+        int checkpoint = tokens.checkpoint();
+        try {
+            specifiers();
+            if (!tokens.peek().equals("(")) return true;
+            String inside = tokens.peek(1);
+            return inside.equals("*") || inside.equals("&") || inside.equals("(") || memberPointerAhead(1)
+                    || CppLexer.isIdentifier(inside) && tokens.peek(2).equals(")");
+        } catch (ParseException ignored) { return true; }
+        finally { tokens.restore(checkpoint); }
     }
+
     record Specifiers(Supplier<NodeBuilder<? extends TypeNode>> type, boolean typedef, List<String> modifiers) {}
     Specifiers specifiers() {
         var start = tokens.start();
@@ -201,6 +253,7 @@ final class TypeParser {
         boolean typedef = false, constant = false, vol = false;
         List<String> modifiers = new ArrayList<>(), words = new ArrayList<>();
         String name = null, elaboratedKeyword = null;
+        NamedType.Builder written = null;
         TypedefDeclaration.Builder target = null;
         while (true) {
             if (tokens.take("typedef")) { if (typedef) throw tokens.error("Duplicate typedef specifier"); typedef = true; }
@@ -211,26 +264,29 @@ final class TypeParser {
             else if (name == null && words.isEmpty() && Set.of("struct", "class", "union", "enum").contains(tokens.peek())) {
                 var tagStart = tokens.start();
                 elaboratedKeyword = tokens.peek(); tokens.advance(); name = qualifiedName(); introduceTag(name, elaboratedKeyword, tagStart);
-            } else if (name == null && words.isEmpty() && (tokens.isIdentifier() || tokens.peek().equals("::"))) {
-                name = qualifiedName(); target = alias(name);
+            } else if (name == null && words.isEmpty() && (tokens.isIdentifier() || tokens.peek().equals("::") || tokens.peek().equals("typename"))) {
+                written = writtenNamedType(); name = written.name().orElseThrow(); target = alias(name);
+                if (written.dependent() && written.qualifier().isPresent() && !written.typenameKeyword())
+                    throw tokens.error("A dependent qualified type requires typename");
             } else break;
         }
         if (name == null) {
             name = String.join(" ", words);
             if (FundamentalKind.fromSpelling(name).isEmpty()) throw tokens.error("Invalid C++03 type specifiers '" + name + "'");
         }
-        var leaf = tokens.span(start, NamedType.create().setName(name));
+        var leaf = tokens.span(start, written == null ? NamedType.create().setName(name) : written);
         for (int index = implicitStart; index < implicitDeclarations.size(); index++) tokens.span(start, implicitDeclarations.get(index).declaration());
         if (target != null) leaf.setAlias(target);
         if (elaboratedKeyword != null) leaf.setElaboratedKeyword(elaboratedKeyword);
         final String spelling = name, keyword = elaboratedKeyword;
+        final NamedType syntax = leaf.build();
         final TypedefDeclaration.Builder binding = target;
         final boolean c = constant, v = vol;
         // Every declarator owns fresh syntax; alias targets deliberately remain shared references.
         final var range = leaf.build().range();
         final var provenance = leaf.build().provenance();
         Supplier<NodeBuilder<? extends TypeNode>> supplier = () -> {
-            var named = NamedType.create().setName(spelling);
+            var named = syntax.edit();
             if (binding != null) named.setAlias(binding);
             if (keyword != null) named.setElaboratedKeyword(keyword);
             range.ifPresent(named::setRange); provenance.ifPresent(named::setProvenance);
@@ -240,6 +296,59 @@ final class TypeParser {
             return qualified;
         };
         return new Specifiers(supplier, typedef, List.copyOf(modifiers));
+    }
+    NamedType.Builder writtenNamedType() {
+        var start = tokens.start();
+        boolean typename = tokens.take("typename");
+        String name = tokens.take("::") ? "::" : "";
+        name += tokens.identifier();
+        var current = NamedType.create().setName(name).setDependent(dependentName(name));
+        if (tokens.peek().equals("<")) {
+            current.setTemplateArguments(templateArguments());
+            current.setDependent(current.dependent() || dependentArguments(current));
+        }
+        while (tokens.peek().equals("::") && !tokens.peek(1).equals("*")) {
+            tokens.advance(); boolean template = tokens.take("template");
+            name += "::" + tokens.identifier();
+            var next = NamedType.create().setName(name).setQualifier(current).setTemplateKeyword(template).setDependent(current.dependent());
+            if (tokens.peek().equals("<")) {
+                if (current.dependent() && !template) throw tokens.error("A dependent qualified template-id requires template");
+                next.setTemplateArguments(templateArguments());
+                next.setDependent(next.dependent() || dependentArguments(next));
+            }
+            else if (template) throw tokens.error("template disambiguator requires a template-id");
+            current = next;
+        }
+        if (typename && current.qualifier().isEmpty()) throw tokens.error("typename requires a qualified type name");
+        current.setTypenameKeyword(typename);
+        return tokens.span(start, current);
+    }
+    private boolean dependentArguments(NamedType.Builder type) {
+        boolean[] dependent = { false };
+        for (var argument : type.templateArguments()) argument.build().walk(new NodeVisitor() {
+            @Override public void visit(NamedType named) { dependent[0] |= named.dependent(); }
+            @Override public void visit(NameExpression name) { dependent[0] |= dependentName(name.name()); }
+        });
+        return dependent[0];
+    }
+    List<NodeBuilder<? extends TemplateArgument>> templateArguments() {
+        tokens.expect("<");
+        var arguments = new ArrayList<NodeBuilder<? extends TemplateArgument>>();
+        if (!tokens.take(">")) {
+            do {
+                var start = tokens.start();
+                var argument = TemplateArgument.create();
+                if (startsType()) {
+                    var type = abstractType();
+                    argument.setType(type);
+                    if (type instanceof NamedType.Builder named && !named.hasTemplateArguments()
+                            && templateName(named.name().orElseThrow())) argument.setKind(TemplateArgument.Kind.TEMPLATE);
+                } else argument.setExpression(expressions.parseTemplateArgument());
+                arguments.add(tokens.span(start, argument));
+            } while (tokens.take(","));
+            tokens.expect(">");
+        }
+        return arguments;
     }
     String qualifiedName() {
         StringBuilder name = new StringBuilder();
@@ -367,7 +476,7 @@ final class TypeParser {
     }
     private NodeBuilder<? extends TypeNode> copyType(NodeBuilder<? extends TypeNode> type) {
         if (type instanceof NamedType.Builder name) {
-            var result = NamedType.create().setName(name.name().orElseThrow());
+            var result = name.build().edit();
             name.alias().ifPresent(result::setAlias); name.declaration().ifPresent(result::setDeclaration);
             name.elaboratedKeyword().ifPresent(result::setElaboratedKeyword);
             return result;

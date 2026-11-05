@@ -945,3 +945,45 @@ Minimal function-template declarations support owned `templateParameters()` with
 written type references, C++ emission and JSON/DOT export. The same rename utility
 updates a template parameter's bound type occurrences and `@tparam` name. This is
 not general template instantiation, specialization or argument deduction support.
+
+## Basic templates and dependent names (#34)
+
+Written templates retain their generic body. `CallableDeclaration.templateParameters()`
+and `ClassDeclaration.templateParameters()` own ordered type, non-type and
+template-template parameters, including nested parameters and written defaults.
+`TemplateArgument` owns a type or value expression. Qualified `NamedType` segments
+own their qualifier and argument lists; `typenameKeyword()` and `templateKeyword()`
+preserve the disambiguators. Expression template-ids likewise retain arguments.
+Canonical emission separates closing `>` tokens for C++03 and preserves these
+structures rather than reducing them to an opaque spelling.
+
+A dependent member call such as `x.size()` in
+`template<class T> unsigned long count(const T& x)` remains unresolved in the
+written generic body. Basic type substitution creates a separate owned
+`Project.templateInstances()` entry with its copied callable and argument types;
+`origin()`, `cause()` and `source()` are non-owning links. The generic body is not
+mutated. Instances explicitly report `status = basic-type-substitution` and
+`complete = false`: this is not full two-phase lookup, specialization selection,
+SFINAE, template overload ordering or comprehensive instantiation diagnostics.
+
+A deliberately small `<vector>` declaration catalogue enables the prerequisite
+`count(std::vector<int>)` example. `Project.librarySources()` owns that catalogue
+once per distinct target platform profile, separately from physical user source.
+Only translation units with the active opaque system include see it; an explicit
+configured replacement header is parsed normally instead. The view contains
+`std::allocator`'s template declaration and vector's template parameters, real
+constructor declarations/defaults, `size_type` and const `size()` declaration.
+It contains no implementation bodies, data layout, allocator behavior or container
+effect summary, and is not the general standard-library catalogue planned for #36.
+Native tests compile against the toolchain's actual `<vector>`.
+
+JSON exports written syntax, library declarations and semantic instances as
+separate owned collections with reference IDs; DOT labels catalogue and instance
+nodes. Copies reconnect those references inside the new snapshot. Physical source
+emission visits only `Project.files()`, preserving the original include and generic
+body without emitting catalogue declarations or instance bodies. These boundaries
+are checked by `TemplateExportTest` and the template corpus scenario.
+
+Instance analyses use the language and platform profile of their requesting
+translation unit. CFG/DFG, conversions, type normalization and constant folding
+visit the separate concrete body without modifying the generic template.

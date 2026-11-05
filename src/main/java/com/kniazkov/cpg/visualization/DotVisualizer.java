@@ -319,7 +319,18 @@ public final class DotVisualizer {
             node.accept(label);
             if (node instanceof Comment comment) label.detail = comment.kind() + " " + comment.text();
             if (node instanceof DocumentationEntry entry) label.detail = entry.kind() + " " + entry.name() + " " + entry.description();
-            if (node instanceof TemplateParameterDeclaration parameter) label.detail = parameter.keyword() + " " + parameter.name();
+            if (node instanceof TemplateParameterDeclaration parameter) label.detail = parameter.kind() + " " + parameter.keyword() + " " + parameter.name();
+            if (node instanceof TemplateArgument argument) label.detail = argument.kind().name();
+            if (node instanceof NamedType type) {
+                if (type.typenameKeyword()) label.detail = "typename " + label.detail;
+                if (type.templateKeyword()) label.detail += " [template]";
+                if (type.hasTemplateArguments()) label.detail += " [template-id]";
+            }
+            if (node instanceof NameExpression name && name.templateKeyword()
+                    || node instanceof MemberExpression member && member.templateKeyword()) label.detail += " [template]";
+            if (node instanceof TemplateInstance instance) label.detail = instance.origin().name() + " " + instance.status();
+            if (node instanceof SourceFile && com.kniazkov.cpg.analysis.LibraryDeclarations.isLibrary(node)) label.detail += " [library declarations only]";
+            if (node instanceof NamedType type && type.dependent() || node instanceof Expression expression && expression.dependent()) label.detail += " [dependent]";
             String border = node.languages().equals(Source.SUPPORTED_TARGETS) ? "#008000" : "#ff0000";
             dot.append("  n").append(id).append(" [color=\"").append(border).append("\", label=<")
                     .append(node.getClass().getSimpleName());
