@@ -8,6 +8,21 @@ import java.util.Objects;
  * Reusing a builder as a reference target preserves object identity in the snapshot.
  * @param <T> exact snapshot class allocated by this builder */
 public abstract class NodeBuilder<T extends Node> {
+    String declarationTypeIdentity;
+    public final void setTypeIdentity(String value) { declarationTypeIdentity = Objects.requireNonNull(value); }
+    public final void clearTypeIdentity() { declarationTypeIdentity = null; }
+    Declaration.Linkage declarationLinkage = Declaration.Linkage.NONE;
+    String languageLinkage = "C++";
+    boolean declarationDefinition = true;
+    NodeBuilder<? extends Declaration> previousDeclaration, definition;
+    public final void setLinkage(Declaration.Linkage value) { declarationLinkage = Objects.requireNonNull(value); }
+    public final void setLanguageLinkage(String value) { languageLinkage = Objects.requireNonNull(value); }
+    public final void setDeclarationDefinition(boolean value) { declarationDefinition = value; }
+    public final void setPreviousDeclaration(NodeBuilder<? extends Declaration> value) { previousDeclaration = Objects.requireNonNull(value); }
+    public final void clearPreviousDeclaration() { previousDeclaration = null; }
+    public final void setDefinition(NodeBuilder<? extends Declaration> value) { definition = Objects.requireNonNull(value); }
+    public final void clearDefinition() { definition = null; }
+    Object editIdentity;
     SourceRange origin;
     TokenProvenance provenance;
     TypeRepresentation typeRepresentation;

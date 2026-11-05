@@ -150,7 +150,8 @@
               "kind": "cfg.entry",
               "to": 5
             }
-          ]
+          ],
+          "linkage": "external"
         }
       ],
       "range": {

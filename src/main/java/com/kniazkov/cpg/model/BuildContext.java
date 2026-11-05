@@ -32,11 +32,20 @@ final class BuildContext {
             return builder.nodeType().cast(existing);
         }
         T node = builder.newNode();
+        if (builder.editIdentity != null) node.editIdentity = builder.editIdentity;
         node.origin = builder.origin;
         node.provenance = builder.provenance;
         if (node instanceof TypeNode type) type.representation = builder.typeRepresentation;
         nodes.put(builder, node);
         builder.fillNode(node, this);
+        if (node instanceof Declaration declaration) {
+            declaration.typeIdentity = builder.declarationTypeIdentity;
+            declaration.linkage = builder.declarationLinkage;
+            declaration.languageLinkage = builder.languageLinkage;
+            declaration.definitionOccurrence = builder.declarationDefinition;
+            declaration.previousDeclaration = builder.previousDeclaration == null ? null : copy(builder.previousDeclaration);
+            declaration.definition = builder.definition == null ? null : copy(builder.definition);
+        }
         return node;
     }
 

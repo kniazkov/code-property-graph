@@ -9,6 +9,7 @@ import java.util.Optional;
 /** A named class with ordered declarations. */
 public final class ClassDeclaration extends Declaration {
     private String name;
+    private boolean implicit;
     private String keyword = "class";
     private String memberAccess = "public";
     private List<String> modifiers = List.of();
@@ -17,6 +18,7 @@ public final class ClassDeclaration extends Declaration {
     private ClassDeclaration() {
     }
 
+    public boolean implicit() { return implicit; }
     public String keyword() { return keyword; }
     public String memberAccess() { return memberAccess; }
 
@@ -58,6 +60,7 @@ public final class ClassDeclaration extends Declaration {
         Builder builder = new Builder();
         context.register(this, builder);
         builder.name = name;
+        builder.implicit = implicit;
         builder.keyword = keyword; builder.memberAccess = memberAccess;
         builder.modifiers = new ArrayList<>(modifiers);
         builder.members = context.copyAll(members, Declaration.class);
@@ -67,6 +70,9 @@ public final class ClassDeclaration extends Declaration {
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<ClassDeclaration> {
         private String name;
+        private boolean implicit;
+        public boolean implicit() { return implicit; }
+        public Builder setImplicit(boolean value) { implicit = value; return this; }
         private String keyword = "class";
         private String memberAccess = "public";
         private List<String> modifiers = new ArrayList<>();
@@ -124,6 +130,7 @@ public final class ClassDeclaration extends Declaration {
         @Override
         void fillNode(ClassDeclaration node, BuildContext context) {
             node.name = requiredText(name, "ClassDeclaration.name");
+            node.implicit = implicit;
             node.keyword = keyword; node.memberAccess = memberAccess;
             node.modifiers = List.copyOf(modifiers);
             node.members = context.copyAll(members);

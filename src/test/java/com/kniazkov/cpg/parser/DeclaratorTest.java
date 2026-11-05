@@ -144,14 +144,17 @@ class DeclaratorTest {
         assertEquals(type(file, "a").canonicalIdentity(), type(file, "b").canonicalIdentity());
     }
 
-    @Test void repeatedAliasCvIsMergedAndFunctionAliasDeclarationsAreExplicitlyBounded() {
+    @Test void repeatedAliasCvIsMergedAndFunctionAliasDeclarationsRetainTheirSpelling() {
         var file = parse("typedef const int C; typedef C A[3]; const A a; const int b[3]; typedef int *P; typedef const P Q; const Q p = 0; int *const q = 0;");
         assertEquals(type(file, "a").canonicalIdentity(), type(file, "b").canonicalIdentity());
         assertEquals(type(file, "p").canonicalIdentity(), type(file, "q").canonicalIdentity());
-        var error = assertThrows(ParseException.class, () -> parse("typedef int F(double); F f;"));
-        assertTrue(error.getMessage().contains("Function declarations through typedef"));
-        var nested = assertThrows(ParseException.class, () -> parse("typedef int F(double); int g(){ F f; return 0; }"));
-        assertTrue(nested.getMessage().contains("Function declarations through typedef"));
+        var aliases = parse("typedef int F(double); F f; int g(){ F local; return 0; }");
+        var function = assertInstanceOf(FunctionDeclaration.class, aliases.items().get(1));
+        assertEquals("F", assertInstanceOf(NamedType.class, function.writtenType().orElseThrow()).name());
+        assertEquals("double", function.parameters().getFirst().type().orElseThrow().canonicalIdentity());
+        assertTrue(aliases.source(Language.CPP).contains("F f;"));
+        assertEquals(aliases.source(Language.CPP), parse(aliases.source(Language.CPP)).source(Language.CPP));
+        assertThrows(ParseException.class, () -> parse("typedef int F(double); F f { return 0; }"));
     }
 
     @Test void cppOnlyTypesAndLiteralsCannotLeakThroughEntryPointTranslation() {

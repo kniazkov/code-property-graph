@@ -58,11 +58,20 @@ final class EditContext {
         if (builder.nodeType() != node.getClass()) {
             throw new IllegalStateException("Builder does not match node type");
         }
+        builder.editIdentity = node.editIdentity;
         builder.origin = node.origin;
         builder.provenance = node.provenance;
         if (node instanceof TypeNode type) builder.typeRepresentation = type.semanticType().orElse(null);
         if (builders.putIfAbsent(node, builder) != null) {
             throw new IllegalStateException("Node already registered");
+        }
+        if (node instanceof Declaration declaration) {
+            builder.declarationTypeIdentity = declaration.typeIdentity().orElse(null);
+            builder.declarationLinkage = declaration.linkage();
+            builder.languageLinkage = declaration.languageLinkage();
+            builder.declarationDefinition = declaration.isDefinition();
+            builder.previousDeclaration = declaration.previousDeclaration().isEmpty() ? null : edge(declaration.previousDeclaration().orElseThrow(), Declaration.class);
+            builder.definition = declaration.definition().isEmpty() ? null : edge(declaration.definition().orElseThrow(), Declaration.class);
         }
     }
 

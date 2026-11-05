@@ -66,6 +66,18 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("scopes-linkage".equals(settings.getProperty("mode"))) {
+            var output = ScopesLinkageAcceptance.verify(fixture, work);
+            for (Path source : List.of(output.original(), output.generated()))
+                nativeConfiguredPrograms(work, source, "", 33, Map.of("a.cpp", List.of("-DWIDE")));
+            for (String compiler : List.of("g++", "clang++")) {
+                Result rejected = command(List.of(compiler, "-std=c++03", "-pedantic-errors", "-fsyntax-only",
+                        output.incomplete().resolve("main.cpp").toString()), work);
+                assertNotEquals(0, rejected.status(), "Incomplete sizeof must be rejected by " + compiler);
+                assertFalse(rejected.error().isBlank());
+            }
+            return;
+        }
         if ("platform-declarators".equals(settings.getProperty("mode"))) {
             var output = PlatformDeclaratorsAcceptance.verify(fixture, work);
             for (Path source : List.of(output.original(), output.generated()))
@@ -176,6 +188,38 @@ class Cpp03CorpusIT {
             assertEquals(exit, execution.status(), version + "\n" + binary + "\n" + execution.output() + execution.error());
             assertEquals(expected, execution.output(), version + "\n" + binary);
             assertEquals("", execution.error(), version + "\n" + binary + " stderr");
+        }
+    }
+
+    /** Compile each unit under its own effective flags before linking one composition. */
+    private void nativeConfiguredPrograms(Path work, Path source, String expected, int exit,
+            Map<String, List<String>> flags) throws Exception {
+        for (String compiler : List.of("g++", "clang++")) {
+            Result version = command(List.of(compiler, "--version"), work);
+            assertEquals(0, version.status(), version.output() + version.error());
+            Path objects = Files.createTempDirectory(work, "configured-");
+            List<String> link = new ArrayList<>(List.of(compiler));
+            try (var paths = Files.walk(source)) {
+                int ordinal = 0;
+                for (Path file : paths.filter(p -> p.toString().endsWith(".cpp")).sorted().toList()) {
+                    Path object = objects.resolve("unit-" + ordinal++ + ".o");
+                    List<String> compile = new ArrayList<>(List.of(compiler, "-std=c++03", "-pedantic-errors",
+                            "-I" + source.resolve("include").toAbsolutePath()));
+                    compile.addAll(flags.getOrDefault(source.relativize(file).toString().replace('\\', '/'), List.of()));
+                    compile.addAll(List.of("-c", file.toAbsolutePath().toString(), "-o", object.toString()));
+                    Result result = command(compile, work);
+                    assertEquals(0, result.status(), version.output() + compile + result.output() + result.error());
+                    link.add(object.toString());
+                }
+            }
+            Path binary = objects.resolve("program");
+            link.addAll(List.of("-o", binary.toString()));
+            Result linked = command(link, work);
+            assertEquals(0, linked.status(), link + linked.output() + linked.error());
+            Result run = command(List.of(binary.toString()), work);
+            assertEquals(exit, run.status(), version.output() + run.output() + run.error());
+            assertEquals(expected, run.output());
+            assertEquals("", run.error());
         }
     }
 

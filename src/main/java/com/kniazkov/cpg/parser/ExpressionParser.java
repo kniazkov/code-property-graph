@@ -161,7 +161,8 @@ final class ExpressionParser {
             try { value = IntegerLiteral.create().setValue(Integer.parseInt(number)); }
             catch (NumberFormatException e) { throw tokens.error("Integer literal outside signed 32-bit range"); }
             tokens.advance();
-        } else value = NameExpression.create().setName(tokens.identifier());
+        } else if (language == Language.CPP && tokens.take("::")) value = NameExpression.create().setName("::" + tokens.identifier());
+        else value = NameExpression.create().setName(tokens.identifier());
         tokens.span(start, value);
         while (true) {
             if (tokens.take(".")) value = DotMemberExpression.create().setReceiver(value).setMember(tokens.identifier());

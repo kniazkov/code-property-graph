@@ -12,42 +12,52 @@ public final class Source {
     public static final Set<Language> SUPPORTED_TARGETS = Set.of(Language.CPP, Language.JAVA);
 
     private final Language target;
+    private int blockDepth;
 
     private Source(Language target) {
         if (!SUPPORTED_TARGETS.contains(target)) throw new IllegalArgumentException("Supported targets: JAVA, CPP");
         this.target = target;
     }
 
-    public static String render(Node node, Language target) {
+    public static String render(Node node, Language target) { return renderFragment(node, target, false); }
+
+    /** Retains lexical block context when a source-preserving edit renders one local declaration. */
+    static String renderFragment(Node node, Language target, boolean local) {
         requireComplete(node);
         if (node instanceof Project project) requireVariantSelection(project);
         if (!languages(node).contains(target)) throw new IllegalArgumentException("Unsupported direct emission to " + target);
-        return new Source(target).emit(node, 0);
+        var source = new Source(target);
+        source.blockDepth = local ? 1 : 0;
+        return source.emit(node, 0);
     }
 
     /** Intersects the language restrictions of owned syntax nodes without following semantic references. */
     public static Set<Language> languages(Node node) {
         EnumSet<Language> targets = EnumSet.copyOf(SUPPORTED_TARGETS);
+        if (!implicitIntroductionsMatch(node)) targets.clear();
         node.walk(new NodeVisitor() {
-            @Override public void visit(SourceFile n) { if (n.hasErrors()) targets.clear(); }
-            @Override public void visit(ErrorExpression n) { targets.clear(); }
-            @Override public void visit(IncludeDirective n) { targets.remove(Language.JAVA); }
-            @Override public void visit(FunctionDeclaration n) { targets.remove(Language.JAVA); }
-            @Override public void visit(ScopeMemberExpression n) { targets.remove(Language.JAVA); }
-            @Override public void visit(PointerMemberExpression n) { targets.remove(Language.JAVA); }
-            @Override public void visit(AddressOfExpression n) { targets.remove(Language.JAVA); }
-            @Override public void visit(DereferenceExpression n) { targets.remove(Language.JAVA); }
-            @Override public void visit(TypeNode n) { if (!(n instanceof NamedType)) targets.remove(Language.JAVA); }
-            @Override public void visit(TypedefDeclaration n) { targets.remove(Language.JAVA); }
-            @Override public void visit(SizeofExpression n) { targets.remove(Language.JAVA); }
-            @Override public void visit(IntegerLiteral n) { if (n.cppType().isPresent()) targets.remove(Language.JAVA); }
-            @Override public void visit(NamedType n) {
-                if (n.name().equals("String[]")) targets.remove(Language.CPP);
-                if (n.alias().isPresent() || n.fundamentalKind().isPresent()
-                        && !Set.of("void", "char", "short", "int", "long", "float", "double").contains(n.name())) targets.remove(Language.JAVA);
-            }
-            @Override public void visit(MethodDeclaration n) {
-                if (n.modifiers().contains("public")) targets.remove(Language.CPP);
+            @Override public void visit(Node n) {
+                if (n instanceof SourceFile file && file.hasErrors() || n instanceof ErrorExpression || hasSemanticError(n) || unrepresentableDeclaration(n))
+                    targets.clear();
+                if (n instanceof IncludeDirective || n instanceof FunctionDeclaration
+                        || n instanceof ScopeMemberExpression || n instanceof PointerMemberExpression
+                        || n instanceof NameExpression name && name.name().contains("::")
+                        || n instanceof AddressOfExpression || n instanceof DereferenceExpression
+                        || n instanceof TypeNode && !(n instanceof NamedType)
+                        || n instanceof TypedefDeclaration || n instanceof SizeofExpression
+                        || n instanceof IntegerLiteral literal && literal.cppType().isPresent()
+                        || n instanceof Declaration declaration && cppOnlyDeclaration(declaration))
+                    targets.remove(Language.JAVA);
+                if (n instanceof NamedType type) {
+                    if (type.name().equals("String[]")) targets.remove(Language.CPP);
+                    if (type.name().contains("::") || type.elaboratedKeyword().isPresent() || type.alias().isPresent()
+                            || type.declaration().orElse(null) instanceof EnumDeclaration
+                            || type.fundamentalKind().isPresent()
+                                && !Set.of("void", "char", "short", "int", "long", "float", "double").contains(type.name()))
+                        targets.remove(Language.JAVA);
+                }
+                if (n instanceof MethodDeclaration method && method.modifiers().contains("public"))
+                    targets.remove(Language.CPP);
             }
         });
         return Collections.unmodifiableSet(targets);
@@ -74,7 +84,10 @@ public final class Source {
             boolean translate = target != file.language();
             String name = file.path();
             String content;
-            if (!translate) content = out.emit(file, 0);
+            if (!translate) {
+                if (!languages(file).contains(target)) throw out.unsupported(file);
+                content = out.emit(file, 0);
+            }
             else {
                 out.checkPortable(file);
                 List<ClassDeclaration> classes = file.items().stream().filter(ClassDeclaration.class::isInstance)
@@ -105,14 +118,71 @@ public final class Source {
 
     /** Invalid snapshots must never reach either replay-based or generated-source emission. */
     private static void requireComplete(Node node) {
+        if (!implicitIntroductionsMatch(node))
+            throw new IllegalArgumentException("Source generation cannot change an implicit class declaration independently of its written elaborated type");
         node.walk(new NodeVisitor() {
-            @Override public void visit(SourceFile file) {
-                if (file.hasErrors()) throw new IllegalArgumentException("Source generation is blocked by parse errors in " + file.path());
-            }
-            @Override public void visit(ErrorExpression error) {
-                throw new IllegalArgumentException("Source generation is blocked by parse errors: " + error.problem().message());
+            @Override public void visit(Node n) {
+                if (n instanceof SourceFile file && file.hasErrors())
+                    throw new IllegalArgumentException("Source generation is blocked by parse errors in " + file.path());
+                if (n instanceof ErrorExpression error)
+                    throw new IllegalArgumentException("Source generation is blocked by parse errors: " + error.problem().message());
+                if (unrepresentableDeclaration(n))
+                    throw new IllegalArgumentException("Source generation cannot discard the body or members of " + n.getClass().getSimpleName());
+                for (Diagnostic diagnostic : n.diagnostics())
+                    if (diagnostic.severity() == Diagnostic.Severity.ERROR)
+                        throw new IllegalArgumentException("Source generation is blocked by " + diagnostic.code() + ": " + diagnostic.message());
             }
         });
+    }
+
+    private static boolean unrepresentableDeclaration(Node node) {
+        return node instanceof ClassDeclaration cls && (!cls.isDefinition() && !cls.members().isEmpty() || cls.implicit() && cls.isDefinition())
+                || node instanceof CallableDeclaration callable && callable.writtenType().isPresent() && callable.body().isPresent();
+    }
+
+    /** Synthetic tag introductions overlap written type syntax and cannot be edited independently. */
+    private static boolean implicitIntroductionsMatch(Node root) {
+        var introductions = new ArrayList<ClassDeclaration>();
+        var written = new ArrayList<NamedType>();
+        root.walk(new NodeVisitor() {
+            @Override public void visit(ClassDeclaration declaration) {
+                if (declaration.implicit() && declaration != root) introductions.add(declaration);
+            }
+            @Override public void visit(NamedType type) { if (type.elaboratedKeyword().isPresent()) written.add(type); }
+        });
+        return introductions.stream().allMatch(declaration -> {
+            var uses = written.stream().filter(type -> sameIntroduction(declaration, type)).toList();
+            return !uses.isEmpty() && uses.stream().allMatch(type -> declaration.name().equals(type.name())
+                    && type.elaboratedKeyword().orElseThrow().equals(declaration.keyword()));
+        });
+    }
+
+    private static boolean sameIntroduction(ClassDeclaration declaration, NamedType type) {
+        if (declaration.provenance().isPresent()) {
+            var introduced = declaration.provenance().orElseThrow();
+            var written = type.provenance().orElse(null);
+            return written != null && introduced.unit() == written.unit()
+                    && introduced.startToken() == written.startToken() && introduced.endToken() == written.endToken();
+        }
+        if (declaration.range().isPresent()) return declaration.range().equals(type.range());
+        return type.declaration().orElse(null) == declaration;
+    }
+
+    private static boolean hasSemanticError(Node node) {
+        return node.diagnostics().stream().anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR);
+    }
+
+    /** These source constructs have no supported Java translation. */
+    private static boolean cppOnlyDeclaration(Declaration declaration) {
+        return declaration instanceof NamespaceDeclaration || declaration instanceof NamespaceAliasDeclaration
+                || declaration instanceof UsingDirective || declaration instanceof UsingDeclaration
+                || declaration instanceof EnumDeclaration || declaration instanceof EnumeratorDeclaration
+                || declaration instanceof ClassDeclaration cls && (!cls.isDefinition() || !cls.keyword().equals("class"))
+                || !declaration.languageLinkage().equals("C++")
+                || declaration instanceof VariableDeclaration variable && !variable.modifiers().isEmpty()
+                || declaration instanceof ParameterDeclaration parameter && !parameter.modifiers().isEmpty()
+                || declaration instanceof CallableDeclaration callable && callable.modifiers().stream()
+                        .anyMatch(m -> Set.of("extern", "inline", "virtual", "friend").contains(m));
     }
 
     /** Validates a relative output path before any filesystem write. */
@@ -140,6 +210,9 @@ public final class Source {
         if (target == Language.JAVA && file.items().stream().anyMatch(item -> item instanceof VariableDeclaration || item instanceof TypedefDeclaration))
             throw new IllegalArgumentException("Cannot translate C++ global variable or typedef declarations to Java");
         file.walk(new NodeVisitor() {
+            @Override public void visit(Declaration n) {
+                if (target == Language.JAVA && cppOnlyDeclaration(n)) throw unsupported(n);
+            }
             @Override public void visit(TypeNode n) {
                 if (target != Language.JAVA) return;
                 if (!languages(n).contains(target)) throw unsupported(n);
@@ -160,6 +233,7 @@ public final class Source {
                 if (!n.system() || !n.header().equals("iostream")) throw unsupported(n);
             }
             @Override public void visit(NameExpression n) {
+                if (target == Language.JAVA && n.name().contains("::")) throw unsupported(n);
                 if (n.target().isEmpty() && Set.of("std", "System").contains(n.name()))
                     throw new IllegalArgumentException("Translate console output at GREEN or FOLDED stage");
             }
@@ -199,17 +273,30 @@ public final class Source {
         return switch (n) {
             case SourceFile f -> f.items().stream().map(item -> emit(item, level)).collect(Collectors.joining("\n"));
             case IncludeDirective i when target == Language.CPP -> "#include " + (i.system() ? "<" + i.header() + ">" : "\"" + i.header() + "\"") + "\n";
-            case ClassDeclaration c -> classStart(c) + c.members().stream().map(m -> emit(m, level + 1)).collect(Collectors.joining("\n")) + classEnd();
-            case CallableDeclaration f -> pad + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
-                    + declaration(f.returnType().orElseThrow(), f.name() + "(" + parameters(f.parameters(), f.variadic()) + ")"
+            case NamespaceDeclaration namespace -> pad + "namespace" + (namespace.anonymous() ? "" : " " + namespace.name()) + " {\n"
+                    + namespace.members().stream().map(member -> emit(member, level + 1)).collect(Collectors.joining("\n")) + pad + "}\n";
+            case NamespaceAliasDeclaration alias -> pad + "namespace " + alias.name() + " = " + alias.targetName() + ";\n";
+            case UsingDirective using -> pad + "using namespace " + using.namespaceName() + ";\n";
+            case UsingDeclaration using -> pad + "using " + using.qualifiedName() + ";\n";
+            case EnumDeclaration enumeration -> pad + "enum" + (enumeration.name().isEmpty() ? "" : " " + enumeration.name()) + " { "
+                    + enumeration.enumerators().stream().map(value -> emit(value, 0)).collect(Collectors.joining(", ")) + " };\n";
+            case EnumeratorDeclaration value -> value.name() + value.value().map(expression -> " = " + emit(expression, 0)).orElse("");
+            case ClassDeclaration c -> c.implicit() ? "" : !c.isDefinition() ? pad + c.keyword() + " " + c.name() + ";\n"
+                    : pad + classStart(c) + c.members().stream().map(m -> emit(m, level + 1)).collect(Collectors.joining("\n")) + pad + classEnd();
+            case CallableDeclaration f -> linkage(f, pad + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
+                    + (f.writtenType().isPresent() ? declaration(f.writtenType().orElseThrow(), f.name()) + ";\n"
+                        : declaration(f.returnType().orElseThrow(), f.name() + "(" + parameters(f.parameters(), f.variadic()) + ")"
                             + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : ""))
-                    + f.body().map(b -> " " + emit(b, level)).orElse(";\n");
-            case ParameterDeclaration p -> declaration(p.type().orElseThrow(), p.name());
+                            + f.body().map(b -> " " + emit(b, level)).orElse(";\n")), level);
+            case ParameterDeclaration p -> String.join("", p.modifiers().stream().map(m -> m + " ").toList())
+                    + declaration(p.type().orElseThrow(), p.name());
             case TypedefDeclaration d -> pad + "typedef " + declaration(d.type(), d.name()) + ";\n";
             case TypeNode t -> declaration(t, "");
-            case BlockStatement b -> "{\n" + b.items().stream().map(i -> emit(i, level + 1)).collect(Collectors.joining()) + pad + "}\n";
-            case VariableDeclaration v -> pad + declaration(v.type().orElseThrow(), v.name())
-                    + v.initializer().map(i -> " = " + emit(i, 0)).orElse("") + ";\n";
+            case BlockStatement b -> block(b, level);
+            case VariableDeclaration v -> linkage(v, pad + String.join("", v.modifiers().stream().map(m -> m + " ").toList())
+                    + (!v.isDefinition() && v.languageLinkage().equals("C") && !v.modifiers().contains("extern") ? "extern " : "")
+                    + declaration(v.type().orElseThrow(), v.name())
+                    + v.initializer().map(i -> " = " + emit(i, 0)).orElse("") + ";\n", level);
             case ReturnStatement r -> pad + "return" + r.value().map(e -> " " + emit(e, 0)).orElse("") + ";\n";
             case ExpressionStatement s -> pad + (s.expression() instanceof AssignmentExpression a ? assignment(a) : emit(s.expression(), 0)) + ";\n";
             case IfStatement i -> pad + "if (" + emit(i.condition(), 0) + ") " + body(i.thenBranch(), level)
@@ -228,6 +315,21 @@ public final class Source {
             case BinaryExpression b -> "(" + emit(b.left(), 0) + " " + symbol(b) + " " + emit(b.right(), 0) + ")";
             default -> throw unsupported(n);
         };
+    }
+
+    private String block(BlockStatement block, int level) {
+        blockDepth++;
+        try {
+            return "{\n" + block.items().stream().map(item -> emit(item, level + 1)).collect(Collectors.joining())
+                    + "    ".repeat(level) + "}\n";
+        } finally { blockDepth--; }
+    }
+
+    /** A linkage block preserves variable declaration/definition semantics and storage specifiers. */
+    private String linkage(Declaration declaration, String text, int level) {
+        if (!declaration.languageLinkage().equals("C") || blockDepth > 0) return text;
+        String pad = "    ".repeat(level);
+        return pad + "extern \"C\" {\n" + text + pad + "}\n";
     }
 
     private String integerLiteral(IntegerLiteral literal) {
@@ -251,7 +353,7 @@ public final class Source {
     private String declaration(TypeNode type, String name) { return declaration(type, name, ""); }
     private String declaration(TypeNode type, String name, String qualifiers) {
         return switch (type) {
-            case NamedType n -> n.name() + qualifiers + (name.isEmpty() ? "" : " " + name);
+            case NamedType n -> n.elaboratedKeyword().map(keyword -> keyword + " ").orElse("") + n.name() + qualifiers + (name.isEmpty() ? "" : " " + name);
             case QualifiedType q -> declaration(q.baseType(), name, qualifiers + (q.isConst() ? " const" : "") + (q.isVolatile() ? " volatile" : ""));
             case PointerType p -> declaration(p.pointee(), grouped(p.pointee(), "*" + qualifiers + (qualifiers.isEmpty() ? "" : " ") + name));
             case ReferenceType r -> declaration(r.referredType(), grouped(r.referredType(), "&" + name));

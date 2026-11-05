@@ -11,6 +11,8 @@ import java.util.Objects;
  * The public API observes only completed snapshots. */
 public abstract non-sealed class Node implements FlowVertex {
     /** Restricts node construction to the model package during snapshot assembly. */
+    /** Internal edit lineage, never a syntax edge or exported identity. */
+    Object editIdentity = new Object();
     SourceRange origin;
     TokenProvenance provenance;
 

@@ -9,10 +9,13 @@ import java.util.Optional;
 /** A named formal parameter with optional written type. */
 public final class ParameterDeclaration extends Declaration {
     private String name;
+    private List<String> modifiers = List.of();
     private TypeNode type;
 
     private ParameterDeclaration() {
     }
+
+    public List<String> modifiers() { return modifiers; }
 
     public String name() {
         return name;
@@ -50,6 +53,7 @@ public final class ParameterDeclaration extends Declaration {
         Builder builder = new Builder();
         context.register(this, builder);
         builder.name = name;
+        builder.modifiers = new ArrayList<>(modifiers);
         builder.type = type == null ? null : context.edge(type, TypeNode.class);
         return builder;
     }
@@ -57,11 +61,15 @@ public final class ParameterDeclaration extends Declaration {
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<ParameterDeclaration> {
         private String name;
+        private List<String> modifiers = new ArrayList<>();
         private NodeBuilder<? extends TypeNode> type;
 
         private Builder() {
             super(ParameterDeclaration.class);
         }
+
+        public List<String> modifiers() { return List.copyOf(modifiers); }
+        public Builder setModifiers(List<String> values) { modifiers = new ArrayList<>(List.copyOf(values)); return this; }
 
         public Optional<String> name() {
             return Optional.ofNullable(name);
@@ -93,6 +101,7 @@ public final class ParameterDeclaration extends Declaration {
 
         @Override
         void fillNode(ParameterDeclaration node, BuildContext context) {
+            node.modifiers = List.copyOf(modifiers);
             node.name = Objects.requireNonNull(name, "ParameterDeclaration.name is required (empty for an abstract parameter)");
             node.type = type == null ? null : context.copy(type);
         }

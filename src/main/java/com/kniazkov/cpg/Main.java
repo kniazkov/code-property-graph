@@ -19,7 +19,7 @@ public final class Main {
         Choose one or more outputs: --out, --svg, --json. Defaults: FOLDED stage, source language as target.
         Use --compile-commands FILE instead of --input DIR to import a C++ build.
         SVG rendering requires Graphviz dot on PATH. Macro provenance is shown by default.
-        C++ parse errors retain diagnostic JSON/SVG, block source generation, and exit nonzero.
+        C++ parse and semantic errors retain diagnostic JSON/SVG, block source generation, and exit nonzero.
         """;
 
     /** Runs the console pipeline and translates argument, parsing and rendering failures into a nonzero exit status. */
@@ -77,7 +77,13 @@ public final class Main {
         Path output = flags.containsKey("--out") ? Path.of(flags.get("--out")).toAbsolutePath().normalize() : null;
         Path svg = flags.containsKey("--svg") ? Path.of(flags.get("--svg")).toAbsolutePath().normalize() : null;
         Path json = flags.containsKey("--json") ? Path.of(flags.get("--json")).toAbsolutePath().normalize() : null;
-        boolean broken = project.hasErrors();
+        boolean[] semanticError = {false};
+        project.walk(new NodeVisitor() {
+            @Override public void visit(Node node) {
+                if (node.diagnostics().stream().anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR)) semanticError[0] = true;
+            }
+        });
+        boolean broken = project.hasErrors() || semanticError[0];
         // Never invoke any source emitter for an invalid project, including preserved-source
         // replay. Diagnostic exports are independent of the blocked source output.
         Map<String,String> generated = output == null || broken ? Map.of() : Cpg.sources(project, to);
@@ -118,7 +124,7 @@ public final class Main {
             ProjectJson.write(project, json);
             System.out.println("JSON: " + json);
         }
-        if (broken) throw new IllegalArgumentException("Project contains parse errors"
+        if (broken) throw new IllegalArgumentException("Project contains parse or semantic errors"
                 + (output == null ? "" : "; source generation is blocked"));
         if (output != null) {
             Files.createDirectories(output);

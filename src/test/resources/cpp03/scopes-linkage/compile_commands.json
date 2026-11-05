@@ -1,0 +1,33 @@
+[
+  {
+    "directory": ".",
+    "file": "sources/a.cpp",
+    "arguments": [
+      "g++",
+      "-std=c++03",
+      "-DWIDE",
+      "-c",
+      "sources/a.cpp"
+    ]
+  },
+  {
+    "directory": ".",
+    "file": "sources/b.cpp",
+    "arguments": [
+      "g++",
+      "-std=c++03",
+      "-c",
+      "sources/b.cpp"
+    ]
+  },
+  {
+    "directory": ".",
+    "file": "sources/main.cpp",
+    "arguments": [
+      "g++",
+      "-std=c++03",
+      "-c",
+      "sources/main.cpp"
+    ]
+  }
+]

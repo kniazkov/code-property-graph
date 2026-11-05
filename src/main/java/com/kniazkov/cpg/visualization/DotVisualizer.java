@@ -124,6 +124,27 @@ public final class DotVisualizer {
                 dot.append("  n").append(from).append(" -> n").append(to)
                         .append(" [label=<&#160;ref>, style=dashed, constraint=false];\n");
             }
+            if (node instanceof NamedType type) resolution(type);
+            if (node instanceof Declaration declaration) {
+                declaration.previousDeclaration().ifPresent(previous -> semanticEdge(node, previous, "previous declaration"));
+                declaration.definition().ifPresent(definition -> semanticEdge(node, definition, "definition"));
+            }
+        }
+
+        /** Each written type use retains its own path through shared using/typedef nodes. */
+        private void resolution(NamedType type) {
+            for (int index = 0; index < type.resolutionSteps().size(); index++) {
+                var step = type.resolutionSteps().get(index);
+                String label = "resolve " + index + " " + step.kind();
+                semanticEdge(type, step.via(), label + " via");
+                semanticEdge(type, step.target(), label + " target");
+            }
+        }
+
+        private void semanticEdge(Node from, Node to, String label) {
+            dot.append("  n").append(id(from)).append(" -> n").append(id(to))
+                    .append(" [label=<&#160;").append(htmlText(label))
+                    .append(">, style=dashed, color=\"#455a64\", constraint=false];\n");
         }
 
         private void provenance(Node node) {
@@ -302,12 +323,12 @@ public final class DotVisualizer {
 
         @Override
         public void visit(ClassDeclaration node) {
-            detail = node.name();
+            detail = node.name() + (node.implicit() ? " (implicit declaration)" : node.isDefinition() ? "" : " (forward declaration)");
         }
 
         @Override
         public void visit(NamedType node) {
-            detail = node.name();
+            detail = node.elaboratedKeyword().map(keyword -> keyword + " ").orElse("") + node.name() + (node.completeAtUse() ? "" : " (incomplete at use)");
         }
 
         @Override
@@ -329,6 +350,14 @@ public final class DotVisualizer {
                 detail += "\nstopped at " + stopped.file() + ":" + stopped.start().line() + ":" + stopped.start().column();
             }
         }
+
+        @Override public void visit(NamespaceDeclaration node) { detail = node.anonymous() ? "(anonymous)" : node.name(); }
+        @Override public void visit(NamespaceAliasDeclaration node) { detail = node.name() + " = " + node.targetName(); }
+        @Override public void visit(UsingDirective node) { detail = "using namespace " + node.namespaceName(); }
+        @Override public void visit(UsingDeclaration node) { detail = "using " + node.qualifiedName(); }
+        @Override public void visit(TypedefDeclaration node) { detail = node.name(); }
+        @Override public void visit(EnumDeclaration node) { detail = node.name().isEmpty() ? "(anonymous)" : node.name(); }
+        @Override public void visit(EnumeratorDeclaration node) { detail = node.name(); }
 
         @Override public void visit(ExternalInput node) { detail = node.role() + ": " + node.text(); }
 
