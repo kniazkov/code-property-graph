@@ -12,6 +12,8 @@ public final class VariableDeclaration extends Declaration {
     private List<String> modifiers = List.of();
     private TypeNode type;
     private Expression initializer;
+    private Expression bitWidth;
+    public Optional<Expression> bitWidth() { return Optional.ofNullable(bitWidth); }
 
     private VariableDeclaration() {
     }
@@ -36,6 +38,7 @@ public final class VariableDeclaration extends Declaration {
         if (type != null) {
             children.add(type);
         }
+        if (bitWidth != null) children.add(bitWidth);
         if (initializer != null) {
             children.add(initializer);
         }
@@ -61,6 +64,7 @@ public final class VariableDeclaration extends Declaration {
         Builder builder = new Builder();
         context.register(this, builder);
         builder.name = name;
+        builder.bitWidth = bitWidth == null ? null : context.edge(bitWidth, Expression.class);
         builder.modifiers = new ArrayList<>(modifiers);
         builder.type = type == null ? null : context.edge(type, TypeNode.class);
         builder.initializer = initializer == null ? null : context.edge(initializer, Expression.class);
@@ -73,6 +77,10 @@ public final class VariableDeclaration extends Declaration {
         private List<String> modifiers = new ArrayList<>();
         private NodeBuilder<? extends TypeNode> type;
         private NodeBuilder<? extends Expression> initializer;
+        private NodeBuilder<? extends Expression> bitWidth;
+        public Optional<NodeBuilder<? extends Expression>> bitWidth() { return Optional.ofNullable(bitWidth); }
+        public Builder setBitWidth(NodeBuilder<? extends Expression> value) { bitWidth = Objects.requireNonNull(value); return this; }
+        public Builder clearBitWidth() { bitWidth = null; return this; }
 
         private Builder() {
             super(VariableDeclaration.class);
@@ -126,7 +134,8 @@ public final class VariableDeclaration extends Declaration {
 
         @Override
         void fillNode(VariableDeclaration node, BuildContext context) {
-            node.name = requiredText(name, "VariableDeclaration.name");
+            node.name = bitWidth == null ? requiredText(name, "VariableDeclaration.name") : Objects.requireNonNull(name);
+            node.bitWidth = bitWidth == null ? null : context.copy(bitWidth);
             node.modifiers = List.copyOf(modifiers);
             node.type = type == null ? null : context.copy(type);
             node.initializer = initializer == null ? null : context.copy(initializer);

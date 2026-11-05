@@ -18,6 +18,7 @@ public final class Parser {
     private final TypeParser types;
     private final ParseRecovery recovery;
     private String languageLinkage = "C++";
+    private final java.util.Deque<String> classNames = new java.util.ArrayDeque<>();
     private final java.util.Deque<java.util.List<Runnable>> deferredBodies = new java.util.ArrayDeque<>();
 
     private Parser(String file, Language language, java.util.List<Token> input, Preprocessing preprocessing) {
@@ -261,7 +262,7 @@ public final class Parser {
         int declaratorCount = 0;
         do {
             declaratorCount++;
-            var declarator = types.declarator(false);
+            var declarator = member && tokens.peek().equals(":") ? new TypeParser.Declarator("", java.util.function.Function.identity()) : types.declarator(false);
             var type = declarator.apply().apply(specs.type().get());
             types.validateDefaultPlacement(type, !specs.typedef());
             var function = types.functionType(type);
@@ -272,12 +273,12 @@ public final class Parser {
                 types.declareAlias(declarator.name(), declaration);
                 result.add(tokens.span(start, declaration));
             } else if (function != null) {
-                CallableDeclaration.Builder<?, ?> declaration = member ? MethodDeclaration.create() : FunctionDeclaration.create();
+                CallableDeclaration.Builder<?, ?> declaration = member || declarator.name().contains("::") ? MethodDeclaration.create() : FunctionDeclaration.create();
                 if (!(type instanceof FunctionType.Builder)) declaration.setWrittenType(type);
                 declaration.setName(declarator.name()).setReturnType(function.returnType().orElseThrow())
                         .setParameters(function.parameters()).setModifiers(specs.modifiers()).setVariadic(function.variadic())
                         .setConst(function.isConst()).setVolatile(function.isVolatile());
-                if (!member && (function.isConst() || function.isVolatile())) throw tokens.error("Free function cannot have cv qualifiers");
+                if (!member && !declarator.name().contains("::") && (function.isConst() || function.isVolatile())) throw tokens.error("Free function cannot have cv qualifiers");
                 if (specs.modifiers().stream().anyMatch(java.util.Set.of("auto", "register", "mutable")::contains))
                     throw tokens.error("Invalid function storage class");
                 declaration.setLanguageLinkage(member ? "C++" : languageLinkage);
@@ -312,9 +313,11 @@ public final class Parser {
                 var declaration = VariableDeclaration.create().setName(declarator.name()).setType(type).setModifiers(specs.modifiers());
                 declaration.setLanguageLinkage(member || local ? "C++" : languageLinkage);
                 types.declareName(declarator.name());
-                if (tokens.take("=")) {
+                if (member && tokens.take(":")) declaration.setBitWidth(expressions.parse());
+                if (tokens.peek().equals("(")) declaration.setInitializer(initializer(InitializationExpression.Form.DIRECT));
+                else if (tokens.take("=")) {
                     var initializerStart = tokens.start();
-                    try { declaration.setInitializer(expressions.parse()); }
+                    try { declaration.setInitializer(tokens.peek().equals("{") ? initializer(InitializationExpression.Form.AGGREGATE) : expressions.parse()); }
                     catch (ParseException error) {
                         if (recovery == null) throw error;
                         var skipped = tokens.recoverInitializer(initializerStart);
@@ -333,13 +336,84 @@ public final class Parser {
         return result;
     }
 
+    private InitializationExpression.Builder initializer(InitializationExpression.Form form) {
+        var start = tokens.start();
+        String open = form == InitializationExpression.Form.AGGREGATE ? "{" : "(";
+        String close = form == InitializationExpression.Form.AGGREGATE ? "}" : ")";
+        tokens.expect(open);
+        var result = InitializationExpression.create().setForm(form);
+        if (!tokens.take(close)) {
+            do {
+                result.addArgument(tokens.peek().equals("{") ? initializer(InitializationExpression.Form.AGGREGATE) : expressions.parse());
+                if (!tokens.take(",")) break;
+                if (tokens.peek().equals(close) && form == InitializationExpression.Form.AGGREGATE) break;
+            } while (true);
+            tokens.expect(close);
+        }
+        return tokens.span(start, result);
+    }
+
+    private boolean specialMemberAhead(boolean member) {
+        int offset = 0;
+        while (java.util.Set.of("inline", "explicit").contains(tokens.peek(offset))) offset++;
+        if (member && !classNames.isEmpty())
+            return tokens.peek(offset).equals("~") || tokens.peek(offset).equals(classNames.peek()) && tokens.peek(offset + 1).equals("(");
+        if (tokens.peek(offset).equals("::")) offset++;
+        String owner = tokens.peek(offset);
+        while (tokens.peek(offset + 1).equals("::")) {
+            offset += 2;
+            if (tokens.peek(offset).equals("~")) return true;
+            String next = tokens.peek(offset);
+            if (next.equals(owner) && tokens.peek(offset + 1).equals("(")) return true;
+            owner = next;
+        }
+        return false;
+    }
+
+    private MethodDeclaration.Builder specialMember() {
+        var start = tokens.start();
+        var modifiers = new java.util.ArrayList<String>();
+        while (java.util.Set.of("inline", "explicit").contains(tokens.peek())) { modifiers.add(tokens.peek()); tokens.advance(); }
+        var declarator = types.declarator(false);
+        var function = types.functionType(declarator.apply().apply(NamedType.create().setName("void")));
+        if (function == null) throw tokens.error("Expected constructor or destructor parameter clause");
+        boolean destructor = declarator.name().contains("~");
+        if (function.isConst() || function.isVolatile() || destructor && (!function.parameters().isEmpty() || function.variadic())) throw tokens.error("Invalid special member signature");
+        if (destructor && modifiers.contains("explicit")) throw tokens.error("explicit applies only to constructors");
+        var result = MethodDeclaration.create().setName(declarator.name()).setKind(destructor ? CallableDeclaration.Kind.DESTRUCTOR : CallableDeclaration.Kind.CONSTRUCTOR)
+                .setParameters(function.parameters()).setVariadic(function.variadic()).setModifiers(modifiers);
+        if (tokens.take(":")) {
+            if (destructor) throw tokens.error("Destructor cannot have initializer list");
+            do {
+                var itemStart = tokens.start();
+                var item = MemberInitializer.create().setName(types.qualifiedName());
+                tokens.expect("(");
+                if (!tokens.take(")")) { do { item.addArgument(expressions.parse()); } while (tokens.take(",")); tokens.expect(")"); }
+                result.addInitializer(tokens.span(itemStart, item));
+            } while (tokens.take(","));
+        }
+        result.setDeclarationDefinition(tokens.peek().equals("{"));
+        if (tokens.peek().equals("{")) {
+            if (!deferredBodies.isEmpty()) {
+                int bodyPosition = tokens.checkpoint(); tokens.skipBlock();
+                deferredBodies.peek().add(types.inCurrentScope(() -> {
+                    int resume = tokens.checkpoint(); tokens.restore(bodyPosition);
+                    try { functionBody(result, function.parameters()); } finally { tokens.restore(resume); }
+                }));
+            } else functionBody(result, function.parameters());
+        } else tokens.expect(";");
+        return tokens.span(start, result);
+    }
+
     private void functionBody(CallableDeclaration.Builder<?, ?> declaration,
             java.util.List<NodeBuilder<? extends ParameterDeclaration>> parameters) {
-        types.pushScope();
-        try {
-            for (var parameter : parameters) types.declareName(((ParameterDeclaration.Builder) parameter).name().orElse(""));
-            declaration.setBody(statements.block());
-        } finally { types.popScope(); }
+        types.inQualifier(declaration.name().orElse(""), () -> {
+            types.pushScope();
+            try {
+                for (var parameter : parameters) types.declareName(((ParameterDeclaration.Builder) parameter).name().orElse(""));
+                declaration.setBody(statements.block());
+            } finally { types.popScope(); }
+        });
     }
 
     private void validateStorage(java.util.List<String> modifiers, boolean member, boolean local) {
@@ -355,6 +429,13 @@ public final class Parser {
     /** Namespace and class bodies use the same declaration dispatch as the translation unit. */
     private java.util.List<NodeBuilder<? extends Declaration>> cppDeclarations(boolean member, boolean local) {
         var start = tokens.start();
+        if (tokens.take("friend")) {
+            if (!member) throw tokens.error("friend requires class scope");
+            var declarations = cppDeclarations(false, false);
+            declarations.forEach(declaration -> declaration.setFriend(true));
+            return declarations;
+        }
+        if (specialMemberAhead(member)) return java.util.List.of(specialMember());
         if (tokens.peek().equals("namespace")) {
             if (member || local) throw tokens.error("Namespace definitions require namespace scope");
             return java.util.List.of(namespace());
@@ -390,7 +471,7 @@ public final class Parser {
             } finally { languageLinkage = previous; }
         }
         if (java.util.Set.of("class", "struct", "union").contains(tokens.peek())
-                && java.util.Set.of("{", ";").contains(tokens.peek(2))) {
+                && java.util.Set.of("{", ";", ":").contains(tokens.peek(2))) {
             var declaration = cppClass();
             var result = new java.util.ArrayList<NodeBuilder<? extends Declaration>>(types.takeImplicitDeclarations());
             result.add(declaration); return result;
@@ -464,16 +545,28 @@ public final class Parser {
             result.setDeclarationDefinition(false);
             return tokens.span(start, result);
         }
-        tokens.expect("{"); types.pushNamedScope(name, true);
+        if (tokens.take(":")) {
+            if (keyword.equals("union")) throw tokens.error("Union cannot have base classes");
+            do {
+                var baseStart = tokens.start();
+                String baseAccess = access;
+                boolean virtual = tokens.take("virtual");
+                if (java.util.Set.of("public", "protected", "private").contains(tokens.peek())) { baseAccess = tokens.peek(); tokens.advance(); }
+                if (!virtual) virtual = tokens.take("virtual");
+                String baseName = types.qualifiedName();
+                result.addBase(tokens.span(baseStart, BaseSpecifier.create().setBaseAccess(baseAccess).setVirtual(virtual).setType(NamedType.create().setName(baseName))));
+            } while (tokens.take(","));
+        }
+        tokens.expect("{"); types.pushNamedScope(name, true); classNames.push(name);
         var deferred = new java.util.ArrayList<Runnable>(); deferredBodies.push(deferred);
         try {
             while ((recovery == null || !recovery.stopped()) && !tokens.take("}")) {
                 if (java.util.Set.of("public", "private", "protected").contains(tokens.peek())) {
                     String next = tokens.peek(); tokens.advance(); tokens.expect(":");
-                    if (!result.members().isEmpty() && !next.equals(access)) throw tokens.error("Mixed class access sections are not yet supported");
-                    access = next; result.setMemberAccess(access);
+                    access = next;
+                    if (result.members().isEmpty()) result.setMemberAccess(access);
                 } else if (tokens.take(";")) { /* Empty member declaration. */ }
-                else for (var declaration : cppDeclarations(true, false)) result.addMember(declaration);
+                else for (var declaration : cppDeclarations(true, false)) { declaration.setAccess(access); result.addMember(declaration); }
             }
         } catch (ParseException error) {
             if (recovery == null) throw error;
@@ -484,7 +577,7 @@ public final class Parser {
             }
             deferred.clear();
             recovery.stop(error, tokens.currentRange());
-        } finally { types.popScope(); deferredBodies.pop(); }
+        } finally { types.popScope(); deferredBodies.pop(); classNames.pop(); }
         if (recovery == null || !recovery.stopped()) {
             if (!deferredBodies.isEmpty()) deferredBodies.peek().addAll(deferred);
             else for (var body : deferred) {

@@ -8,6 +8,11 @@ public abstract class Declaration extends Node {
     public enum Linkage { NONE, INTERNAL, EXTERNAL }
     Linkage linkage = Linkage.NONE;
     String languageLinkage = "C++";
+    boolean friend;
+    public boolean isFriend() { return friend; }
+    String access;
+    /** Written class-member access, absent outside class scope. */
+    public Optional<String> access() { return Optional.ofNullable(access); }
     boolean definitionOccurrence = true;
     Declaration previousDeclaration, definition;
     String typeIdentity;

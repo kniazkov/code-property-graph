@@ -160,7 +160,7 @@ public final class Project extends Node {
                     copied.apply((Node)e.from()), copied.apply((Node)e.to()), e.kind())).toList();
             var data = flow.data().stream().map(e -> new FunctionFlow.DataEdge(
                     copied.apply(e.from()), copied.apply(e.to()), e.kind())).toList();
-            return new FunctionFlow(entry, entry.exit(), control, data);
+            return new FunctionFlow(entry, entry.exit(), control, data, flow.complete());
         }).toList();
         return copy;
     }

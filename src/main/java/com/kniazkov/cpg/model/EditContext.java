@@ -89,6 +89,8 @@ final class EditContext {
             builder.declarationTypeIdentity = declaration.typeIdentity().orElse(null);
             builder.declarationLinkage = declaration.linkage();
             builder.languageLinkage = declaration.languageLinkage();
+            builder.declarationAccess = declaration.access().orElse(null);
+            builder.declarationFriend = declaration.isFriend();
             builder.declarationDefinition = declaration.isDefinition();
             builder.previousDeclaration = declaration.previousDeclaration().isEmpty() ? null : edge(declaration.previousDeclaration().orElseThrow(), Declaration.class);
             builder.definition = declaration.definition().isEmpty() ? null : edge(declaration.definition().orElseThrow(), Declaration.class);

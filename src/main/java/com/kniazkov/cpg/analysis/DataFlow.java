@@ -30,6 +30,7 @@ public final class DataFlow {
     }
 
     private FunctionFlow analyzeFunction(FunctionFlow flow) {
+        if (!flow.complete()) return flow;
         Map<FlowVertex,List<FlowVertex>> successors = new HashMap<>();
         for (var edge : flow.control())
             successors.computeIfAbsent(edge.from(), k -> new ArrayList<>()).add(edge.to());
@@ -97,6 +98,7 @@ public final class DataFlow {
                     state.write(v, v);
                 });
             }
+            case MemberInitializer initializer -> initializer.arguments().forEach(argument -> consume(argument, initializer, state, sink));
             case ExpressionStatement s -> evaluate(s.expression(), state, sink);
             case Expression condition -> evaluate(condition, state, sink);
             case ReturnStatement ret -> ret.value().ifPresent(value -> consume(value, ret, state, sink));

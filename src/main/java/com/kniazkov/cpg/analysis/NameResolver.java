@@ -62,9 +62,31 @@ public final class NameResolver {
         }
 
         void index(Node node, Scope scope) {
+            Scope owner = scope;
+            if (node instanceof Declaration declaration) {
+                if (declaration.isFriend()) while (owner.classScope && owner.parent != null) owner = owner.parent;
+                String written = declaration instanceof CallableDeclaration callable ? callable.name()
+                        : declaration instanceof VariableDeclaration variable ? variable.name() : "";
+                int separator = written.lastIndexOf("::");
+                if (separator >= 0) {
+                    String qualifier = written.substring(0, separator);
+                    Scope found = null;
+                    for (Scope candidate = owner; candidate != null && found == null; candidate = candidate.parent) {
+                        Scope next = candidate;
+                        for (String part : qualifier.split("::")) { if (!part.isEmpty()) next = next == null ? null : next.nested.get(part); }
+                        if (next != null) found = next;
+                    }
+                    if (found != null) owner = found;
+                }
+            }
+            indexInScope(node, owner);
+        }
+
+        void indexInScope(Node node, Scope scope) {
             scopes.put(node, scope); pointScopes.put(position, scope); positions.put(node, position++);
             if (node instanceof Declaration declaration) {
-                declarations.add(declaration); scope.add(name(declaration), declaration);
+                declarations.add(declaration);
+                if (!(declaration instanceof CallableDeclaration callable) || callable.kind() == CallableDeclaration.Kind.FUNCTION) scope.add(name(declaration), declaration);
             }
             if (node instanceof NamespaceDeclaration namespace) {
                 String name = namespace.anonymous() ? "(anonymous)" : namespace.name();
@@ -77,6 +99,7 @@ public final class NameResolver {
                 Scope nested = scope.nested.computeIfAbsent(owner.name(), ignored -> new Scope(scope, scope.file,
                         qualify(scope.qualified, owner.name()), scope.local, scope.anonymous, true));
                 introduced.put(owner, nested);
+                owner.bases().forEach(base -> index(base, scope));
                 owner.members().forEach(member -> index(member, nested));
                 classEnds.put(owner, position);
             } else if (node instanceof CallableDeclaration callable) {
@@ -86,6 +109,7 @@ public final class NameResolver {
                 callable.returnType().ifPresent(type -> index(type, scope));
                 callable.parameters().forEach(parameter -> index(parameter, nested));
                 positions.put(callable, position++); // A function name follows its complete declarator.
+                callable.initializers().forEach(initializer -> index(initializer, nested));
                 callable.body().ifPresent(body -> index(body, nested));
                 index(callable.exit(), nested);
             } else if (node instanceof FunctionType function) {
@@ -98,6 +122,7 @@ public final class NameResolver {
             } else if (node instanceof VariableDeclaration variable) {
                 variable.type().ifPresent(type -> index(type, scope));
                 positions.put(variable, position++); // The declarator precedes its initializer.
+                variable.bitWidth().ifPresent(value -> index(value, scope));
                 variable.initializer().ifPresent(value -> index(value, scope));
             } else if (node instanceof ParameterDeclaration parameter) {
                 parameter.type().ifPresent(type -> index(type, scope));
@@ -170,9 +195,18 @@ public final class NameResolver {
                     Match match = unique(lookup(name.name(), scopes.get(name), positions.get(name), new HashSet<>()));
                     if (match == null) editor.unbind(name); else editor.bind(name, match.declaration());
                 }
+                @Override public void visit(MemberInitializer initializer) {
+                    Scope scope = scopes.get(initializer);
+                    while (scope != null && !scope.classScope) scope = scope.parent;
+                    Scope context = scope == null ? null : new Scope(scope, scope.file, scope.qualified + "#initializer-id", true, scope.anonymous, false);
+                    Match match = context == null ? null : unique(lookup(initializer.name(), context, positions.get(initializer), new HashSet<>()));
+                    editor.bind(initializer, match == null ? null : match.declaration());
+                }
                 @Override public void visit(MemberExpression member) {
                     String written = expressionName(member);
-                    Match match = written == null ? null : unique(lookup(written, scopes.get(member), positions.get(member), new HashSet<>()));
+                    Match match = member instanceof ScopeMemberExpression
+                            ? written == null ? null : unique(lookup(written, scopes.get(member), positions.get(member), new HashSet<>()))
+                            : memberMatch(member);
                     editor.bind(member, match == null ? null : match.declaration());
                 }
             });
@@ -432,6 +466,51 @@ public final class NameResolver {
             return null;
         }
 
+        Match memberMatch(MemberExpression member) { return unique(memberMatches(member)); }
+        List<Match> memberMatches(MemberExpression member) {
+            ClassDeclaration owner = receiverClass(member.receiver(), member instanceof PointerMemberExpression);
+            if (owner == null) return List.of();
+            Scope scope = introduced.get(owner);
+            if (scope == null && owner.definition().orElse(null) instanceof ClassDeclaration definition) scope = introduced.get(definition);
+            return scope == null ? List.of() : direct(member.member(), scope, Integer.MAX_VALUE, new HashSet<>(), false, true);
+        }
+        ClassDeclaration receiverClass(Expression receiver, boolean pointer) {
+            if (receiver instanceof ConversionExpression conversion) return receiverClass(conversion.operand(), pointer);
+            if (receiver instanceof NameExpression name && name.name().equals("this")) {
+                Scope scope = scopes.get(receiver);
+                while (scope != null && !scope.classScope) scope = scope.parent;
+                for (var entry : introduced.entrySet()) if (entry.getValue() == scope && entry.getKey() instanceof ClassDeclaration cls && cls.isDefinition()) return cls;
+                return null;
+            }
+            Declaration target = null;
+            if (receiver instanceof NameExpression name) {
+                Match match = unique(lookup(name.name(), scopes.get(name), positions.get(name), new HashSet<>()));
+                if (match != null) target = match.declaration();
+            } else if (receiver instanceof MemberExpression member) {
+                Match match = memberMatch(member); if (match != null) target = match.declaration();
+            }
+            if (receiver instanceof CallExpression call) {
+                Match function = call.callee() instanceof NameExpression name
+                        ? unique(lookup(name.name(), scopes.get(name), positions.get(name), new HashSet<>()))
+                        : call.callee() instanceof MemberExpression member ? memberMatch(member) : null;
+                if (function != null) target = function.declaration();
+            }
+            TypeNode type = target instanceof VariableDeclaration variable ? variable.type().orElse(null)
+                    : target instanceof ParameterDeclaration parameter ? parameter.type().orElse(null)
+                    : target instanceof CallableDeclaration callable ? callable.returnType().orElse(null)
+                    : receiver instanceof InitializationExpression initialization ? initialization.type().orElse(null) : null;
+            if (type == null) return null;
+            type = TypeSemantics.unqualified(type);
+            if (type instanceof ReferenceType reference) type = TypeSemantics.unqualified(reference.referredType());
+            if (pointer && type instanceof PointerType ptr) type = TypeSemantics.unqualified(ptr.pointee());
+            if (type instanceof NamedType name) {
+                Match match = typeBindings.get(name);
+                Declaration declaration = match == null ? name.declaration().orElse(null) : match.declaration();
+                if (declaration instanceof ClassDeclaration cls) return cls;
+            }
+            return null;
+        }
+
         Project linkDeclarations() {
             for (Declaration declaration : declarations) {
                 Declaration.Linkage linkage = linkage(declaration);
@@ -461,6 +540,7 @@ public final class NameResolver {
                 else editor.declare(declaration, linkage, isDefinition(declaration), null, null);
             }
             for (List<Declaration> group : groups.values()) connect(group);
+            validateClasses();
             for (Declaration declaration : declarations)
                 if (declaration instanceof CallableDeclaration callable && scopes.get(callable).file.language() == Language.CPP)
                     validateDefaults(callable);
@@ -480,6 +560,33 @@ public final class NameResolver {
                 }
             });
             return editor.build();
+        }
+        void validateClasses() {
+            for (Declaration declaration : declarations) {
+                if (declaration instanceof VariableDeclaration field && field.bitWidth().isPresent()) {
+                    if (field.modifiers().contains("static")) error(field, "invalid-bit-field", "A bit-field cannot be static");
+                    var profile = TypeSemantics.profile(scopes.get(field).file);
+                    ConstantEvaluator.evaluate(field.bitWidth().orElseThrow(), profile).ifPresent(width -> {
+                        if (width.number().signum() < 0 || width.number().signum() == 0 && !field.name().isEmpty())
+                            error(field, "invalid-bit-field", "Bit-field width must be nonnegative; zero width requires an unnamed field");
+                    });
+                }
+                if (!(declaration instanceof ClassDeclaration owner) || !owner.isDefinition()) continue;
+                for (var member : owner.members()) if (member instanceof CallableDeclaration constructor && constructor.kind() == CallableDeclaration.Kind.CONSTRUCTOR) {
+                    var seen = new HashSet<Object>();
+                    for (var initializer : constructor.initializers()) {
+                        Declaration target = initializer.target().orElse(null);
+                        ClassDeclaration baseClass = ClassSemantics.initializedBase(initializer).orElse(null);
+                        boolean valid = ClassSemantics.fields(owner).contains(target)
+                                || owner.bases().stream().anyMatch(base -> ClassSemantics.objectClass(base.type()).filter(baseType -> ClassSemantics.sameClass(baseType, baseClass)).isPresent());
+                        if (!valid && ClassSemantics.hasCompleteNonvirtualHierarchy(owner)) error(initializer, "invalid-member-initializer", "Initializer must name a non-static field or direct base: " + initializer.name());
+                        Object identity = baseClass != null ? baseClass.typeIdentity().orElse(baseClass.name()) : target != null ? target : initializer.name();
+                        if (!seen.add(identity)) error(initializer, "duplicate-member-initializer", "Subobject initialized more than once: " + initializer.name());
+                    }
+                    if (owner.keyword().equals("union") && constructor.initializers().size() > 1)
+                        error(constructor, "invalid-union-initialization", "Only one union member may be initialized");
+                }
+            }
         }
         void diagnoseAmbiguity(Node node, String name, boolean tagsOnly) {
             var matches = lookup(name, scopes.get(node), positions.get(node), new HashSet<>(), tagsOnly);
@@ -523,7 +630,7 @@ public final class NameResolver {
         }
         String entityKey(Declaration declaration, Declaration.Linkage linkage) {
             Scope scope = scopes.get(declaration);
-            if (declaration instanceof EnumDeclaration && name(declaration).isEmpty()) return null;
+            if ((declaration instanceof EnumDeclaration || declaration instanceof VariableDeclaration) && name(declaration).isEmpty()) return null;
             String category;
             if (declaration instanceof CallableDeclaration callable) category = "function:" + signature(callable);
             else if (declaration instanceof VariableDeclaration) category = "variable";
@@ -656,7 +763,10 @@ public final class NameResolver {
         }
         void resolveCall(CallExpression call) {
             String written = expressionName(call.callee());
-            List<Match> visible = written == null ? List.of() : lookup(written, scopes.get(call), positions.get(call), new HashSet<>());
+            List<Match> visible = call.callee() instanceof MemberExpression member && !(member instanceof ScopeMemberExpression)
+                    && receiverClass(member.receiver(), member instanceof PointerMemberExpression) != null
+                    ? memberMatches(member)
+                    : written == null ? List.of() : lookup(written, scopes.get(call), positions.get(call), new HashSet<>());
             List<CallableDeclaration> declarations = visible.stream().map(Match::declaration)
                     .filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast).toList();
             // Historical Java/class-qualified examples omit a class declaration in the
@@ -738,19 +848,16 @@ public final class NameResolver {
         return declaration.languageLinkage().equals("C") ? "C" : parameterSignature(declaration);
     }
     private static String parameterSignature(CallableDeclaration declaration) {
-        var function = FunctionType.create().setReturnType(NamedType.create().setName("void"))
-                .setVariadic(declaration.variadic()).setConst(declaration.isConst()).setVolatile(declaration.isVolatile());
         List<ParameterDeclaration> parameters = declaration.parameters();
+        boolean variadic = declaration.variadic(), constant = declaration.isConst(), vol = declaration.isVolatile();
         if (declaration.writtenType().map(TypeNode::canonicalType).orElse(null) instanceof FunctionType written) {
-            parameters = written.parameters(); function.setVariadic(written.variadic()).setConst(written.isConst()).setVolatile(written.isVolatile());
+            parameters = written.parameters(); variadic = written.variadic(); constant = written.isConst(); vol = written.isVolatile();
         }
-        parameters.forEach(parameter -> {
-            var builder = parameter.edit().clearDefaultValue();
-            if (parameter.type().isEmpty()) builder.setType(NamedType.create().setName("<unknown>"));
-            function.addParameter(builder);
-        });
-        return function.build().canonicalIdentity();
+        return "function(" + parameters.stream().map(parameter -> parameter.type().map(TypeIdentity::parameterIdentity).orElse("named(<unknown>)"))
+                .collect(java.util.stream.Collectors.joining(",")) + (variadic ? ",..." : "") + ")->void"
+                + (constant ? " const" : "") + (vol ? " volatile" : "");
     }
+
     private static String expressionName(Expression expression) {
         if (expression instanceof NameExpression name) return name.name();
         if (expression instanceof ScopeMemberExpression || expression instanceof DotMemberExpression) {
@@ -770,9 +877,10 @@ public final class NameResolver {
         if (declaration instanceof ClassDeclaration owner) return owner.modifiers();
         return List.of();
     }
+    private static String unqualified(String name) { int at = name.lastIndexOf("::"); return at < 0 ? name : name.substring(at + 2); }
     private static String name(Declaration declaration) {
-        if (declaration instanceof CallableDeclaration callable) return callable.name();
-        if (declaration instanceof VariableDeclaration variable) return variable.name();
+        if (declaration instanceof CallableDeclaration callable) return unqualified(callable.name());
+        if (declaration instanceof VariableDeclaration variable) return unqualified(variable.name());
         if (declaration instanceof ParameterDeclaration parameter) return parameter.name();
         if (declaration instanceof ClassDeclaration owner) return owner.name();
         if (declaration instanceof TypedefDeclaration alias) return alias.name();

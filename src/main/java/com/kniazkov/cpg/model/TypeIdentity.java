@@ -52,6 +52,10 @@ public final class TypeIdentity {
         if (type instanceof ReferenceType) return identity(type, seen);
         return (c ? "const(" : "") + (v ? "volatile(" : "") + identity(type, seen) + (v ? ")" : "") + (c ? ")" : "");
     }
+    /** Parameter identity with array/function adjustment and top-level cv removal. */
+    public static String parameterIdentity(TypeNode written) {
+        return parameter(written, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
     private static String parameter(TypeNode written, Set<TypeNode> seen) {
         TypeNode type = canonicalType(written);
         boolean c = false, v = false;

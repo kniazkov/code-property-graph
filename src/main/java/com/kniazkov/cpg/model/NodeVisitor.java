@@ -10,6 +10,9 @@ package com.kniazkov.cpg.model;
  * <p>One call to Node.accept dispatches once. Use Node.walk for a whole subtree.
  */
 public interface NodeVisitor {
+    default void visit(BaseSpecifier node) { visit((Node) node); }
+    default void visit(InitializationExpression node) { visit((Expression) node); }
+    default void visit(MemberInitializer node) { visit((Node) node); }
     default void visit(BitwiseAndExpression node) { visit((BinaryExpression) node); }
     default void visit(BitwiseOrExpression node) { visit((BinaryExpression) node); }
     default void visit(BitwiseXorExpression node) { visit((BinaryExpression) node); }

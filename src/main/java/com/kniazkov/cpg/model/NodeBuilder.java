@@ -19,6 +19,14 @@ public abstract class NodeBuilder<T extends Node> {
     public final void clearTypeIdentity() { declarationTypeIdentity = null; }
     Declaration.Linkage declarationLinkage = Declaration.Linkage.NONE;
     String languageLinkage = "C++";
+    boolean declarationFriend;
+    public final void setFriend(boolean value) { declarationFriend = value; }
+    String declarationAccess;
+    public final void setAccess(String value) {
+        if (!java.util.Set.of("public", "protected", "private").contains(value)) throw new IllegalArgumentException("Invalid member access");
+        declarationAccess = value;
+    }
+    public final void clearAccess() { declarationAccess = null; }
     boolean declarationDefinition = true;
     NodeBuilder<? extends Declaration> previousDeclaration, definition;
     public final void setLinkage(Declaration.Linkage value) { declarationLinkage = Objects.requireNonNull(value); }
