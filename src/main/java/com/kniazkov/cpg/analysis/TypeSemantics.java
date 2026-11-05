@@ -133,7 +133,7 @@ public final class TypeSemantics {
         if (expression instanceof SizeofExpression) return sizeType(profile).map(TypeSemantics::named);
         if (expression instanceof NameExpression name) return declarationType(name.target());
         if (expression instanceof MemberExpression member) return declarationType(member.target());
-        if (expression instanceof CallExpression call) return call.target().flatMap(CallableDeclaration::returnType);
+        if (expression instanceof CallExpression call) return callType(call, profile).map(FunctionType::returnType);
         if (expression instanceof AssignmentExpression assignment) return expressionType(assignment.target(), profile);
         if (expression instanceof CompoundAssignmentExpression assignment) return expressionType(assignment.target(), profile);
         if (expression instanceof ConditionalExpression conditional) {
@@ -208,7 +208,7 @@ public final class TypeSemantics {
             if (member instanceof PointerMemberExpression || member instanceof ScopeMemberExpression) return ValueCategory.LVALUE;
             return valueCategory(member.receiver(), profile);
         }
-        if (expression instanceof CallExpression call) return call.target().flatMap(CallableDeclaration::returnType)
+        if (expression instanceof CallExpression call) return callType(call, profile).map(FunctionType::returnType)
                 .map(type -> unqualified(type) instanceof ReferenceType ? ValueCategory.LVALUE : ValueCategory.RVALUE).orElse(ValueCategory.UNKNOWN);
         if (expression instanceof ConversionExpression conversion)
             return unqualified(conversion.targetType()) instanceof ReferenceType ? ValueCategory.LVALUE : ValueCategory.RVALUE;
@@ -276,6 +276,16 @@ public final class TypeSemantics {
         if (plain instanceof FunctionType) return PointerType.create().setPointee(type.edit()).build();
         return type;
     }
+    /** A unique callable signature, including indirect calls, without inventing a target. */
+    public static Optional<FunctionType> callType(CallExpression call, PlatformProfile profile) {
+        Optional<TypeNode> type = call.target().flatMap(target -> declarationType(Optional.of(target)));
+        if (type.isEmpty()) type = expressionType(call.callee(), profile);
+        return type.flatMap(value -> {
+            TypeNode plain = unqualified(withoutReference(value));
+            if (plain instanceof PointerType pointer) plain = unqualified(pointer.pointee());
+            return plain instanceof FunctionType function ? Optional.of(function) : Optional.empty();
+        });
+    }
     private static Optional<TypeNode> declarationType(Optional<Declaration> declaration) {
         return declaration.flatMap(target -> {
             if (target instanceof VariableDeclaration variable) return variable.type();
@@ -284,7 +294,7 @@ public final class TypeSemantics {
                 if (callable.writtenType().isPresent()) return callable.writtenType();
                 if (callable.returnType().isEmpty()) return Optional.empty();
                 var function = FunctionType.create().setReturnType(callable.returnType().get().edit()).setVariadic(callable.variadic());
-                for (var parameter : callable.parameters()) function.addParameter(parameter.edit());
+                for (var parameter : callable.parameters()) function.addParameter(parameter.edit().clearDefaultValue());
                 return Optional.of(function.build());
             }
             return Optional.empty();

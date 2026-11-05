@@ -31,7 +31,7 @@ public final class StandardConversions {
             var profile = TypeSemantics.profile(file);
             file.walk(new NodeVisitor() {
                 @Override public void visit(CallExpression call) {
-                    call.target().ifPresent(target -> {
+                    TypeSemantics.callType(call, profile).ifPresent(target -> {
                         for (int i = 0; i < Math.min(call.arguments().size(), target.parameters().size()); i++) {
                             var argument = call.arguments().get(i);
                             target.parameters().get(i).type().map(TypeSemantics::decay)
@@ -46,6 +46,17 @@ public final class StandardConversions {
                             });
                         }
                     });
+                }
+                @Override public void visit(ParameterDeclaration parameter) {
+                    parameter.type().map(TypeSemantics::decay).ifPresent(type ->
+                            parameter.defaultValue().ifPresent(value -> convert(editor, value, type, profile)));
+                }
+                @Override public void visit(CallableDeclaration callable) {
+                    callable.returnType().ifPresent(type -> callable.body().ifPresent(body -> body.walk(new NodeVisitor() {
+                        @Override public void visit(ReturnStatement statement) {
+                            statement.value().ifPresent(value -> convert(editor, value, type, profile));
+                        }
+                    })));
                 }
                 @Override public void visit(VariableDeclaration variable) {
                     if (variable.type().isPresent()) variable.initializer().ifPresent(value -> convert(editor, value, variable.type().get(), profile));

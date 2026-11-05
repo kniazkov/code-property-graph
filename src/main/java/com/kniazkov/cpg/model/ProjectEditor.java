@@ -99,6 +99,14 @@ public final class ProjectEditor {
         resolutions.put(call, new Resolution(List.copyOf(candidates), status));
     }
 
+    private final Map<CallExpression, List<CallExpression.DefaultArgument>> defaults = new IdentityHashMap<>();
+    /** Records source-point default providers without making them children of the call. */
+    public void defaultArguments(CallExpression call, List<CallExpression.DefaultArgument> arguments) {
+        requireMember(call);
+        arguments.forEach(argument -> { requireMember(argument.declaration()); requireMember(argument.parameter()); });
+        defaults.put(call, List.copyOf(arguments));
+    }
+
     public ProjectEditor(Project source) {
         this.source = Objects.requireNonNull(source);
         source.walk(new NodeVisitor() {
@@ -150,7 +158,14 @@ public final class ProjectEditor {
         boolean changed = replacements.containsKey(node) || removed.contains(node) || conversions.containsKey(node);
         for (Node child : node.children()) changed |= invalidateAffected(child, context);
         if (changed && node instanceof Expression && !removed.contains(node)) context.copy(node).clearExpressionInfo();
+        if (node instanceof CallExpression call && !defaults.containsKey(call) && syntaxChanged(call))
+            context.edit(call, CallExpression.Builder.class).setDefaultArguments(List.of());
         return changed;
+    }
+
+    private boolean syntaxChanged(Node node) {
+        if (replacements.containsKey(node) || removed.contains(node)) return true;
+        return node.children().stream().anyMatch(this::syntaxChanged);
     }
 
     /** Copies all owned nodes and redirects links in the same identity context before validation. */
@@ -238,6 +253,10 @@ public final class ProjectEditor {
         calls.forEach((use, target) -> context.edit(use, CallExpression.Builder.class).setTarget(context.edge(target, CallableDeclaration.class)));
         resolutions.forEach((use, value) -> context.edit(use, CallExpression.Builder.class)
                 .setCandidates(context.copyAll(value.candidates(), CallableDeclaration.class), value.status()));
+        defaults.forEach((call, arguments) -> context.edit(call, CallExpression.Builder.class).setDefaultArguments(
+                arguments.stream().map(argument -> new CallExpression.DefaultArgumentBuilder(argument.parameterIndex(),
+                        context.edge(argument.declaration(), CallableDeclaration.class),
+                        context.edge(argument.parameter(), ParameterDeclaration.class))).toList()));
         typeRepresentations.forEach((type, representation) -> context.copy(type).setTypeRepresentation(representation));
         invalidateAffected(source, context);
         conversionSources.forEach((expression, type) -> context.edit(expression, ConversionExpression.Builder.class).setSourceType(type));
