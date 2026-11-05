@@ -40,7 +40,7 @@ public final class ClassTemplateInstances {
                     @Override public void visit(OpaqueLibraryType n) {
                         var opaque=fork.edit(n,OpaqueLibraryType.Builder.class).setIdentity(request.identity()+"::"+n.identity());
                         if(com.kniazkov.cpg.analysis.LibraryDeclarations.isLibrary(request.selected())
-                                && Set.of("vector","deque","list","set","multiset","map","multimap").contains(request.selected().name()) && request.selected()==request.origin()
+                                && Set.of("vector","deque","list","set","multiset","map","multimap","basic_string").contains(request.selected().name()) && request.selected()==request.origin()
                                 && (n.name().equals("iterator") || n.name().equals("const_iterator")))
                         {
                             opaque.setIteratorContainer(concrete);
@@ -49,7 +49,7 @@ public final class ClassTemplateInstances {
                                     .ifPresent(t->opaque.setIteratorValueType(fork.edge(t,TypedefDeclaration.class)));
                             request.selected().members().stream().filter(TypedefDeclaration.class::isInstance)
                                     .map(TypedefDeclaration.class::cast).filter(t->t.name().equals("difference_type")).findFirst()
-                                    .ifPresent(t->opaque.setIteratorDifferenceType(fork.edge(t.type(),TypeNode.class)));
+                                    .ifPresent(t->opaque.setIteratorDifferenceType(fork.edge(t,TypedefDeclaration.class)));
                         }
                     }
                     @Override public void visit(Declaration n) {
@@ -80,6 +80,7 @@ public final class ClassTemplateInstances {
             var cause = context.copy(request.cause());
             if (!instance.requests.contains(cause)) instance.requests.add(cause);
             if (request.cause() instanceof NameExpression name) context.edit(name, NameExpression.Builder.class).setTarget(instance.declaration);
+            if (request.cause() instanceof ScopeMemberExpression member) context.edit(member, ScopeMemberExpression.Builder.class).setTarget(instance.declaration);
             if (request.cause() instanceof NamedType type)
                 context.edit(type, NamedType.Builder.class).clearAlias().clearDeclaration().clearResolutionSteps()
                     .setDeclaration(instance.declaration).setCompleteAtUse(true).setDependent(false);

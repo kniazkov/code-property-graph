@@ -127,11 +127,54 @@ class StandardLibraryCatalogueTest {
     }
     @Test void nestedTypeIndexDoesNotInventMembers() {
         for (String header : StandardLibraryCatalogue.headers()) {
-            var actual = new HashSet<String>();
-            for (Declaration declaration : declarations(parse(header,PlatformProfile.defaults())))
-                if (declaration instanceof ClassDeclaration c) collectNested(c,c.name(),actual);
+            var actual = declaredNestedTypes(declarations(parse(header,PlatformProfile.defaults())));
             assertTrue(actual.containsAll(StandardLibraryCatalogue.nestedTypeNames(header)), header + ": " + StandardLibraryCatalogue.nestedTypeNames(header));
         }
+    }
+    @Test void stringAliasIndexIsBackedByDeclaredTargetMembers() {
+        var declarations = declarations(parse("string",PlatformProfile.defaults()));
+        var declared = declaredNestedTypes(declarations);
+        var withoutTarget = declaredNestedTypes(declarations.stream()
+                .filter(d -> !(d instanceof ClassDeclaration c && c.name().equals("basic_string"))).toList());
+        assertFalse(withoutTarget.contains("string::iterator"));
+        assertFalse(withoutTarget.contains("wstring::iterator"));
+        var indexed = StandardLibraryCatalogue.nestedTypeNames("string");
+        for (String alias : List.of("string", "wstring")) {
+            assertTrue(indexed.contains(alias + "::iterator"));
+            assertTrue(indexed.contains(alias + "::traits_type"));
+            for (String path : indexed) if (path.startsWith(alias + "::")) {
+                String target = "basic_string" + path.substring(alias.length());
+                assertTrue(declared.contains(target), path + " must name a declared target member");
+                assertTrue(declared.contains(path), path + " must follow its parsed typedef");
+            }
+            assertFalse(declared.contains(alias + "::append"), "Methods are not nested types");
+            assertFalse(declared.contains(alias + "::invented_member"));
+        }
+    }
+    private static Set<String> declaredNestedTypes(List<Declaration> declarations) {
+        var members = new HashMap<String,Set<String>>();
+        for (Declaration declaration : declarations)
+            if (declaration instanceof ClassDeclaration type && type.isDefinition()
+                    && (type.templateKind()==TemplateKind.NONE || type.templateKind()==TemplateKind.PRIMARY)) {
+                var nested = new HashSet<String>();
+                collectNested(type,"",nested);
+                members.computeIfAbsent(type.name(), key -> new HashSet<>()).addAll(nested);
+            }
+        // A typedef does not invent declarations: expose only nested paths already
+        // established for its parsed target. Repeated passes also handle alias chains.
+        for (int round=0;round<declarations.size();round++) {
+            boolean changed=false;
+            for (Declaration declaration : declarations)
+                if (declaration instanceof TypedefDeclaration alias && alias.type() instanceof NamedType target) {
+                    String name=target.name().replaceFirst("^(::)?std::", "");
+                    Set<String> nested=members.get(name);
+                    if(nested!=null)changed|=members.computeIfAbsent(alias.name(), key -> new HashSet<>()).addAll(nested);
+                }
+            if(!changed)break;
+        }
+        var result = new HashSet<String>();
+        members.forEach((owner,nested)->nested.forEach(path->result.add(owner+path)));
+        return result;
     }
     private static void collectNested(ClassDeclaration type,String path,Set<String> names) {
         for (Declaration member : type.members()) {

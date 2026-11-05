@@ -16,6 +16,7 @@ public final class DataFlow {
     private final Language language;
     private final PlatformProfile profile;
     private Set<Declaration> libraryAccessible = Set.of();
+    private final Map<Node, SequenceOperation> sequences = new IdentityHashMap<>();
     private final Map<Node, ContainerOperation> containers = new IdentityHashMap<>();
     private final Map<Node, DynamicArrayOperation> arrays = new IdentityHashMap<>();
     private final Map<Declaration, Declaration> arrayAliases = new IdentityHashMap<>();
@@ -33,11 +34,12 @@ public final class DataFlow {
         var contexts = SourceContexts.index(cfg);
         return cfg.withFlows(cfg.flows().stream().map(flow -> {
             SourceFile source = SourceContexts.require(contexts, flow.entry());
-            return new DataFlow(source.language(), TypeSemantics.profile(source)).analyzeFunction(flow, cfg.dynamicArraySemantics(), cfg.containerSemantics());
+            return new DataFlow(source.language(), TypeSemantics.profile(source)).analyzeFunction(flow, cfg.dynamicArraySemantics(), cfg.containerSemantics(), cfg.sequenceSemantics());
         }).toList());
     }
 
-    private FunctionFlow analyzeFunction(FunctionFlow flow, List<DynamicArrayOperation> operations, List<ContainerOperation> containerOperations) {
+    private FunctionFlow analyzeFunction(FunctionFlow flow, List<DynamicArrayOperation> operations, List<ContainerOperation> containerOperations, List<SequenceOperation> sequenceOperations) {
+        sequenceOperations.forEach(operation -> sequences.put(operation.syntax(), operation));
         containerOperations.forEach(operation -> containers.put(operation.syntax(), operation));
         operations.forEach(operation -> arrays.put(operation.syntax(), operation));
         flow.entry().walk(new NodeVisitor() {
@@ -45,9 +47,11 @@ public final class DataFlow {
                 if (variable.type().map(TypeSemantics::unqualified).filter(ReferenceType.class::isInstance).isPresent()
                         && variable.type().map(TypeSemantics::withoutReference).flatMap(ClassSemantics::objectClass)
                                 .filter(cls -> operations.stream().anyMatch(op -> op.type().concreteClass() == cls)
-                                        || containerOperations.stream().anyMatch(op -> op.type().concreteClass() == cls)).isPresent())
+                                        || containerOperations.stream().anyMatch(op -> op.type().concreteClass() == cls)
+                                        || sequenceOperations.stream().anyMatch(op -> op.characterType().flatMap(CharacterSequenceType::declaration).filter(t -> t == cls).isPresent())
+                                        || LibraryDeclarations.isLibrary(cls) && Set.of("back_insert_iterator", "front_insert_iterator", "insert_iterator").contains(cls.name())).isPresent())
                     variable.initializer().ifPresent(value -> {
-                        var roots = LibraryCallEffects.roots(value);
+                        var roots = sequenceRoots(value);
                         if (roots.size() == 1) arrayAliases.put(variable, roots.iterator().next());
                     });
             }
@@ -175,7 +179,10 @@ public final class DataFlow {
             if (consumer instanceof VariableDeclaration variable) { state.write(variable, variable); bindElement(variable, value, state); constructLibraryObject(variable, state, sink); }
             else if (consumer instanceof AssignmentExpression assignment) {
                 address(assignment, state, sink);
-                if (arrays.containsKey(assignment)) {
+                if (sequences.containsKey(assignment)) {
+                    sequenceEffect(sequences.get(assignment), state, sink);
+                    sink.edge(sequences.get(assignment), assignment, Dependency.VALUE);
+                } else if (arrays.containsKey(assignment)) {
                     arrayEffect(arrays.get(assignment), state, sink);
                     sink.edge(arrays.get(assignment), assignment, Dependency.VALUE);
                 } else if (containers.containsKey(assignment)) {
@@ -237,6 +244,26 @@ public final class DataFlow {
     }
 
     private void constructLibraryObject(VariableDeclaration variable, State state, Sink sink) {
+        if (sequences.containsKey(variable)) {
+            var operation = sequences.get(variable);
+            if (operation.kind() == SequenceOperation.Kind.REVERSE_ITERATOR)
+                operation.first().filter(Expression.class::isInstance).map(Expression.class::cast)
+                        .ifPresent(value -> bindElement(variable, value, state));
+            sequenceEffect(operation, state, sink);
+            return;
+        }
+        if (variable.type().filter(this::outputAdapterType).isPresent()
+                && variable.constructorTarget().filter(LibraryCallEffects::unknown).isPresent()) {
+            Expression value = variable.initializer().orElse(null);
+            while (value instanceof ConversionExpression conversion) value = conversion.operand();
+            if (value instanceof InitializationExpression initialization && !initialization.arguments().isEmpty()) {
+                var bindings = new LinkedHashSet<ElementBinding>();
+                for (Declaration root : storageRoots(initialization.arguments().getFirst(), state))
+                    bindings.add(new ElementBinding(initialization, root, true, true, true));
+                state.elements.put(variable, bindings);
+            }
+            return;
+        }
         if (containers.containsKey(variable)) { containerEffect(containers.get(variable), state, sink); return; }
         if (arrays.containsKey(variable)) { arrayEffect(arrays.get(variable), state, sink); return; }
         if (variable.constructorTarget().filter(LibraryCallEffects::unknown).isEmpty()) return;
@@ -377,6 +404,74 @@ public final class DataFlow {
         for (Declaration destination : destinations) state.write(destination, operation);
     }
 
+    /** Range algorithms update element storage, not iterator variables or whole objects. */
+    private void sequenceEffect(SequenceOperation operation, State state, Sink sink) {
+        for (Node source : operation.sources()) sink.edge(source, operation, Dependency.VALUE);
+        var reads = new LinkedHashSet<Declaration>();
+        operation.destination().ifPresent(n -> reads.addAll(storageRoots(n, state)));
+        operation.inputSequence().ifPresent(n -> reads.addAll(storageRoots(n, state)));
+        operation.first().ifPresent(n -> reads.addAll(storageRoots(n, state)));
+        operation.secondFirst().ifPresent(n -> reads.addAll(storageRoots(n, state)));
+        var writes = new LinkedHashSet<Declaration>();
+        if (operation.kind() != SequenceOperation.Kind.ADVANCE) {
+            if (operation.kind() == SequenceOperation.Kind.COPY || operation.kind() == SequenceOperation.Kind.TRANSFORM) {
+                // Written output operands carry path-sensitive adapter rebindings;
+                // a normalization-time destination hint must not override them.
+                operation.destination().or(operation::outputDestination)
+                        .ifPresent(n -> writes.addAll(storageRoots(n, state)));
+            } else for (Node object : operation.mutatedObjects()) writes.addAll(storageRoots(object, state));
+            if (operation.kind() == SequenceOperation.Kind.REMOVE || operation.kind() == SequenceOperation.Kind.SORT)
+                operation.first().ifPresent(n -> writes.addAll(storageRoots(n, state)));
+        }
+        reads.addAll(writes);
+        if (operation.callableEffect() != SequenceOperation.CallableEffect.NONE) {
+            reads.addAll(libraryAccessible);
+            for (Node effect : operation.callableEffects()) reads.addAll(storageRoots(effect, state));
+        }
+        for (Declaration object : reads)
+            for (Node definition : state.definitions.getOrDefault(object, Set.of()))
+                sink.edge(definition, operation, Dependency.DEFINITION);
+        if (operation.callableEffect() == SequenceOperation.CallableEffect.MAY_WRITE
+                || operation.callableEffect() == SequenceOperation.CallableEffect.UNKNOWN) {
+            var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
+            exposed.addAll(reads);
+            operation.callable().ifPresent(n -> exposed.addAll(storageRoots(n, state)));
+            for (Node effect : operation.callableEffects()) exposed.addAll(storageRoots(effect, state));
+            opaqueMutation(operation, exposed, state, sink);
+        }
+        if (operation.kind() == SequenceOperation.Kind.ADVANCE) {
+            // advance repositions the handle while retaining its referent, not its contents.
+            operation.destination().ifPresent(n -> sequenceRoots(n).forEach(d -> state.write(d, operation)));
+        }
+        for (Declaration object : writes) {
+            if (operation.syntax() instanceof VariableDeclaration) state.write(object, operation);
+            else state.definitions.computeIfAbsent(object, ignored -> new LinkedHashSet<>()).add(operation);
+        }
+        if (operation.characterType().isPresent() && !writes.isEmpty()
+                && operation.sizeEffect() != SequenceOperation.SizeEffect.UNCHANGED) {
+            state.elements.replaceAll((variable, bindings) -> {
+                var changed = new LinkedHashSet<ElementBinding>();
+                for (var binding : bindings) changed.add(writes.contains(binding.sequence())
+                        ? new ElementBinding(binding.producer(), binding.sequence(), binding.iterator(), binding.writable(), true)
+                        : binding);
+                return changed;
+            });
+        }
+    }
+
+    /** Resolve saved iterators and output adapters through the current reaching bindings. */
+    private Set<Declaration> storageRoots(Node object, State state) {
+        if (object instanceof Expression expression) {
+            var bindings = elementBindings(expression, state);
+            if (!bindings.isEmpty()) {
+                var result = new LinkedHashSet<Declaration>();
+                bindings.forEach(binding -> result.add(binding.sequence()));
+                return result;
+            }
+        }
+        return sequenceRoots(object);
+    }
+
     /** A missing selected target is not evidence that comparison is pure. */
     private boolean mayInvokeComparator(ContainerOperation operation) {
         if (operation.comparator().isPresent()) return true;
@@ -393,13 +488,41 @@ public final class DataFlow {
     private Set<Declaration> sequenceRoots(Node object) {
         var result = new LinkedHashSet<Declaration>();
         if (object instanceof Declaration declaration) result.add(alias(declaration));
-        else if (object instanceof Expression expression)
-            LibraryCallEffects.roots(expression).forEach(root -> result.add(alias(root)));
+        else if (object instanceof ConversionExpression conversion) return sequenceRoots(conversion.operand());
+        else if (object instanceof Expression expression) {
+            var operation = sequences.get(expression);
+            if (operation != null && (operation.kind() == SequenceOperation.Kind.STRING_APPEND
+                    || operation.kind() == SequenceOperation.Kind.STRING_ASSIGN))
+                operation.destination().filter(n -> n != object).ifPresent(n -> result.addAll(sequenceRoots(n)));
+            else LibraryCallEffects.roots(expression).forEach(root -> result.add(alias(root)));
+        }
         return result;
     }
 
     private Set<ElementBinding> elementBindings(Expression value, State state) {
         if (value instanceof ConversionExpression conversion) return elementBindings(conversion.operand(), state);
+        SequenceOperation sequenceOperation = sequences.get(value);
+        if (sequenceOperation != null && (sequenceOperation.resultKind() == SequenceOperation.ResultKind.REFERENCE
+                || sequenceOperation.resultKind() == SequenceOperation.ResultKind.ITERATOR
+                || sequenceOperation.resultKind() == SequenceOperation.ResultKind.OUTPUT_ADAPTER)) {
+            Node backing = sequenceOperation.kind() == SequenceOperation.Kind.COPY || sequenceOperation.kind() == SequenceOperation.Kind.TRANSFORM
+                    ? sequenceOperation.destination().or(sequenceOperation::outputDestination).orElse(null)
+                    : sequenceOperation.outputDestination().orElseGet(() -> sequenceOperation.inputSequence()
+                            .orElseGet(() -> sequenceOperation.destination().orElseGet(() -> sequenceOperation.first().orElse(null))));
+            if (backing == null || backing == value) return Set.of();
+            var result = new LinkedHashSet<ElementBinding>();
+            for (Declaration root : storageRoots(backing, state))
+                result.add(new ElementBinding(sequenceOperation, root,
+                        sequenceOperation.resultKind() != SequenceOperation.ResultKind.REFERENCE, sequenceOperation.writable(), true));
+            return result;
+        }
+        if (value instanceof InitializationExpression initialization && outputAdapter(value)
+                && !initialization.arguments().isEmpty()) {
+            var result = new LinkedHashSet<ElementBinding>();
+            for (Declaration root : storageRoots(initialization.arguments().getFirst(), state))
+                result.add(new ElementBinding(value, root, true, true, true));
+            return result;
+        }
         DynamicArrayOperation operation = arrays.get(value);
         if (operation != null && operation.handle().isPresent()) {
             var handle = operation.handle().get();
@@ -420,8 +543,17 @@ public final class DataFlow {
                         handle.validity() != ContainerOperation.Handle.Validity.VALID));
             return result;
         }
-        if (value instanceof NameExpression name)
-            return name.target().map(target -> state.elements.getOrDefault(target, Set.of())).orElse(Set.of());
+        if (value instanceof NameExpression name) {
+            var target = name.target().orElse(null);
+            if (target == null) return Set.of();
+            var known = state.elements.getOrDefault(alias(target), Set.of());
+            if (!known.isEmpty()) return known;
+            var type = TypeSemantics.expressionType(name, profile).map(TypeSemantics::decay).orElse(null);
+            if (type instanceof PointerType pointer)
+                return Set.of(new ElementBinding(name, alias(target), true,
+                        (TypeSemantics.qualifiers(pointer.pointee()) & 1) == 0, true));
+            return Set.of();
+        }
         if (value instanceof DereferenceExpression || value instanceof IndexExpression) {
             Expression iterator = value instanceof DereferenceExpression dereference ? dereference.operand() : ((IndexExpression) value).left();
             var result = new LinkedHashSet<ElementBinding>();
@@ -464,13 +596,42 @@ public final class DataFlow {
         return Set.of();
     }
 
+    private boolean outputAdapter(Expression value) {
+        return TypeSemantics.expressionType(value, profile).filter(this::outputAdapterType).isPresent();
+    }
+    private boolean outputAdapterType(TypeNode type) {
+        return ClassSemantics.objectClass(type).filter(LibraryDeclarations::isLibrary)
+                .filter(c -> Set.of("back_insert_iterator", "front_insert_iterator", "insert_iterator").contains(c.name())).isPresent();
+    }
+
+    /** An unknown callee may rebind a non-const adapter reference to other storage. */
+    private void exposeAdapters(CallExpression call, State state) {
+        var target = call.target().orElse(null);
+        for (int i = 0; i < call.arguments().size(); i++) {
+            Expression argument = call.arguments().get(i);
+            while (argument instanceof ConversionExpression conversion) argument = conversion.operand();
+            if (argument instanceof AddressOfExpression address) argument = address.operand();
+            if (!(argument instanceof NameExpression name) || !outputAdapter(name) || name.target().isEmpty()) continue;
+            if (target != null && i < target.parameters().size()) {
+                var type = target.parameters().get(i).type().map(TypeSemantics::unqualified).orElse(null);
+                TypeNode exposed = type instanceof ReferenceType reference ? reference.referredType()
+                        : type instanceof PointerType pointer ? pointer.pointee() : null;
+                if (exposed == null || (TypeSemantics.qualifiers(exposed) & 1) != 0) continue;
+            }
+            var possible = new LinkedHashSet<ElementBinding>(state.elements.getOrDefault(alias(name.target().get()), Set.of()));
+            var roots = new LinkedHashSet<Declaration>(state.definitions.keySet()); roots.addAll(libraryAccessible);
+            for (Declaration root : roots) possible.add(new ElementBinding(call, alias(root), true, true, true));
+            state.elements.put(alias(name.target().get()), possible);
+        }
+    }
+
     private void bindElement(Declaration declaration, Expression value, State state) {
         Set<ElementBinding> bindings = elementBindings(value, state);
         boolean reference = declaration instanceof VariableDeclaration variable && variable.type()
                 .map(TypeSemantics::unqualified).filter(ReferenceType.class::isInstance).isPresent();
         var retained = new LinkedHashSet<ElementBinding>();
         for (var binding : bindings) if (reference || binding.iterator()) retained.add(binding);
-        if (!retained.isEmpty()) state.elements.put(declaration, retained);
+        if (!retained.isEmpty()) state.elements.put(alias(declaration), retained);
     }
 
     private void opaqueMutation(Node operation, Set<Declaration> exposed, State state, Sink sink) {
@@ -489,6 +650,21 @@ public final class DataFlow {
 
     /** Evaluates value operands and models assignment as a write after the right-hand side has been read. */
     private void evaluate(Expression value, State state, Sink sink) {
+        SequenceOperation sequence = sequences.get(value);
+        if (sequence != null) {
+            if (value instanceof CallExpression call) {
+                consume(call.callee(), call, state, sink);
+                arguments(call, state, sink);
+            } else if (OperatorSemantics.mayInvokeUserCode(value))
+                arguments(OperatorSemantics.operands(value), value, state, sink);
+            else if (value instanceof AssignmentExpression assignment) {
+                consume(assignment.value(), assignment, state, sink);
+                address(assignment, state, sink);
+            }
+            sequenceEffect(sequence, state, sink);
+            sink.edge(sequence, value, Dependency.VALUE);
+            return;
+        }
         DynamicArrayOperation operation = arrays.get(value);
         if (operation != null) {
             // Evaluate preserved written operands once; common nodes reference their results.
@@ -520,7 +696,15 @@ public final class DataFlow {
             sink.edge(container, value, Dependency.VALUE);
             return;
         }
-        if (value instanceof ConditionDeclarationExpression condition) {
+        if (value instanceof AssignmentExpression assignment && outputAdapter(assignment.target())) {
+            consume(assignment.value(), assignment, state, sink);
+            address(assignment, state, sink);
+            writeTarget(assignment.target(), assignment, state);
+            if (assignment.target() instanceof NameExpression name) name.target().ifPresent(target -> {
+                state.elements.remove(alias(target));
+                bindElement(target, assignment.value(), state);
+            });
+        } else if (value instanceof ConditionDeclarationExpression condition) {
             VariableDeclaration declaration = condition.declaration();
             state.definitions.remove(declaration);
             declaration.initializer().ifPresent(initializer -> {
@@ -563,6 +747,11 @@ public final class DataFlow {
             if (LibraryCallEffects.unknown(value)) opaqueMutation(value, libraryAccessible, state, sink);
         } else if (value instanceof NameExpression use) {
             use.target().ifPresent(target -> {
+                // A whole-object reference has its own binding definition in
+                // addition to definitions of the storage reached through it.
+                if (alias(target) != target)
+                    for (Node binding : state.definitions.getOrDefault(target, Set.of()))
+                        sink.edge(binding, use, Dependency.DEFINITION);
                 for (Node write : state.definitions.getOrDefault(alias(target), Set.of()))
                     sink.edge(write, use, Dependency.DEFINITION);
                 for (var binding : state.elements.getOrDefault(target, Set.of()))
@@ -616,6 +805,7 @@ public final class DataFlow {
         } else if (value instanceof CallExpression call && language == Language.CPP) {
             consume(call.callee(), call, state, sink);
             arguments(call, state, sink);
+            exposeAdapters(call, state);
             if (LibraryCallEffects.unknown(call)) {
                 var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
                 LibraryCallEffects.exposed(call).forEach(expression -> exposed.addAll(LibraryCallEffects.roots(expression)));
@@ -643,13 +833,13 @@ public final class DataFlow {
         if (assignment.target() instanceof NameExpression name) {
             // Writing through a reference consumes its stored binding/address,
             // but does not read the old value in the referred-to element.
-            name.target().filter(target -> state.elements.getOrDefault(target, Set.of()).stream()
+            name.target().filter(target -> alias(target) != target || state.elements.getOrDefault(target, Set.of()).stream()
                     .anyMatch(binding -> !binding.iterator())).ifPresent(target -> {
                 for (Node definition : state.definitions.getOrDefault(target, Set.of()))
                     sink.edge(definition, assignment, Dependency.DEFINITION);
             });
         }
-        if (arrays.containsKey(assignment.target()) || containers.containsKey(assignment.target())) {
+        if (arrays.containsKey(assignment.target()) || containers.containsKey(assignment.target()) || sequences.containsKey(assignment.target())) {
             consume(assignment.target(), assignment, state, sink);
         } else if (assignment.target() instanceof MemberExpression member) {
             consume(member.receiver(), assignment, state, sink);

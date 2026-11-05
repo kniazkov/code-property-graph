@@ -100,7 +100,7 @@ public final class StandardLibraryCatalogue {
         var result = new TreeSet<String>();
         if (Set.of("vector", "deque", "list", "map", "set", "string").contains(h)) {
             for (String root : typeList(h).split(" ")) {
-                if (Set.of("string", "wstring", "char_traits").contains(root)) continue;
+                if (root.equals("char_traits")) continue;
                 addNested(result,root,"value_type allocator_type size_type difference_type reference const_reference pointer const_pointer iterator const_iterator reverse_iterator const_reverse_iterator");
                 if (h.equals("map") || h.equals("set")) addNested(result,root,"key_type key_compare value_compare");
                 if (h.equals("map")) addNested(result,root,"mapped_type");

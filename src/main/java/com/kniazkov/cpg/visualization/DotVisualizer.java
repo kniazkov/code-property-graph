@@ -184,6 +184,34 @@ public final class DotVisualizer {
                 });
             }
             if (node instanceof IncludeDirective include) include.libraryHeader().ifPresent(header -> semanticEdge(include, header, "LIBRARY_HEADER"));
+            if (node instanceof CharacterSequenceType type) {
+                type.declaration().ifPresent(value -> semanticEdge(type, value, "CHARACTER_SEQUENCE_CLASS"));
+                semanticEdge(type, type.characterType(), "CHARACTER_TYPE");
+                type.traitsType().ifPresent(value -> semanticEdge(type, value, "TRAITS_TYPE"));
+                type.allocatorType().ifPresent(value -> semanticEdge(type, value, "ALLOCATOR_TYPE"));
+                type.writtenTypes().forEach(value -> semanticEdge(value, type, "COMMON_TYPE"));
+            }
+            if (node instanceof SequenceOperation operation) {
+                semanticEdge(operation.syntax(), operation, "COMMON_OPERATION");
+                semanticEdge(operation, operation.selectedTarget(), "CPP_TARGET");
+                operation.characterType().ifPresent(value -> semanticEdge(operation, value, "CHARACTER_SEQUENCE_TYPE"));
+                operation.destination().ifPresent(value -> semanticEdge(operation, value, "DESTINATION"));
+                operation.inputSequence().ifPresent(value -> semanticEdge(operation, value, "INPUT_SEQUENCE"));
+                operation.outputDestination().ifPresent(value -> semanticEdge(operation, value, "OUTPUT_DESTINATION"));
+                operation.first().ifPresent(value -> semanticEdge(operation, value, "RANGE_FIRST"));
+                operation.last().ifPresent(value -> semanticEdge(operation, value, "RANGE_LAST"));
+                operation.secondFirst().ifPresent(value -> semanticEdge(operation, value, "SECOND_RANGE_FIRST"));
+                operation.count().ifPresent(value -> semanticEdge(operation, value, "COUNT"));
+                operation.position().ifPresent(value -> semanticEdge(operation, value, "POSITION"));
+                operation.initialValue().ifPresent(value -> semanticEdge(operation, value, "INITIAL_VALUE"));
+                operation.callable().ifPresent(value -> semanticEdge(operation, value, "CALLABLE"));
+                operation.callableTarget().ifPresent(value -> semanticEdge(operation, value, "CALLABLE_TARGET"));
+                operation.resultType().ifPresent(value -> semanticEdge(operation, value, "RESULT_TYPE"));
+                operation.accumulatorType().ifPresent(value -> semanticEdge(operation, value, "ACCUMULATOR_TYPE"));
+                operation.sources().forEach(value -> semanticEdge(operation, value, "SOURCE"));
+                operation.mutatedObjects().forEach(value -> semanticEdge(operation, value, "MUTATES"));
+                operation.callableEffects().forEach(value -> semanticEdge(operation, value, "CALLABLE_EFFECT"));
+            }
             if (node instanceof ContainerType type) {
                 if (type.concreteClass() != null) semanticEdge(type, type.concreteClass(), "CONTAINER_CLASS");
                 semanticEdge(type, type.elementType(), "ELEMENT_TYPE");
@@ -514,6 +542,8 @@ public final class DotVisualizer {
             detail = node.header();
         }
 
+        @Override public void visit(CharacterSequenceType node) { detail = node.characterType().canonicalIdentity(); }
+        @Override public void visit(SequenceOperation node) { detail = node.kind().name() + " / " + node.resultKind().name(); }
         @Override public void visit(ContainerType node) { detail = node.kind().name() + " / " + node.elementType().canonicalIdentity(); }
         @Override public void visit(ContainerOperation node) { detail = node.kind().name() + " / " + node.resultKind().name(); }
         @Override public void visit(DynamicArrayType node) { detail = "sequence of " + node.elementType().canonicalIdentity(); }

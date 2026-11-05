@@ -156,6 +156,7 @@ public final class Cpg {
             result = NameResolver.resolve(result);
             result = com.kniazkov.cpg.analysis.DynamicArraySemantics.green(result);
             result = com.kniazkov.cpg.analysis.ContainerSemantics.green(result);
+            result = com.kniazkov.cpg.analysis.SequenceSemantics.green(result);
         }
         return UnreadWrites.analyze(result);
     }

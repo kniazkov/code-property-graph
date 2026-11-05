@@ -33,7 +33,8 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
     private static boolean dataEndpoint(Node node, Set<Node> evaluated) {
         return evaluated.contains(node) || node instanceof DynamicArrayOperation operation
                 && evaluated.contains(operation.syntax())
-                || node instanceof ContainerOperation container && evaluated.contains(container.syntax());
+                || node instanceof ContainerOperation container && evaluated.contains(container.syntax())
+                || node instanceof SequenceOperation sequence && evaluated.contains(sequence.syntax());
     }
 
     public FunctionFlow {

@@ -63,8 +63,9 @@ public final class ConstantFolder {
         // A changed operand invalidates sequence metadata and its concrete template
         // declarations. Re-resolve before publishing fresh green sequence references.
         if (!project.dynamicArrayTypes().isEmpty() || !project.dynamicArraySemantics().isEmpty()
-                || !project.containerTypes().isEmpty() || !project.containerSemantics().isEmpty())
-            folded = ContainerSemantics.green(DynamicArraySemantics.green(NameResolver.resolve(folded)));
+                || !project.containerTypes().isEmpty() || !project.containerSemantics().isEmpty()
+                || !project.characterSequenceTypes().isEmpty() || !project.sequenceSemantics().isEmpty())
+            folded = SequenceSemantics.green(ContainerSemantics.green(DynamicArraySemantics.green(NameResolver.resolve(folded))));
         return folded;
     }
 
