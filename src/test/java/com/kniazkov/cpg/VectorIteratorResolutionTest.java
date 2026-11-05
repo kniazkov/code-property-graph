@@ -64,6 +64,26 @@ class VectorIteratorResolutionTest {
         assertEquals("bool",TypeSemantics.expressionType(comparison,profile).orElseThrow().canonicalIdentity());
         assertFalse(LazyLibraryGraphTest.resolve(Source.render(p.files().getFirst(),Language.CPP)).hasErrors());
     }
+    @Test void boolProxyAccessUsesTheSameConcreteNestedClassIdentity() {
+        var p=LazyLibraryGraphTest.resolve("#include <vector>\nvoid f(){std::vector<bool> bits(1,false);std::vector<bool>::reference proxy=bits[0];bool value=proxy;proxy=true;}");
+        assertFalse(p.hasErrors(),p.semanticDiagnostics().toString());
+        var proxy=LazyLibraryGraphTest.nodes(p.files().getFirst(),VariableDeclaration.class).stream()
+                .filter(variable->variable.name().equals("proxy")).findFirst().orElseThrow();
+        var profile=TypeSemantics.profile(p.files().getFirst());
+        var result=TypeSemantics.expressionType(proxy.initializer().orElseThrow(),profile).orElseThrow();
+        assertSame(ClassSemantics.objectClass(proxy.type().orElseThrow()).orElseThrow(),ClassSemantics.objectClass(result).orElseThrow());
+        assertEquals(proxy.type().orElseThrow().canonicalIdentity(),result.canonicalIdentity());
+        assertFalse(LazyLibraryGraphTest.resolve(Source.render(p.files().getFirst(),Language.CPP)).hasErrors());
+    }
+    @Test void nestedClassIdentitiesRemainDistinctAcrossConcreteSpecializations() {
+        var p=LazyLibraryGraphTest.resolve("template<class T>struct Box{struct Member{int value;};};void f(){Box<int>::Member a;Box<int>::Member copy=a;Box<double>::Member different;}");
+        assertFalse(p.hasErrors(),p.semanticDiagnostics().toString());
+        var variables=LazyLibraryGraphTest.nodes(p.files().getFirst(),VariableDeclaration.class);
+        var identities=new java.util.HashMap<String,String>();
+        variables.forEach(variable->identities.put(variable.name(),variable.type().orElseThrow().canonicalIdentity()));
+        assertEquals(identities.get("a"),identities.get("copy"));
+        assertNotEquals(identities.get("a"),identities.get("different"));
+    }
     @Test void boolProxyIteratorsNeverAcquireOrdinaryElementReferences() {
         var p=LazyLibraryGraphTest.resolve("#include <vector>\nvoid f(){std::vector<bool> bits;std::vector<bool>::iterator i=bits.begin();*i;}");
         var dereference=LazyLibraryGraphTest.nodes(p.files().getFirst(),DereferenceExpression.class).getFirst();
