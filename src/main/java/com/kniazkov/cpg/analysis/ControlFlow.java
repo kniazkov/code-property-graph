@@ -24,10 +24,11 @@ public final class ControlFlow {
                 "Constructor flow requires a complete hierarchy without context-dependent virtual-base initialization; no partial flow is published"));
         final Project snapshot = project.withDiagnostics("unsupported-constructor-flow", findings);
         List<FunctionFlow> flows = new ArrayList<>();
+        var contexts = SourceContexts.index(snapshot);
         snapshot.walk(new NodeVisitor() {
             @Override public void visit(CallableDeclaration fn) {
                 fn.body().ifPresent(body -> flows.add(initializers(snapshot, fn)
-                        .map(initializers -> new Builder(snapshot, fn).build(body, initializers))
+                        .map(initializers -> new Builder(snapshot, fn, SourceContexts.require(contexts, fn)).build(body, initializers))
                         .orElseGet(() -> new FunctionFlow(fn, fn.exit(), List.of(), List.of(), false))));
             }
         });
@@ -73,9 +74,8 @@ public final class ControlFlow {
         private record Context(Target breakTo, Target continueTo, List<Region> regions) {
             Context loop(Target b, Target c) { return new Context(b, c, regions); }
         }
-        Builder(Project project, CallableDeclaration fn) {
+        Builder(Project project, CallableDeclaration fn, SourceFile owner) {
             this.project = project; this.fn = fn; exit = fn.exit();
-            SourceFile owner = project.files().stream().filter(file -> { final boolean[] found = {false}; file.walk(new NodeVisitor() { @Override public void visit(Node n) { if (n == fn) found[0] = true; }}); return found[0]; }).findFirst().orElseThrow();
             language = owner.language(); profile = TypeSemantics.profile(owner);
             exceptional = new AuxiliaryFlowVertex(fn, 0, AuxiliaryFlowVertex.Kind.EXCEPTIONAL_EXIT, null, null);
             terminate = new AuxiliaryFlowVertex(fn, 1, AuxiliaryFlowVertex.Kind.TERMINATE_EXIT, null, null);

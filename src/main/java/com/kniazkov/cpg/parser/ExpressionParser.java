@@ -12,6 +12,11 @@ final class ExpressionParser {
     void setTypes(TypeParser types) { this.types = types; }
     private boolean statementBoundary;
     private int nestedDelimiters;
+    private int templateArgumentLevel = -1;
+    NodeBuilder<? extends Expression> parseTemplateArgument() {
+        int previous = templateArgumentLevel; templateArgumentLevel = nestedDelimiters;
+        try { return expression(1); } finally { templateArgumentLevel = previous; }
+    }
 
     ExpressionParser(TokenCursor tokens, Language language) {
         this(tokens, language, null);
@@ -40,6 +45,7 @@ final class ExpressionParser {
     }
 
     private int precedence(String op) {
+        if (templateArgumentLevel == nestedDelimiters && (op.equals(">") || op.equals(">>"))) return -1;
         if (language == Language.JAVA) return switch (op) {
             case "=" -> 1;
             case "==", "!=" -> 8;
@@ -278,11 +284,27 @@ final class ExpressionParser {
         return types.operatorName();
     }
 
+    private NodeBuilder<? extends Expression> member(MemberExpression.Builder<?, ?> builder) {
+        boolean template = language == Language.CPP && tokens.take("template");
+        builder.setMember(expressionName()).setTemplateKeyword(template);
+        if (template && !tokens.peek().equals("<")) throw tokens.error("template disambiguator requires a template-id");
+        return builder;
+    }
+    private boolean templateIdAhead(NodeBuilder<? extends Expression> value) {
+        if (value instanceof NameExpression.Builder name) return !name.hasTemplateArguments() && types.templateName(name.name().orElse(""));
+        if (value instanceof MemberExpression.Builder<?, ?> member) return !member.hasTemplateArguments() && (member.templateKeyword() || types.templateName(member.member().orElse("")));
+        return false;
+    }
     private NodeBuilder<? extends Expression> postfix(TokenCursor.Mark start, NodeBuilder<? extends Expression> value) {
         while (true) {
-            if (tokens.take(".")) value = DotMemberExpression.create().setReceiver(value).setMember(expressionName());
-            else if (language == Language.CPP && tokens.take("::")) value = ScopeMemberExpression.create().setReceiver(value).setMember(expressionName());
-            else if (language == Language.CPP && tokens.take("->")) value = PointerMemberExpression.create().setReceiver(value).setMember(expressionName());
+            if (language == Language.CPP && tokens.peek().equals("<") && templateIdAhead(value)) {
+                var arguments = types.templateArguments();
+                if (value instanceof NameExpression.Builder name) name.setTemplateArguments(arguments);
+                else ((MemberExpression.Builder<?, ?>)value).setTemplateArguments(arguments);
+            }
+            else if (tokens.take(".")) value = member(DotMemberExpression.create().setReceiver(value));
+            else if (language == Language.CPP && tokens.take("::")) value = member(ScopeMemberExpression.create().setReceiver(value));
+            else if (language == Language.CPP && tokens.take("->")) value = member(PointerMemberExpression.create().setReceiver(value));
             else if (language == Language.CPP && tokens.take("[")) {
                 value = IndexExpression.create().setLeft(value).setRight(nestedExpression(0));
                 tokens.expect("]");

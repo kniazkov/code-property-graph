@@ -10,7 +10,7 @@ public record Preprocessing(String translationUnit, List<Include> includes, List
                             com.kniazkov.cpg.build.Build.TranslationUnit configuration,
                             List<Definition> definitions, List<Branch> branches,
                             List<PresenceCheck> presenceChecks, List<Directive> directives,
-                            List<LogicalLocation> logicalLocations, List<IncludeState> includeStates, java.time.Instant translationTime) {
+                            List<LogicalLocation> logicalLocations, List<IncludeState> includeStates, java.time.Instant translationTime, boolean libraryCatalogue) {
     public Preprocessing {
         Objects.requireNonNull(translationUnit);
         definitions = List.copyOf(definitions); branches = List.copyOf(branches);
@@ -19,6 +19,22 @@ public record Preprocessing(String translationUnit, List<Include> includes, List
         sources = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(sources));
         includes = List.copyOf(includes); tokens = List.copyOf(tokens); expansions = List.copyOf(expansions);
     }
+    /** Existing physical-source records default to non-catalogue provenance. */
+    public Preprocessing(String translationUnit, List<Include> includes, List<Token> tokens,
+            List<Expansion> expansions, java.util.Map<String, String> sources,
+            com.kniazkov.cpg.build.Build.TranslationUnit configuration,
+            List<Definition> definitions, List<Branch> branches, List<PresenceCheck> presenceChecks,
+            List<Directive> directives, List<LogicalLocation> logicalLocations,
+            List<IncludeState> includeStates, java.time.Instant translationTime) {
+        this(translationUnit, includes, tokens, expansions, sources, configuration, definitions, branches,
+                presenceChecks, directives, logicalLocations, includeStates, translationTime, false);
+    }
+    /** Explicit role, independent of user-controlled file spelling. */
+    public Preprocessing asLibraryCatalogue() {
+        return new Preprocessing(translationUnit, includes, tokens, expansions, sources, configuration,
+                definitions, branches, presenceChecks, directives, logicalLocations, includeStates, translationTime, true);
+    }
+
     public Preprocessing(String translationUnit, List<Include> includes, List<Token> tokens,
             List<Expansion> expansions, java.util.Map<String,String> sources,
             com.kniazkov.cpg.build.Build.TranslationUnit configuration) {

@@ -345,3 +345,23 @@ consecutive line prose, both include-context parameter types, the exact warning
 span for unmatched `size`, and absence of documentation after cleanup. Body macros
 do not prevent a physical signature from being documented. The full corpus has
 **27 scenarios and 29 results including infrastructure tests**.
+
+## Basic templates and dependent names (#34)
+
+The template scenario uses the compiler's genuine system `<vector>`: its generic
+`count<T>(const T&)` remains written once, and calls for `std::vector<int>` exercise
+basic type substitution and const `size()` lookup. Original, generated and
+reparsed programs must agree under the corpus's native C++03 compiler matrix.
+No user-defined replacement vector or synthetic implementation is compiled.
+API/export tests separately verify structured parameters/defaults/arguments,
+`typename`/`template` markers, unresolved dependent generic calls, owned instance
+links, copy identity and include-scoped declaration-only catalogue visibility.
+The catalogue and instance bodies must never enter physical generated files.
+Full specialization, SFINAE and standard-library modeling remain outside #34.
+
+Run `mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=templates-dependent verify`.
+The full corpus now has **28 scenarios and 30 results including infrastructure
+checks**. This scenario checks API/CLI equivalence, snapshot copying, JSON/SVG,
+original/generated/folded native programs, and three invalid C++03 template forms.
+Public `Cpg.read` regression tests also verify instance CFG/DFG through resolved,
+green and folded stages, including target-profile-dependent branches and folding.

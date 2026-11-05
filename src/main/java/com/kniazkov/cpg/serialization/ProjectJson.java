@@ -47,9 +47,11 @@ public final class ProjectJson {
             };
             index.visit(project);
             project.files().forEach(file -> file.walk(index));
+            project.librarySources().forEach(file -> file.walk(index));
+            project.templateInstances().forEach(instance -> instance.walk(index));
             for (var flow : project.flows()) for (var vertex : flow.auxiliaryVertices()) ids.put(vertex, ids.size());
             project.externalInputs().forEach(input -> input.walk(index));
-            for (SourceFile file : project.files()) file.provenance().ifPresent(p -> units.put(p.unit(), ids.get(file)));
+            for (SourceFile file : java.util.stream.Stream.concat(project.files().stream(), project.librarySources().stream()).toList()) file.provenance().ifPresent(p -> units.put(p.unit(), ids.get(file)));
             for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n) for (Node target : n.references()) edge(n, target, "ref");
             for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n)
                 for (Comment comment : n.commentReferences()) edge(n, comment, "HAS_COMMENT");
@@ -77,6 +79,8 @@ public final class ProjectJson {
             switch (n) {
                 case Project p -> {
                     obj.put("files", nodes(p.files()));
+                    if (!p.librarySources().isEmpty()) obj.put("librarySources", nodes(p.librarySources()));
+                    if (!p.templateInstances().isEmpty()) obj.put("templateInstances", nodes(p.templateInstances()));
                     if (p.hasErrors()) {
                         obj.put("hasErrors", true);
                         obj.array("diagnosticGroups", a -> p.diagnosticGroups().forEach(g -> a.add(diagnosticGroup(g))));
@@ -87,6 +91,11 @@ public final class ProjectJson {
                         p.composition().ifPresent(c -> v.object("composition", o -> o.put("name", c.name())
                                 .array("variantIds", a -> a.addAll(c.variantIds()))));
                     }));
+                }
+                case TemplateInstance instance -> {
+                    obj.put("originId", ids.get(instance.origin())).put("causeId", ids.get(instance.cause()))
+                        .put("sourceId", ids.get(instance.source())).put("status", instance.status()).put("complete", instance.complete())
+                        .put("arguments", nodes(instance.arguments())).put("declaration", node(instance.declaration()));
                 }
                 case ExternalInput input -> obj.put("key", input.key()).put("role", input.role())
                         .put("text", input.text()).put("inputs", nodes(input.inputs()));
@@ -107,8 +116,20 @@ public final class ProjectJson {
                         });
                     })));
                 }
-                case TemplateParameterDeclaration parameter -> obj.put("name", parameter.name()).put("keyword", parameter.keyword());
+                case TemplateParameterDeclaration parameter -> {
+                    obj.put("name", parameter.name()).put("keyword", parameter.keyword());
+                    if (parameter.kind() != TemplateParameterDeclaration.Kind.TYPE) obj.put("parameterKind", parameter.kind().name());
+                    parameter.type().ifPresent(type -> obj.put("type", node(type)));
+                    parameter.defaultArgument().ifPresent(argument -> obj.put("defaultArgument", node(argument)));
+                    if (!parameter.templateParameters().isEmpty()) obj.put("templateParameters", nodes(parameter.templateParameters()));
+                }
+                case TemplateArgument argument -> {
+                    obj.put("argumentKind", argument.kind().name());
+                    argument.type().ifPresent(type -> obj.put("type", node(type)));
+                    argument.expression().ifPresent(expression -> obj.put("expression", node(expression)));
+                }
                 case SourceFile f -> {
+                    if (project.librarySources().contains(f)) obj.put("libraryDeclaration", true);
                     obj.put("path", f.range().map(SourceRange::file)
                                 .orElseGet(() -> Path.of(f.path()).toAbsolutePath().normalize().toString()))
                         .put("language", f.language().name()).put("items", nodes(f.items()));
@@ -138,6 +159,7 @@ public final class ProjectJson {
                     value.value().ifPresent(expression -> obj.put("value", node(expression)));
                 }
                 case ClassDeclaration c -> {
+                    if (!c.templateParameters().isEmpty()) obj.put("templateParameters", nodes(c.templateParameters()));
                     if (c.isDefinition() && c.members().stream().anyMatch(member -> member.access().isPresent())) {
                         obj.put("aggregate", ClassSemantics.aggregate(c));
                         obj.array("specialMembers", values -> ClassSemantics.specialMembers(c).forEach(member -> values.add(Json.object()
@@ -201,6 +223,11 @@ public final class ProjectJson {
                 }
                 case NamedType t -> {
                     obj.put("name", t.name());
+                    if (t.hasTemplateArguments()) obj.put("templateArguments", nodes(t.templateArguments()));
+                    t.qualifier().ifPresent(qualifier -> obj.put("qualifier", node(qualifier)));
+                    if (t.typenameKeyword()) obj.put("typenameKeyword", true);
+                    if (t.templateKeyword()) obj.put("templateKeyword", true);
+                    if (t.dependent()) obj.put("dependent", true);
                     t.elaboratedKeyword().ifPresent(keyword -> obj.put("elaboratedKeyword", keyword));
                     t.alias().ifPresent(a -> obj.put("aliasId", ids.get(a)).put("canonicalIdentity", t.canonicalIdentity()));
                     t.declaration().ifPresent(declaration -> obj.put("declarationId", ids.get(declaration))
@@ -233,7 +260,11 @@ public final class ProjectJson {
                         .put("parenthesizedType", e.isParenthesizedType());
                 case DeleteExpression e -> obj.put("operand", node(e.operand()))
                         .put("array", e.isArray()).put("global", e.isGlobal());
-                case NameExpression e -> obj.put("name", e.name());
+                case NameExpression e -> {
+                    obj.put("name", e.name());
+                    if (e.hasTemplateArguments()) obj.put("templateArguments", nodes(e.templateArguments()));
+                    if (e.templateKeyword()) obj.put("templateKeyword", true);
+                }
                 case IntegerLiteral i -> { obj.put("value", i.bigValue()); i.cppType().ifPresent(t -> obj.put("cppType", t));
                     i.spelling().ifPresent(spelling -> obj.put("spelling", spelling)); }
                 case BooleanLiteral i -> obj.put("value", i.value()).put("spelling", i.spelling());
@@ -291,6 +322,8 @@ public final class ProjectJson {
                 }
                 case MemberExpression m -> {
                     obj.put("receiver", node(m.receiver())).put("member", m.member());
+                    if (m.hasTemplateArguments()) obj.put("templateArguments", nodes(m.templateArguments()));
+                    if (m.templateKeyword()) obj.put("templateKeyword", true);
                     m.target().ifPresent(target -> obj.put("targetId", ids.get(target)));
                 }
                 case BinaryExpression b -> obj.put("left", node(b.left())).put("right", node(b.right()));
@@ -298,6 +331,7 @@ public final class ProjectJson {
                 case Exit ignored -> { }
                 default -> throw new IllegalStateException("Missing JSON schema for " + n.getClass().getName());
             }
+            if (n instanceof Expression expression && expression.dependent()) obj.put("dependent", true);
             if (n instanceof Expression expression && (!expression.operatorCandidates().isEmpty()
                     || expression.operatorResolution() != CallExpression.Resolution.UNRESOLVED)) {
                 obj.put("operatorResolution", lower(expression.operatorResolution()))

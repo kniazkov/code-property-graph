@@ -94,6 +94,16 @@ public final class Parser {
         }
     }
 
+    /** Parses trusted declaration-only library syntax with an explicit non-physical provenance role. */
+    public static SourceFile.Builder parseLibrary(com.kniazkov.cpg.build.Build.TranslationUnit unit, String source) {
+        String file = unit.source().path().toString();
+        var result = CppPreprocessor.preprocess(unit, source, java.util.Map.of(file, source), java.time.Instant.EPOCH);
+        var provenance = preprocessing(file, result, unit).asLibraryCatalogue();
+        var parsed = new Parser(file, Language.CPP, parserTokens(result, provenance), provenance).parse();
+        parsed.setProvenance(new TokenProvenance(provenance, 0, provenance.tokens().size()));
+        return parsed;
+    }
+
     /** Preprocesses a configured C++ translation unit and parses its resulting tokens. */
     public static SourceFile.Builder parse(com.kniazkov.cpg.build.Build.TranslationUnit unit, String source) {
         return parse(unit, source, null);
@@ -239,6 +249,7 @@ public final class Parser {
                     boolean system = include.group(1) != null;
                     tokens.advance();
                     result.addItem(tokens.span(start, IncludeDirective.create().setSystem(system).setHeader(include.group(system ? 1 : 2))));
+                    if (system) types.includeSystemHeader(include.group(1));
                 } else if (language == Language.JAVA && (tokens.peek().equals("class") || tokens.peek().equals("public"))) {
                     result.addItem(clazz());
                 } else if (language == Language.CPP && tokens.take(";")) {
@@ -515,33 +526,33 @@ public final class Parser {
     private java.util.List<NodeBuilder<? extends Declaration>> cppDeclarations(boolean member, boolean local) {
         var start = tokens.start();
         if (tokens.take("template")) {
-            if (member || local || !languageLinkage.equals("C++"))
-                throw tokens.error("Only namespace-scope C++ function templates are supported");
-            tokens.expect("<");
-            var parameters = new java.util.ArrayList<TemplateParameterDeclaration.Builder>();
-            var names = new java.util.HashSet<String>();
+            if (local || !languageLinkage.equals("C++")) throw tokens.error("Templates require C++ namespace or class scope");
             types.pushScope();
             java.util.List<NodeBuilder<? extends Declaration>> result;
+            java.util.List<TemplateParameterDeclaration.Builder> parameters;
             try {
-                do {
-                    var parameterStart = tokens.start();
-                    String keyword = tokens.peek();
-                    if (!keyword.equals("class") && !keyword.equals("typename"))
-                        throw tokens.error("Only named type template parameters are supported");
-                    tokens.advance();
-                    String name = tokens.identifier();
-                    if (!names.add(name)) throw tokens.error("Duplicate template parameter " + name);
-                    parameters.add(tokens.span(parameterStart, TemplateParameterDeclaration.create().setName(name).setKeyword(keyword)));
-                    types.declareTemplateType(name);
-                } while (tokens.take(","));
-                tokens.expect(">");
-                result = declarations(false, false);
-                if (result.size() != 1 || !(result.getFirst() instanceof FunctionDeclaration.Builder function))
-                    throw tokens.error("Only a single free function template is supported");
-                function.setTemplateParameters(parameters);
-                tokens.span(start, function);
+                parameters = templateParameters();
+                result = cppDeclarations(member, false);
+                if (result.size() != 1) throw tokens.error("A template declares one class or function");
+                if (result.getFirst() instanceof CallableDeclaration.Builder<?, ?> function) {
+                    if (parameters.stream().anyMatch(parameter -> parameter.defaultArgument().isPresent()))
+                        throw tokens.error("C++03 function template parameters cannot have defaults");
+                    function.setTemplateParameters(parameters);
+                } else if (result.getFirst() instanceof ClassDeclaration.Builder klass) {
+                    boolean defaultSeen = false;
+                    for (var parameter : parameters) {
+                        if (parameter.defaultArgument().isPresent()) defaultSeen = true;
+                        else if (defaultSeen) throw tokens.error("A class template parameter after a default must also have a default");
+                    }
+                    klass.setTemplateParameters(parameters);
+                } else throw tokens.error("A template must declare a class or function");
+                tokens.span(start, result.getFirst());
             } finally { types.popScope(); }
-            types.declareName(((FunctionDeclaration.Builder)result.getFirst()).name().orElseThrow());
+            if (result.getFirst() instanceof ClassDeclaration.Builder klass) {
+                types.registerClass(klass.name().orElseThrow()); types.declareTemplate(klass.name().orElseThrow());
+            } else if (result.getFirst() instanceof CallableDeclaration.Builder<?, ?> function) {
+                types.declareName(function.name().orElseThrow()); types.declareTemplate(function.name().orElseThrow());
+            }
             return result;
         }
         if (tokens.take("friend")) {
@@ -633,7 +644,7 @@ public final class Parser {
     private EnumDeclaration.Builder enumeration() {
         var start = tokens.start(); tokens.expect("enum");
         String name = tokens.peek().equals("{") ? "" : tokens.identifier();
-        if (!name.isEmpty()) types.registerClass(name);
+        if (!name.isEmpty()) types.registerEnum(name);
         var result = EnumDeclaration.create().setName(name);
         tokens.expect("{");
         if (!tokens.take("}")) {
@@ -650,6 +661,59 @@ public final class Parser {
         }
         tokens.expect(";");
         return tokens.span(start, result);
+    }
+
+    private java.util.List<TemplateParameterDeclaration.Builder> templateParameters() {
+        tokens.expect("<");
+        if (tokens.peek().equals(">")) throw tokens.error("Explicit specialization is not supported here");
+        var parameters = new java.util.ArrayList<TemplateParameterDeclaration.Builder>();
+        var names = new java.util.HashSet<String>();
+        do {
+            var start = tokens.start();
+            var parameter = TemplateParameterDeclaration.create();
+            boolean nested = tokens.take("template");
+            if (nested) {
+                types.pushScope();
+                try {
+                    var nestedParameters = templateParameters();
+                    boolean defaultSeen = false;
+                    for (var nestedParameter : nestedParameters) {
+                        if (nestedParameter.defaultArgument().isPresent()) defaultSeen = true;
+                        else if (defaultSeen) throw tokens.error("A nested template parameter after a default must also have a default");
+                    }
+                    parameter.setTemplateParameters(nestedParameters);
+                }
+                finally { types.popScope(); }
+                tokens.expect("class");
+                parameter.setKind(TemplateParameterDeclaration.Kind.TEMPLATE);
+            } else if (tokens.peek().equals("class") || tokens.peek().equals("typename")) {
+                parameter.setKeyword(tokens.peek()); tokens.advance();
+            } else {
+                var specs = types.specifiers();
+                if (specs.typedef() || !specs.modifiers().isEmpty()) throw tokens.error("Invalid non-type template parameter specifiers");
+                var declarator = types.declarator(true);
+                var parameterType = declarator.apply().apply(specs.type().get());
+                types.validateValueTemplateParameter(parameterType);
+                parameter.setKind(TemplateParameterDeclaration.Kind.VALUE).setName(declarator.name()).setType(parameterType);
+            }
+            if (parameter.name().isEmpty()) parameter.setName(tokens.isIdentifier() ? tokens.identifier() : "");
+            String name = parameter.name().orElseThrow();
+            if (!name.isEmpty() && !names.add(name)) throw tokens.error("Duplicate template parameter " + name);
+            if (tokens.take("=")) {
+                var argument = TemplateArgument.create();
+                if (parameter.kind() == TemplateParameterDeclaration.Kind.VALUE) argument.setExpression(expressions.parseTemplateArgument());
+                else argument.setType(types.abstractType()).setKind(parameter.kind() == TemplateParameterDeclaration.Kind.TEMPLATE ? TemplateArgument.Kind.TEMPLATE : TemplateArgument.Kind.TYPE);
+                parameter.setDefaultArgument(argument);
+            }
+            if (!name.isEmpty()) {
+                if (parameter.kind() == TemplateParameterDeclaration.Kind.VALUE) types.declareTemplateValue(name);
+                else types.declareTemplateType(name);
+                if (parameter.kind() == TemplateParameterDeclaration.Kind.TEMPLATE) types.declareTemplate(name);
+            }
+            parameters.add(tokens.span(start, parameter));
+        } while (tokens.take(","));
+        tokens.expect(">");
+        return parameters;
     }
 
     private ClassDeclaration.Builder cppClass() {
@@ -669,8 +733,8 @@ public final class Parser {
                 boolean virtual = tokens.take("virtual");
                 if (java.util.Set.of("public", "protected", "private").contains(tokens.peek())) { baseAccess = tokens.peek(); tokens.advance(); }
                 if (!virtual) virtual = tokens.take("virtual");
-                String baseName = types.qualifiedName();
-                result.addBase(tokens.span(baseStart, BaseSpecifier.create().setBaseAccess(baseAccess).setVirtual(virtual).setType(NamedType.create().setName(baseName))));
+                var baseType = types.writtenNamedType();
+                result.addBase(tokens.span(baseStart, BaseSpecifier.create().setBaseAccess(baseAccess).setVirtual(virtual).setType(baseType)));
             } while (tokens.take(","));
         }
         tokens.expect("{"); types.pushNamedScope(name, true); classNames.push(name);

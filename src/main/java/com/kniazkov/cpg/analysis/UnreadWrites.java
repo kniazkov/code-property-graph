@@ -19,12 +19,11 @@ public final class UnreadWrites {
     public static Project analyze(Project resolved) {
         Project project = DataFlow.analyze(resolved);
         Map<Node, Diagnostic> findings = new IdentityHashMap<>();
-        Map<CallableDeclaration, PlatformProfile> cpp = new IdentityHashMap<>();
-        for (SourceFile file : project.files()) if (file.language() == Language.CPP)
-            file.walk(new NodeVisitor() {
-                @Override public void visit(CallableDeclaration fn) { cpp.put(fn, TypeSemantics.profile(file)); }
-            });
-        for (var flow : project.flows()) inspect(flow, cpp.get(flow.entry()), findings);
+        var contexts = SourceContexts.index(project);
+        for (var flow : project.flows()) {
+            SourceFile source = SourceContexts.require(contexts, flow.entry());
+            inspect(flow, source.language() == Language.CPP ? TypeSemantics.profile(source) : null, findings);
+        }
         return project.withDiagnostics(CODE, findings);
     }
 

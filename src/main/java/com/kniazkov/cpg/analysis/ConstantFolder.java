@@ -19,10 +19,11 @@ public final class ConstantFolder {
         if (project.hasErrors() || ConstantEvaluator.hasSemanticErrors(project)) return project;
         var editor = new ProjectEditor(project);
         var order = new ArrayList<Node>();
-        for (SourceFile file : project.files()) {
+        for (var root : SourceContexts.roots(project)) {
+            SourceFile file = root.source();
             if (file.language() == Language.CPP) {
-                foldCpp(file, editor);
-            } else file.walk(new NodeVisitor() {
+                foldCpp(root.node(), file, editor);
+            } else root.node().walk(new NodeVisitor() {
                 @Override public void visit(Node node) { order.add(node); }
             });
         }
@@ -69,9 +70,9 @@ public final class ConstantFolder {
         return result[0];
     }
 
-    private static void foldCpp(SourceFile file, ProjectEditor editor) {
+    private static void foldCpp(Node root, SourceFile file, ProjectEditor editor) {
         var profile = TypeSemantics.profile(file);
-        file.walk(new NodeVisitor() {
+        root.walk(new NodeVisitor() {
             @Override public void visit(Expression expression) {
                 if (expression instanceof IntegerLiteral || expression instanceof BooleanLiteral) return;
                 ConstantEvaluator.evaluate(expression, profile).ifPresent(value -> {

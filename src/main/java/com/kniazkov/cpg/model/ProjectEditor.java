@@ -6,6 +6,15 @@ import java.util.*;
 /** Stages replacements and bindings against one source snapshot. Each build creates independent objects. */
 public final class ProjectEditor {
     private final Project source;
+    private record Instantiation(CallableDeclaration origin, CallExpression cause, SourceFile file, List<TypeNode> arguments) {}
+    private final List<Instantiation> instantiations = new ArrayList<>();
+    /** Basic instances own a distinct body; written arguments remain children of the call. */
+    public void instantiate(CallableDeclaration origin, CallExpression cause, SourceFile file, List<TypeNode> arguments) {
+        requireMember(origin); requireMember(cause); requireMember(file);
+        if (arguments.size() != origin.templateParameters().size()) throw new IllegalArgumentException("Template argument count");
+        instantiations.add(new Instantiation(origin, cause, file, List.copyOf(arguments)));
+    }
+
     private final Set<Node> members = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<Node, Node> replacements = new IdentityHashMap<>();
     private final Set<Node> removed = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -21,6 +30,8 @@ public final class ProjectEditor {
     public void describeSource(ConversionExpression expression, String type) {
         requireMember(expression); conversionSources.put(expression, Objects.requireNonNull(type));
     }
+    private final Map<Expression, Boolean> dependencies = new IdentityHashMap<>();
+    public void dependent(Expression expression, boolean value) { requireMember(expression); dependencies.put(expression, value); }
     private final Map<Expression, ExpressionInfo> expressions = new IdentityHashMap<>();
     public void describe(Expression expression, ExpressionInfo info) {
         requireMember(expression); expressions.put(expression, Objects.requireNonNull(info));
@@ -157,8 +168,10 @@ public final class ProjectEditor {
         node.walk(new NodeVisitor() {
             @Override public void visit(Node child) { subtree.add(child); }
         });
+        var semantic = Collections.newSetFromMap(new IdentityHashMap<Node, Boolean>());
+        source.templateInstances().forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node n) { semantic.add(n); } }));
         for (Node member : members) {
-            if (!subtree.contains(member) && java.util.stream.Stream.concat(member.references().stream(), member.commentReferences().stream()).anyMatch(subtree::contains))
+            if (!semantic.contains(member) && !subtree.contains(member) && java.util.stream.Stream.concat(member.references().stream(), member.commentReferences().stream()).anyMatch(subtree::contains))
                 throw new IllegalStateException("Node has incoming references");
         }
         boolean listItem = members.stream().anyMatch(parent ->
@@ -245,6 +258,30 @@ public final class ProjectEditor {
         }
         var context = new EditContext(adjusted, removed, conversions);
         var root = context.edit(source, Project.Builder.class);
+        dependencies.forEach((expression, value) -> context.copy(expression).setDependent(value));
+        for (var instance : instantiations) {
+            var substitutions = new IdentityHashMap<Node, Node>();
+            instance.origin().walk(new NodeVisitor() {
+                @Override public void visit(NamedType type) {
+                    int index = type.declaration().isEmpty() ? -1 : instance.origin().templateParameters().indexOf(type.declaration().get());
+                    if (index >= 0) substitutions.put(type, instance.arguments().get(index));
+                }
+            });
+            var fork = context.fork(instance.origin(), substitutions);
+            var declaration = (CallableDeclaration.Builder<?, ?>) fork.copy(instance.origin());
+            declaration.setTemplateParameters(List.of()); declaration.clearDefinition(); declaration.clearPreviousDeclaration();
+            instance.origin().walk(new NodeVisitor() {
+                @Override public void visit(Expression expression) { fork.copy(expression).setDependent(false); }
+                @Override public void visit(CallExpression call) { fork.edit(call, CallExpression.Builder.class).clearTarget().setDependent(false); }
+                @Override public void visit(MemberExpression member) { ((MemberExpression.Builder<?, ?>) fork.copy(member)).clearTarget().setDependent(false); }
+            });
+            var b = new TemplateInstance.Builder(); b.origin = context.edge(instance.origin(), CallableDeclaration.class);
+            b.cause = context.copy(instance.cause()); b.source = context.edge(instance.file(), SourceFile.class);
+            b.declaration = declaration;
+            var args = new ArrayList<NodeBuilder<? extends TypeNode>>();
+            for (TypeNode type : instance.arguments()) args.add(context.fork(type, Map.of()).edge(type, TypeNode.class));
+            b.arguments = args; root.addTemplateInstance(b);
+        }
         names.forEach((use, target) -> {
             var builder = context.edit(use, NameExpression.Builder.class).clearTarget();
             if (target != null) builder.setTarget(context.edge(target, Declaration.class));

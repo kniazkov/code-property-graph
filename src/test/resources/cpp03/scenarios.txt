@@ -33,3 +33,6 @@ comments-cleanup
 
 # Doxygen contexts, related parameters and documentation-safe renames
 doxygen-parameters
+
+# Template declarations, dependent names and a real vector instance
+templates-dependent

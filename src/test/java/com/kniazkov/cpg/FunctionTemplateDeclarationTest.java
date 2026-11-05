@@ -98,8 +98,8 @@ class FunctionTemplateDeclarationTest {
         }
     }
     @Test void unsupportedFormsFailInsteadOfBecomingOrdinaryDeclarations() {
-        for (String source : List.of("template<int N> int f();", "template<class T = int> T f();",
-                "template<class T> class Box {};", "template<> int f();", "template<class T> T variable;",
+        for (String source : List.of("template<class T = int> T f();",
+                "template<> int f();", "template<class T> T variable;",
                 "template<class T, class T> T f();", "extern \"C\" { template<class T> T f(); }"))
             assertThrows(ParseException.class, () -> resolve(source), source);
     }

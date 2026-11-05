@@ -9,6 +9,11 @@ import java.util.Optional;
 /** Member access with its original access form. */
 public abstract class MemberExpression extends Expression {
     private Expression receiver;
+    private List<TemplateArgument> templateArguments = List.of();
+    private boolean hasTemplateArguments, templateKeyword;
+    public List<TemplateArgument> templateArguments() { return templateArguments; }
+    public boolean hasTemplateArguments() { return hasTemplateArguments; }
+    public boolean templateKeyword() { return templateKeyword; }
     private String member;
     private Declaration target;
     public Optional<Declaration> target() { return Optional.ofNullable(target); }
@@ -33,6 +38,7 @@ public abstract class MemberExpression extends Expression {
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         children.add(receiver);
+        children.addAll(templateArguments);
         return List.copyOf(children);
     }
 
@@ -44,6 +50,7 @@ public abstract class MemberExpression extends Expression {
         Builder<?, ?> builder = emptyBuilder();
         context.register(this, builder);
         builder.receiver = context.edge(receiver, Expression.class);
+        builder.templateArguments = context.copyAll(templateArguments, TemplateArgument.class); builder.hasTemplateArguments = hasTemplateArguments; builder.templateKeyword = templateKeyword;
         builder.member = member;
         builder.target = target == null ? null : context.edge(target, Declaration.class);
         return builder;
@@ -54,6 +61,13 @@ public abstract class MemberExpression extends Expression {
      * @param <B> concrete builder returned by fluent setters */
     public abstract static class Builder<T extends MemberExpression, B extends Builder<T, B>> extends NodeBuilder<T> {
         private NodeBuilder<? extends Expression> receiver;
+        private java.util.List<NodeBuilder<? extends TemplateArgument>> templateArguments = new java.util.ArrayList<>();
+        private boolean hasTemplateArguments, templateKeyword;
+        public List<NodeBuilder<? extends TemplateArgument>> templateArguments() { return List.copyOf(templateArguments); }
+        public boolean hasTemplateArguments() { return hasTemplateArguments; }
+        public boolean templateKeyword() { return templateKeyword; }
+        public B setTemplateArguments(List<? extends NodeBuilder<? extends TemplateArgument>> values) { syntaxEdited = true; templateArguments = new java.util.ArrayList<>(values); hasTemplateArguments = true; return self(); }
+        public B setTemplateKeyword(boolean value) { templateKeyword = value; return self(); }
         private String member;
         private NodeBuilder<? extends Declaration> target;
         public Optional<NodeBuilder<? extends Declaration>> target() { return Optional.ofNullable(target); }
@@ -94,6 +108,7 @@ public abstract class MemberExpression extends Expression {
         final void fillNode(T shell, BuildContext context) {
             MemberExpression node = shell;
             node.receiver = context.copy(receiver);
+            node.templateArguments = context.copyAll(templateArguments); node.hasTemplateArguments = hasTemplateArguments; node.templateKeyword = templateKeyword;
             node.member = requiredText(member, "MemberExpression.member");
             node.target = target == null ? null : context.copy(target);
         }

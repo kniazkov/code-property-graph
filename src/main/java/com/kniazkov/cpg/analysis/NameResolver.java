@@ -11,7 +11,9 @@ public final class NameResolver {
     public static Project resolve(Project project) {
         // Type bindings must be published before signatures are compared. Both passes copy
         // through one identity context, including forward and cross-file reference cycles.
-        Project typed = new Engine(StandardConversions.written(project)).bindNames();
+        Project typed = new Engine(StandardConversions.written(LibraryDeclarations.install(project))).bindNames();
+        typed = new Engine(typed).instantiateTemplates();
+        typed = new Engine(typed).bindNames();
         // Each publication makes nested call/operator result types available to its parent.
         // The syntax depth bounds this propagation, without assuming a fixed nesting limit.
         int depth = expressionDepth(typed);
@@ -68,10 +70,32 @@ public final class NameResolver {
         int position;
         Engine(Project project) {
             this.project = project; editor = new ProjectEditor(project);
-            for (SourceFile file : project.files()) {
+            for (SourceFile file : java.util.stream.Stream.concat(project.librarySources().stream(), project.files().stream()).toList()) {
                 Scope root = new Scope(null, file, "", false, false, false);
-                roots.put(file, root); index(file, root);
+                roots.put(file, root);
+                if (project.files().contains(file)) for (SourceFile library : project.librarySources())
+                    if (LibraryDeclarations.visible(file, library)) {
+                        Scope shared = roots.get(library);
+                        shared.names.forEach((name, values) -> root.names.put(name, new ArrayList<>(values)));
+                        shared.nested.forEach((name, child) -> root.nested.put(name, importScope(child, root)));
+                    }
+                index(file, root);
             }
+            for (TemplateInstance instance : project.templateInstances()) {
+                Scope root = roots.get(instance.source());
+                Scope isolated = new Scope(root, instance.source(), root.qualified + "#instance" + position, true, false, false);
+                scopes.put(instance, isolated); positions.put(instance, position++);
+                instance.arguments().forEach(type -> index(type, isolated));
+                index(instance.declaration(), isolated);
+            }
+        }
+
+        Scope importScope(Scope original, Scope parent) {
+            var copy = new Scope(parent, parent.file, original.qualified, original.local, original.anonymous, original.classScope);
+            original.names.forEach((name, values) -> copy.names.put(name, new ArrayList<>(values)));
+            original.nested.forEach((name, child) -> copy.nested.put(name, importScope(child, copy)));
+            copy.directives.addAll(original.directives); copy.anonymousNamespaces.addAll(original.anonymousNamespaces);
+            return copy;
         }
 
         void index(Node node, Scope scope) {
@@ -112,7 +136,8 @@ public final class NameResolver {
                 Scope nested = scope.nested.computeIfAbsent(owner.name(), ignored -> new Scope(scope, scope.file,
                         qualify(scope.qualified, owner.name()), scope.local, scope.anonymous, true));
                 introduced.put(owner, nested);
-                owner.bases().forEach(base -> index(base, scope));
+                owner.templateParameters().forEach(parameter -> index(parameter, nested));
+                owner.bases().forEach(base -> index(base, nested));
                 owner.members().forEach(member -> index(member, nested));
                 classEnds.put(owner, position);
             } else if (node instanceof CallableDeclaration callable) {
@@ -292,6 +317,49 @@ public final class NameResolver {
             if (isSwitch) switches.pop();
         }
 
+        Project instantiateTemplates() {
+            Set<CallExpression> done = Collections.newSetFromMap(new IdentityHashMap<>());
+            project.templateInstances().forEach(instance -> done.add(instance.cause()));
+            project.files().forEach(file -> file.walk(new NodeVisitor() {
+                @Override public void visit(CallExpression call) {
+                    if (done.contains(call) || !(call.callee() instanceof NameExpression name)) return;
+                    if (!(name.target().orElse(null) instanceof CallableDeclaration generic)
+                            || generic.templateParameters().isEmpty() || generic.templateParameters().stream().anyMatch(p -> p.kind() != TemplateParameterDeclaration.Kind.TYPE) || generic.body().isEmpty()
+                            || generic.parameters().size() != call.arguments().size()) return;
+                    var unsupported = new boolean[1];
+                    generic.walk(new NodeVisitor() { @Override public void visit(NamedType type) {
+                        if (type.dependent() && type.declaration().isEmpty() && !type.hasTemplateArguments()) unsupported[0] = true;
+                    }});
+                    if (unsupported[0]) return;
+                    // Deliberately no overload ordering, non-type deduction or specialization here.
+                    var values = new LinkedHashMap<TemplateParameterDeclaration, TypeNode>();
+                    Set<TemplateParameterDeclaration> explicit = new HashSet<>();
+                    if (name.hasTemplateArguments()) {
+                        if (name.templateArguments().size() > generic.templateParameters().size()) return;
+                        for (int i = 0; i < name.templateArguments().size(); i++) {
+                            TypeNode type = name.templateArguments().get(i).type().orElse(null);
+                            if (type == null || TypeSemantics.dependent(type)) return;
+                            values.put(generic.templateParameters().get(i), type); explicit.add(generic.templateParameters().get(i));
+                        }
+                    }
+                    for (int i = 0; i < call.arguments().size(); i++) {
+                        TypeNode formal = generic.parameters().get(i).type().orElse(null);
+                        TypeNode actual = TypeSemantics.expressionType(call.arguments().get(i), TypeSemantics.profile(file)).orElse(null);
+                        if (formal == null || actual == null || TypeSemantics.dependent(actual)) return;
+                        formal = TypeSemantics.unqualified(TypeSemantics.withoutReference(formal));
+                        actual = TypeSemantics.unqualified(TypeSemantics.withoutReference(actual));
+                        if (formal instanceof NamedType named && named.declaration().orElse(null) instanceof TemplateParameterDeclaration parameter) {
+                            TypeNode previous = values.putIfAbsent(parameter, actual);
+                            if (previous != null && !explicit.contains(parameter) && !previous.canonicalIdentity().equals(actual.canonicalIdentity())) return;
+                        } else if (TypeSemantics.dependent(formal) || OverloadResolution.conversion(call.arguments().get(i), generic.parameters().get(i).type().get(), TypeSemantics.profile(file), true).isEmpty()) return;
+                    }
+                    if (generic.templateParameters().stream().anyMatch(parameter -> !values.containsKey(parameter))) return;
+                    editor.instantiate(generic, call, file, generic.templateParameters().stream().map(values::get).toList());
+                }
+            }));
+            return editor.build();
+        }
+
         Project bindNames() {
             for (Declaration declaration : declarations) {
                 Scope scope = scopes.get(declaration);
@@ -357,6 +425,7 @@ public final class NameResolver {
                     editor.bind(initializer, match == null ? null : match.declaration());
                 }
                 @Override public void visit(MemberExpression member) {
+                    if (TypeSemantics.dependent(member)) { editor.bind(member, null); editor.dependent(member, true); return; }
                     String written = expressionName(member);
                     Match match = member instanceof ScopeMemberExpression
                             ? isObjectQualified(member) ? unique(qualifiedObjectMatches(member))
@@ -796,10 +865,11 @@ public final class NameResolver {
                     validateDefaults(callable);
             project.walk(new NodeVisitor() {
                 @Override public void visit(CallExpression call) { resolveCall(call); resolveOperator(call); }
-                @Override public void visit(Expression expression) { if (!(expression instanceof CallExpression)) resolveOperator(expression); }
-                @Override public void visit(NameExpression name) { diagnoseAmbiguity(name, name.name(), false); }
+                @Override public void visit(Expression expression) { editor.dependent(expression, TypeSemantics.dependent(expression)); if (!(expression instanceof CallExpression) && !TypeSemantics.dependent(expression)) resolveOperator(expression); }
+                @Override public void visit(NameExpression name) { editor.dependent(name, TypeSemantics.dependent(name)); if (!TypeSemantics.dependent(name)) diagnoseAmbiguity(name, name.name(), false); }
                 @Override public void visit(MemberExpression member) {
-                    String name = expressionName(member); diagnoseAmbiguity(member, name == null ? member.member() : name, false);
+                    editor.dependent(member, TypeSemantics.dependent(member));
+                    if (!TypeSemantics.dependent(member)) { String name = expressionName(member); diagnoseAmbiguity(member, name == null ? member.member() : name, false); }
                 }
                 @Override public void visit(NamedType type) { diagnoseAmbiguity(type, type.name(), type.elaboratedKeyword().isPresent()); }
                 @Override public void visit(VariableDeclaration variable) { validateInitialization(variable); }
@@ -1171,6 +1241,16 @@ public final class NameResolver {
             }
         }
         void resolveCall(CallExpression call) {
+            if (TypeSemantics.dependent(call.callee()) || call.arguments().stream().anyMatch(TypeSemantics::dependent)) {
+                editor.dependent(call, true); editor.resolve(call, List.of(), CallExpression.Resolution.UNRESOLVED); return;
+            }
+            editor.dependent(call, false);
+            for (TemplateInstance instance : project.templateInstances()) if (instance.cause() == call) {
+                if (OverloadResolution.candidate(instance.declaration(), call.arguments(), TypeSemantics.profile(instance.source()), instance.declaration().parameters().size()).isPresent())
+                    editor.bind(call, instance.declaration());
+                else editor.resolve(call, List.of(), CallExpression.Resolution.UNRESOLVED);
+                return;
+            }
             String written = expressionName(call.callee());
             List<Match> visible = call.callee() instanceof MemberExpression qualified && isObjectQualified(qualified)
                     ? qualifiedObjectMatches(qualified)
@@ -1577,7 +1657,7 @@ public final class NameResolver {
         return null;
     }
     private static boolean isType(Declaration declaration) {
-        return declaration instanceof TemplateParameterDeclaration || declaration instanceof TypedefDeclaration || declaration instanceof ClassDeclaration || declaration instanceof EnumDeclaration;
+        return declaration instanceof TemplateParameterDeclaration parameter && parameter.kind() != TemplateParameterDeclaration.Kind.VALUE || declaration instanceof TypedefDeclaration || declaration instanceof ClassDeclaration || declaration instanceof EnumDeclaration;
     }
     private static String qualify(String owner, String name) { return owner.isEmpty() ? name : owner + "::" + name; }
     private static List<String> modifiers(Declaration declaration) {

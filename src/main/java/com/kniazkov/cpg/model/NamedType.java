@@ -7,6 +7,16 @@ import java.util.Optional;
 
 /** A written type name; no semantic type inference is implied. */
 public final class NamedType extends TypeNode {
+    private List<TemplateArgument> templateArguments = List.of();
+    private boolean hasTemplateArguments, templateKeyword;
+    public List<TemplateArgument> templateArguments() { return templateArguments; }
+    public boolean hasTemplateArguments() { return hasTemplateArguments; }
+    public boolean templateKeyword() { return templateKeyword; }
+    private NamedType qualifier;
+    private boolean typenameKeyword, dependent;
+    public Optional<NamedType> qualifier() { return Optional.ofNullable(qualifier); }
+    public boolean typenameKeyword() { return typenameKeyword; }
+    public boolean dependent() { return dependent; }
     private String name;
     private String elaboratedKeyword;
     private TypedefDeclaration alias;
@@ -44,7 +54,7 @@ public final class NamedType extends TypeNode {
 
     @Override
     public List<Node> children() {
-        return List.of();
+        var children = new java.util.ArrayList<Node>(templateArguments); if (qualifier != null) children.add(0, qualifier); return List.copyOf(children);
     }
 
     @Override
@@ -65,6 +75,8 @@ public final class NamedType extends TypeNode {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
+        builder.templateArguments = context.copyAll(templateArguments, TemplateArgument.class); builder.hasTemplateArguments = hasTemplateArguments; builder.templateKeyword = templateKeyword;
+        builder.qualifier = qualifier == null ? null : context.edge(qualifier, NamedType.class); builder.typenameKeyword = typenameKeyword; builder.dependent = dependent;
         builder.name = name;
         builder.elaboratedKeyword = elaboratedKeyword;
         builder.alias = alias == null ? null : context.edge(alias, TypedefDeclaration.class);
@@ -76,6 +88,21 @@ public final class NamedType extends TypeNode {
 
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<NamedType> {
+        private java.util.List<NodeBuilder<? extends TemplateArgument>> templateArguments = new java.util.ArrayList<>();
+        private boolean hasTemplateArguments, templateKeyword;
+        public List<NodeBuilder<? extends TemplateArgument>> templateArguments() { return List.copyOf(templateArguments); }
+        public boolean hasTemplateArguments() { return hasTemplateArguments; }
+        public boolean templateKeyword() { return templateKeyword; }
+        public Builder setTemplateArguments(List<? extends NodeBuilder<? extends TemplateArgument>> values) { syntaxEdited = true; templateArguments = new java.util.ArrayList<>(values); hasTemplateArguments = true; return this; }
+        public Builder setTemplateKeyword(boolean value) { templateKeyword = value; return this; }
+        private NodeBuilder<? extends NamedType> qualifier;
+        private boolean typenameKeyword, dependent;
+        public Optional<NodeBuilder<? extends NamedType>> qualifier() { return Optional.ofNullable(qualifier); }
+        public boolean typenameKeyword() { return typenameKeyword; }
+        public boolean dependent() { return dependent; }
+        public Builder setQualifier(NodeBuilder<? extends NamedType> value) { qualifier = Objects.requireNonNull(value); return this; }
+        public Builder setTypenameKeyword(boolean value) { typenameKeyword = value; return this; }
+        public Builder setDependent(boolean value) { dependent = value; return this; }
         private String name;
         private String elaboratedKeyword;
         public Optional<String> elaboratedKeyword() { return Optional.ofNullable(elaboratedKeyword); }
@@ -123,6 +150,8 @@ public final class NamedType extends TypeNode {
 
         @Override
         void fillNode(NamedType node, BuildContext context) {
+            node.templateArguments = context.copyAll(templateArguments); node.hasTemplateArguments = hasTemplateArguments; node.templateKeyword = templateKeyword;
+            node.qualifier = qualifier == null ? null : context.copy(qualifier); node.typenameKeyword = typenameKeyword; node.dependent = dependent;
             node.name = requiredText(name, "NamedType.name");
             node.elaboratedKeyword = elaboratedKeyword;
             node.alias = alias == null ? null : context.copy(alias);

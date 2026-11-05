@@ -8,6 +8,11 @@ import java.util.Optional;
 
 /** A name with an optional resolved declaration reference. */
 public final class NameExpression extends Expression {
+    private List<TemplateArgument> templateArguments = List.of();
+    private boolean hasTemplateArguments, templateKeyword;
+    public List<TemplateArgument> templateArguments() { return templateArguments; }
+    public boolean hasTemplateArguments() { return hasTemplateArguments; }
+    public boolean templateKeyword() { return templateKeyword; }
     private String name;
     private Declaration target;
 
@@ -24,7 +29,7 @@ public final class NameExpression extends Expression {
 
     @Override
     public List<Node> children() {
-        return List.of();
+        return List.copyOf(templateArguments);
     }
 
     @Override
@@ -52,6 +57,7 @@ public final class NameExpression extends Expression {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
+        builder.templateArguments = context.copyAll(templateArguments, TemplateArgument.class); builder.hasTemplateArguments = hasTemplateArguments; builder.templateKeyword = templateKeyword;
         builder.name = name;
         builder.target = target == null ? null : context.edge(target, Declaration.class);
         return builder;
@@ -59,6 +65,13 @@ public final class NameExpression extends Expression {
 
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<NameExpression> {
+        private java.util.List<NodeBuilder<? extends TemplateArgument>> templateArguments = new java.util.ArrayList<>();
+        private boolean hasTemplateArguments, templateKeyword;
+        public List<NodeBuilder<? extends TemplateArgument>> templateArguments() { return List.copyOf(templateArguments); }
+        public boolean hasTemplateArguments() { return hasTemplateArguments; }
+        public boolean templateKeyword() { return templateKeyword; }
+        public Builder setTemplateArguments(List<? extends NodeBuilder<? extends TemplateArgument>> values) { syntaxEdited = true; templateArguments = new java.util.ArrayList<>(values); hasTemplateArguments = true; return this; }
+        public Builder setTemplateKeyword(boolean value) { templateKeyword = value; return this; }
         private String name;
         private NodeBuilder<? extends Declaration> target;
 
@@ -96,6 +109,7 @@ public final class NameExpression extends Expression {
 
         @Override
         void fillNode(NameExpression node, BuildContext context) {
+            node.templateArguments = context.copyAll(templateArguments); node.hasTemplateArguments = hasTemplateArguments; node.templateKeyword = templateKeyword;
             node.name = requiredText(name, "NameExpression.name");
             node.target = target == null ? null : context.copy(target);
         }
