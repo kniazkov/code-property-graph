@@ -54,6 +54,8 @@ public final class ProjectJson {
             project.dynamicArraySemantics().forEach(operation -> operation.walk(index));
             project.containerTypes().forEach(type -> type.walk(index));
             project.containerSemantics().forEach(operation -> operation.walk(index));
+            project.characterSequenceTypes().forEach(type -> type.walk(index));
+            project.sequenceSemantics().forEach(operation -> operation.walk(index));
             for (var flow : project.flows()) for (var vertex : flow.auxiliaryVertices()) ids.put(vertex, ids.size());
             project.externalInputs().forEach(input -> input.walk(index));
             for (SourceFile file : java.util.stream.Stream.concat(project.files().stream(), project.librarySources().stream()).toList()) file.provenance().ifPresent(p -> units.put(p.unit(), ids.get(file)));
@@ -92,6 +94,34 @@ public final class ProjectJson {
                         effect.positionAfter().ifPresent(position -> edge(operation, position, "POSITION_AFTER"));
                     });
                 }
+            if (vertex instanceof CharacterSequenceType type) {
+                type.declaration().ifPresent(value -> edge(type, value, "CHARACTER_SEQUENCE_CLASS"));
+                edge(type, type.characterType(), "CHARACTER_TYPE");
+                type.traitsType().ifPresent(value -> edge(type, value, "TRAITS_TYPE"));
+                type.allocatorType().ifPresent(value -> edge(type, value, "ALLOCATOR_TYPE"));
+                type.writtenTypes().forEach(value -> edge(value, type, "COMMON_TYPE"));
+            }
+            if (vertex instanceof SequenceOperation operation) {
+                edge(operation.syntax(), operation, "COMMON_OPERATION");
+                edge(operation, operation.selectedTarget(), "CPP_TARGET");
+                operation.characterType().ifPresent(value -> edge(operation, value, "CHARACTER_SEQUENCE_TYPE"));
+                operation.destination().ifPresent(value -> edge(operation, value, "DESTINATION"));
+                operation.inputSequence().ifPresent(value -> edge(operation, value, "INPUT_SEQUENCE"));
+                operation.outputDestination().ifPresent(value -> edge(operation, value, "OUTPUT_DESTINATION"));
+                operation.first().ifPresent(value -> edge(operation, value, "RANGE_FIRST"));
+                operation.last().ifPresent(value -> edge(operation, value, "RANGE_LAST"));
+                operation.secondFirst().ifPresent(value -> edge(operation, value, "SECOND_RANGE_FIRST"));
+                operation.count().ifPresent(value -> edge(operation, value, "COUNT"));
+                operation.position().ifPresent(value -> edge(operation, value, "POSITION"));
+                operation.initialValue().ifPresent(value -> edge(operation, value, "INITIAL_VALUE"));
+                operation.callable().ifPresent(value -> edge(operation, value, "CALLABLE"));
+                operation.callableTarget().ifPresent(value -> edge(operation, value, "CALLABLE_TARGET"));
+                operation.resultType().ifPresent(value -> edge(operation, value, "RESULT_TYPE"));
+                operation.accumulatorType().ifPresent(value -> edge(operation, value, "ACCUMULATOR_TYPE"));
+                operation.sources().forEach(value -> edge(operation, value, "SOURCE"));
+                operation.mutatedObjects().forEach(value -> edge(operation, value, "MUTATES"));
+                operation.callableEffects().forEach(value -> edge(operation, value, "CALLABLE_EFFECT"));
+            }
                 if (vertex instanceof ContainerType type) {
                     if (type.concreteClass() != null) edge(type, type.concreteClass(), "CONTAINER_CLASS");
                     edge(type, type.elementType(), "ELEMENT_TYPE");
@@ -173,6 +203,8 @@ public final class ProjectJson {
                     if (!p.dynamicArraySemantics().isEmpty()) obj.put("dynamicArraySemantics", nodes(p.dynamicArraySemantics()));
                     if (!p.containerTypes().isEmpty()) obj.put("containerTypes", nodes(p.containerTypes()));
                     if (!p.containerSemantics().isEmpty()) obj.put("containerSemantics", nodes(p.containerSemantics()));
+                    if (!p.characterSequenceTypes().isEmpty()) obj.put("characterSequenceTypes", nodes(p.characterSequenceTypes()));
+                    if (!p.sequenceSemantics().isEmpty()) obj.put("sequenceSemantics", nodes(p.sequenceSemantics()));
                     if (p.hasErrors()) {
                         obj.put("hasErrors", true);
                         obj.array("diagnosticGroups", a -> p.diagnosticGroups().forEach(g -> a.add(diagnosticGroup(g))));
@@ -212,6 +244,38 @@ public final class ProjectJson {
                         effect.sequenceAfter().ifPresent(sequence -> e.put("sequenceAfterId", ids.get(sequence)));
                         effect.positionAfter().ifPresent(position -> e.put("positionAfterId", ids.get(position)));
                     })));
+                }
+                case CharacterSequenceType type -> {
+                    obj.put("characterTypeId", ids.get(type.characterType()));
+                    type.declaration().ifPresent(value -> obj.put("concreteClassId", ids.get(value)));
+                    type.traitsType().ifPresent(value -> obj.put("traitsTypeId", ids.get(value)));
+                    type.allocatorType().ifPresent(value -> obj.put("allocatorTypeId", ids.get(value)));
+                    obj.array("writtenTypeIds", a -> type.writtenTypes().forEach(value -> a.add(ids.get(value))));
+                }
+                case SequenceOperation operation -> {
+                    obj.put("operation", lower(operation.kind())).put("syntaxId", ids.get(operation.syntax()))
+                        .put("selectedTargetId", ids.get(operation.selectedTarget()))
+                        .put("lengthKind", lower(operation.lengthKind())).put("resultKind", lower(operation.resultKind()))
+                        .put("direction", lower(operation.direction())).put("sizeEffect", lower(operation.sizeEffect()))
+                        .put("writable", operation.writable()).put("callableEffect", lower(operation.callableEffect()))
+                        .put("callableMayThrow", operation.callableMayThrow());
+                    operation.characterType().ifPresent(value -> obj.put("characterTypeId", ids.get(value)));
+                    operation.destination().ifPresent(value -> obj.put("destinationId", ids.get(value)));
+                    operation.inputSequence().ifPresent(value -> obj.put("inputSequenceId", ids.get(value)));
+                    operation.outputDestination().ifPresent(value -> obj.put("outputDestinationId", ids.get(value)));
+                    operation.first().ifPresent(value -> obj.put("firstId", ids.get(value)));
+                    operation.last().ifPresent(value -> obj.put("lastId", ids.get(value)));
+                    operation.secondFirst().ifPresent(value -> obj.put("secondFirstId", ids.get(value)));
+                    operation.count().ifPresent(value -> obj.put("countId", ids.get(value)));
+                    operation.position().ifPresent(value -> obj.put("positionId", ids.get(value)));
+                    operation.initialValue().ifPresent(value -> obj.put("initialValueId", ids.get(value)));
+                    operation.callable().ifPresent(value -> obj.put("callableId", ids.get(value)));
+                    operation.callableTarget().ifPresent(value -> obj.put("callableTargetId", ids.get(value)));
+                    operation.resultType().ifPresent(value -> obj.put("resultTypeId", ids.get(value)));
+                    operation.accumulatorType().ifPresent(value -> obj.put("accumulatorTypeId", ids.get(value)));
+                    obj.array("sourceIds", a -> operation.sources().forEach(value -> a.add(ids.get(value))));
+                    obj.array("mutatedObjectIds", a -> operation.mutatedObjects().forEach(value -> a.add(ids.get(value))));
+                    obj.array("callableEffectIds", a -> operation.callableEffects().forEach(value -> a.add(ids.get(value))));
                 }
                 case ContainerType type -> {
                     obj.put("kind", lower(type.kind())).put("iteratorCategory", lower(type.iteratorCategory()))

@@ -48,10 +48,11 @@ final class BuildContext {
         T result = copy(root);
         if (result instanceof Project project) {
             var discarded = project.invalidateTemplateInstances();
-            int semanticCount = project.dynamicArraySemantics().size() + project.dynamicArrayTypes().size() + project.containerSemantics().size() + project.containerTypes().size();
+            int semanticCount = project.dynamicArraySemantics().size() + project.dynamicArrayTypes().size() + project.containerSemantics().size() + project.containerTypes().size() + project.sequenceSemantics().size() + project.characterSequenceTypes().size();
             project.validateDynamicArraySemantics();
             project.validateContainerSemantics();
-            if (!discarded.isEmpty() || semanticCount != project.dynamicArraySemantics().size() + project.dynamicArrayTypes().size() + project.containerSemantics().size() + project.containerTypes().size()) {
+            project.validateSequenceSemantics();
+            if (!discarded.isEmpty() || semanticCount != project.dynamicArraySemantics().size() + project.dynamicArrayTypes().size() + project.containerSemantics().size() + project.containerTypes().size() + project.sequenceSemantics().size() + project.characterSequenceTypes().size()) {
                 Set<Node> retained = Collections.newSetFromMap(new IdentityHashMap<>());
                 collect(project, retained);
                 nodes.entrySet().removeIf(entry -> !retained.contains(entry.getValue()));

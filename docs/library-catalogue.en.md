@@ -122,3 +122,10 @@ library defect corrections; [repository reference](standards/cpp/cpp03/README.ru
 The #39 common family model distinguishes deque/list, associative uniqueness and
 adapter ordering, with selected comparator links and scoped splice transfer.
 See model-guide.en.md for conservative effects and iterator-category boundaries.
+
+The #40 common sequence model covers explicit string lengths, access/append/find/
+substr, iterator movement/output destinations, copy/find_if/transform/sort/remove
+and accumulate. This is distinct from the broader declaration catalogue above:
+other declared overloads remain resolved C++ unless their common equivalence is
+proved. User traits, allocators, specializations and unsupported lifetime cases
+retain conservative behavior; see model-guide.en.md and the native corpus.

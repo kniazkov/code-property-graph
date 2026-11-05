@@ -251,16 +251,35 @@ public final class ClassTemplateSemantics {
         else if (node instanceof CallableDeclaration c) dependent |= !c.templateParameters().isEmpty();
         if (!dependent && node instanceof NamedType type && type.hasTemplateArguments() && !TypeSemantics.dependent(type))
             uses.add(new Use(type, file, scope, type.name(), type.templateArguments(), point));
+        // A catalogue typedef is instantiated only when source syntax demands its type.
+        if (!dependent && node instanceof NamedType alias && !LibraryDeclarations.isLibrary(alias) && alias.alias().isPresent()
+                && alias.canonicalType() instanceof NamedType type && type != alias
+                && type.hasTemplateArguments() && !TypeSemantics.dependent(type))
+            uses.add(new Use(type, file, scope, type.name(), type.templateArguments(), point));
         if (!dependent && node instanceof NameExpression name && name.hasTemplateArguments() && name.templateArguments().stream().noneMatch(a -> a.type().map(TypeSemantics::dependent).orElse(false)))
             uses.add(new Use(name, file, scope, name.name(), name.templateArguments(), point));
+        if (!dependent && node instanceof ScopeMemberExpression member && member.hasTemplateArguments()
+                && member.templateArguments().stream().noneMatch(TypeSemantics::dependent)) {
+            String name=qualifiedExpression(member);
+            if(name!=null)uses.add(new Use(member,file,scope,name,member.templateArguments(),point));
+        }
         for (Node child : node.children()) {
             if (node instanceof CallableDeclaration method && unusedMethods.contains(method) && method.body().orElse(null) == child) continue;
             collect(child, file, scope, dependent, declarations, uses, position, unusedMethods);
         }
     }
+    private static String qualifiedExpression(Expression expression) {
+        if(expression instanceof NameExpression name)return name.name();
+        if(expression instanceof ScopeMemberExpression member) {
+            String receiver=qualifiedExpression(member.receiver());
+            return receiver==null?null:receiver+"::"+member.member();
+        }
+        return null;
+    }
     private static List<Located> family(Use use, List<Located> declarations) {
         Declaration bound = use.node() instanceof NamedType type ? type.declaration().orElse(null)
-                : use.node() instanceof NameExpression name ? name.target().orElse(null) : null;
+                : use.node() instanceof NameExpression name ? name.target().orElse(null)
+                : use.node() instanceof ScopeMemberExpression member ? member.target().orElse(null) : null;
         if (bound instanceof ClassDeclaration) {
             Located origin = declarations.stream().filter(d -> d.declaration() == bound).findFirst().orElse(null);
             if (origin != null) {

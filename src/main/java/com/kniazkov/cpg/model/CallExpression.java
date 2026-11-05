@@ -9,9 +9,17 @@ import java.util.Optional;
 /** A call with arguments and an optional resolved target. */
 public final class CallExpression extends Expression {
     void invalidateTargets(java.util.Set<Node> discarded) {
-        if (candidates.stream().anyMatch(discarded::contains)) {
+        if (candidates.stream().anyMatch(discarded::contains) || discarded.contains(target)) {
             target = null; candidates = List.of(); resolution = Resolution.UNRESOLVED;
             expressionInfo = null;
+        }
+        if (virtualTargets.stream().anyMatch(discarded::contains)) {
+            virtualTargets = List.of(); virtualDispatch = false; virtualTargetsComplete = false;
+            expressionInfo = null;
+        }
+        if (defaultArguments.stream().anyMatch(argument -> discarded.contains(argument.declaration())
+                || discarded.contains(argument.parameter()) || discarded.contains(argument.expression()))) {
+            defaultArguments = List.of(); expressionInfo = null;
         }
     }
 

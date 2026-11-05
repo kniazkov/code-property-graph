@@ -145,7 +145,7 @@ public final class ControlFlow {
                     // does not introduce the unsupported record temporary lifetime.
                     && !(e instanceof CallExpression call && call.target().flatMap(CallableDeclaration::returnType)
                             .map(TypeSemantics::unqualified).filter(ReferenceType.class::isInstance).isPresent())
-                    && !trivialAssociativeInsertResult(e)) return true;
+                    && !trivialAssociativeInsertResult(e) && !modeledSequenceResult(e)) return true;
             if (node instanceof Expression e && containsThrow(e) && !special(e)
                     && !(e instanceof ConversionExpression) && !(e instanceof ConditionDeclarationExpression)) return true;
             return node.children().stream().anyMatch(this::unsupportedEvaluation);
@@ -167,6 +167,59 @@ public final class ControlFlow {
                     .map(TypeNode::canonicalIdentity).filter("bool"::equals).isEmpty()) return false;
             return arguments.getFirst().type().flatMap(LibraryIteratorSemantics::info)
                     .filter(info -> info.container() == operation.get().type().concreteClass()).isPresent();
+        }
+        /** Only trusted iterator adapters and direct default-string materialization
+         * have no unmodeled user-defined temporary cleanup in this abstraction. */
+        boolean modeledSequenceResult(Expression expression) {
+            var result = TypeSemantics.expressionType(expression, profile).flatMap(ClassSemantics::objectClass).orElse(null);
+            if (result == null || !LibraryDeclarations.isLibrary(result)) return false;
+            if (result.name().equals("reverse_iterator")
+                    && TypeSemantics.expressionType(expression, profile).flatMap(LibraryIteratorSemantics::info).isPresent()
+                    && (project.dynamicArraySemantics().stream().anyMatch(o -> o.syntax() == expression
+                                && o.resultKind() == DynamicArrayOperation.ResultKind.ITERATOR)
+                        || project.containerSemantics().stream().anyMatch(o -> o.syntax() == expression
+                                && o.resultKind() == ContainerOperation.ResultKind.ITERATOR))) return true;
+            var operation = project.sequenceSemantics().stream().filter(o -> o.syntax() == expression
+                    && (LibraryDeclarations.isLibrary(o.selectedTarget()) || o.selectedTarget().templateOrigin().filter(LibraryDeclarations::isLibrary).isPresent())).findFirst().orElse(null);
+            if (operation == null) return false;
+            if ((operation.resultKind() == SequenceOperation.ResultKind.OUTPUT_ADAPTER
+                    || operation.resultKind() == SequenceOperation.ResultKind.ITERATOR)
+                    && Set.of("back_insert_iterator", "front_insert_iterator", "insert_iterator").contains(result.name()))
+                return true;
+            if (operation.resultKind() == SequenceOperation.ResultKind.ITERATOR
+                    && result.name().equals("reverse_iterator"))
+                return TypeSemantics.expressionType(expression, profile).flatMap(LibraryIteratorSemantics::info).isPresent();
+            if (operation.kind() != SequenceOperation.Kind.STRING_SUBSTR || operation.characterType().isEmpty()) return false;
+            var type = operation.characterType().orElseThrow();
+            if (!type.characterType().canonicalIdentity().equals("char")
+                    || !defaultCharacterPolicy(type.traitsType(), "char_traits")
+                    || !defaultCharacterPolicy(type.allocatorType(), "allocator")) return false;
+            // Do not admit a discarded temporary, nested argument, user conversion,
+            // reference binding, or custom allocator/traits lifetime on this path.
+            var materialized = new boolean[1];
+            fn.body().ifPresent(body -> body.walk(new NodeVisitor() {
+                @Override public void visit(VariableDeclaration variable) {
+                    if (variable.initializer().map(Builder::writtenValue).orElse(null) == expression
+                            && variable.type().map(TypeSemantics::unqualified).filter(ReferenceType.class::isInstance).isEmpty()
+                            && variable.type().flatMap(ClassSemantics::objectClass).filter(c -> c == result).isPresent())
+                        materialized[0] = true;
+                }
+            }));
+            return materialized[0];
+        }
+        static Expression writtenValue(Expression value) {
+            while (value instanceof ConversionExpression conversion && !conversion.isExplicit()) value = conversion.operand();
+            return value;
+        }
+        boolean defaultCharacterPolicy(Optional<TypeNode> policy, String name) {
+            if (policy.isEmpty()) return false;
+            var cls = policy.flatMap(ClassSemantics::objectClass).orElse(null);
+            if (cls == null || !LibraryDeclarations.isLibrary(cls) || !cls.name().equals(name)) return false;
+            var unqualified = TypeSemantics.unqualified(policy.orElseThrow());
+            var arguments = unqualified instanceof NamedType named && !named.templateArguments().isEmpty()
+                    ? named.templateArguments() : cls.templateArguments();
+            return arguments.size() == 1 && arguments.getFirst().type()
+                    .map(TypeNode::canonicalIdentity).filter("char"::equals).isPresent();
         }
         boolean unsupportedObject(Node node) {
             return node instanceof VariableDeclaration v && v.type().map(TypeSemantics::unqualified).filter(ArrayType.class::isInstance).isPresent()
