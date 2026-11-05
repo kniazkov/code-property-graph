@@ -220,6 +220,13 @@ class ObjectMemoryDataFlowTest {
         for(var increment:increments)
             assertFalse(constructor.data().stream().anyMatch(e->e.from()==increment&&nodes(increment.operand(),NameExpression.class).contains(e.to())&&e.kind()==FunctionFlow.Dependency.DEFINITION));
     }
+    @Test void constructorArgumentsRetainEveryPossibleLastWriter() {
+        var p=analyze("int one(int&x){x=1;return 0;}int two(int&x){x=2;return 0;}struct A{A(int,int);};struct f:A{f(int x):A(one(x),two(x)){int observed=x;}};");
+        var constructor=flow(p,"f");
+        var observed=nodes(constructor.entry().body().orElseThrow(),NameExpression.class).getFirst();
+        assertEquals(Set.of(nodes(flow(p,"one").entry(),AssignmentExpression.class).getFirst(),
+            nodes(flow(p,"two").entry(),AssignmentExpression.class).getFirst()),definitions(constructor,observed));
+    }
     @Test void referencedGlobalInitializerIsARealDefinition() {
         var p=analyze("int global=1;int f(){return global;}");var f=flow(p,"f");
         assertTrue(definitions(f,returned(f)).stream().anyMatch(n->n instanceof VariableDeclaration v&&v.name().equals("global")));

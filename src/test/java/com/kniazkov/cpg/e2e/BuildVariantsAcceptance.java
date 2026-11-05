@@ -107,7 +107,29 @@ final class BuildVariantsAcceptance {
                 assertSame(owner, owners.get(flowOwner(edge.from()))); assertSame(owner, owners.get(flowOwner(edge.to())));
             }
             for (var edge : flow.data()) {
-                assertSame(owner, owners.get(edge.from())); assertSame(owner, owners.get(edge.to()));
+                if (edge.callSite() == null) {
+                    assertSame(owner, owners.get(edge.from())); assertSame(owner, owners.get(edge.to()));
+                } else {
+                    assertSame(owner, owners.get(edge.callSite()));
+                    var allowed = Collections.newSetFromMap(new IdentityHashMap<Node, Boolean>());
+                    flow.entry().walk(new NodeVisitor() { @Override public void visit(Node node) { allowed.add(node); } });
+                    var pending = new ArrayDeque<CallExpression>();
+                    var visited = Collections.newSetFromMap(new IdentityHashMap<Node, Boolean>());
+                    pending.add(edge.callSite());
+                    while (!pending.isEmpty()) {
+                        var call = pending.removeFirst();
+                        call.target().ifPresent(target -> {
+                            assertNotNull(owners.get(target), "callee must belong to this selected build");
+                            if (visited.add(target)) target.walk(new NodeVisitor() {
+                                @Override public void visit(Node node) { allowed.add(node); }
+                                @Override public void visit(CallExpression nested) { allowed.add(nested); pending.add(nested); }
+                            });
+                        });
+                    }
+                    assertTrue(allowed.contains(edge.from()), "foreign producer must belong to the selected call closure");
+                    assertTrue(allowed.contains(edge.to()), "foreign consumer must belong to the selected call closure");
+                    assertNotNull(owners.get(edge.from())); assertNotNull(owners.get(edge.to()));
+                }
             }
         }
     }

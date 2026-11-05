@@ -586,7 +586,7 @@ final class CppMemoryFlow {
                     });
                     returns.add(statement);
                 } else if(vertex instanceof MemberInitializer initializer) {
-                    for(Expression argument:initializer.arguments())if(!expandedInitializerArguments.contains(argument))evaluate(argument,state);
+                    arguments(initializer.arguments().stream().filter(argument->!expandedInitializerArguments.contains(argument)).toList(),state);
                 } else if(vertex instanceof PrintStatement print) {
                     if(!expanded.containsKey(print))evaluate(print.value(),state);
                 } else if (vertex instanceof Expression expression) evaluate(expression,state);
@@ -699,10 +699,7 @@ final class CppMemoryFlow {
                 if(TypeSemantics.expressionType(callee,profile).map(TypeSemantics::withoutReference).flatMap(ClassSemantics::objectClass).isPresent())return locations(callee,state);
                 return Set.of();
             }
-            void call(CallExpression call, State state) {
-                CallExpression site = provenance == null ? call : provenance;
-                evaluate(call.callee(),state);
-                var arguments = new ArrayList<>(call.arguments()); call.defaultArguments().forEach(a -> arguments.add(a.expression()));
+            void arguments(List<Expression> arguments,State state) {
                 // Each argument can precede or follow sibling side effects in C++03.
                 var effects = new ArrayList<State>();
                 for (var argument : arguments) { State effect=state.copy(); evaluate(argument,effect); effects.add(effect); }
@@ -717,6 +714,13 @@ final class CppMemoryFlow {
                     changes.merge(effect);
                 }
                 changes.defs.forEach(state.defs::put); changes.pointers.forEach(state.pointers::put); changes.refs.forEach(state.refs::put);
+                state.escaped.addAll(changes.escaped);
+            }
+            void call(CallExpression call, State state) {
+                CallExpression site = provenance == null ? call : provenance;
+                evaluate(call.callee(),state);
+                var arguments = new ArrayList<>(call.arguments()); call.defaultArguments().forEach(a -> arguments.add(a.expression()));
+                arguments(arguments,state);
                 List<CallableDeclaration> targets = call.isVirtualDispatch() ? call.virtualTargets() : call.target().map(List::of).orElse(List.of());
                 State normal=null, thrown=null;
                 Set<Loc> returnLocations = new LinkedHashSet<>();
