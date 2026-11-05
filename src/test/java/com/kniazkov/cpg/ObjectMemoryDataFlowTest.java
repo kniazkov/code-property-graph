@@ -5,11 +5,14 @@ import com.kniazkov.cpg.analysis.*;
 import com.kniazkov.cpg.model.*;
 import com.kniazkov.cpg.parser.Parser;
 import java.time.Duration;
+import java.nio.file.*;
+import org.junit.jupiter.api.io.TempDir;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ObjectMemoryDataFlowTest {
+    @TempDir Path directory;
     private Project analyze(String text) {
         return DataFlow.analyze(NameResolver.resolve(Project.create()
             .addFile(Parser.parse("memory.cpp",text,Language.CPP)).build()));
@@ -168,6 +171,54 @@ class ObjectMemoryDataFlowTest {
         var f=flow(analyze("struct B{int x;};struct L:B{};struct R:B{};struct D:L,R{};int f(){D d;L&l=d;R&r=d;l.x=1;r.x=2;return l.x;}"),"f");
         assertTrue(definitions(f,returned(f)).contains(nodes(f.entry(),AssignmentExpression.class).getFirst()));
         assertTrue(definitions(f,returned(f)).contains(nodes(f.entry(),AssignmentExpression.class).getLast()));
+    }
+    @Test void normalizedPrintReadsKeepWritesLiveAtGreenAndFoldedStages() throws Exception {
+        Path source=directory.resolve("print.cpp");
+        Files.writeString(source,"#include <iostream>\nint main(){int result=1;result=result+2;std::cout<<result<<std::endl;int x=1;std::cout<<(x++,x)<<std::endl;return x;}");
+        for(Cpg.Stage stage:List.of(Cpg.Stage.GREEN,Cpg.Stage.FOLDED)) {
+            Project project=Cpg.read(directory,new Cpg.Options(Language.CPP,stage));
+            assertFalse(project.hasErrors(),project.semanticDiagnostics().toString());
+            var f=flow(project,"main");
+            assertEquals(2,nodes(f.entry(),PrintStatement.class).size());
+            assertTrue(nodes(f.entry(),Node.class).stream().flatMap(n->n.diagnostics().stream()).noneMatch(d->d.code().equals(UnreadWrites.CODE)));
+            for(var increment:nodes(f.entry(),PostfixIncrementExpression.class))
+                assertFalse(f.data().stream().anyMatch(e->e.from()==increment&&nodes(increment.operand(),NameExpression.class).contains(e.to())&&e.kind()==FunctionFlow.Dependency.DEFINITION));
+        }
+    }
+    @Test void memberInitializerArgumentsKeepReadsAndCallEffects() {
+        var p=analyze("struct A{int x;A(int value):x(value){}};");
+        var constructor=flow(p,"A");
+        var argument=nodes(constructor.entry().initializers().getFirst(),NameExpression.class).getFirst();
+        assertTrue(definitions(constructor,argument).contains(constructor.entry().parameters().getFirst()));
+        p=analyze("int bump(int&v){v=7;return v;}struct A{int x;A(int value):x(bump(value)){int observed=value;}};");
+        constructor=flow(p,"A");
+        var observed=nodes(constructor.entry().body().orElseThrow(),NameExpression.class).getFirst();
+        var assignment=nodes(flow(p,"bump").entry(),AssignmentExpression.class).getFirst();
+        assertEquals(Set.of(assignment),definitions(constructor,observed));
+        p=analyze("struct A{int x;A(int value):x((value++,value)){int observed=value;}};");
+        constructor=flow(p,"A");
+        for(var increment:nodes(constructor.entry(),PostfixIncrementExpression.class))
+            assertFalse(constructor.data().stream().anyMatch(e->e.from()==increment&&nodes(increment.operand(),NameExpression.class).contains(e.to())&&e.kind()==FunctionFlow.Dependency.DEFINITION));
+    }
+    @Test void separatelyExpandedMemberArgumentsAreNotReplayed() {
+        var p=NameResolver.resolve(Project.create().addFile(Parser.parse("expanded.cpp", "struct B{B(int,int);};struct A:B{A(int x,int y):B(x++,y++){}};",Language.CPP)).build());
+        p=ControlFlow.analyze(p);
+        var constructor=flow(p,"A");var initializer=constructor.entry().initializers().getFirst();
+        var increments=nodes(initializer,PostfixIncrementExpression.class);
+        var control=new ArrayList<FunctionFlow.ControlEdge>();
+        for(var edge:constructor.control()) {
+            if(edge.to()==initializer) {
+                control.add(new FunctionFlow.ControlEdge(edge.from(),increments.getFirst(),edge.kind()));
+                control.add(new FunctionFlow.ControlEdge(increments.getFirst(),increments.getLast(),FunctionFlow.Branch.NEXT));
+                control.add(new FunctionFlow.ControlEdge(increments.getLast(),initializer,FunctionFlow.Branch.NEXT));
+            } else control.add(edge);
+        }
+        var replacement=new FunctionFlow(constructor.entry(),constructor.exit(),control,List.of());
+        var original=constructor;
+        p=DataFlow.analyze(p.withFlows(p.flows().stream().map(f->f==original?replacement:f).toList()));
+        constructor=flow(p,"A");
+        for(var increment:increments)
+            assertFalse(constructor.data().stream().anyMatch(e->e.from()==increment&&nodes(increment.operand(),NameExpression.class).contains(e.to())&&e.kind()==FunctionFlow.Dependency.DEFINITION));
     }
     @Test void referencedGlobalInitializerIsARealDefinition() {
         var p=analyze("int global=1;int f(){return global;}");var f=flow(p,"f");

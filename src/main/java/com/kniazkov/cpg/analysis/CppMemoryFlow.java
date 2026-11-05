@@ -263,6 +263,7 @@ final class CppMemoryFlow {
             final PlatformProfile profile;
             final Map<FlowVertex,List<ControlEdge>> successors = new IdentityHashMap<>();
             final Map<Node,Expression> expanded = new IdentityHashMap<>();
+            final Set<Expression> expandedInitializerArguments=Collections.newSetFromMap(new IdentityHashMap<>());
             final Map<Node,List<DataEdge>> inheritedEffects = new IdentityHashMap<>();
             final Map<CallExpression,Set<Loc>> callResults = new IdentityHashMap<>();
             final Set<Loc> returned = new LinkedHashSet<>();
@@ -272,6 +273,13 @@ final class CppMemoryFlow {
             Context(FunctionFlow flow, CallExpression frame, CallExpression provenance, Set<Loc> receiver) {
                 this.flow = flow; this.frame = frame; this.provenance = provenance; this.receiver = receiver; profile = profiles.get(flow.entry());
                 coveredReads(flow.entry());
+                Set<Expression> instructions=Collections.newSetFromMap(new IdentityHashMap<>());
+                for(ControlEdge edge:flow.control()) {
+                    if(edge.from() instanceof Expression expression)instructions.add(expression);
+                    if(edge.to() instanceof Expression expression)instructions.add(expression);
+                }
+                for(MemberInitializer initializer:flow.entry().initializers())for(Expression argument:initializer.arguments())
+                    if(instructions.stream().anyMatch(instruction->contains(argument,instruction)))expandedInitializerArguments.add(argument);
                 for(DataEdge edge:flow.data())if(edge.kind()==Dependency.DEFINITION && edge.to() instanceof Expression) {
                     Node source=edge.from(), event=source instanceof SequenceOperation op?op.syntax():source instanceof ContainerOperation op?op.syntax():source instanceof DynamicArrayOperation op?op.syntax():source;
                     boolean opaque=source!=event || source instanceof MemberInitializer
@@ -286,6 +294,7 @@ final class CppMemoryFlow {
                     if (edge.from() instanceof Expression completed && edge.to() instanceof Node consumer) {
                         Expression value = consumer instanceof VariableDeclaration v ? v.initializer().orElse(null)
                             : consumer instanceof ReturnStatement r ? r.value().orElse(null)
+                            : consumer instanceof PrintStatement print ? print.value()
                             : consumer instanceof AssignmentExpression a && a.target() instanceof NameExpression ? a.value() : null;
                         if (value != null && contains(value, completed)) expanded.put(consumer, value);
                     }
@@ -576,6 +585,10 @@ final class CppMemoryFlow {
                         else if (result instanceof PointerType) returned.addAll(points(value,state));
                     });
                     returns.add(statement);
+                } else if(vertex instanceof MemberInitializer initializer) {
+                    for(Expression argument:initializer.arguments())if(!expandedInitializerArguments.contains(argument))evaluate(argument,state);
+                } else if(vertex instanceof PrintStatement print) {
+                    if(!expanded.containsKey(print))evaluate(print.value(),state);
                 } else if (vertex instanceof Expression expression) evaluate(expression,state);
                 else if (vertex instanceof CatchClause handler) handler.parameter().ifPresent(p -> state.defs.put(root(p),new LinkedHashSet<>(List.of(new Source(p,provenance)))));
                 if(vertex instanceof VariableDeclaration variable)bindReferenceFields(variable,state);
