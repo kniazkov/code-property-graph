@@ -32,10 +32,10 @@ public final class DataFlow {
     public static Project analyze(Project project) {
         var cfg = project.flows().isEmpty() ? ControlFlow.analyze(project) : project;
         var contexts = SourceContexts.index(cfg);
-        return cfg.withFlows(cfg.flows().stream().map(flow -> {
+        return CppMemoryFlow.analyze(cfg.withFlows(cfg.flows().stream().map(flow -> {
             SourceFile source = SourceContexts.require(contexts, flow.entry());
             return new DataFlow(source.language(), TypeSemantics.profile(source)).analyzeFunction(flow, cfg.dynamicArraySemantics(), cfg.containerSemantics(), cfg.sequenceSemantics());
-        }).toList());
+        }).toList()));
     }
 
     private FunctionFlow analyzeFunction(FunctionFlow flow, List<DynamicArrayOperation> operations, List<ContainerOperation> containerOperations, List<SequenceOperation> sequenceOperations) {
