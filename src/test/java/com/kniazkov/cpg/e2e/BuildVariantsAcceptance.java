@@ -96,12 +96,15 @@ final class BuildVariantsAcceptance {
         node.walk(new NodeVisitor() { @Override public void visit(CallExpression c) { calls.add(c); } });
         return calls;
     }
+    private static Node flowOwner(FlowVertex vertex) {
+        return vertex instanceof AuxiliaryFlowVertex auxiliary ? auxiliary.owner() : (Node) vertex;
+    }
     private static void assertIsolatedFlows(Project project) {
         var owners = owners(project);
         for (var flow : project.flows()) {
             var owner = owners.get(flow.entry());
             for (var edge : flow.control()) {
-                assertSame(owner, owners.get((Node) edge.from())); assertSame(owner, owners.get((Node) edge.to()));
+                assertSame(owner, owners.get(flowOwner(edge.from()))); assertSame(owner, owners.get(flowOwner(edge.to())));
             }
             for (var edge : flow.data()) {
                 assertSame(owner, owners.get(edge.from())); assertSame(owner, owners.get(edge.to()));

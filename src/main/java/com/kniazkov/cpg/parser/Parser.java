@@ -277,33 +277,18 @@ public final class Parser {
                 if (!(type instanceof FunctionType.Builder)) declaration.setWrittenType(type);
                 declaration.setName(declarator.name()).setReturnType(function.returnType().orElseThrow())
                         .setParameters(function.parameters()).setModifiers(specs.modifiers()).setVariadic(function.variadic())
-                        .setConst(function.isConst()).setVolatile(function.isVolatile());
+                        .setConst(function.isConst()).setVolatile(function.isVolatile())
+                        .setHasExceptionSpecification(function.hasExceptionSpecification()).setExceptionTypes(function.exceptionTypes());
                 if (!member && !declarator.name().contains("::") && (function.isConst() || function.isVolatile())) throw tokens.error("Free function cannot have cv qualifiers");
                 if (specs.modifiers().stream().anyMatch(java.util.Set.of("auto", "register", "mutable")::contains))
                     throw tokens.error("Invalid function storage class");
                 declaration.setLanguageLinkage(member ? "C++" : languageLinkage);
-                declaration.setDeclarationDefinition(tokens.peek().equals("{"));
+                declaration.setDeclarationDefinition(tokens.peek().equals("{") || tokens.peek().equals("try"));
                 types.declareName(declarator.name());
-                if (tokens.peek().equals("{")) {
+                if (tokens.peek().equals("{") || tokens.peek().equals("try")) {
                     if (local) throw tokens.error("Function definition is not permitted in a block");
                     if (declaration.writtenType().isPresent()) throw tokens.error("A function definition cannot use a function typedef declarator in C++03");
-                    if (member && !deferredBodies.isEmpty()) {
-                        int bodyPosition = tokens.checkpoint();
-                        try {
-                            tokens.skipBlock();
-                            deferredBodies.peek().add(types.inCurrentScope(() -> {
-                                int resume = tokens.checkpoint(); tokens.restore(bodyPosition);
-                                try { functionBody(declaration, function.parameters()); }
-                                finally { tokens.restore(resume); }
-                            }));
-                        } catch (ParseException error) {
-                            if (recovery == null) throw error;
-                            for (var earlier : deferredBodies.peek()) earlier.run();
-                            deferredBodies.peek().clear();
-                            tokens.restore(bodyPosition);
-                            if (!recovery.stopped()) functionBody(declaration, function.parameters());
-                        }
-                    } else functionBody(declaration, function.parameters());
+                    readFunctionBody(declaration, function.parameters(), member);
                     result.add(tokens.span(start, declaration));
                     return result;
                 }
@@ -392,15 +377,11 @@ public final class Parser {
         var result = MethodDeclaration.create().setKind(CallableDeclaration.Kind.CONVERSION)
                 .setName(prefix + "operator " + target.build().source(Language.CPP)).setConversionType(target)
                 .setConst(constant).setVolatile(vol).setModifiers(modifiers);
-        result.setDeclarationDefinition(tokens.peek().equals("{"));
-        if (tokens.peek().equals("{")) {
-            if (!deferredBodies.isEmpty()) {
-                int position = tokens.checkpoint(); tokens.skipBlock();
-                deferredBodies.peek().add(types.inCurrentScope(() -> {
-                    int resume = tokens.checkpoint(); tokens.restore(position);
-                    try { functionBody(result, java.util.List.of()); } finally { tokens.restore(resume); }
-                }));
-            } else functionBody(result, java.util.List.of());
+        result.setHasExceptionSpecification(tokens.peek().equals("throw"));
+        result.setExceptionTypes(types.exceptionTypes());
+        result.setDeclarationDefinition(tokens.peek().equals("{") || tokens.peek().equals("try"));
+        if (tokens.peek().equals("{") || tokens.peek().equals("try")) {
+            readFunctionBody(result, java.util.List.of(), true);
         } else {
             if (tokens.take("=")) {
                 if (!member) throw tokens.error("Pure-specifier requires a class member declaration");
@@ -442,7 +423,9 @@ public final class Parser {
         if (!destructor && modifiers.contains("virtual")) throw tokens.error("Constructor cannot be virtual");
         if (destructor && modifiers.contains("explicit")) throw tokens.error("explicit applies only to constructors");
         var result = MethodDeclaration.create().setName(declarator.name()).setKind(destructor ? CallableDeclaration.Kind.DESTRUCTOR : CallableDeclaration.Kind.CONSTRUCTOR)
-                .setParameters(function.parameters()).setVariadic(function.variadic()).setModifiers(modifiers);
+                .setParameters(function.parameters()).setVariadic(function.variadic()).setModifiers(modifiers)
+                .setHasExceptionSpecification(function.hasExceptionSpecification()).setExceptionTypes(function.exceptionTypes());
+        result.setFunctionTryBlock(tokens.take("try"));
         if (tokens.take(":")) {
             if (destructor) throw tokens.error("Destructor cannot have initializer list");
             do {
@@ -453,15 +436,10 @@ public final class Parser {
                 result.addInitializer(tokens.span(itemStart, item));
             } while (tokens.take(","));
         }
+        if ((result.functionTryBlock() || !result.initializers().isEmpty()) && !tokens.peek().equals("{")) throw tokens.error("Constructor initializer or function-try-block requires a body");
         result.setDeclarationDefinition(tokens.peek().equals("{"));
         if (tokens.peek().equals("{")) {
-            if (!deferredBodies.isEmpty()) {
-                int bodyPosition = tokens.checkpoint(); tokens.skipBlock();
-                deferredBodies.peek().add(types.inCurrentScope(() -> {
-                    int resume = tokens.checkpoint(); tokens.restore(bodyPosition);
-                    try { functionBody(result, function.parameters()); } finally { tokens.restore(resume); }
-                }));
-            } else functionBody(result, function.parameters());
+            readFunctionBody(result, function.parameters(), true);
         } else {
             if (tokens.take("=")) {
                 if (!destructor || classNames.isEmpty() || declarator.name().contains("::")) throw tokens.error("Pure-specifier requires an in-class virtual destructor declaration");
@@ -472,13 +450,42 @@ public final class Parser {
         return tokens.span(start, result);
     }
 
+    /** Delay inline bodies for complete-class lookup, but retain them on truncation. */
+    private void readFunctionBody(CallableDeclaration.Builder<?, ?> declaration,
+            java.util.List<NodeBuilder<? extends ParameterDeclaration>> parameters, boolean defer) {
+        if (!defer || deferredBodies.isEmpty()) { functionBody(declaration, parameters); return; }
+        int bodyPosition = tokens.checkpoint();
+        try {
+            tokens.skipFunctionBody(declaration.functionTryBlock());
+            deferredBodies.peek().add(types.inCurrentScope(() -> {
+                int resume = tokens.checkpoint(); tokens.restore(bodyPosition);
+                try { functionBody(declaration, parameters); }
+                finally { tokens.restore(resume); }
+            }));
+        } catch (ParseException error) {
+            if (recovery == null) throw error;
+            for (var earlier : deferredBodies.peek()) earlier.run();
+            deferredBodies.peek().clear();
+            tokens.restore(bodyPosition);
+            if (!recovery.stopped()) functionBody(declaration, parameters);
+        }
+    }
+
     private void functionBody(CallableDeclaration.Builder<?, ?> declaration,
             java.util.List<NodeBuilder<? extends ParameterDeclaration>> parameters) {
         types.inQualifier(declaration.name().orElse(""), () -> {
             types.pushScope();
             try {
                 for (var parameter : parameters) types.declareName(((ParameterDeclaration.Builder) parameter).name().orElse(""));
-                declaration.setBody(statements.block());
+                declaration.setFunctionTryBlock(tokens.take("try") || declaration.functionTryBlock());
+                try {
+                    declaration.setBody(statements.block());
+                    if (declaration.functionTryBlock() && (recovery == null || !recovery.stopped())) declaration.setHandlers(statements.handlers());
+                } catch (ParseException error) {
+                    if (recovery == null) throw error;
+                    recovery.stop(error, tokens.currentRange());
+                }
+                declaration.setBodyComplete(recovery == null || !recovery.stopped());
             } finally { types.popScope(); }
         });
     }

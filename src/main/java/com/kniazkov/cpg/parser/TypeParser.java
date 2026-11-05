@@ -324,8 +324,10 @@ final class TypeParser {
                 } finally { popScope(); }
                 boolean c = tokens.take("const"), v = tokens.take("volatile"); if (!c) c = tokens.take("const");
                 final boolean varargs = variadic, constant = c, vol = v;
+                boolean exceptionSpecification = tokens.peek().equals("throw");
+                var exceptionTypes = exceptionTypes();
                 var previous = direct;
-                direct = base -> previous.apply(tokens.span(start, FunctionType.create().setReturnType(base).setParameters(parameters).setVariadic(varargs).setConst(constant).setVolatile(vol)));
+                direct = base -> previous.apply(tokens.span(start, FunctionType.create().setReturnType(base).setParameters(parameters).setVariadic(varargs).setConst(constant).setVolatile(vol).setHasExceptionSpecification(exceptionSpecification).setExceptionTypes(exceptionTypes)));
             } else break;
         }
         var result = direct;
@@ -380,6 +382,8 @@ final class TypeParser {
         if (type instanceof FunctionType.Builder function) {
             var result = FunctionType.create().setReturnType(copyType(function.returnType().orElseThrow()))
                     .setVariadic(function.variadic()).setConst(function.isConst()).setVolatile(function.isVolatile());
+            result.setHasExceptionSpecification(function.hasExceptionSpecification());
+            result.setExceptionTypes(function.exceptionTypes().stream().map(this::copyType).toList());
             for (var parameter : function.parameters()) {
                 var original = (ParameterDeclaration.Builder) parameter;
                 result.addParameter(ParameterDeclaration.create().setName(original.name().orElse(""))
@@ -388,6 +392,19 @@ final class TypeParser {
             return result;
         }
         throw new IllegalArgumentException("Unsupported type syntax " + type.getClass().getName());
+    }
+
+    /** Dynamic exception specifications are syntax, not part of a C++03 function type identity. */
+    List<NodeBuilder<? extends TypeNode>> exceptionTypes() {
+        var result = new ArrayList<NodeBuilder<? extends TypeNode>>();
+        if (tokens.take("throw")) {
+            tokens.expect("(");
+            if (!tokens.take(")")) {
+                do { result.add(abstractType()); } while (tokens.take(","));
+                tokens.expect(")");
+            }
+        }
+        return result;
     }
 
     String operatorName() {

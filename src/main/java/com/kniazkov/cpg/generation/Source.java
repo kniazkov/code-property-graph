@@ -45,7 +45,7 @@ public final class Source {
                         || n instanceof NameExpression name && name.name().contains("::")
                         || n instanceof AddressOfExpression || n instanceof DereferenceExpression
                         || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CharacterLiteral || n instanceof StringLiteral
-                        || n instanceof CommaExpression || n instanceof DotMemberPointerExpression || n instanceof ArrowMemberPointerExpression
+                        || cppOnlyStatement(n) || n instanceof CommaExpression || n instanceof DotMemberPointerExpression || n instanceof ArrowMemberPointerExpression
                         || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion) || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression
                         || n instanceof ConditionalExpression
                         || n instanceof IntegerLiteral literal && literal.bigValue().bitLength() > 31
@@ -143,7 +143,8 @@ public final class Source {
 
     private static boolean unrepresentableDeclaration(Node node) {
         return node instanceof ClassDeclaration cls && (!cls.isDefinition() && !cls.members().isEmpty() || cls.implicit() && cls.isDefinition())
-                || node instanceof CallableDeclaration callable && callable.writtenType().isPresent() && callable.body().isPresent();
+                || node instanceof CallableDeclaration callable && (!callable.bodyComplete() || callable.writtenType().isPresent() && callable.body().isPresent())
+                || node instanceof BlockStatement block && !block.complete();
     }
 
     /** Synthetic tag introductions overlap written type syntax and cannot be edited independently. */
@@ -196,8 +197,14 @@ public final class Source {
                 || declaration instanceof VariableDeclaration variable && (!variable.modifiers().isEmpty() || variable.bitWidth().isPresent() || variable.initializer().orElse(null) instanceof InitializationExpression)
                 || declaration instanceof ParameterDeclaration parameter && (!parameter.modifiers().isEmpty() || parameter.defaultValue().isPresent())
                 || declaration instanceof CallableDeclaration callable && (callable.kind() != CallableDeclaration.Kind.FUNCTION || callable.variadic() || callable.isPureVirtual() || callable.isConst() || callable.isVolatile()
-                        || callable.writtenType().isPresent() || callable.modifiers().stream()
+                        || callable.writtenType().isPresent() || callable.hasExceptionSpecification() || callable.functionTryBlock() || callable.modifiers().stream()
                         .anyMatch(m -> Set.of("extern", "inline", "virtual", "friend").contains(m)));
+    }
+
+    private static boolean cppOnlyStatement(Node node) {
+        return node instanceof GotoStatement || node instanceof LabelStatement
+                || node instanceof ConditionDeclarationExpression || node instanceof ThrowExpression
+                || node instanceof TryStatement || node instanceof CatchClause;
     }
 
     /** Validates a relative output path before any filesystem write. */
@@ -228,7 +235,7 @@ public final class Source {
             @Override public void visit(Node n) {
                 if (target == Language.JAVA && (n instanceof Expression expression && !expression.operatorCandidates().isEmpty()
                         || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CharacterLiteral
-                        || n instanceof StringLiteral || n instanceof CommaExpression || n instanceof DotMemberPointerExpression
+                        || n instanceof StringLiteral || cppOnlyStatement(n) || n instanceof CommaExpression || n instanceof DotMemberPointerExpression
                         || n instanceof ArrowMemberPointerExpression || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion)
                         || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression || n instanceof ConditionalExpression
                         || n instanceof IntegerLiteral literal && literal.bigValue().bitLength() > 31)) throw unsupported(n);
@@ -292,6 +299,8 @@ public final class Source {
         String signature = name + "(" + parameters(f.parameters(), f.variadic()) + ")"
                 + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : "");
         if (f.kind() == CallableDeclaration.Kind.FUNCTION) signature = declaration(f.returnType().orElseThrow(), signature);
+        signature += exceptionSpecification(f.hasExceptionSpecification(), f.exceptionTypes());
+        if (f.functionTryBlock()) signature += " try";
         if (!f.initializers().isEmpty()) signature += " : " + f.initializers().stream().map(value -> emit(value, 0)).collect(Collectors.joining(", "));
         return signature;
     }
@@ -330,7 +339,7 @@ public final class Source {
             case CallableDeclaration f -> linkage(f, pad + (f.isFriend() ? "friend " : "") + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
                     + (f.writtenType().isPresent() ? declaration(f.writtenType().orElseThrow(), f.name()) + ";\n"
                         : callableHead(f)
-                            + f.body().map(b -> " " + emit(b, level)).orElse(f.isPureVirtual() ? " = 0;\n" : ";\n")), level);
+                            + f.body().map(b -> " " + emit(b, level) + f.handlers().stream().map(h -> emit(h, level)).collect(Collectors.joining())).orElse(f.isPureVirtual() ? " = 0;\n" : ";\n")), level);
             case ParameterDeclaration p -> String.join("", p.modifiers().stream().map(m -> m + " ").toList())
                     + declaration(p.type().orElseThrow(), p.name())
                     + p.defaultValue().map(value -> " = " + emit(value, 0)).orElse("");
@@ -347,6 +356,24 @@ public final class Source {
             case IfStatement i -> pad + "if (" + emit(i.condition(), 0) + ") " + body(i.thenBranch(), level)
                     + i.elseBranch().map(branch -> pad + "else " + body(branch, level)).orElse("");
             case WhileStatement w -> pad + "while (" + emit(w.condition(), 0) + ") " + body(w.body(), level);
+            case EmptyStatement ignored -> pad + ";\n";
+            case BreakStatement ignored -> pad + "break;\n";
+            case ContinueStatement ignored -> pad + "continue;\n";
+            case GotoStatement g -> pad + "goto " + g.label() + ";\n";
+            case LabelStatement l -> pad + l.label() + ":\n" + emit(l.statement(), level);
+            case DoWhileStatement d -> pad + "do " + body(d.body(), level).stripTrailing()
+                    + " while (" + emit(d.condition(), 0) + ");\n";
+            case ForStatement f -> pad + "for (" + forInitializers(f.initializers()) + "; "
+                    + f.condition().map(c -> emit(c, 0)).orElse("") + "; "
+                    + f.update().map(u -> emit(u, 0)).orElse("") + ") " + body(f.body(), level);
+            case SwitchStatement s -> pad + "switch (" + emit(s.condition(), 0) + ") " + body(s.body(), level);
+            case CaseStatement c -> pad + c.value().map(v -> "case " + emit(v, 0)).orElse("default")
+                    + ":\n" + emit(c.statement(), level);
+            case TryStatement t -> pad + "try " + emit(t.body(), level)
+                    + t.handlers().stream().map(h -> emit(h, level)).collect(Collectors.joining());
+            case CatchClause c -> pad + "catch (" + c.parameter().map(p -> emit(p, 0)).orElse("...") + ") " + emit(c.body(), level);
+            case ThrowExpression t -> "throw" + t.value().map(v -> " " + emit(v, 0)).orElse("");
+            case ConditionDeclarationExpression c -> inline(c.declaration());
             case PrintStatement s -> pad + (target == Language.JAVA ? "System.out.println(" + emit(s.value(), 0) + ");"
                     : "std::cout << " + emit(s.value(), 0) + " << std::endl;") + "\n";
             case AssignmentExpression a -> "(" + assignment(a) + ")";
@@ -457,10 +484,50 @@ public final class Source {
             case MemberPointerType p -> declaration(p.pointee(), grouped(p.pointee(), declaration(p.ownerType(), "") + "::*" + qualifiers + (qualifiers.isEmpty() ? "" : " ") + name));
             case ArrayType a -> declaration(a.elementType(), name + "[" + a.bound().map(e -> emit(e, 0)).orElse("") + "]", qualifiers);
             case FunctionType f -> declaration(f.returnType(), name + "(" + parameters(f.parameters(), f.variadic()) + ")"
-                    + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : ""));
+                    + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : "")
+                    + exceptionSpecification(f.hasExceptionSpecification(), f.exceptionTypes()));
             default -> throw unsupported(type);
         };
     }
+    private String exceptionSpecification(boolean present, List<TypeNode> types) {
+        return present ? " throw(" + types.stream().map(t -> declaration(t, "")).collect(Collectors.joining(", ")) + ")" : "";
+    }
+
+    private String inline(Node node) {
+        String text = emit(node, 0).strip();
+        return text.endsWith(";") ? text.substring(0, text.length() - 1) : text;
+    }
+
+    private String forInitializers(List<Node> nodes) {
+        if (nodes.isEmpty()) return "";
+        if (nodes.getFirst() instanceof VariableDeclaration first) {
+            String result = inline(first);
+            for (int i = 1; i < nodes.size(); i++) {
+                if (!(nodes.get(i) instanceof VariableDeclaration next)) throw unsupported(nodes.get(i));
+                // Shared declaration specifiers belong to the first declarator only.
+                String full = declaration(next.type().orElseThrow(), next.name());
+                String common = declarationBase(first.type().orElseThrow());
+                if (!full.startsWith(common + " ")) throw unsupported(next);
+                result += ", " + full.substring(common.length() + 1)
+                        + next.initializer().map(v -> (v instanceof InitializationExpression init && init.form() == InitializationExpression.Form.DIRECT ? "" : " = ") + emit(v, 0)).orElse("");
+            }
+            return result;
+        }
+        return nodes.stream().map(this::inline).collect(Collectors.joining(", "));
+    }
+
+    private String declarationBase(TypeNode type) {
+        return switch (type) {
+            case PointerType p -> declarationBase(p.pointee());
+            case ReferenceType r -> declarationBase(r.referredType());
+            case MemberPointerType p -> declarationBase(p.pointee());
+            case ArrayType a -> declarationBase(a.elementType());
+            case FunctionType f -> declarationBase(f.returnType());
+            case QualifiedType q when q.baseType() instanceof PointerType || q.baseType() instanceof MemberPointerType -> declarationBase(q.baseType());
+            default -> declaration(type, "");
+        };
+    }
+
     private String grouped(TypeNode target, String declarator) {
         while (target instanceof QualifiedType qualified) target = qualified.baseType();
         return target instanceof ArrayType || target instanceof FunctionType ? "(" + declarator + ")" : declarator;

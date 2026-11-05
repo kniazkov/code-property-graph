@@ -15,6 +15,8 @@ import java.util.*;
 public final class DataFlow {
     private final Language language;
     private final PlatformProfile profile;
+    private final Map<Node, Expression> expandedValues = new IdentityHashMap<>();
+    private final Map<Node, List<DataEdge>> expandedDependencies = new IdentityHashMap<>();
 
     private DataFlow(Language language, PlatformProfile profile) {
         this.language = language;
@@ -35,9 +37,33 @@ public final class DataFlow {
 
     private FunctionFlow analyzeFunction(FunctionFlow flow) {
         if (!flow.complete()) return flow;
-        Map<FlowVertex,List<FlowVertex>> successors = new HashMap<>();
+        // Sequenced/branching values may already execute as separate CFG vertices.
+        // Detect that ownership from actual edges, rather than duplicating CFG grammar.
+        for (var edge : flow.control()) if (edge.from() instanceof Expression completed && edge.to() instanceof Node consumer) {
+            Expression value = consumer instanceof VariableDeclaration variable ? variable.initializer().orElse(null)
+                    : consumer instanceof ReturnStatement result ? result.value().orElse(null)
+                    : consumer instanceof AssignmentExpression assignment && assignment.target() instanceof NameExpression ? assignment.value() : null;
+            if (value != null && contains(value, completed)) {
+                expandedValues.put(consumer, value);
+            }
+        }
+        Map<FlowVertex,List<FlowVertex>> normalPredecessors = new IdentityHashMap<>();
+        for (var edge : flow.control()) if (edge.kind() != Branch.EXCEPTION && edge.kind() != Branch.THROW)
+            normalPredecessors.computeIfAbsent(edge.to(), ignored -> new ArrayList<>()).add(edge.from());
+        expandedValues.forEach((consumer, value) -> {
+            Set<FlowVertex> completes = Collections.newSetFromMap(new IdentityHashMap<>());
+            var pending = new ArrayDeque<FlowVertex>(); pending.add(consumer);
+            while (!pending.isEmpty()) {
+                var vertex = pending.remove();
+                if (completes.add(vertex)) pending.addAll(normalPredecessors.getOrDefault(vertex, List.of()));
+            }
+            var dependencies = new ArrayList<DataEdge>();
+            expandedDependencies(value, completes, dependencies);
+            expandedDependencies.put(consumer, dependencies);
+        });
+        Map<FlowVertex,List<ControlEdge>> successors = new HashMap<>();
         for (var edge : flow.control())
-            successors.computeIfAbsent(edge.from(), k -> new ArrayList<>()).add(edge.to());
+            successors.computeIfAbsent(edge.from(), k -> new ArrayList<>()).add(edge);
 
         Map<FlowVertex, State> inputs = new LinkedHashMap<>();
         var entry = new State();
@@ -49,18 +75,42 @@ public final class DataFlow {
             var vertex = work.remove();
             State output = inputs.get(vertex).copy();
             transfer(vertex, output, (from, to, kind) -> {});
-            for (var successor : successors.getOrDefault(vertex, List.of())) {
+            for (var edge : successors.getOrDefault(vertex, List.of())) {
+                var successor = edge.to();
+                State propagated = output;
+                if (edge.kind() == Branch.EXCEPTION) {
+                    // A potentially throwing instruction may fail before its final write.
+                    propagated = output.copy();
+                    propagated.merge(inputs.get(vertex));
+                }
                 var input = inputs.get(successor);
                 if (input == null) {
-                    inputs.put(successor, output.copy());
+                    inputs.put(successor, propagated.copy());
                     work.add(successor);
-                } else if (input.merge(output)) work.add(successor);
+                } else if (input.merge(propagated)) work.add(successor);
             }
         }
         Set<DataEdge> edges = new LinkedHashSet<>();
         inputs.forEach((vertex, input) -> transfer(vertex, input.copy(),
                 (from, to, kind) -> edges.add(new DataEdge(from, to, kind))));
-        return new FunctionFlow(flow.entry(), flow.exit(), flow.control(), List.copyOf(edges));
+        return new FunctionFlow(flow.entry(), flow.exit(), flow.control(), List.copyOf(edges), flow.complete());
+    }
+
+    /** Restore value structure for expanded selectors/arms without executing them again. */
+    private static boolean expandedDependencies(Expression value, Set<FlowVertex> completes, List<DataEdge> edges) {
+        boolean contributes = completes.contains(value);
+        for (Node child : value.children()) if (child instanceof Expression expression
+                && expandedDependencies(expression, completes, edges)) {
+            edges.add(new DataEdge(expression, value, Dependency.VALUE));
+            contributes = true;
+        }
+        return contributes;
+    }
+
+    private static boolean contains(Node root, Node candidate) {
+        if (root == candidate) return true;
+        for (Node child : root.children()) if (contains(child, candidate)) return true;
+        return false;
     }
 
     /** A program point's possible most recent writes, indexed by declaration identity. */
@@ -94,6 +144,14 @@ public final class DataFlow {
 
     /** Executes only the current CFG instruction. Its successor instructions run through the worklist. */
     private void transfer(FlowVertex vertex, State state, Sink sink) {
+        if (vertex instanceof Node consumer && expandedValues.containsKey(consumer)) {
+            Expression value = expandedValues.get(consumer);
+            for (DataEdge edge : expandedDependencies.get(consumer)) sink.edge(edge.from(), edge.to(), edge.kind());
+            sink.edge(value, consumer, Dependency.VALUE);
+            if (consumer instanceof VariableDeclaration variable) state.write(variable, variable);
+            else if (consumer instanceof AssignmentExpression assignment) writeTarget(assignment.target(), assignment, state);
+            return;
+        }
         switch (vertex) {
             case VariableDeclaration v -> {
                 state.definitions.remove(v);
@@ -102,6 +160,15 @@ public final class DataFlow {
                     state.write(v, v);
                 });
             }
+            case AuxiliaryFlowVertex auxiliary -> {
+                if (auxiliary.kind() == AuxiliaryFlowVertex.Kind.IMPLICIT_DESTRUCTOR)
+                    auxiliary.object().filter(Declaration.class::isInstance).map(Declaration.class::cast).ifPresent(object -> {
+                        // Destruction reads the final object state, but is not a written call.
+                        for (Node write : state.definitions.getOrDefault(object, Set.of()))
+                            sink.edge(write, object, Dependency.DEFINITION);
+                    });
+            }
+            case CatchClause handler -> handler.parameter().ifPresent(parameter -> state.write(parameter, parameter));
             case MemberInitializer initializer -> initializer.arguments().forEach(argument -> consume(argument, initializer, state, sink));
             case ExpressionStatement s -> evaluate(s.expression(), state, sink);
             case Expression condition -> evaluate(condition, state, sink);
@@ -118,7 +185,15 @@ public final class DataFlow {
 
     /** Evaluates value operands and models assignment as a write after the right-hand side has been read. */
     private void evaluate(Expression value, State state, Sink sink) {
-        if (value instanceof SizeofExpression) {
+        if (value instanceof ConditionDeclarationExpression condition) {
+            VariableDeclaration declaration = condition.declaration();
+            state.definitions.remove(declaration);
+            declaration.initializer().ifPresent(initializer -> {
+                consume(initializer, declaration, state, sink);
+                state.write(declaration, declaration);
+            });
+            sink.edge(declaration, condition, Dependency.DEFINITION);
+        } else if (value instanceof SizeofExpression) {
             // C++03 sizeof does not read or execute any expression in its operand.
             return;
         } else if (value instanceof TypeidExpression typeid) {
