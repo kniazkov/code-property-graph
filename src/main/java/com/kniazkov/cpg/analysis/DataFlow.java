@@ -267,6 +267,16 @@ public final class DataFlow {
         if (containers.containsKey(variable)) { containerEffect(containers.get(variable), state, sink); return; }
         if (arrays.containsKey(variable)) { arrayEffect(arrays.get(variable), state, sink); return; }
         if (variable.constructorTarget().filter(LibraryCallEffects::unknown).isEmpty()) return;
+        if (variable.type().filter(this::streamIteratorType).isPresent()) {
+            Expression value = variable.initializer().orElse(null);
+            while (value instanceof ConversionExpression conversion) value = conversion.operand();
+            if (value instanceof InitializationExpression initialization && !initialization.arguments().isEmpty()) {
+                var bindings = new LinkedHashSet<ElementBinding>();
+                for (Declaration root : storageRoots(initialization.arguments().getFirst(), state))
+                    bindings.add(new ElementBinding(initialization, root, true, true, true));
+                state.elements.put(variable, bindings);
+            }
+        }
         state.write(variable, variable);
         var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
         variable.initializer().ifPresent(value -> value.walk(new NodeVisitor() {
@@ -543,6 +553,21 @@ public final class DataFlow {
                         handle.validity() != ContainerOperation.Handle.Validity.VALID));
             return result;
         }
+        var opaqueResult = LibraryCallEffects.aliasResult(value).orElse(null);
+        if (opaqueResult != null) {
+            TypeNode referent = opaqueResult instanceof ReferenceType reference ? reference.referredType()
+                    : ((PointerType) opaqueResult).pointee();
+            boolean writable = (TypeSemantics.qualifiers(referent) & 1) == 0;
+            var possible = new LinkedHashSet<Declaration>(libraryAccessible);
+            possible.addAll(sequenceRoots(value));
+            var result = new LinkedHashSet<ElementBinding>();
+            for (Declaration root : possible) {
+                result.add(new ElementBinding(value, alias(root), opaqueResult instanceof PointerType, writable, true));
+                for (var binding : state.elements.getOrDefault(root, Set.of()))
+                    result.add(new ElementBinding(value, binding.sequence(), opaqueResult instanceof PointerType, writable, true));
+            }
+            return result;
+        }
         if (value instanceof NameExpression name) {
             var target = name.target().orElse(null);
             if (target == null) return Set.of();
@@ -594,6 +619,11 @@ public final class DataFlow {
             return result;
         }
         return Set.of();
+    }
+
+    private boolean streamIteratorType(TypeNode type) {
+        return ClassSemantics.objectClass(type).filter(LibraryDeclarations::isLibrary)
+                .filter(c -> Set.of("istream_iterator", "ostream_iterator", "istreambuf_iterator", "ostreambuf_iterator").contains(c.name())).isPresent();
     }
 
     private boolean outputAdapter(Expression value) {
@@ -744,7 +774,15 @@ public final class DataFlow {
             // Unknown operator bodies may mutate objects passed by reference. Retain both
             // incoming and possible call definitions, rather than claiming a definite write.
             for (var operand : OperatorSemantics.operands(value)) possibleMutation(operand, value, state);
-            if (LibraryCallEffects.unknown(value)) opaqueMutation(value, libraryAccessible, state, sink);
+            if (LibraryCallEffects.unknown(value)) {
+                if (value instanceof AssignmentExpression assignment && assignment.target() instanceof NameExpression name
+                        && TypeSemantics.expressionType(name, profile).filter(this::streamIteratorType).isPresent())
+                    name.target().ifPresent(target -> state.elements.computeIfAbsent(target, ignored -> new LinkedHashSet<>())
+                            .addAll(elementBindings(assignment.value(), state)));
+                var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
+                for (Expression operand : OperatorSemantics.operands(value)) exposed.addAll(storageRoots(operand, state));
+                opaqueMutation(value, exposed, state, sink);
+            }
         } else if (value instanceof NameExpression use) {
             use.target().ifPresent(target -> {
                 // A whole-object reference has its own binding definition in
@@ -808,7 +846,7 @@ public final class DataFlow {
             exposeAdapters(call, state);
             if (LibraryCallEffects.unknown(call)) {
                 var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
-                LibraryCallEffects.exposed(call).forEach(expression -> exposed.addAll(LibraryCallEffects.roots(expression)));
+                LibraryCallEffects.exposed(call).forEach(expression -> exposed.addAll(storageRoots(expression, state)));
                 opaqueMutation(call, exposed, state, sink);
             }
         } else {

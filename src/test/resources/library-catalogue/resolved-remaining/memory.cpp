@@ -1,0 +1,2 @@
+#include <memory>
+void memory(std::allocator<int>& a,const std::allocator<int>& ca,int& i,const int& ci,std::auto_ptr<int>& p,int* raw){a.address(i);ca.address(ci);a.allocate(2);a.allocate(2,raw);a.deallocate(raw,2);a.max_size();a.construct(raw,i);a.destroy(raw);p.get();p.release();p.reset();p.reset(raw);std::get_temporary_buffer<int>(2);std::return_temporary_buffer(raw);std::uninitialized_copy(raw,raw,raw);std::uninitialized_fill(raw,raw,1);std::uninitialized_fill_n(raw,2,1);}

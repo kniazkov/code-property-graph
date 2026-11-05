@@ -78,7 +78,7 @@ public final class InheritanceSemantics {
     private static List<String> parameterTypes(CallableDeclaration method) {
         return method.parameters().stream().map(p -> p.type().map(TypeIdentity::parameterIdentity).orElse("<unknown>" )).toList();
     }
-    private static final class Index {
+    static final class Index {
         final Map<CallableDeclaration, ClassDeclaration> owners = new IdentityHashMap<>();
         final List<CallableDeclaration> methods = new ArrayList<>();
         Index(Project project) {

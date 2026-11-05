@@ -181,7 +181,22 @@ public final class ControlFlow {
                                 && o.resultKind() == ContainerOperation.ResultKind.ITERATOR))) return true;
             var operation = project.sequenceSemantics().stream().filter(o -> o.syntax() == expression
                     && (LibraryDeclarations.isLibrary(o.selectedTarget()) || o.selectedTarget().templateOrigin().filter(LibraryDeclarations::isLibrary).isPresent())).findFirst().orElse(null);
-            if (operation == null) return false;
+            if (operation == null) {
+                // str() may materialize the same trusted default string as substr().
+                // Keep the call opaque: this only proves the destination lifetime shape.
+                if (!(expression instanceof CallExpression call) || !call.arguments().isEmpty()
+                        || !call.target().filter(LibraryCallEffects::unknown).map(t -> t.name().equals("str")).orElse(false)
+                        || !(call.callee() instanceof MemberExpression member)
+                        || TypeSemantics.expressionType(member.receiver(), profile).flatMap(ClassSemantics::objectClass)
+                                .filter(LibraryDeclarations::isLibrary)
+                                .filter(c -> Set.of("basic_stringstream", "basic_istringstream", "basic_ostringstream", "basic_stringbuf").contains(c.name())).isEmpty()) return false;
+                if (!result.name().equals("basic_string") || result.templateArguments().size() != 3) return false;
+                var arguments = result.templateArguments();
+                return arguments.getFirst().type().map(TypeNode::canonicalIdentity).filter("char"::equals).isPresent()
+                        && defaultCharacterPolicy(arguments.get(1).type(), "char_traits")
+                        && defaultCharacterPolicy(arguments.get(2).type(), "allocator")
+                        && directlyMaterialized(expression, result);
+            }
             if ((operation.resultKind() == SequenceOperation.ResultKind.OUTPUT_ADAPTER
                     || operation.resultKind() == SequenceOperation.ResultKind.ITERATOR)
                     && Set.of("back_insert_iterator", "front_insert_iterator", "insert_iterator").contains(result.name()))
@@ -190,10 +205,15 @@ public final class ControlFlow {
                     && result.name().equals("reverse_iterator"))
                 return TypeSemantics.expressionType(expression, profile).flatMap(LibraryIteratorSemantics::info).isPresent();
             if (operation.kind() != SequenceOperation.Kind.STRING_SUBSTR || operation.characterType().isEmpty()) return false;
-            var type = operation.characterType().orElseThrow();
+            return defaultStringMaterialization(expression, result, operation.characterType().orElseThrow());
+        }
+        boolean defaultStringMaterialization(Expression expression, ClassDeclaration result, CharacterSequenceType type) {
             if (!type.characterType().canonicalIdentity().equals("char")
                     || !defaultCharacterPolicy(type.traitsType(), "char_traits")
                     || !defaultCharacterPolicy(type.allocatorType(), "allocator")) return false;
+            return directlyMaterialized(expression, result);
+        }
+        boolean directlyMaterialized(Expression expression, ClassDeclaration result) {
             // Do not admit a discarded temporary, nested argument, user conversion,
             // reference binding, or custom allocator/traits lifetime on this path.
             var materialized = new boolean[1];
