@@ -1337,3 +1337,12 @@ so it does not import unrelated old syntax. Necessary semantic dependencies and
 source context are included to make IDs and coordinates self-contained. A plain
 JSON parser can follow `5` to its folding pass and earlier `2 + 3` without opening
 source files. No JSON-to-Project importer is provided.
+
+Historical semantic declaration dependencies are identity/context summaries, not
+copies of every old member or function body. Actual provenance inputs and their
+owned operand syntax remain complete. If a declaration is itself a provenance
+input, it is promoted to the full historical representation. This distinction
+keeps library dependencies from importing unrelated historical catalogue syntax.
+`historyDependency: true` marks such a reference-only descriptor. It omits owning
+children, semantic outgoing edges and token-unit expansion; its identity, range
+and available type information remain readable.

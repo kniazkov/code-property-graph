@@ -47,6 +47,26 @@ class TransformationProvenanceModelTest {
         assertEquals(firstType.transformationProvenance(), repeatedType.transformationProvenance());
         assertSame(initialType, repeatedType.transformationProvenance().getFirst().source());
     }
+    @Test void sharedReplacementHistoryUsesSourceOrderAcrossIndependentBuilds() {
+        for (int iteration = 0; iteration < 40; iteration++) {
+            var wrapper = ConversionExpression.create().setKind(ConversionExpression.Kind.STATIC_CAST)
+                    .setTargetType(NamedType.create().setName("int"))
+                    .setOperand(IntegerLiteral.create().setValue(7));
+            Project original = Project.create().addFile(SourceFile.create().setPath("test.cpp").setLanguage(Language.CPP)
+                    .addItem(VariableDeclaration.create().setName("x").setType(NamedType.create().setName("int"))
+                            .setInitializer(wrapper))).build();
+            var before = (ConversionExpression) value(original);
+            var literal = before.operand();
+            var editor = new ProjectEditor(original).withoutRevalidation().setPassId("test");
+            // Both replaced occurrences contribute to one output; registration order is deliberately reversed.
+            editor.replace(literal, literal);
+            editor.replace(before, literal);
+            Node output = value(editor.build());
+            assertEquals(2, output.transformationProvenance().size());
+            assertSame(before, output.transformationProvenance().get(0).source());
+            assertSame(literal, output.transformationProvenance().get(1).source());
+        }
+    }
     @Test void reverseQueryTraversesImmediatePredecessors() {
         Project original = project();
         Node first = value(original);

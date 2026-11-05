@@ -2,6 +2,7 @@
 package com.kniazkov.cpg.e2e;
 
 import com.kniazkov.cpg.Cpg;
+import com.kniazkov.cpg.SnapshotAssertions;
 import com.kniazkov.cpg.analysis.ConsoleNormalizer;
 import com.kniazkov.cpg.analysis.ConstantFolder;
 import com.kniazkov.cpg.model.*;
@@ -24,7 +25,9 @@ final class SnapshotHistoryAcceptance {
             assertEquals(stage.name().toLowerCase(Locale.ROOT), encoded.get("stage"));
             assertEquals(ProjectJson.encode(project), ProjectJson.encode(Cpg.read(cli.input, options)));
             var run = cli.run("cpp", "--stage", stage.name().toLowerCase(Locale.ROOT), "--cpp-standard", "c++03").expectStatus(0);
-            var standalone = (Map<?, ?>) Json.parse(run.work().resolve("snapshot.json").toFile()).toJavaObject();
+            var cliJson = Json.parse(run.work().resolve("snapshot.json").toFile());
+            SnapshotAssertions.assertEquivalent(ProjectJson.encode(project), cliJson);
+            var standalone = (Map<?, ?>) cliJson.toJavaObject();
             assertEquals(encoded.get("stage"), standalone.get("stage"));
             assertEquals(1, ((Number) standalone.get("schemaVersion")).intValue());
             if (stage == Cpg.Stage.FOLDED) verifyStandalone(standalone);

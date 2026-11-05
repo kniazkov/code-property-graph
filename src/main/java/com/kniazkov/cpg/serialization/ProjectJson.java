@@ -11,7 +11,9 @@ import java.util.*;
 
 /** Writes selected syntax ownership as nested fields and non-owning edges as destination IDs.
  * Reachable historical nodes are defined once in {@code history}; their child fields
- * contain {@code nodeId} references. Earlier project/file nodes are context only,
+ * contain {@code nodeId} references. Reference-only historical dependencies are
+ * marked {@code historyDependency} and retain identity and source range, not ownership.
+ * Earlier project/file nodes are context only,
  * so provenance never implicitly imports unrelated earlier syntax. */
 public final class ProjectJson {
     private ProjectJson() {}
@@ -39,6 +41,9 @@ public final class ProjectJson {
         private final Map<FlowVertex,Integer> ids = new IdentityHashMap<>();
         private final List<FlowVertex> ordered = new ArrayList<>();
         private final List<Preprocessing> sourceContexts = new ArrayList<>();
+        private final Set<FlowVertex> currentNodes = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Set<Node> historicalSyntax = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final ArrayDeque<Node> pending = new ArrayDeque<>();
         private int currentCount;
         private boolean discovering;
         private boolean referenceChildren;
@@ -68,17 +73,19 @@ public final class ProjectJson {
             project.externalInputs().forEach(input -> input.walk(index));
             for (SourceFile file : java.util.stream.Stream.concat(project.files().stream(), project.librarySources().stream()).toList()) file.provenance().ifPresent(p -> units.put(p.unit(), id(file)));
             currentCount = ordered.size();
+            currentNodes.addAll(ordered);
             // Discover exactly the fields we serialize, not every node in earlier snapshots.
             // In discovery mode child objects are references, so cycles cannot recurse.
             discovering = true;
             referenceChildren = true;
-            int nodeCursor = 0;
+            for (FlowVertex vertex : ordered) if (vertex instanceof Node n) pending.add(n);
             int contextCursor = 0;
-            while (nodeCursor < ordered.size() || contextCursor < sourceContexts.size()) {
-                if (nodeCursor < ordered.size()) {
-                    if (ordered.get(nodeCursor++) instanceof Node n) {
+            while (!pending.isEmpty() || contextCursor < sourceContexts.size()) {
+                if (!pending.isEmpty()) {
+                    Node n = pending.removeFirst();
+                    if (!dependencyOnly(n)) {
                         n.references().forEach(this::id);
-                        n.commentReferences().forEach(this::id);
+                        n.commentReferences().forEach(this::syntaxId);
                         fullNode(n);
                     }
                 } else {
@@ -89,12 +96,17 @@ public final class ProjectJson {
             }
             discovering = false;
             referenceChildren = false;
-            for (int i = 0; i < sourceContexts.size(); i++)
-                units.put(sourceContexts.get(i), ordered.size() + i);
-            for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n) for (Node target : n.references()) edge(n, target, "ref");
-            for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n)
+            // Attribution trees can differ between API and CLI for identical syntax.
+            // Keep historical syntax/context IDs independent of that catalogue too.
+            int nextId = 0;
+            for (FlowVertex vertex : ordered) if (!(vertex instanceof ExternalInput)) ids.put(vertex, nextId++);
+            for (Preprocessing unit : sourceContexts) units.put(unit, nextId++);
+            for (FlowVertex vertex : ordered) if (vertex instanceof ExternalInput) ids.put(vertex, nextId++);
+            for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n && !dependencyOnly(n)) for (Node target : n.references()) edge(n, target, "ref");
+            for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n && !dependencyOnly(n))
                 for (Comment comment : n.commentReferences()) edge(n, comment, "HAS_COMMENT");
             for (FlowVertex vertex : ids.keySet()) {
+                if (vertex instanceof Node n && dependencyOnly(n)) continue;
                 if (vertex instanceof OpaqueLibraryType type) {
                     type.iteratorContainer().ifPresent(container -> edge(type, container, "ITERATOR_CONTAINER"));
                     type.iteratorDifferenceType().ifPresent(difference -> edge(type, difference, "ITERATOR_DIFFERENCE_TYPE"));
@@ -193,7 +205,7 @@ public final class ProjectJson {
                 if (vertex instanceof IncludeDirective include) include.libraryHeader().ifPresent(header -> edge(include, header, "LIBRARY_HEADER"));
                 if (vertex instanceof Declaration declaration) declaration.templateOrigin().ifPresent(origin -> edge(declaration, origin, "TEMPLATE_ORIGIN"));
             }
-            for (FlowVertex vertex : ids.keySet()) if (vertex instanceof CallExpression call)
+            for (FlowVertex vertex : ids.keySet()) if (vertex instanceof CallExpression call && !dependencyOnly(call))
                 call.target().ifPresent(target -> edge(call, target, "CALL_TARGET"));
             for (TemplateInstance instance : project.templateInstances()) for (Node request : instance.requests()) {
                 edge(request, instance, "INSTANTIATION_CAUSE");
@@ -213,6 +225,7 @@ public final class ProjectJson {
             if (!ids.containsKey(vertex)) {
                 ids.put(vertex, ordered.size());
                 ordered.add(vertex);
+                if (discovering && vertex instanceof Node n) pending.add(n);
             }
         }
 
@@ -224,12 +237,50 @@ public final class ProjectJson {
             return ids.get(vertex);
         }
 
+        private boolean dependencyOnly(Node node) {
+            return !currentNodes.contains(node) && !historicalSyntax.contains(node);
+        }
+
+        /** True history and owned operands retain syntax; semantic targets are summaries. */
+        private Integer syntaxId(Node node) {
+            int value = id(node);
+            if (!currentNodes.contains(node) && historicalSyntax.add(node) && discovering) pending.add(node);
+            return value;
+        }
+
+        private JsonObject dependency(Node node) {
+            var obj = Json.object().put("id", id(node)).put("kind", node.getClass().getSimpleName())
+                    .put("historyDependency", true);
+            String name = switch (node) {
+                case ClassDeclaration n -> n.name();
+                case CallableDeclaration n -> n.name();
+                case VariableDeclaration n -> n.name();
+                case ParameterDeclaration n -> n.name();
+                case TypedefDeclaration n -> n.name();
+                case NamespaceDeclaration n -> n.name();
+                case NamespaceAliasDeclaration n -> n.name();
+                case UsingDeclaration n -> n.qualifiedName();
+                case UsingDirective n -> n.namespaceName();
+                case NameExpression n -> n.name();
+                case TemplateParameterDeclaration n -> n.name();
+                case EnumDeclaration n -> n.name();
+                case EnumeratorDeclaration n -> n.name();
+                default -> null;
+            };
+            if (name != null) obj.put("name", name);
+            node.range().ifPresent(value -> obj.put("range", range(value)));
+            if (node instanceof TypeNode type) obj.put("canonicalIdentity", type.canonicalIdentity());
+            if (node instanceof Declaration declaration)
+                declaration.typeIdentity().ifPresent(value -> obj.put("typeIdentity", value));
+            return obj.build();
+        }
+
         private JsonObject encode() { return fullNode(project); }
 
         private JsonObject historyNode(Node n) {
             boolean previous = referenceChildren;
             referenceChildren = true;
-            try { return fullNode(n); }
+            try { return dependencyOnly(n) ? dependency(n) : fullNode(n); }
             finally { referenceChildren = previous; }
         }
 
@@ -252,12 +303,12 @@ public final class ProjectJson {
         }
 
         private JsonObject node(Node n) {
-            if (referenceChildren) return Json.object().put("nodeId", id(n)).build();
+            if (referenceChildren) return Json.object().put("nodeId", syntaxId(n)).build();
             return fullNode(n);
         }
 
         private JsonObject fullNode(Node n) {
-            boolean historical = id(n) >= currentCount;
+            boolean historical = !currentNodes.contains(n);
             var obj = Json.object().put("id", id(n)).put("kind", n.getClass().getSimpleName());
             switch (n) {
                 case Project p -> {
@@ -718,7 +769,7 @@ public final class ProjectJson {
             });
             if (!n.transformationProvenance().isEmpty()) obj.array("transformationProvenance", a ->
                     n.transformationProvenance().forEach(link -> a.object(value -> value
-                            .put("passId", link.passId()).put("role", link.role()).put("sourceId", id(link.source())))));
+                            .put("passId", link.passId()).put("role", link.role()).put("sourceId", syntaxId(link.source())))));
             if (!n.diagnostics().isEmpty()) {
                 obj.array("diagnostics", a -> n.diagnostics().forEach(d -> a.object(o -> {
                     o.put("code", d.code()).put("severity", lower(d.severity())).put("message", d.message());

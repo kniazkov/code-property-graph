@@ -396,18 +396,23 @@ public final class ProjectEditor {
         expressions.forEach((expression, info) -> context.copy(expression).setExpressionInfo(info));
         if (snapshotStage != null) root.setSnapshotStage(snapshotStage);
         if (passId != null) {
-            replacements.forEach((old, replacement) -> {
+            // Several nested replacements can contribute to the same retained builder.
+            // Record those edges in source order, never IdentityHashMap iteration order.
+            source.walk(new NodeVisitor() { @Override public void visit(Node old) {
+                Node replacement = replacements.get(old);
+                if (replacement == null) return;
                 context.copy(replacement).addTransformationProvenance(passId, "source-construct", old);
                 replacement.walk(new NodeVisitor() { @Override public void visit(Node retained) {
                     Node prior = origins.get(retained.editIdentity);
                     if (prior != null && prior != old && !ambiguousOrigins.contains(retained.editIdentity))
                         context.copy(retained).addTransformationProvenance(passId, "source-construct", prior);
                 }});
-            });
-            typeRepresentations.forEach((old, representation) -> {
-                if (!Objects.equals(old.semanticType().orElse(null), representation))
+            }});
+            source.walk(new NodeVisitor() { @Override public void visit(TypeNode old) {
+                TypeRepresentation representation = typeRepresentations.get(old);
+                if (representation != null && !Objects.equals(old.semanticType().orElse(null), representation))
                     context.copy(old).addTransformationProvenance(passId, "source-construct", old);
-            });
+            }});
         }
         var build = new BuildContext();
         Project result = build.build(root);
