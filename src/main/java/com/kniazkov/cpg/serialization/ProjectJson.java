@@ -24,7 +24,7 @@ public final class ProjectJson {
         Files.writeString(file, text, StandardOpenOption.CREATE_NEW);
     }
 
-    private record Edge(String kind, int to) {
+    private record Edge(String kind, int to, Integer callSiteId) {
         int group() {
             return kind.equals("ref") ? 0 : kind.startsWith("cfg.") ? 1 : 2;
         }
@@ -173,15 +173,20 @@ public final class ProjectJson {
             }
             for (var flow : project.flows()) {
                 for (var e : flow.control()) edge(e.from(), e.to(), "cfg." + lower(e.kind()));
-                for (var e : flow.data()) edge(e.from(), e.to(), "dfg." + lower(e.kind()));
+                for (var e : flow.data()) edge(e.from(), e.to(), "dfg." + lower(e.kind()), e.callSite());
             }
         }
 
         private static String lower(Enum<?> kind) { return kind.name().toLowerCase(Locale.ROOT); }
 
         private void edge(FlowVertex from, FlowVertex to, String kind) {
-            if (!ids.containsKey(from) || !ids.containsKey(to)) throw new IllegalStateException("Edge outside project");
-            outgoing.computeIfAbsent(from, ignored -> new ArrayList<>()).add(new Edge(kind, ids.get(to)));
+            edge(from, to, kind, null);
+        }
+
+        private void edge(FlowVertex from, FlowVertex to, String kind, CallExpression callSite) {
+            if (!ids.containsKey(from) || !ids.containsKey(to) || callSite != null && !ids.containsKey(callSite))
+                throw new IllegalStateException("Edge outside project");
+            outgoing.computeIfAbsent(from, ignored -> new ArrayList<>()).add(new Edge(kind, ids.get(to), callSite == null ? null : ids.get(callSite)));
         }
 
         private JsonArray nodes(List<? extends Node> children) {
@@ -641,8 +646,8 @@ public final class ProjectJson {
             }
             var links = outgoing.get(n);
             if (links != null) {
-                links.sort(Comparator.comparingInt(Edge::group).thenComparing(Edge::kind).thenComparingInt(Edge::to));
-                obj.array("edges", a -> links.forEach(e -> a.object(o -> o.put("kind", e.kind()).put("to", e.to()))));
+                links.sort(Comparator.comparingInt(Edge::group).thenComparing(Edge::kind).thenComparingInt(Edge::to).thenComparing(e -> e.callSiteId() == null ? -1 : e.callSiteId()));
+                obj.array("edges", a -> links.forEach(e -> a.object(o -> { o.put("kind", e.kind()).put("to", e.to()); if (e.callSiteId() != null) o.put("callSiteId", e.callSiteId()); })));
             }
             return obj.build();
         }
@@ -655,8 +660,8 @@ public final class ProjectJson {
             vertex.constructor().ifPresent(constructor -> obj.put("constructorId", ids.get(constructor)));
             var links = outgoing.get(vertex);
             if (links != null) {
-                links.sort(Comparator.comparingInt(Edge::group).thenComparing(Edge::kind).thenComparingInt(Edge::to));
-                obj.array("edges", a -> links.forEach(e -> a.object(o -> o.put("kind", e.kind()).put("to", e.to()))));
+                links.sort(Comparator.comparingInt(Edge::group).thenComparing(Edge::kind).thenComparingInt(Edge::to).thenComparing(e -> e.callSiteId() == null ? -1 : e.callSiteId()));
+                obj.array("edges", a -> links.forEach(e -> a.object(o -> { o.put("kind", e.kind()).put("to", e.to()); if (e.callSiteId() != null) o.put("callSiteId", e.callSiteId()); })));
             }
             return obj.build();
         }
