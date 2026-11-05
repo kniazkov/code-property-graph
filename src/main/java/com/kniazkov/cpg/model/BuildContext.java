@@ -15,10 +15,25 @@ import java.util.Set;
 final class BuildContext {
     private final Map<NodeBuilder<?>, Node> nodes = new IdentityHashMap<>();
 
+    /** An edited child invalidates enclosing derived expression facts until analysis reruns. */
+    private boolean invalidateDependentFacts(Node node) {
+        boolean changed = false;
+        for (Node child : node.children()) changed |= invalidateDependentFacts(child);
+        if (node instanceof Expression expression) {
+            if (changed && expression.expressionInfo != null) {
+                expression.expressionInfo = null;
+                if (expression instanceof ConversionExpression conversion) conversion.clearDerivedSource();
+            }
+            return changed || expression.expressionInfo == null;
+        }
+        return changed;
+    }
+
     /** Copies the reachable graph, validates ownership, then publishes its root. */
     <T extends Node> T build(NodeBuilder<T> root) {
         T result = copy(root);
         validateStructure(result);
+        invalidateDependentFacts(result);
         return result;
     }
 
@@ -36,6 +51,7 @@ final class BuildContext {
         node.origin = builder.origin;
         node.provenance = builder.provenance;
         if (node instanceof TypeNode type) type.representation = builder.typeRepresentation;
+        if (node instanceof Expression expression) expression.expressionInfo = builder.expressionInfo;
         nodes.put(builder, node);
         builder.fillNode(node, this);
         if (node instanceof Declaration declaration) {

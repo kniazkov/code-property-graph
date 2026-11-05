@@ -71,17 +71,17 @@ public final class NameExpression extends Expression {
             return Optional.ofNullable(target);
         }
 
-        public Builder setName(String name) {
+        public Builder setName(String name) { clearExpressionInfo();
             this.name = Objects.requireNonNull(name);
             return this;
         }
 
-        public Builder setTarget(NodeBuilder<? extends Declaration> target) {
+        public Builder setTarget(NodeBuilder<? extends Declaration> target) { clearExpressionInfo();
             this.target = Objects.requireNonNull(target);
             return this;
         }
 
-        public Builder clearTarget() {
+        public Builder clearTarget() { clearExpressionInfo();
             this.target = null;
             return this;
         }

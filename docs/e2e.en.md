@@ -138,4 +138,23 @@ mvn verify
 python3 scripts/check-cpp03-reports.py
 ```
 
-The current inventory contains eighteen scenarios, so the report guard requires **twenty** corpus/harness results with no failures, errors or skips. It must run only after the complete corpus. JDK 21, GCC, Clang and Graphviz remain required; a focused local run is not a full acceptance result. The [model guide](model-guide.en.md#scopes-declarations-and-linkage-24) defines the exact fields and remaining limits: full overload selection/ADL, class ABI and complete C++03 declaration/ODR semantics are not claimed by this scenario.
+At the #24 milestone the inventory contained eighteen scenarios, requiring **twenty** corpus/harness results with no failures, errors or skips. It must run only after the complete corpus. JDK 21, GCC, Clang and Graphviz remain required; a focused local run is not a full acceptance result. The [model guide](model-guide.en.md#scopes-declarations-and-linkage-24) defines the exact fields and remaining limits: full overload selection/ADL, class ABI and complete C++03 declaration/ODR semantics are not claimed by this scenario.
+
+## Literals, expressions and conversions (#25)
+
+[literals-expressions](../src/test/resources/cpp03/literals-expressions/README.md) is the nineteenth mandatory scenario. `LiteralsExpressionsIT` and `Cpp03CorpusIT` share `LiteralsExpressionsAcceptance` and the ordinary `sources/main.cpp`, rather than embedding a separate positive program. Acceptance checks:
+
+- Exact large unsigned integer value and target type, the checked legacy `int` accessor, three floating types, decoded ordinary/wide characters and adjacent strings, and booleans.
+- Distinct operator nodes and precedence, canonical expression result type/category, and owned implicit conversion chains. The two calls to a unique `accept(long)` compare `int`→`long` implicit conversion with a ranged explicit `static_cast<long>`; generation must contain exactly one written cast.
+- Public resolved API/packaged CLI JSON parity, readable SVG, snapshot copy/reference ownership, generated-source reparsing and rejection of unsupported Java output.
+- Original, resolved-generated and folded-generated programs compiled and executed by **both** GCC and Clang with `-std=c++03 -pedantic-errors`, empty output and exit 0. Floating target rounding and implementation-defined multicharacter values are not native oracles.
+- A binary-literal negative input rejected as outside C++03, recovering API/CLI diagnostic exports and no generated sources; strict native syntax checks also reject it.
+
+```sh
+mvn -Dit.test=LiteralsExpressionsIT verify
+mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=literals-expressions verify
+mvn verify
+python3 scripts/check-cpp03-reports.py
+```
+
+Run the report guard only after the complete corpus: the current inventory has **nineteen scenarios and twenty-one corpus/harness results**, without failures, errors or skips. Existing Java and C++ regressions remain mandatory. The [model guide](model-guide.en.md#literals-expressions-and-standard-conversions-25) defines the conservative built-in conversion contract and the #26/#28/#30 boundaries; this fixture does not claim full C++03 overload resolution, target floating-point arithmetic or constant folding.

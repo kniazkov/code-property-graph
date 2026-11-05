@@ -3,6 +3,7 @@ package com.kniazkov.cpg.e2e;
 
 import com.kniazkov.cpg.Cpg;
 import com.kniazkov.cpg.model.*;
+import static com.kniazkov.cpg.e2e.ExpressionSyntax.written;
 import com.kniazkov.cpg.serialization.ProjectJson;
 import com.kniazkov.cpg.visualization.DotVisualizer;
 import com.kniazkov.json.Json;
@@ -26,13 +27,13 @@ class ProvenanceIT {
         });
         assertEquals(2, multiplies.size());
         var names = multiplies.get(0);
-        assertNotSame(names.left(), names.right());
-        assertEquals("a", ((NameExpression) names.left()).name());
-        assertEquals("a", ((NameExpression) names.right()).name());
+        assertNotSame(written(names.left()), written(names.right()));
+        assertEquals("a", ((NameExpression) written(names.left())).name());
+        assertEquals("a", ((NameExpression) written(names.right())).name());
         var calls = multiplies.get(1);
-        assertInstanceOf(CallExpression.class, calls.left());
-        assertInstanceOf(CallExpression.class, calls.right());
-        assertNotSame(calls.left(), calls.right());
+        assertInstanceOf(CallExpression.class, written(calls.left()));
+        assertInstanceOf(CallExpression.class, written(calls.right()));
+        assertNotSame(written(calls.left()), written(calls.right()));
         for (var multiply : multiplies) {
             var p = multiply.provenance().orElseThrow();
             var event = p.expansions().stream().filter(e -> e.name().equals("SQUARE")).findFirst().orElseThrow();
@@ -40,8 +41,8 @@ class ProvenanceIT {
             assertTrue(event.definition().file().endsWith("macros.h"));
             assertTrue(event.invocation().file().endsWith("main.cpp"));
             assertTrue(p.tokens().stream().anyMatch(t -> t.spelling().equals("*") && t.spellingRange().file().endsWith("macros.h")));
-            var left = multiply.left().provenance().orElseThrow();
-            var right = multiply.right().provenance().orElseThrow();
+            var left = written(multiply.left()).provenance().orElseThrow();
+            var right = written(multiply.right()).provenance().orElseThrow();
             assertTrue(left.expansions().stream().anyMatch(e -> e.id() == event.id()));
             assertTrue(right.expansions().stream().anyMatch(e -> e.id() == event.id()));
             assertTrue(left.endToken() <= right.startToken());

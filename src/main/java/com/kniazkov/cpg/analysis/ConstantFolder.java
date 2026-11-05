@@ -26,7 +26,7 @@ public final class ConstantFolder {
         Map<Node, Integer> constants = new IdentityHashMap<>();
         for (Node node : order.reversed()) {
             if (node instanceof IntegerLiteral literal) {
-                constants.put(node, literal.value());
+                if (literal.bigValue().bitLength() < 32) constants.put(node, literal.bigValue().intValue());
                 continue;
             }
             long result;
@@ -72,11 +72,9 @@ public final class ConstantFolder {
             @Override public void visit(Expression expression) {
                 if (expression instanceof IntegerLiteral) return;
                 ConstantEvaluator.evaluate(expression, profile).ifPresent(value -> {
-                    // The ordinary literal model remains deliberately bounded until its own milestone.
-                    // A large internal value may prove a parent constant but is never truncated for publication.
-                    if (value.number().compareTo(java.math.BigInteger.valueOf(Integer.MIN_VALUE)) < 0
-                            || value.number().compareTo(java.math.BigInteger.valueOf(Integer.MAX_VALUE)) > 0) return;
-                    var literal = IntegerLiteral.create().setValue(value.number().intValueExact());
+                    // A bool/char/short value has no equivalent ordinary integer-literal spelling.
+                    if (!Set.of("int", "unsigned int", "long", "unsigned long").contains(value.type().spelling())) return;
+                    var literal = IntegerLiteral.create().setValue(value.number());
                     if (!value.type().spelling().equals("int")) literal.setCppType(value.type().spelling());
                     expression.range().ifPresent(literal::setRange);
                     editor.replace(expression, literal.build());

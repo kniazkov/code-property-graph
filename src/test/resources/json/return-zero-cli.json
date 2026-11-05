@@ -49,6 +49,9 @@
                   "id": 6,
                   "kind": "IntegerLiteral",
                   "value": 0,
+                  "cppType": "int",
+                  "spelling": "0",
+                  "semanticInfo": { "resultType": "int", "category": "rvalue" },
                   "range": {
                     "file": "FILE_PATH",
                     "start": {

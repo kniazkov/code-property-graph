@@ -11,8 +11,8 @@ public final class NameResolver {
     public static Project resolve(Project project) {
         // Type bindings must be published before signatures are compared. Both passes copy
         // through one identity context, including forward and cross-file reference cycles.
-        Project typed = new Engine(project).bindNames();
-        return new Engine(typed).linkDeclarations();
+        Project typed = new Engine(StandardConversions.written(project)).bindNames();
+        return StandardConversions.analyze(new Engine(typed).linkDeclarations());
     }
 
     private static final class Scope {

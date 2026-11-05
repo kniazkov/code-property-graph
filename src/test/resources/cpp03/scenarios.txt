@@ -16,3 +16,4 @@ inactive-extension
 diagnostic-provenance
 platform-declarators
 scopes-linkage
+literals-expressions

@@ -72,7 +72,10 @@ public final class TypeIdentity {
     /** Only folds values representable by every C++03 signed int. Target-dependent bounds stay symbolic. */
     private static Optional<Integer> portableInteger(Expression expression) {
         long value;
-        if (expression instanceof IntegerLiteral literal && literal.cppType().isEmpty()) value = literal.value();
+        if (expression instanceof IntegerLiteral literal && literal.cppType().map(type -> type.equals("int")).orElse(true)) {
+            if (literal.bigValue().bitLength() > 15) return Optional.empty();
+            value = literal.bigValue().longValue();
+        }
         else if (expression instanceof UnaryExpression unary) {
             var operand = portableInteger(unary.operand()); if (operand.isEmpty()) return Optional.empty();
             if (unary instanceof UnaryPlusExpression) value = operand.orElseThrow();

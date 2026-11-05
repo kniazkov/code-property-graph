@@ -2,6 +2,7 @@
 package com.kniazkov.cpg.e2e;
 
 import com.kniazkov.cpg.model.*;
+import static com.kniazkov.cpg.e2e.ExpressionSyntax.written;
 import java.util.ArrayList;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -10,10 +11,10 @@ final class MacroEdits {
     static Project squareRightOperand(Project project) {
         var matches = new ArrayList<MultiplyExpression>();
         project.walk(new NodeVisitor() { @Override public void visit(MultiplyExpression n) {
-            if (n.left() instanceof NameExpression name && name.name().equals("a")) matches.add(n);
+            if (written(n.left()) instanceof NameExpression name && name.name().equals("a")) matches.add(n);
         }});
         assertEquals(1, matches.size());
-        var original = matches.getFirst().right();
+        var original = written(matches.getFirst().right());
         var editor = new ProjectEditor(project);
         editor.replace(original, NameExpression.create().setName("b").build());
         var edited = editor.build();
