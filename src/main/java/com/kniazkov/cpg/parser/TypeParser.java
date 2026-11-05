@@ -18,6 +18,7 @@ final class TypeParser {
         final Map<String, Binding> names = new LinkedHashMap<>();
         final Set<String> tags = new HashSet<>();
         final Set<String> enums = new HashSet<>();
+        final Set<String> libraryScalars = new HashSet<>();
         final Set<String> templateTypes = new HashSet<>(), templateValues = new HashSet<>(), templates = new HashSet<>();
         final Map<String, Scope> nested = new LinkedHashMap<>();
         final List<Scope> using = new ArrayList<>();
@@ -87,12 +88,24 @@ final class TypeParser {
         try { action.run(); } finally { scope = saved; }
     }
     /** Parser-only type-name availability; semantic declarations come from the catalogue. */
-    void includeSystemHeader(String header) {
-        if (!header.equals("vector")) return;
+    void includeSystemHeader(String header) { includeSystemHeader(header, new java.util.HashSet<>()); }
+    private void includeSystemHeader(String header, java.util.Set<String> visited) {
+        if (!visited.add(header)) return;
+        if (!com.kniazkov.cpg.analysis.StandardLibraryCatalogue.headers().contains(header)) return;
         Scope saved = scope; scope = root;
-        pushNamedScope("std");
-        try { registerClass("vector"); declareTemplate("vector"); registerClass("allocator"); declareTemplate("allocator"); }
-        finally { popScope(); scope = saved; }
+        boolean global=header.endsWith(".h");
+        if (!global) pushNamedScope("std");
+        try {
+            for (String name : com.kniazkov.cpg.analysis.StandardLibraryCatalogue.typeNames(header)) {
+                registerClass(name);
+                if (com.kniazkov.cpg.analysis.StandardLibraryCatalogue.canonicalHeader(header).equals("cstddef")) scope.libraryScalars.add(name);
+            }
+            for (String name : com.kniazkov.cpg.analysis.StandardLibraryCatalogue.templateNames(header)) declareTemplate(name);
+            for (String name : com.kniazkov.cpg.analysis.StandardLibraryCatalogue.nestedTypeNames(header)) registerQualifiedLibraryType(name);
+        } finally { if (!global) popScope(); scope = saved; }
+        for (String dependency : com.kniazkov.cpg.analysis.StandardLibraryCatalogue.dependencies(header)) {
+            if (!dependency.equals(header)) includeSystemHeader(dependency, visited);
+        }
     }
     void registerEnum(String name) { registerClass(name); scope.enums.add(name); }
     void validateValueTemplateParameter(NodeBuilder<? extends TypeNode> builder) {
@@ -111,7 +124,24 @@ final class TypeParser {
             if (owner != null && owner.enums.contains(name.substring(separator + 2))) return;
         } else for (Scope current = scope; current != null; current = current.parent)
             if (current.names.containsKey(name)) { if (current.enums.contains(name)) return; else break; }
+        if (libraryScalar(name)) return;
         if (className(name)) throw tokens.error("A C++03 non-type template parameter cannot have class type");
+    }
+    private boolean libraryScalar(String name) {
+        int separator=name.lastIndexOf("::");
+        if(separator>=0) { Scope owner=namespace(name.substring(0,separator)); return owner!=null && owner.libraryScalars.contains(name.substring(separator+2)); }
+        for(Scope owner=scope;owner!=null;owner=owner.parent) if(owner.names.containsKey(name)) return owner.libraryScalars.contains(name);
+        return false;
+    }
+    private void registerQualifiedLibraryType(String name) {
+        String[] parts=name.replaceFirst("^std::", "").split("::");
+        for(int i=0;i<parts.length-1;i++) { registerClass(parts[i]); pushNamedScope(parts[i],true); }
+        registerClass(parts[parts.length-1]);
+        for(int i=0;i<parts.length-1;i++) popScope();
+    }
+    void registerOpaquePlaceholder(String name) {
+        registerClass(name);
+        if(name.startsWith("__cpg_opaque_integer_")) scope.libraryScalars.add(name);
     }
     void registerClass(String name) {
         scope.tags.add(name);

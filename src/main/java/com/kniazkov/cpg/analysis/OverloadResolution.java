@@ -12,7 +12,8 @@ import java.util.function.Function;
 public final class OverloadResolution {
     private OverloadResolution() {}
     public enum Rank { EXACT, PROMOTION, CONVERSION, USER_DEFINED, ELLIPSIS, UNKNOWN, AMBIGUOUS }
-    public record Sequence(Rank rank, int qualification, CallableDeclaration userDefined, boolean referenceBinding) {
+    public record Sequence(Rank rank, int qualification, CallableDeclaration userDefined, boolean referenceBinding, boolean knownViable) {
+        public Sequence(Rank rank, int qualification, CallableDeclaration userDefined, boolean referenceBinding) { this(rank, qualification, userDefined, referenceBinding, rank != Rank.UNKNOWN); }
         public Sequence(Rank rank, int qualification, CallableDeclaration userDefined) { this(rank, qualification, userDefined, false); }
     }
     public record Candidate(CallableDeclaration declaration, List<Sequence> sequences) {
@@ -59,8 +60,14 @@ public final class OverloadResolution {
     public static Result selectCandidates(List<Candidate> candidates) {
         var viable = candidates.stream().map(Candidate::declaration).distinct().toList();
         if (candidates.isEmpty()) return new Result(CallExpression.Resolution.UNRESOLVED, Optional.empty(), viable);
-        if (candidates.stream().anyMatch(c -> c.sequences().stream().anyMatch(s -> s.rank() == Rank.UNKNOWN)))
+        if (candidates.stream().anyMatch(c -> c.sequences().stream().anyMatch(s -> s.rank() == Rank.UNKNOWN))) {
+            // An implementation-defined arithmetic type has a guaranteed standard
+            // conversion but no known exact/promotion/conversion rank. One candidate
+            // needs no ranking; competing candidates remain deliberately unresolved.
+            if(candidates.size()==1 && candidates.getFirst().sequences().stream().allMatch(s->s.knownViable() && s.rank()!=Rank.AMBIGUOUS))
+                return new Result(CallExpression.Resolution.RESOLVED,Optional.of(candidates.getFirst().declaration()),viable);
             return new Result(CallExpression.Resolution.UNRESOLVED, Optional.empty(), viable);
+        }
         var best = candidates.stream().filter(a -> candidates.stream().allMatch(b -> a == b || better(a, b))).toList();
         if (best.size() == 1 && best.getFirst().sequences().stream().noneMatch(sequence -> sequence.rank() == Rank.AMBIGUOUS))
             return new Result(CallExpression.Resolution.RESOLVED, Optional.of(best.getFirst().declaration()), viable);
@@ -133,9 +140,20 @@ public final class OverloadResolution {
         if (conversions.size() > 1) return Optional.of(new Sequence(Rank.AMBIGUOUS, 0, null));
         return Optional.empty();
     }
+    private static boolean opaqueArithmetic(TypeNode type) {
+        return type instanceof OpaqueLibraryType opaque && (opaque.category()==OpaqueLibraryType.Category.ARITHMETIC || opaque.category()==OpaqueLibraryType.Category.INTEGER)
+                || type instanceof NamedType named && named.fundamentalKind().filter(kind->kind!=FundamentalKind.VOID).isPresent();
+    }
     private static Optional<Sequence> standard(TypeNode source, TypeNode target, ValueCategory category,
             Expression expression, PlatformProfile profile) {
         source = source.canonicalType(); target = target.canonicalType();
+        TypeNode sourceBase=TypeSemantics.unqualified(TypeSemantics.withoutReference(source));
+        TypeNode targetBase=TypeSemantics.unqualified(TypeSemantics.withoutReference(target));
+        if((sourceBase instanceof OpaqueLibraryType || targetBase instanceof OpaqueLibraryType)
+                && !sourceBase.canonicalIdentity().equals(targetBase.canonicalIdentity()))
+            return Optional.of(new Sequence(Rank.UNKNOWN,0,null,target instanceof ReferenceType,
+                    opaqueArithmetic(sourceBase) && opaqueArithmetic(targetBase)
+                    && (!(TypeSemantics.unqualified(target) instanceof ReferenceType reference) || TypeSemantics.qualifiers(reference.referredType())==1)));
         if (unknown(TypeSemantics.unqualified(source)) && unknown(TypeSemantics.unqualified(TypeSemantics.withoutReference(target))))
             return Optional.of(new Sequence(Rank.UNKNOWN, 0, null));
         if (TypeSemantics.unqualified(target) instanceof ReferenceType reference) {

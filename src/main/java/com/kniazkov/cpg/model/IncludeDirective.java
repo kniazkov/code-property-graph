@@ -9,6 +9,9 @@ import java.util.Optional;
 public final class IncludeDirective extends Node {
     private String header;
     private boolean system;
+    private SourceFile libraryHeader;
+    public Optional<SourceFile> libraryHeader() { return Optional.ofNullable(libraryHeader); }
+    @Override public List<Node> references() { return libraryHeader == null ? List.of() : List.of(libraryHeader); }
 
     private IncludeDirective() {
     }
@@ -46,6 +49,7 @@ public final class IncludeDirective extends Node {
         context.register(this, builder);
         builder.header = header;
         builder.system = system;
+        builder.libraryHeader = libraryHeader == null ? null : context.edge(libraryHeader, SourceFile.class);
         return builder;
     }
 
@@ -53,6 +57,9 @@ public final class IncludeDirective extends Node {
     public static final class Builder extends NodeBuilder<IncludeDirective> {
         private String header;
         private boolean system = true;
+        private NodeBuilder<? extends SourceFile> libraryHeader;
+        public Builder setLibraryHeader(NodeBuilder<? extends SourceFile> value) { libraryHeader=value; return this; }
+        public Builder clearLibraryHeader() { libraryHeader=null; return this; }
 
         private Builder() {
             super(IncludeDirective.class);
@@ -67,12 +74,12 @@ public final class IncludeDirective extends Node {
         }
 
         public Builder setHeader(String header) {
-            this.header = Objects.requireNonNull(header);
+            this.header = Objects.requireNonNull(header); libraryHeader=null;
             return this;
         }
 
         public Builder setSystem(boolean system) {
-            this.system = system;
+            this.system = system; libraryHeader=null;
             return this;
         }
 
@@ -85,6 +92,7 @@ public final class IncludeDirective extends Node {
         void fillNode(IncludeDirective node, BuildContext context) {
             node.header = requiredText(header, "IncludeDirective.header");
             node.system = system;
+            node.libraryHeader = libraryHeader == null ? null : context.copy(libraryHeader);
         }
     }
 }

@@ -15,6 +15,7 @@ import java.util.*;
 public final class DataFlow {
     private final Language language;
     private final PlatformProfile profile;
+    private Set<Declaration> libraryAccessible = Set.of();
     private final Map<Node, Expression> expandedValues = new IdentityHashMap<>();
     private final Map<Node, List<DataEdge>> expandedDependencies = new IdentityHashMap<>();
 
@@ -35,6 +36,7 @@ public final class DataFlow {
 
     private FunctionFlow analyzeFunction(FunctionFlow flow) {
         if (!flow.complete()) return flow;
+        libraryAccessible = LibraryCallEffects.accessible(flow.entry(), profile);
         // Sequenced/branching values may already execute as separate CFG vertices.
         // Detect that ownership from actual edges, rather than duplicating CFG grammar.
         for (var edge : flow.control()) if (edge.from() instanceof Expression completed && edge.to() instanceof Node consumer) {
@@ -146,7 +148,7 @@ public final class DataFlow {
             Expression value = expandedValues.get(consumer);
             for (DataEdge edge : expandedDependencies.get(consumer)) sink.edge(edge.from(), edge.to(), edge.kind());
             sink.edge(value, consumer, Dependency.VALUE);
-            if (consumer instanceof VariableDeclaration variable) state.write(variable, variable);
+            if (consumer instanceof VariableDeclaration variable) { state.write(variable, variable); constructLibraryObject(variable, state, sink); }
             else if (consumer instanceof AssignmentExpression assignment) writeTarget(assignment.target(), assignment, state);
             return;
         }
@@ -157,6 +159,7 @@ public final class DataFlow {
                     consume(value, v, state, sink);
                     state.write(v, v);
                 });
+                constructLibraryObject(v, state, sink);
             }
             case AuxiliaryFlowVertex auxiliary -> {
                 if (auxiliary.kind() == AuxiliaryFlowVertex.Kind.IMPLICIT_DESTRUCTOR)
@@ -164,6 +167,9 @@ public final class DataFlow {
                         // Destruction reads the final object state, but is not a written call.
                         for (Node write : state.definitions.getOrDefault(object, Set.of()))
                             sink.edge(write, object, Dependency.DEFINITION);
+                        var destructor = auxiliary.destructor();
+                        if (destructor.isEmpty() && object instanceof VariableDeclaration variable) destructor = variable.destructorTarget();
+                        if (destructor.filter(LibraryCallEffects::unknown).isPresent()) opaqueMutation(object, libraryAccessible, state, sink);
                     });
             }
             case CatchClause handler -> handler.parameter().ifPresent(parameter -> state.write(parameter, parameter));
@@ -179,6 +185,25 @@ public final class DataFlow {
     private void consume(Expression value, Node consumer, State state, Sink sink) {
         evaluate(value, state, sink);
         sink.edge(value, consumer, Dependency.VALUE);
+    }
+
+    private void constructLibraryObject(VariableDeclaration variable, State state, Sink sink) {
+        if (variable.constructorTarget().filter(LibraryCallEffects::unknown).isEmpty()) return;
+        state.write(variable, variable);
+        var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
+        variable.initializer().ifPresent(value -> value.walk(new NodeVisitor() {
+            @Override public void visit(NameExpression use) { exposed.addAll(LibraryCallEffects.roots(use)); }
+        }));
+        opaqueMutation(variable, exposed, state, sink);
+    }
+
+    private void opaqueMutation(Node operation, Set<Declaration> exposed, State state, Sink sink) {
+        for (Declaration target : exposed) {
+            var definitions = new LinkedHashSet<>(state.definitions.getOrDefault(target, Set.of()));
+            for (Node definition : definitions) sink.edge(definition, operation, Dependency.DEFINITION);
+            definitions.add(operation);
+            state.definitions.put(target, definitions);
+        }
     }
 
     /** Evaluates value operands and models assignment as a write after the right-hand side has been read. */
@@ -217,6 +242,7 @@ public final class DataFlow {
             // Unknown operator bodies may mutate objects passed by reference. Retain both
             // incoming and possible call definitions, rather than claiming a definite write.
             for (var operand : OperatorSemantics.operands(value)) possibleMutation(operand, value, state);
+            if (LibraryCallEffects.unknown(value)) opaqueMutation(value, libraryAccessible, state, sink);
         } else if (value instanceof NameExpression use) {
             use.target().ifPresent(target -> {
                 for (Node write : state.definitions.getOrDefault(target, Set.of()))
@@ -264,6 +290,11 @@ public final class DataFlow {
         } else if (value instanceof CallExpression call && language == Language.CPP) {
             consume(call.callee(), call, state, sink);
             arguments(call, state, sink);
+            if (LibraryCallEffects.unknown(call)) {
+                var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
+                LibraryCallEffects.exposed(call).forEach(expression -> exposed.addAll(LibraryCallEffects.roots(expression)));
+                opaqueMutation(call, exposed, state, sink);
+            }
         } else {
             for (Node child : value.children())
                 if (child instanceof Expression operand) consume(operand, value, state, sink);
