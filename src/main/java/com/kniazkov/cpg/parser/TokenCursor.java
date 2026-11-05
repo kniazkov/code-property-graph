@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 final class TokenCursor {
     private static final Pattern IDENTIFIER = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*");
     private static final Set<String> RESERVED = Set.of("class", "int", "void", "return", "if", "else", "while", "for", "public", "static", "bool", "char", "signed", "unsigned", "short", "long", "wchar_t", "float", "double", "const", "volatile", "typedef", "struct", "union", "enum", "extern", "inline", "register", "mutable", "private", "protected", "sizeof", "namespace", "using", "auto");
-    private static final Set<String> CPP_OBJECT_KEYWORDS = Set.of("new", "delete", "typeid", "static_cast", "dynamic_cast", "const_cast", "reinterpret_cast");
+    private static final Set<String> CPP_OBJECT_KEYWORDS = Set.of("do", "switch", "case", "default", "break", "continue", "goto", "try", "catch", "throw", "new", "delete", "typeid", "static_cast", "dynamic_cast", "const_cast", "reinterpret_cast");
     private boolean reserved(String name) { return RESERVED.contains(name) || language == Language.CPP && CPP_OBJECT_KEYWORDS.contains(name); }
     private final String file;
     private final Language language;
@@ -40,6 +40,22 @@ final class TokenCursor {
             if (take("{")) depth++;
             else if (take("}")) depth--;
             else advance();
+        }
+    }
+
+    /** Delayed function-try-blocks include every handler, not only the protected body. */
+    void skipFunctionBody(boolean functionTryBlock) {
+        functionTryBlock = take("try") || functionTryBlock;
+        skipBlock();
+        if (functionTryBlock) {
+            do {
+                expect("catch"); expect("("); int depth = 1;
+                while (depth > 0) {
+                    if (peek().equals("<eof>")) throw error("Unterminated handler declaration");
+                    if (take("(")) depth++; else if (take(")")) depth--; else advance();
+                }
+                skipBlock();
+            } while (peek().equals("catch"));
         }
     }
 

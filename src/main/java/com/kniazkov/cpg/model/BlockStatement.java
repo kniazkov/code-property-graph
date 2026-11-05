@@ -7,6 +7,8 @@ import java.util.Objects;
 
 /** An ordered sequence of statements and declarations. */
 public final class BlockStatement extends Statement {
+    private boolean complete = true;
+    public boolean complete() { return complete; }
     private List<Node> items = List.of();
 
     private BlockStatement() {
@@ -41,12 +43,16 @@ public final class BlockStatement extends Statement {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
+        builder.complete = complete;
         builder.items = context.copyAll(items, Node.class);
         return builder;
     }
 
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<BlockStatement> {
+        private boolean complete = true;
+        public boolean complete() { return complete; }
+        public Builder setComplete(boolean value) { syntaxEdited = true; complete = value; return this; }
         private List<NodeBuilder<? extends Node>> items = new ArrayList<>();
 
         private Builder() {
@@ -74,6 +80,7 @@ public final class BlockStatement extends Statement {
 
         @Override
         void fillNode(BlockStatement node, BuildContext context) {
+            node.complete = complete;
             node.items = context.copyAll(items);
             for (Node item : node.items) {
                 if (!(item instanceof Statement) && !(item instanceof Declaration)) {

@@ -799,3 +799,63 @@ constant folding must not erase a selected user-defined implementation or treat
 it as built-in arithmetic merely because its spelling is `+`, `&&` or `||`.
 This contract does not claim full template overload resolution, complete ABI
 behavior, or guessed semantics for unknown external/user-defined bodies.
+
+### C++03 statements, exceptions and flow-only operations (#31)
+
+The statement model has explicit `EmptyStatement`, `DoWhileStatement`, `ForStatement`,
+`SwitchStatement`, `CaseStatement`, `BreakStatement`, `ContinueStatement`,
+`GotoStatement`, `LabelStatement`, `TryStatement` and `CatchClause` nodes.
+A `ForStatement` owns its initializer list, optional condition and update, and body.
+A `CaseStatement` owns the following statement; an absent value denotes `default`.
+Nested labels and adjacent cases retain source order rather than becoming independent
+blocks. `ConditionDeclarationExpression` owns the variable declared in a condition.
+`ThrowExpression.value()` is absent for a rethrow. A catch with no parameter is
+`catch (...)`.
+
+Callable and function-type exception specifications distinguish absence from an
+explicit empty `throw()` using `hasExceptionSpecification()` and `exceptionTypes()`.
+A callable's `functionTryBlock()` and `handlers()` preserve constructor initializer
+order: `Guard() try : member() { ... } catch (...) { ... }`.
+`bodyComplete()` and `BlockStatement.complete()` identify recovered, incomplete
+syntax. Such syntax remains exportable but cannot be generated as source, even
+when rendered independently of its source file.
+
+CFG auxiliary vertices are not AST nodes. `AuxiliaryFlowVertex` records an owning
+callable, deterministic per-flow index, kind (`EXCEPTIONAL_EXIT`, `TERMINATE_EXIT`, `IMPLICIT_CONSTRUCTOR` or
+`IMPLICIT_DESTRUCTOR`), and optional non-owning object/constructor/destructor references.
+JSON assigns their numeric IDs after source syntax and before the external configuration
+catalogue, so API/CLI attribution does not shift flow IDs. It writes them in the callable's
+`flowVertices` array with `ownerId`, `index`, `objectId`, `constructorId` or `destructorId` where
+applicable. CFG endpoints refer to those IDs in the same way as syntax endpoints.
+DOT uses a separate owner/index namespace and labels object/constructor/destructor references.
+A missing destructor reference does not turn the operation into an explicit call
+or imply a user-declared destructor exists. `flowComplete: false` identifies an
+unavailable/incomplete flow; the legacy omitted flag means a complete stored flow.
+Do not infer a complete flow merely because a callable has no flow metadata.
+
+Source generation walks owned syntax only. It preserves automatic storage duration
+and never inserts calls from implicit cleanup vertices. C++ exception syntax,
+condition declarations and `goto` are not translated to Java. Shared empty,
+loop, break/continue and switch syntax remains available where its contained
+expressions and declarations belong to the supported common subset.
+
+An implicit constructor's selected callable is exposed through `constructor()` and
+`constructorId`, never through `destructor()` or `destructorId`. These references
+are reconnected when copying an annotated snapshot.
+
+The current CFG deliberately reports the affected flow as incomplete, without
+publishing misleading partial edges, for these unsupported cases:
+
+- Arrays of class objects, including partially constructed arrays.
+- Explicit or implicit class prvalue temporaries requiring lifetime tracking.
+- A nested throw inside an expression group whose evaluation order is unspecified.
+- An unknown or disallowed escaping exception under a nonempty exception specification:
+  a user-installed `unexpected` handler can change the outcome.
+- Constructor/destructor paths requiring context-dependent virtual-base handling.
+
+An escaping exception under the empty `throw()` specification reaches
+`TERMINATE_EXIT`. A second exception thrown by a destructor during stack unwinding
+also reaches `TERMINATE_EXIT`, rather than an ordinary catch or exceptional return.
+Incomplete analysis does not itself invalidate the preserved AST or source; syntax
+and semantic errors still independently block generation. A complete-flow flag is
+not a claim of whole-language C++ exception/lifetime coverage.

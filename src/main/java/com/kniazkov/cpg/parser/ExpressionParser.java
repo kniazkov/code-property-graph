@@ -80,7 +80,12 @@ final class ExpressionParser {
 
     private NodeBuilder<? extends Expression> expression(int minimum) {
         var start = tokens.start();
-        var left = primary();
+        NodeBuilder<? extends Expression> left;
+        if (language == Language.CPP && minimum <= 1 && tokens.take("throw")) {
+            var result = ThrowExpression.create();
+            if (!java.util.Set.of(";", ")", "]", "}", ",", ":", "<eof>").contains(tokens.peek())) result.setValue(expression(1));
+            left = tokens.span(start, result);
+        } else left = primary();
         while (precedence(tokens.peek()) >= minimum) {
             String operator = tokens.peek();
             int priority = precedence(operator);

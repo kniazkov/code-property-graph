@@ -25,3 +25,5 @@ casts-memory
 inheritance-virtual
 
 overloads-adl
+
+statements-exceptions

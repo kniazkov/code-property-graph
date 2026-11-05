@@ -66,6 +66,15 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("statements-exceptions".equals(settings.getProperty("mode"))) {
+            var output = StatementsExceptionsAcceptance.verify(fixture, work);
+            for (Path source : List.of(output.original(), output.generated(), output.folded())) nativePrograms(work, source, "", 0);
+            for (String compiler : List.of("g++", "clang++")) {
+                Result rejected = command(List.of(compiler, "-std=c++03", "-pedantic-errors", "-fsyntax-only", output.invalid().resolve("main.cpp").toString()), work);
+                assertNotEquals(0, rejected.status(), "goto cannot bypass class-object initialization: " + compiler);
+            }
+            return;
+        }
         if ("overloads-adl".equals(settings.getProperty("mode"))) {
             var output = OverloadsAdlAcceptance.verify(fixture, work);
             for (Path source : List.of(output.original(), output.generated(), output.folded())) nativePrograms(work, source, "", 0);

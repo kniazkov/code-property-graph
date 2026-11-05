@@ -9,7 +9,7 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
     /** Compatibility constructor for a complete analysis. */
     public FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdge> control, List<DataEdge> data) { this(entry, exit, control, data, true); }
 
-    public enum Branch { ENTRY, NEXT, TRUE, FALSE, RETURN, BACK }
+    public enum Branch { ENTRY, NEXT, TRUE, FALSE, RETURN, BACK, EXCEPTION, THROW, CLEANUP, BREAK, CONTINUE, GOTO, CASE, DEFAULT }
     public enum Dependency { VALUE, DEFINITION }
     /** Directed transfer between instruction, condition, entry or exit vertices. */
     public record ControlEdge(FlowVertex from, FlowVertex to, Branch kind) {
@@ -18,6 +18,16 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
     /** Direction is from the producer of a value or reaching definition to its consumer. */
     public record DataEdge(Node from, Node to, Dependency kind) {
         public DataEdge { Objects.requireNonNull(from); Objects.requireNonNull(to); Objects.requireNonNull(kind); }
+    }
+
+    /** Flow-owned operations, ordered deterministically within their callable. */
+    public List<AuxiliaryFlowVertex> auxiliaryVertices() {
+        return control.stream().flatMap(e -> java.util.stream.Stream.of(e.from(), e.to()))
+                .filter(AuxiliaryFlowVertex.class::isInstance).map(AuxiliaryFlowVertex.class::cast)
+                .distinct().sorted(Comparator.comparingInt(AuxiliaryFlowVertex::index)).toList();
+    }
+    public Optional<AuxiliaryFlowVertex> exceptionalExit() {
+        return auxiliaryVertices().stream().filter(v -> v.kind() == AuxiliaryFlowVertex.Kind.EXCEPTIONAL_EXIT).findFirst();
     }
 
     public FunctionFlow {
@@ -30,8 +40,18 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
         entry.walk(new NodeVisitor() {
             @Override public void visit(Node node) { members.add(node); }
         });
+        var indices = new HashMap<Integer, AuxiliaryFlowVertex>();
+        for (ControlEdge edge : control) for (FlowVertex vertex : List.of(edge.from(), edge.to())) {
+            if (vertex instanceof AuxiliaryFlowVertex auxiliary) {
+                if (auxiliary.owner() != entry)
+                    throw new IllegalArgumentException("Foreign auxiliary flow operation");
+                var previous = indices.putIfAbsent(auxiliary.index(), auxiliary);
+                if (previous != null && previous != auxiliary) throw new IllegalArgumentException("Duplicate auxiliary flow index");
+            }
+        }
+        members.addAll(indices.values());
         for (ControlEdge edge : control) {
-            if (!members.contains(edge.from()) || !members.contains(edge.to()) || edge.from() == exit)
+            if (!members.contains(edge.from()) || !members.contains(edge.to()) || edge.from() == exit || edge.from() instanceof AuxiliaryFlowVertex a && (a.kind() == AuxiliaryFlowVertex.Kind.EXCEPTIONAL_EXIT || a.kind() == AuxiliaryFlowVertex.Kind.TERMINATE_EXIT))
                 throw new IllegalArgumentException("Invalid control-flow endpoint");
         }
         // Defaults remain owned by their declaration. Only expressions actually

@@ -49,8 +49,13 @@ class RecoveryExportTest {
             assertEquals(problem, error.problem());
             assertEquals(problem.range(), error.range().orElseThrow());
             assertEquals(1, nodes(project.files().getLast(), AddExpression.class).size(),
-                    "Incomplete projects remain PARSED rather than losing diagnostics in later passes");
-            assertTrue(project.flows().isEmpty());
+                    "Incomplete projects retain syntax rather than losing diagnostics in rewrites");
+            if (stage == Cpg.Stage.PARSED) assertTrue(project.flows().isEmpty());
+            else {
+                assertEquals(2, project.flows().size());
+                assertFalse(project.flows().stream().filter(flow -> flow.entry().name().equals("broken")).findFirst().orElseThrow().complete());
+                assertTrue(project.flows().stream().filter(flow -> flow.entry().name().equals("healthy")).findFirst().orElseThrow().complete());
+            }
             String json = ProjectJson.encode(project).toText("");
             assertTrue(json.contains("\"hasErrors\""));
             assertTrue(json.contains("\"parseProblems\""));

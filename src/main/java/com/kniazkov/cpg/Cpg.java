@@ -53,8 +53,8 @@ public final class Cpg {
 
     /**
      * Reads C++ units independently, retaining syntax prefixes and parse problems when a unit
-     * cannot be completed. A project with parse errors remains at PARSED even when a later
-     * stage was requested. Java parsing and invalid build configurations remain strict.
+     * cannot be completed. Complete functions retain analysis when a later stage is requested; incomplete
+     * syntax is retained without rewriting or source generation. Java parsing and invalid build configurations remain strict.
      */
     public static Project readRecovering(Path directory, Options options) {
         return read(directory, options, true);
@@ -135,9 +135,10 @@ public final class Cpg {
     }
 
     private static Project finish(Project result, Options options) {
-        // Analyses assume complete syntax and may rebuild nodes. Keep partial syntax and
-        // original parser diagnostics intact rather than analyzing an incomplete program.
-        if (options.stage() == Stage.PARSED || result.hasErrors()) return result;
+        // Resolve retained syntax, but never rewrite a partial or semantically invalid snapshot.
+        // CFG construction independently excludes incomplete/invalid function bodies.
+        if (options.stage() == Stage.PARSED) return result;
+        boolean partial = result.hasErrors();
         result = NameResolver.resolve(result);
         // Green rewrites clear annotations. Do not erase the invalid syntax that
         // produced semantic errors before the folding stage can observe them.
@@ -147,7 +148,7 @@ public final class Cpg {
                 semanticError[0] |= node.diagnostics().stream().anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR);
             }
         });
-        if (semanticError[0]) return result;
+        if (semanticError[0] || partial) return UnreadWrites.analyze(result);
         if (options.stage() != Stage.RESOLVED) result = com.kniazkov.cpg.analysis.TypeNormalizer.green(ConsoleNormalizer.green(result));
         if (options.stage() == Stage.FOLDED) result = ConstantFolder.fold(result);
         // Transformations deliberately drop annotations; recompute links and build diagnostics.

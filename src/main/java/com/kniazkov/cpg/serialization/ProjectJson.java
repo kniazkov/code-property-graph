@@ -33,27 +33,33 @@ public final class ProjectJson {
     private static final class Export {
         private final boolean compilationBuild;
         private final Project project;
-        private final Map<Node,Integer> ids = new IdentityHashMap<>();
+        private final Map<FlowVertex,Integer> ids = new IdentityHashMap<>();
         private final Map<Preprocessing,Integer> units = new IdentityHashMap<>();
-        private final Map<Node,List<Edge>> outgoing = new IdentityHashMap<>();
+        private final Map<FlowVertex,List<Edge>> outgoing = new IdentityHashMap<>();
 
         Export(Project project) {
             this.project = project;
             compilationBuild = project.build().isPresent();
-            project.walk(new NodeVisitor() {
+            // Configuration attribution can differ between API and CLI. Number executable
+            // syntax and its flow operations first so their IDs do not depend on that catalogue.
+            var index = new NodeVisitor() {
                 @Override public void visit(Node n) { ids.put(n, ids.size()); }
-            });
+            };
+            index.visit(project);
+            project.files().forEach(file -> file.walk(index));
+            for (var flow : project.flows()) for (var vertex : flow.auxiliaryVertices()) ids.put(vertex, ids.size());
+            project.externalInputs().forEach(input -> input.walk(index));
             for (SourceFile file : project.files()) file.provenance().ifPresent(p -> units.put(p.unit(), ids.get(file)));
-            for (Node n : ids.keySet()) for (Node target : n.references()) edge(n, target, "ref");
+            for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n) for (Node target : n.references()) edge(n, target, "ref");
             for (var flow : project.flows()) {
-                for (var e : flow.control()) edge((Node)e.from(), (Node)e.to(), "cfg." + lower(e.kind()));
+                for (var e : flow.control()) edge(e.from(), e.to(), "cfg." + lower(e.kind()));
                 for (var e : flow.data()) edge(e.from(), e.to(), "dfg." + lower(e.kind()));
             }
         }
 
         private static String lower(Enum<?> kind) { return kind.name().toLowerCase(Locale.ROOT); }
 
-        private void edge(Node from, Node to, String kind) {
+        private void edge(FlowVertex from, FlowVertex to, String kind) {
             if (!ids.containsKey(from) || !ids.containsKey(to)) throw new IllegalStateException("Edge outside project");
             outgoing.computeIfAbsent(from, ignored -> new ArrayList<>()).add(new Edge(kind, ids.get(to)));
         }
@@ -124,7 +130,14 @@ public final class ProjectJson {
                     if (!c.memberAccess().equals("public")) obj.put("memberAccess", c.memberAccess());
                 }
                 case CallableDeclaration c -> {
-                    if (project.flows().stream().anyMatch(flow -> flow.entry() == c && !flow.complete())) obj.put("flowComplete", false);
+                    project.flows().stream().filter(flow -> flow.entry() == c).findFirst().ifPresent(flow -> {
+                        if (!flow.complete()) obj.put("flowComplete", false);
+                        if (!flow.auxiliaryVertices().isEmpty()) obj.array("flowVertices", a -> flow.auxiliaryVertices().forEach(v -> a.add(auxiliary(v))));
+                    });
+                    if (!c.bodyComplete()) obj.put("bodyComplete", false);
+                    if (c.hasExceptionSpecification()) obj.put("hasExceptionSpecification", true).put("exceptionTypes", nodes(c.exceptionTypes()));
+                    if (c.functionTryBlock()) obj.put("functionTryBlock", true);
+                    if (!c.handlers().isEmpty()) obj.put("handlers", nodes(c.handlers()));
                     if (c.kind() != CallableDeclaration.Kind.FUNCTION) obj.put("callableKind", c.kind().name());
                     if (!c.initializers().isEmpty()) obj.put("initializers", nodes(c.initializers()));
                     obj.put("name", c.name()).array("modifiers", a -> a.addAll(c.modifiers()));
@@ -144,7 +157,7 @@ public final class ProjectJson {
                     if (!overrides.isEmpty()) obj.array("overridesIds", a -> overrides.forEach(method -> a.add(ids.get(method))));
                     if (!overriddenBy.isEmpty()) obj.array("overriddenByIds", a -> overriddenBy.forEach(method -> a.add(ids.get(method))));
                 }
-                case BlockStatement b -> obj.put("items", nodes(b.items()));
+                case BlockStatement b -> { obj.put("items", nodes(b.items())); if (!b.complete()) obj.put("complete", false); }
                 case VariableDeclaration v -> {
                     v.bitWidth().ifPresent(value -> obj.put("bitWidth", node(value)));
                     obj.put("name", v.name());
@@ -179,8 +192,10 @@ public final class ProjectJson {
                 case ReferenceType t -> obj.put("referredType", node(t.referredType()));
                 case ArrayType t -> { obj.put("elementType", node(t.elementType())); t.bound().ifPresent(b -> obj.put("bound", node(b))); }
                 case MemberPointerType t -> obj.put("ownerType", node(t.ownerType())).put("pointee", node(t.pointee()));
-                case FunctionType t -> obj.put("returnType", node(t.returnType())).put("parameters", nodes(t.parameters()))
+                case FunctionType t -> { obj.put("returnType", node(t.returnType())).put("parameters", nodes(t.parameters()))
                         .put("variadic", t.variadic()).put("const", t.isConst()).put("volatile", t.isVolatile());
+                    if (t.hasExceptionSpecification()) obj.put("hasExceptionSpecification", true).put("exceptionTypes", nodes(t.exceptionTypes()));
+                }
                 case SizeofExpression e -> {
                     e.type().ifPresent(t -> obj.put("type", node(t)));
                     e.operand().ifPresent(operand -> obj.put("operand", node(operand)));
@@ -220,6 +235,23 @@ public final class ProjectJson {
                     i.elseBranch().ifPresent(b -> obj.put("elseBranch", node(b)));
                 }
                 case WhileStatement w -> obj.put("condition", node(w.condition())).put("body", node(w.body()));
+                case EmptyStatement ignored -> { }
+                case BreakStatement ignored -> { }
+                case ContinueStatement ignored -> { }
+                case GotoStatement g -> obj.put("label", g.label());
+                case LabelStatement l -> obj.put("label", l.label()).put("statement", node(l.statement()));
+                case DoWhileStatement d -> obj.put("body", node(d.body())).put("condition", node(d.condition()));
+                case ForStatement f -> {
+                    obj.put("initializers", nodes(f.initializers())).put("body", node(f.body()));
+                    f.condition().ifPresent(c -> obj.put("condition", node(c)));
+                    f.update().ifPresent(u -> obj.put("update", node(u)));
+                }
+                case SwitchStatement s -> obj.put("condition", node(s.condition())).put("body", node(s.body()));
+                case CaseStatement c -> { c.value().ifPresent(v -> obj.put("value", node(v))); obj.put("default", c.value().isEmpty()).put("statement", node(c.statement())); }
+                case TryStatement t -> obj.put("body", node(t.body())).put("handlers", nodes(t.handlers()));
+                case CatchClause c -> { c.parameter().ifPresent(p -> obj.put("parameter", node(p))); obj.put("catchAll", c.parameter().isEmpty()).put("body", node(c.body())); }
+                case ThrowExpression t -> { obj.put("rethrow", t.value().isEmpty()); t.value().ifPresent(v -> obj.put("value", node(v))); }
+                case ConditionDeclarationExpression c -> obj.put("declaration", node(c.declaration()));
                 case ReturnStatement r -> r.value().ifPresent(v -> obj.put("value", node(v)));
                 case PrintStatement p -> obj.put("value", node(p.value()));
                 case ExpressionStatement e -> obj.put("expression", node(e.expression()));
@@ -290,6 +322,20 @@ public final class ProjectJson {
                         o.put("code", d.code()).put("severity", lower(d.severity())))));
             }
             var links = outgoing.get(n);
+            if (links != null) {
+                links.sort(Comparator.comparingInt(Edge::group).thenComparing(Edge::kind).thenComparingInt(Edge::to));
+                obj.array("edges", a -> links.forEach(e -> a.object(o -> o.put("kind", e.kind()).put("to", e.to()))));
+            }
+            return obj.build();
+        }
+
+        private JsonObject auxiliary(AuxiliaryFlowVertex vertex) {
+            var obj = Json.object().put("id", ids.get(vertex)).put("kind", vertex.kind().name())
+                    .put("ownerId", ids.get(vertex.owner())).put("index", vertex.index());
+            vertex.object().ifPresent(object -> obj.put("objectId", ids.get(object)));
+            vertex.destructor().ifPresent(destructor -> obj.put("destructorId", ids.get(destructor)));
+            vertex.constructor().ifPresent(constructor -> obj.put("constructorId", ids.get(constructor)));
+            var links = outgoing.get(vertex);
             if (links != null) {
                 links.sort(Comparator.comparingInt(Edge::group).thenComparing(Edge::kind).thenComparingInt(Edge::to));
                 obj.array("edges", a -> links.forEach(e -> a.object(o -> o.put("kind", e.kind()).put("to", e.to()))));

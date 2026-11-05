@@ -28,13 +28,19 @@ public final class UnreadWrites {
         return project.withDiagnostics(CODE, findings);
     }
 
+    private static void walkEvaluatedSyntax(CallableDeclaration callable, NodeVisitor visitor) {
+        callable.initializers().forEach(initializer -> initializer.walk(visitor));
+        callable.body().ifPresent(body -> body.walk(visitor));
+        callable.handlers().forEach(handler -> handler.walk(visitor));
+    }
+
     private static void inspect(FunctionFlow flow, PlatformProfile profile, Map<Node, Diagnostic> findings) {
         if (!flow.complete()) return;
         Map<Node, String> candidates = new IdentityHashMap<>();
         Set<Node> read = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Declaration> escaped = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Node> unevaluated = Collections.newSetFromMap(new IdentityHashMap<>());
-        if (profile != null) flow.entry().body().orElseThrow().walk(new NodeVisitor() {
+        if (profile != null) walkEvaluatedSyntax(flow.entry(), new NodeVisitor() {
             @Override public void visit(TypeidExpression typeid) {
                 if (TypeSemantics.typeidOperandUnevaluated(typeid, profile)) mark(typeid);
             }
@@ -49,7 +55,7 @@ public final class UnreadWrites {
                 });
             }
         });
-        if (profile != null) flow.entry().body().orElseThrow().walk(new NodeVisitor() {
+        if (profile != null) walkEvaluatedSyntax(flow.entry(), new NodeVisitor() {
             // External code may retain a pointer or a reference to the local and read it later.
             @Override public void visit(Expression expression) {
                 if (!unevaluated.contains(expression) && OperatorSemantics.mayInvokeUserCode(expression))

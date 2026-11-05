@@ -116,7 +116,14 @@ public final class Project extends Node {
                 if (callable.body().isPresent()) owners.add(callable);
             }
         });
+        var nodes = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
+        walk(new NodeVisitor() { @Override public void visit(Node node) { nodes.add(node); } });
         for (FunctionFlow flow : copy.flows) {
+            for (var auxiliary : flow.auxiliaryVertices()) {
+                if (auxiliary.object().filter(n -> !nodes.contains(n)).isPresent()
+                        || auxiliary.destructor().or(auxiliary::constructor).filter(n -> !nodes.contains(n)).isPresent())
+                    throw new IllegalArgumentException("Foreign auxiliary flow reference");
+            }
             if (!owners.remove(flow.entry()))
                 throw new IllegalArgumentException("Foreign or duplicate function flow");
         }
@@ -156,8 +163,14 @@ public final class Project extends Node {
         annotations.forEach((node, list) -> copied.apply(node).findings = list);
         copy.flows = flows.stream().map(flow -> {
             CallableDeclaration entry = (CallableDeclaration) copied.apply(flow.entry());
+            var auxiliaries = new java.util.IdentityHashMap<FlowVertex, FlowVertex>();
+            for (var auxiliary : flow.auxiliaryVertices()) auxiliaries.put(auxiliary,
+                    new AuxiliaryFlowVertex(entry, auxiliary.index(), auxiliary.kind(),
+                            auxiliary.object().map(copied).orElse(null),
+                            auxiliary.destructor().or(auxiliary::constructor).map(d -> (CallableDeclaration) copied.apply(d)).orElse(null)));
+            java.util.function.Function<FlowVertex, FlowVertex> endpoint = v -> v instanceof Node n ? copied.apply(n) : auxiliaries.get(v);
             var control = flow.control().stream().map(e -> new FunctionFlow.ControlEdge(
-                    copied.apply((Node)e.from()), copied.apply((Node)e.to()), e.kind())).toList();
+                    endpoint.apply(e.from()), endpoint.apply(e.to()), e.kind())).toList();
             var data = flow.data().stream().map(e -> new FunctionFlow.DataEdge(
                     copied.apply(e.from()), copied.apply(e.to()), e.kind())).toList();
             return new FunctionFlow(entry, entry.exit(), control, data, flow.complete());

@@ -14,9 +14,18 @@ public abstract class CallableDeclaration extends Declaration {
     public Kind kind() { return kind; }
     public boolean isConversionFunction() { return kind == Kind.CONVERSION; }
     public List<MemberInitializer> initializers() { return initializers; }
+    private boolean functionTryBlock, bodyComplete = true;
+    private List<CatchClause> handlers = List.of();
+    public boolean functionTryBlock() { return functionTryBlock; }
+    public boolean bodyComplete() { return bodyComplete; }
+    public List<CatchClause> handlers() { return handlers; }
     private String name;
     private boolean variadic, isConst, isVolatile, pureVirtual;
     private List<String> modifiers = List.of();
+    private boolean hasExceptionSpecification;
+    private List<TypeNode> exceptionTypes = List.of();
+    public boolean hasExceptionSpecification() { return hasExceptionSpecification; }
+    public List<TypeNode> exceptionTypes() { return exceptionTypes; }
     private TypeNode returnType;
     private TypeNode conversionType;
     /** Written conversion-type-id; conversion functions have no written return type. */
@@ -75,10 +84,12 @@ public abstract class CallableDeclaration extends Declaration {
             children.add(returnType);
         }
         children.addAll(parameters);
+        children.addAll(exceptionTypes);
         children.addAll(initializers);
         if (body != null) {
             children.add(body);
         }
+        children.addAll(handlers);
         children.add(exit);
         return List.copyOf(children);
     }
@@ -91,12 +102,16 @@ public abstract class CallableDeclaration extends Declaration {
         Builder<?, ?> builder = emptyBuilder();
         context.register(this, builder);
         builder.name = name;
+        builder.functionTryBlock = functionTryBlock; builder.bodyComplete = bodyComplete;
+        builder.handlers = context.copyAll(handlers, CatchClause.class);
         builder.kind = kind;
         builder.initializers = context.copyAll(initializers, MemberInitializer.class);
         builder.pureVirtual = pureVirtual;
         builder.variadic = variadic; builder.isConst = isConst; builder.isVolatile = isVolatile;
         builder.modifiers = new ArrayList<>(modifiers);
         builder.conversionType = conversionType == null ? null : context.edge(conversionType, TypeNode.class);
+        builder.hasExceptionSpecification = hasExceptionSpecification;
+        builder.exceptionTypes = context.copyAll(exceptionTypes, TypeNode.class);
         builder.returnType = returnType == null ? null : context.edge(returnType, TypeNode.class);
         builder.writtenType = writtenType == null ? null : context.edge(writtenType, TypeNode.class);
         builder.parameters = context.copyAll(parameters, ParameterDeclaration.class);
@@ -116,9 +131,23 @@ public abstract class CallableDeclaration extends Declaration {
         public List<NodeBuilder<? extends MemberInitializer>> initializers() { return List.copyOf(initializers); }
         public B setInitializers(List<? extends NodeBuilder<? extends MemberInitializer>> values) { syntaxEdited = true; initializers = new ArrayList<>(List.copyOf(values)); return self(); }
         public B addInitializer(NodeBuilder<? extends MemberInitializer> value) { syntaxEdited = true; initializers.add(Objects.requireNonNull(value)); return self(); }
+        private boolean functionTryBlock, bodyComplete = true;
+        private List<NodeBuilder<? extends CatchClause>> handlers = new ArrayList<>();
+        public boolean functionTryBlock() { return functionTryBlock; }
+        public boolean bodyComplete() { return bodyComplete; }
+        public List<NodeBuilder<? extends CatchClause>> handlers() { return List.copyOf(handlers); }
+        public B setFunctionTryBlock(boolean value) { syntaxEdited = true; functionTryBlock = value; return self(); }
+        public B setBodyComplete(boolean value) { syntaxEdited = true; bodyComplete = value; return self(); }
+        public B setHandlers(List<? extends NodeBuilder<? extends CatchClause>> value) { syntaxEdited = true; handlers = new ArrayList<>(List.copyOf(value)); return self(); }
         private String name;
         private boolean variadic, isConst, isVolatile, pureVirtual;
         private List<String> modifiers = new ArrayList<>();
+        private boolean hasExceptionSpecification;
+        private List<NodeBuilder<? extends TypeNode>> exceptionTypes = new ArrayList<>();
+        public boolean hasExceptionSpecification() { return hasExceptionSpecification; }
+        public List<NodeBuilder<? extends TypeNode>> exceptionTypes() { return List.copyOf(exceptionTypes); }
+        public B setHasExceptionSpecification(boolean value) { syntaxEdited = true; hasExceptionSpecification = value; return self(); }
+        public B setExceptionTypes(List<? extends NodeBuilder<? extends TypeNode>> value) { syntaxEdited = true; exceptionTypes = new ArrayList<>(List.copyOf(value)); return self(); }
         private NodeBuilder<? extends TypeNode> returnType;
         private NodeBuilder<? extends TypeNode> conversionType;
         public Optional<NodeBuilder<? extends TypeNode>> conversionType() { return Optional.ofNullable(conversionType); }
@@ -234,11 +263,15 @@ public abstract class CallableDeclaration extends Declaration {
             CallableDeclaration node = shell;
             node.kind = kind;
             node.initializers = context.copyAll(initializers);
+            node.functionTryBlock = functionTryBlock; node.bodyComplete = bodyComplete;
+            node.handlers = context.copyAll(handlers);
             node.name = requiredText(name, "CallableDeclaration.name");
             node.pureVirtual = pureVirtual;
             node.variadic = variadic; node.isConst = isConst; node.isVolatile = isVolatile;
             node.modifiers = List.copyOf(modifiers);
             node.conversionType = conversionType == null ? null : context.copy(conversionType);
+            node.hasExceptionSpecification = hasExceptionSpecification;
+            node.exceptionTypes = context.copyAll(exceptionTypes);
             node.returnType = returnType == null ? null : context.copy(returnType);
             node.writtenType = writtenType == null ? null : context.copy(writtenType);
             node.parameters = context.copyAll(parameters);

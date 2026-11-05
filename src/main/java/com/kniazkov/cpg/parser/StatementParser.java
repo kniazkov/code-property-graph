@@ -38,7 +38,7 @@ final class StatementParser {
             try {
                 if (tokens.take("}")) break;
                 var itemStart = tokens.start();
-                if (tokens.language() == Language.CPP && types.startsDeclaration()) {
+                if (tokens.language() == Language.CPP && types.startsDeclaration() && !tokens.peek(1).equals(":")) {
                     for (var declaration : declarationReader == null ? declarations() : declarationReader.get()) block.addItem(declaration);
                 } else if (tokens.language() == Language.JAVA && tokens.take("int")) {
                     var type = tokens.span(itemStart, NamedType.create().setName("int"));
@@ -62,10 +62,12 @@ final class StatementParser {
                 }
             } catch (ParseException error) {
                 if (recovery == null) throw error;
+                block.setComplete(false);
                 recovery.stop(error, tokens.currentRange());
             }
         }
         } finally { types.popScope(); }
+        if (recovery != null && recovery.stopped()) block.setComplete(false);
         return tokens.span(start, block);
     }
 
@@ -111,16 +113,76 @@ final class StatementParser {
         return result;
     }
 
-    /** Recursion binds an optional else to its nearest still-open if. */
+    /** Selection and iteration statements introduce scopes for condition declarations. */
     private NodeBuilder<? extends Statement> statement() {
         var start = tokens.start();
         if (tokens.peek().equals("{")) return block();
-        if (tokens.take("if")) {
-            var branch = IfStatement.create().setCondition(condition()).setThenBranch(statement());
-            if ((recovery == null || !recovery.stopped()) && tokens.take("else")) branch.setElseBranch(statement());
-            return tokens.span(start, branch);
+        if (tokens.language() == Language.CPP && types.startsDeclaration() && !tokens.peek(1).equals(":")) {
+            var result = BlockStatement.create();
+            for (var declaration : declarationReader == null ? declarations() : declarationReader.get()) result.addItem(declaration);
+            return tokens.span(start, result);
         }
-        if (tokens.take("while")) return tokens.span(start, WhileStatement.create().setCondition(condition()).setBody(statement()));
+        if (tokens.language() == Language.CPP && tokens.take(";")) return tokens.span(start, EmptyStatement.create());
+        if (tokens.peek().equals("if") || tokens.peek().equals("while") || tokens.language() == Language.CPP && tokens.peek().equals("switch")) {
+            String kind = tokens.peek(); tokens.advance(); types.pushScope();
+            try {
+                var condition = condition();
+                if (kind.equals("if")) {
+                    var branch = IfStatement.create().setCondition(condition).setThenBranch(scopedStatement());
+                    if ((recovery == null || !recovery.stopped()) && tokens.take("else")) branch.setElseBranch(scopedStatement());
+                    return tokens.span(start, branch);
+                }
+                if (kind.equals("while")) return tokens.span(start, WhileStatement.create().setCondition(condition).setBody(scopedStatement()));
+                return tokens.span(start, SwitchStatement.create().setCondition(condition).setBody(scopedStatement()));
+            } finally { types.popScope(); }
+        }
+        if (tokens.language() == Language.CPP) {
+            if (tokens.take("do")) {
+                var body = scopedStatement(); tokens.expect("while");
+                tokens.expect("("); var condition = expressions.parseFull(); tokens.expect(")"); tokens.expect(";");
+                return tokens.span(start, DoWhileStatement.create().setBody(body).setCondition(condition));
+            }
+            if (tokens.take("for")) {
+                types.pushScope();
+                try {
+                    tokens.expect("("); var loop = ForStatement.create();
+                    if (types.startsDeclaration()) {
+                        for (var declaration : declarationReader == null ? declarations() : declarationReader.get()) loop.addInitializer(declaration);
+                    } else if (!tokens.take(";")) {
+                        var initStart = tokens.start(); var value = expressions.parseFull(); tokens.expect(";");
+                        loop.addInitializer(tokens.span(initStart, ExpressionStatement.create().setExpression(value)));
+                    }
+                    if (!tokens.peek().equals(";")) loop.setCondition(conditionValue());
+                    tokens.expect(";");
+                    if (!tokens.peek().equals(")")) loop.setUpdate(expressions.parseFull());
+                    tokens.expect(")"); loop.setBody(scopedStatement());
+                    return tokens.span(start, loop);
+                } finally { types.popScope(); }
+            }
+            if (tokens.take("case")) {
+                var result = CaseStatement.create().setValue(expressions.parse()); tokens.expect(":");
+                return tokens.span(start, result.setStatement(statement()));
+            }
+            if (tokens.take("default")) { tokens.expect(":"); return tokens.span(start, CaseStatement.create().setStatement(statement())); }
+            if (tokens.take("break")) { tokens.expect(";"); return tokens.span(start, BreakStatement.create()); }
+            if (tokens.take("continue")) { tokens.expect(";"); return tokens.span(start, ContinueStatement.create()); }
+            if (tokens.take("goto")) { var result = GotoStatement.create().setLabel(tokens.identifier()); tokens.expect(";"); return tokens.span(start, result); }
+            if (tokens.take("try")) {
+                var result = TryStatement.create().setBody(block());
+                if (recovery == null || !recovery.stopped()) {
+                    try { result.setHandlers(handlers()); }
+                    catch (ParseException error) {
+                        if (recovery == null) throw error;
+                        recovery.stop(error, tokens.currentRange());
+                    }
+                }
+                return tokens.span(start, result);
+            }
+            if (tokens.peek(1).equals(":")) {
+                var result = LabelStatement.create().setLabel(tokens.identifier()); tokens.expect(":");
+                return tokens.span(start, result.setStatement(statement()));
+            }
+        }
         if (tokens.take("return")) {
             var result = ReturnStatement.create();
             if (!tokens.peek().equals(";")) result.setValue(expressions.parseFull());
@@ -132,10 +194,52 @@ final class StatementParser {
         return tokens.span(start, result);
     }
 
+    private NodeBuilder<? extends Statement> scopedStatement() {
+        types.pushScope();
+        try { return statement(); } finally { types.popScope(); }
+    }
+
+    java.util.List<NodeBuilder<? extends CatchClause>> handlers() {
+        var result = new java.util.ArrayList<NodeBuilder<? extends CatchClause>>();
+        boolean catchAll = false;
+        do {
+            var start = tokens.start(); tokens.expect("catch");
+            if (catchAll) throw tokens.error("catch(...) must be the last handler");
+            tokens.expect("("); types.pushScope();
+            try {
+                var handler = CatchClause.create();
+                if (tokens.take("...")) catchAll = true;
+                else {
+                    var parameterStart = tokens.start(); var specs = types.specifiers();
+                    if (specs.typedef() || !specs.modifiers().isEmpty()) throw tokens.error("Invalid exception declaration specifier");
+                    var declarator = types.declarator(true);
+                    handler.setParameter(tokens.span(parameterStart, ParameterDeclaration.create().setName(declarator.name()).setType(declarator.apply().apply(specs.type().get()))));
+                    types.declareName(declarator.name());
+                }
+                tokens.expect(")"); handler.setBody(block());
+                result.add(tokens.span(start, handler));
+            } finally { types.popScope(); }
+        } while ((recovery == null || !recovery.stopped()) && tokens.peek().equals("catch"));
+        return result;
+    }
+
     private NodeBuilder<? extends Expression> condition() {
-        tokens.expect("(");
-        var condition = expressions.parseFull();
-        tokens.expect(")");
-        return condition;
+        tokens.expect("("); var result = conditionValue(); tokens.expect(")"); return result;
+    }
+
+    private NodeBuilder<? extends Expression> conditionValue() {
+        if (tokens.language() != Language.CPP || !types.startsDeclaration()) return expressions.parseFull();
+        var start = tokens.start(); int checkpoint = tokens.checkpoint(); var specs = types.specifiers();
+        if (specs.typedef() || !specs.modifiers().isEmpty()) throw tokens.error("Invalid condition declaration specifier");
+        var declarator = types.declarator(false);
+        var type = declarator.apply().apply(specs.type().get());
+        if (types.functionType(type) != null || type instanceof ArrayType.Builder) throw tokens.error("Invalid condition declaration type");
+        if (!tokens.take("=")) {
+            tokens.restore(checkpoint);
+            return expressions.parseFull();
+        }
+        types.declareName(declarator.name());
+        var declaration = tokens.span(start, VariableDeclaration.create().setName(declarator.name()).setType(type).setInitializer(expressions.parse()));
+        return tokens.span(start, ConditionDeclarationExpression.create().setDeclaration(declaration));
     }
 }

@@ -16,7 +16,7 @@ public final class NameResolver {
         // The syntax depth bounds this propagation, without assuming a fixed nesting limit.
         int depth = expressionDepth(typed);
         for (int i = 0; i <= depth; i++) typed = new Engine(typed.edit().build()).linkDeclarations();
-        return StandardConversions.analyze(typed);
+        return new Engine(StandardConversions.analyze(typed)).validateStatements();
     }
 
     private static int expressionDepth(Node node) {
@@ -125,11 +125,23 @@ public final class NameResolver {
                 positions.put(callable, position++); // A function name follows its complete declarator.
                 callable.initializers().forEach(initializer -> index(initializer, nested));
                 callable.body().ifPresent(body -> index(body, nested));
+                callable.handlers().forEach(handler -> index(handler, nested));
+                callable.exceptionTypes().forEach(type -> index(type, scope));
                 index(callable.exit(), nested);
             } else if (node instanceof FunctionType function) {
                 Scope nested = new Scope(scope, scope.file, scope.qualified + "#prototype" + positions.get(node), true, scope.anonymous, false);
                 index(function.returnType(), scope);
                 function.parameters().forEach(parameter -> index(parameter, nested));
+                function.exceptionTypes().forEach(type -> index(type, scope));
+            } else if (node instanceof ForStatement || node instanceof WhileStatement
+                    || node instanceof IfStatement || node instanceof SwitchStatement || node instanceof CatchClause) {
+                Scope nested = new Scope(scope, scope.file, scope.qualified + "#statement" + positions.get(node), true, scope.anonymous, false);
+                for (Node child : node.children()) {
+                    if (child instanceof Statement && !(child instanceof BlockStatement)) {
+                        Scope branch = new Scope(nested, scope.file, nested.qualified + "#branch" + position, true, scope.anonymous, false);
+                        index(child, branch);
+                    } else index(child, nested);
+                }
             } else if (node instanceof BlockStatement block) {
                 Scope nested = new Scope(scope, scope.file, scope.qualified + "#" + positions.get(node), true, scope.anonymous, false);
                 block.items().forEach(item -> index(item, nested));
@@ -150,6 +162,132 @@ public final class NameResolver {
                     positions.put(node, position++);
                 if (node instanceof EnumDeclaration enumeration) enumEnds.put(enumeration, position);
             }
+        }
+
+        Project validateStatements() {
+            // This is an additive validation pass. ProjectEditor intentionally clears
+            // findings on ordinary edits, so carry earlier semantic findings forward.
+            project.walk(new NodeVisitor() {
+                @Override public void visit(Node node) {
+                    node.diagnostics().forEach(diagnostic -> editor.diagnose(node, diagnostic));
+                }
+            });
+            for (Declaration declaration : declarations) if (declaration instanceof CallableDeclaration callable
+                    && scopes.get(callable).file.language() == Language.CPP && callable.body().isPresent()) {
+                var labels = new LinkedHashMap<String, LabelStatement>();
+                var jumps = new ArrayList<GotoStatement>();
+                var protectedRegions = new ArrayList<Node>();
+                callable.walk(new NodeVisitor() {
+                    @Override public void visit(TryStatement attempt) { protectedRegions.add(attempt.body()); }
+                    @Override public void visit(CatchClause handler) { protectedRegions.add(handler); }
+                });
+                validateStatement(callable.body().get(), 0, new ArrayDeque<>(), 0, labels, jumps);
+                for (CatchClause handler : callable.handlers())
+                    validateStatement(handler, 0, new ArrayDeque<>(), 0, labels, jumps);
+                for (GotoStatement jump : jumps) {
+                    LabelStatement label = labels.get(jump.label());
+                    if (label == null) { error(jump, "unknown-label", "No label '" + jump.label() + "' in this function"); continue; }
+                    for (Node region : protectedRegions) if (containsNode(region, label) && !containsNode(region, jump)) {
+                        error(jump, "goto-enters-try-or-handler", "A jump cannot enter a try block or exception handler"); break;
+                    }
+                    for (Declaration candidate : declarations) if (candidate instanceof VariableDeclaration variable
+                            && !variable.modifiers().contains("static") && !variable.modifiers().contains("extern")
+                            && requiresInitialization(variable)
+                            && activeAt(variable, label) && !activeAt(variable, jump)) {
+                        error(jump, "goto-crosses-initialization", "Jump enters the lifetime of '" + variable.name() + "'"); break;
+                    }
+                }
+            }
+            return editor.build();
+        }
+        boolean requiresInitialization(VariableDeclaration variable) {
+            return variable.initializer().isPresent() || variable.type().map(type -> nonPod(type, new HashSet<>())).orElse(false);
+        }
+        boolean nonPod(TypeNode type, Set<ClassDeclaration> seen) {
+            type = TypeSemantics.unqualified(type);
+            if (type instanceof ReferenceType) return true;
+            if (type instanceof ArrayType array) return nonPod(array.elementType(), seen);
+            ClassDeclaration owner = ClassSemantics.objectClass(type).orElse(null);
+            if (owner == null || !seen.add(owner)) return false;
+            if (!ClassSemantics.aggregate(owner) || owner.members().stream().anyMatch(member -> member instanceof CallableDeclaration callable
+                    && (callable.kind() == CallableDeclaration.Kind.DESTRUCTOR || callable.name().equals("operator=")))) return true;
+            return ClassSemantics.fields(owner).stream().anyMatch(field -> field.type().map(memberType -> nonPod(memberType, seen)).orElse(false));
+        }
+        boolean containsNode(Node root, Node target) {
+            if (root == target) return true;
+            for (Node child : root.children()) if (containsNode(child, target)) return true;
+            return false;
+        }
+        boolean activeAt(VariableDeclaration variable, Node point) {
+            if (positions.get(variable) >= positions.get(point)) return false;
+            Scope owner = scopes.get(variable);
+            for (Scope scope = scopes.get(point); scope != null; scope = scope.parent) if (scope == owner) return true;
+            return false;
+        }
+        void validateOuterBodyNames(Statement body, Set<String> names) {
+            if (body instanceof BlockStatement block) for (Node item : block.items())
+                if (item instanceof VariableDeclaration variable && names.contains(variable.name()))
+                    error(variable, "conflicting-declaration", "Statement-scope name redeclared in its outer body: " + variable.name());
+        }
+        static final class SwitchLabels {
+            final Node owner;
+            SwitchLabels(Node owner) { this.owner = owner; }
+            boolean hasDefault;
+            final Set<java.math.BigInteger> values = new HashSet<>();
+        }
+        void validateStatement(Node node, int loops, Deque<SwitchLabels> switches, int handlers,
+                Map<String, LabelStatement> labels, List<GotoStatement> jumps) {
+            if (node instanceof CallableDeclaration || node instanceof ClassDeclaration) return;
+            if (node instanceof CatchClause handler) handler.parameter().ifPresent(parameter ->
+                    validateOuterBodyNames(handler.body(), Set.of(parameter.name())));
+            if (node instanceof IfStatement conditional && conditional.condition() instanceof ConditionDeclarationExpression declaration) {
+                validateOuterBodyNames(conditional.thenBranch(), Set.of(declaration.declaration().name()));
+                conditional.elseBranch().ifPresent(branch -> validateOuterBodyNames(branch, Set.of(declaration.declaration().name())));
+            }
+            if (node instanceof WhileStatement loop && loop.condition() instanceof ConditionDeclarationExpression declaration)
+                validateOuterBodyNames(loop.body(), Set.of(declaration.declaration().name()));
+            if (node instanceof SwitchStatement selection && selection.condition() instanceof ConditionDeclarationExpression declaration)
+                validateOuterBodyNames(selection.body(), Set.of(declaration.declaration().name()));
+            if (node instanceof ForStatement loop) {
+                Set<String> names = new HashSet<>();
+                for (Node initializer : loop.initializers()) if (initializer instanceof VariableDeclaration variable) names.add(variable.name());
+                loop.condition().filter(ConditionDeclarationExpression.class::isInstance).map(ConditionDeclarationExpression.class::cast)
+                        .ifPresent(condition -> names.add(condition.declaration().name()));
+                validateOuterBodyNames(loop.body(), names);
+            }
+            if (node instanceof LabelStatement label && labels.putIfAbsent(label.label(), label) != null)
+                error(label, "duplicate-label", "Duplicate function label '" + label.label() + "'");
+            if (node instanceof GotoStatement jump) jumps.add(jump);
+            if (node instanceof BreakStatement && loops == 0 && switches.isEmpty())
+                error(node, "break-outside-loop-or-switch", "break requires an enclosing loop or switch");
+            if (node instanceof ContinueStatement && loops == 0)
+                error(node, "continue-outside-loop", "continue requires an enclosing loop");
+            if (node instanceof CaseStatement label) {
+                if (switches.isEmpty()) error(node, "case-outside-switch", "case/default requires an enclosing switch");
+                else if (label.value().isEmpty()) {
+                    if (switches.peek().hasDefault) error(node, "duplicate-default", "Duplicate default in switch");
+                    switches.peek().hasDefault = true;
+                } else ConstantEvaluator.evaluate(label.value().get(), TypeSemantics.profile(scopes.get(node).file)).ifPresent(value -> {
+                    if (!switches.peek().values.add(value.number())) error(node, "duplicate-case", "Duplicate case value in switch");
+                });
+            }
+            if (node instanceof CaseStatement && !switches.isEmpty()) {
+                for (Declaration candidate : declarations) if (candidate instanceof VariableDeclaration variable
+                        && !variable.modifiers().contains("static") && !variable.modifiers().contains("extern")
+                        && requiresInitialization(variable)
+                        && activeAt(variable, node) && !activeAt(variable, ((SwitchStatement)switches.peek().owner).body())) {
+                    error(node, "case-crosses-initialization", "Switch dispatch enters the lifetime of '" + variable.name() + "'"); break;
+                }
+            }
+            if (node instanceof ThrowExpression thrown && thrown.value().isEmpty() && handlers == 0)
+                editor.diagnose(node, new Diagnostic("rethrow-without-lexical-handler", Diagnostic.Severity.WARNING,
+                        "Rethrow requires a dynamically active exception; otherwise execution terminates"));
+            boolean isSwitch = node instanceof SwitchStatement;
+            if (isSwitch) switches.push(new SwitchLabels(node));
+            int nextLoops = loops + (node instanceof WhileStatement || node instanceof DoWhileStatement || node instanceof ForStatement ? 1 : 0);
+            int nextHandlers = handlers + (node instanceof CatchClause ? 1 : 0);
+            for (Node child : node.children()) validateStatement(child, nextLoops, switches, nextHandlers, labels, jumps);
+            if (isSwitch) switches.pop();
         }
 
         Project bindNames() {
