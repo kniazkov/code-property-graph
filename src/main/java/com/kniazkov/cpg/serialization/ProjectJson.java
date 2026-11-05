@@ -47,7 +47,7 @@ public final class ProjectJson {
             };
             index.visit(project);
             project.files().forEach(file -> file.walk(index));
-            project.librarySources().forEach(file -> file.walk(index));
+            project.standardLibrary().ifPresent(library -> library.walk(index));
             project.templateInstances().forEach(instance -> instance.walk(index));
             project.classTemplateInstances().forEach(instance -> instance.walk(index));
             for (var flow : project.flows()) for (var vertex : flow.auxiliaryVertices()) ids.put(vertex, ids.size());
@@ -56,6 +56,14 @@ public final class ProjectJson {
             for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n) for (Node target : n.references()) edge(n, target, "ref");
             for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n)
                 for (Comment comment : n.commentReferences()) edge(n, comment, "HAS_COMMENT");
+            for (FlowVertex vertex : ids.keySet()) {
+                if (vertex instanceof VariableDeclaration variable) {
+                    variable.constructorTarget().ifPresent(target -> edge(variable, target, "CONSTRUCTOR_TARGET"));
+                    variable.destructorTarget().ifPresent(target -> edge(variable, target, "DESTRUCTOR_TARGET"));
+                }
+                if (vertex instanceof IncludeDirective include) include.libraryHeader().ifPresent(header -> edge(include, header, "LIBRARY_HEADER"));
+                if (vertex instanceof Declaration declaration) declaration.templateOrigin().ifPresent(origin -> edge(declaration, origin, "TEMPLATE_ORIGIN"));
+            }
             for (FlowVertex vertex : ids.keySet()) if (vertex instanceof CallExpression call)
                 call.target().ifPresent(target -> edge(call, target, "CALL_TARGET"));
             for (TemplateInstance instance : project.templateInstances()) for (Node request : instance.requests()) {
@@ -90,7 +98,8 @@ public final class ProjectJson {
             switch (n) {
                 case Project p -> {
                     obj.put("files", nodes(p.files()));
-                    if (!p.librarySources().isEmpty()) obj.put("librarySources", nodes(p.librarySources()));
+                    p.standardLibrary().ifPresent(library -> obj.put("standardLibrary", node(library)));
+                    if (!p.librarySources().isEmpty()) obj.array("librarySources", a -> p.librarySources().forEach(header -> a.add(ids.get(header))));
                     if (!p.templateInstances().isEmpty()) obj.put("templateInstances", nodes(p.templateInstances()));
                     if (!p.classTemplateInstances().isEmpty()) obj.put("classTemplateInstances", nodes(p.classTemplateInstances()));
                     if (p.hasErrors()) {
@@ -104,6 +113,7 @@ public final class ProjectJson {
                                 .array("variantIds", a -> a.addAll(c.variantIds()))));
                     }));
                 }
+                case StandardLibrary library -> obj.put("headers", nodes(library.headers()));
                 case ClassTemplateInstance instance -> {
                     obj.put("originId", ids.get(instance.origin())).put("selectedId", ids.get(instance.selected()))
                         .put("sourceId", ids.get(instance.source())).put("identity", instance.identity())
@@ -233,6 +243,8 @@ public final class ProjectJson {
                 }
                 case BlockStatement b -> { obj.put("items", nodes(b.items())); if (!b.complete()) obj.put("complete", false); }
                 case VariableDeclaration v -> {
+                    v.constructorTarget().ifPresent(target -> obj.put("constructorTargetId", ids.get(target)));
+                    v.destructorTarget().ifPresent(target -> obj.put("destructorTargetId", ids.get(target)));
                     v.bitWidth().ifPresent(value -> obj.put("bitWidth", node(value)));
                     obj.put("name", v.name());
                     if (!v.modifiers().isEmpty()) obj.array("modifiers", a -> a.addAll(v.modifiers()));
@@ -251,6 +263,7 @@ public final class ProjectJson {
                     p.type().ifPresent(t -> obj.put("type", node(t)));
                     p.defaultValue().ifPresent(value -> obj.put("defaultValue", node(value)));
                 }
+                case OpaqueLibraryType t -> obj.put("name", t.name()).put("identity", t.identity()).put("category", t.category().name());
                 case NamedType t -> {
                     obj.put("name", t.name());
                     if (t.hasTemplateArguments()) obj.put("templateArguments", nodes(t.templateArguments()));
@@ -312,7 +325,10 @@ public final class ProjectJson {
                 case ConditionalExpression c -> obj.put("condition", node(c.condition())).put("thenExpression", node(c.thenExpression()))
                         .put("elseExpression", node(c.elseExpression()));
                 case ErrorExpression e -> obj.put("problem", problem(e.problem()));
-                case IncludeDirective i -> obj.put("header", i.header()).put("system", i.system());
+                case IncludeDirective i -> {
+                    obj.put("header", i.header()).put("system", i.system());
+                    i.libraryHeader().ifPresent(header -> obj.put("libraryHeaderId", ids.get(header)));
+                }
                 case IfStatement i -> {
                     obj.put("condition", node(i.condition())).put("thenBranch", node(i.thenBranch()));
                     i.elseBranch().ifPresent(b -> obj.put("elseBranch", node(b)));
@@ -373,6 +389,7 @@ public final class ProjectJson {
                 value.put("category", lower(info.category()));
             }));
             if (n instanceof Declaration declaration) {
+                declaration.templateOrigin().ifPresent(origin -> obj.put("templateOriginId", ids.get(origin)));
                 if (declaration.isFriend()) obj.put("friend", true);
                 declaration.access().ifPresent(value -> obj.put("access", value));
                 declaration.typeIdentity().ifPresent(identity -> obj.put("typeIdentity", identity));

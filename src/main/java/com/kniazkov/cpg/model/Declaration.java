@@ -14,7 +14,9 @@ public abstract class Declaration extends Node {
     /** Written class-member access, absent outside class scope. */
     public Optional<String> access() { return Optional.ofNullable(access); }
     boolean definitionOccurrence = true;
-    Declaration previousDeclaration, definition;
+    Declaration previousDeclaration, definition, templateOrigin;
+    /** Generic declaration from which a concrete library member was substituted. */
+    public Optional<Declaration> templateOrigin() { return Optional.ofNullable(templateOrigin); }
     String typeIdentity;
     Declaration() {}
     public Optional<String> typeIdentity() { return Optional.ofNullable(typeIdentity); }
@@ -25,6 +27,7 @@ public abstract class Declaration extends Node {
     public Optional<Declaration> definition() { return Optional.ofNullable(definition); }
     @Override public List<Node> references() {
         var result = new ArrayList<Node>();
+        if (templateOrigin != null) result.add(templateOrigin);
         if (previousDeclaration != null) result.add(previousDeclaration);
         if (definition != null && definition != previousDeclaration) result.add(definition);
         return List.copyOf(result);

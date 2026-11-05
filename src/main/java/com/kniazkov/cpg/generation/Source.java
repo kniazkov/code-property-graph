@@ -558,6 +558,7 @@ public final class Source {
     private String declaration(TypeNode type, String name) { return declaration(type, name, ""); }
     private String declaration(TypeNode type, String name, String qualifiers) {
         return switch (type) {
+            case OpaqueLibraryType n -> n.name() + qualifiers + (name.isEmpty() ? "" : " " + name);
             case NamedType n -> n.elaboratedKeyword().map(keyword -> keyword + " ").orElse("") + namedType(n) + qualifiers + (name.isEmpty() ? "" : " " + name);
             case QualifiedType q -> declaration(q.baseType(), name, qualifiers + (q.isConst() ? " const" : "") + (q.isVolatile() ? " volatile" : ""));
             case PointerType p -> declaration(p.pointee(), grouped(p.pointee(), "*" + qualifiers + (qualifiers.isEmpty() ? "" : " ") + name));

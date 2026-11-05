@@ -21,6 +21,8 @@ jobs:
       - name: Install Graphviz for SVG end-to-end checks
         run: command -v dot || (sudo apt-get update && sudo apt-get install -y graphviz)
       - run: mvn -B verify
+      - name: Validate catalogue signatures against real C++03 libraries
+        run: bash scripts/probe-cpp03-library-catalogue.sh
       - name: Verify complete C++03 corpus discovery
         run: python3 scripts/check-cpp03-reports.py
       - name: Validate JavaDoc including internal parser and analysis classes

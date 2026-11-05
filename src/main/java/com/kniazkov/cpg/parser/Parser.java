@@ -99,9 +99,12 @@ public final class Parser {
         String file = unit.source().path().toString();
         var result = CppPreprocessor.preprocess(unit, source, java.util.Map.of(file, source), java.time.Instant.EPOCH);
         var provenance = preprocessing(file, result, unit).asLibraryCatalogue();
-        var parsed = new Parser(file, Language.CPP, parserTokens(result, provenance), provenance).parse();
+        var parser = new Parser(file, Language.CPP, parserTokens(result, provenance), provenance);
+        var placeholders=java.util.regex.Pattern.compile("__cpg_opaque_(?:arithmetic|integer|object|unspecified)_[A-Za-z0-9_]+").matcher(source);
+        while(placeholders.find()) parser.types.registerOpaquePlaceholder(placeholders.group());
+        var parsed=parser.parse();
         parsed.setProvenance(new TokenProvenance(provenance, 0, provenance.tokens().size()));
-        return parsed;
+        return LibraryGraph.resolveOpaqueTypes(parsed.build());
     }
 
     /** Preprocesses a configured C++ translation unit and parses its resulting tokens. */
@@ -585,7 +588,8 @@ public final class Parser {
             } finally { types.popScope(); }
             if (result.getFirst() instanceof ClassDeclaration.Builder klass) {
                 types.registerClass(klass.name().orElseThrow()); types.declareTemplate(klass.name().orElseThrow());
-            } else if (result.getFirst() instanceof CallableDeclaration.Builder<?, ?> function) {
+            } else if (result.getFirst() instanceof CallableDeclaration.Builder<?, ?> function
+                    && function.kind() != CallableDeclaration.Kind.CONSTRUCTOR && function.kind() != CallableDeclaration.Kind.DESTRUCTOR) {
                 types.declareName(function.name().orElseThrow()); types.declareTemplate(function.name().orElseThrow());
             }
             return result;

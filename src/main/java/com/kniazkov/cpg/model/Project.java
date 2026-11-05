@@ -9,6 +9,8 @@ import java.util.Objects;
 public final class Project extends Node {
     private List<SourceFile> files = List.of();
     private List<SourceFile> librarySources = List.of();
+    private StandardLibrary standardLibrary;
+    public java.util.Optional<StandardLibrary> standardLibrary() { return java.util.Optional.ofNullable(standardLibrary); }
     private List<TemplateInstance> templateInstances = List.of();
     private List<String> instanceSyntax;
     /** Removes derived instances when a low-level builder changes written source. */
@@ -20,6 +22,7 @@ public final class Project extends Node {
         if (instanceSyntax == null && syntax != null) { instanceSyntax = syntax; return java.util.Set.of(); }
         var written = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
         files.forEach(file -> file.walk(new NodeVisitor() { @Override public void visit(Node node) { written.add(node); } }));
+        librarySources.forEach(file -> file.walk(new NodeVisitor() { @Override public void visit(Node node) { written.add(node); } }));
         var allOwned = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
         allOwned.addAll(written);
         templateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { allOwned.add(node); } }));
@@ -34,6 +37,7 @@ public final class Project extends Node {
         classTemplateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { discarded.add(node); } }));
         files.forEach(file -> file.walk(new NodeVisitor() {
             @Override public void visit(CallExpression call) { call.invalidateTargets(discarded); }
+            @Override public void visit(VariableDeclaration variable) { variable.invalidateLifetimeTargets(discarded); }
             @Override public void visit(NamedType type) { type.invalidateTemplateTargets(discarded); }
             @Override public void visit(NameExpression name) { name.invalidateTemplateTargets(discarded); }
             @Override public void visit(MemberExpression member) { member.invalidateTemplateTargets(discarded); }
@@ -159,7 +163,7 @@ public final class Project extends Node {
         copy.editIdentity = editIdentity;
         copy.files = files;
         copy.classTemplateInstances = classTemplateInstances;
-        copy.librarySources = librarySources; copy.templateInstances = templateInstances; copy.instanceSyntax = instanceSyntax;
+        copy.standardLibrary = standardLibrary; copy.librarySources = librarySources; copy.templateInstances = templateInstances; copy.instanceSyntax = instanceSyntax;
         copy.externalInputs = externalInputs;
         copy.build = build;
         copy.flows = List.copyOf(results);
@@ -242,7 +246,7 @@ public final class Project extends Node {
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         children.addAll(files);
-        children.addAll(librarySources); children.addAll(templateInstances); children.addAll(classTemplateInstances);
+        if (standardLibrary != null) children.add(standardLibrary); children.addAll(templateInstances); children.addAll(classTemplateInstances);
         children.addAll(externalInputs);
         return List.copyOf(children);
     }
@@ -267,6 +271,7 @@ public final class Project extends Node {
         context.register(this, builder);
         builder.files = context.copyAll(files, SourceFile.class);
         builder.librarySources = context.copyAll(librarySources, SourceFile.class);
+        builder.libraryCollection = standardLibrary == null ? null : context.edit(standardLibrary, StandardLibrary.Builder.class);
         builder.templateInstances = context.copyAll(templateInstances, TemplateInstance.class);
         builder.classTemplateInstances = context.copyAll(classTemplateInstances, ClassTemplateInstance.class);
         builder.instanceSyntax = instanceSyntax;
@@ -279,6 +284,7 @@ public final class Project extends Node {
     public static final class Builder extends NodeBuilder<Project> {
         private List<NodeBuilder<? extends SourceFile>> files = new ArrayList<>();
         private List<NodeBuilder<? extends SourceFile>> librarySources = new ArrayList<>();
+        private StandardLibrary.Builder libraryCollection;
         private List<NodeBuilder<? extends TemplateInstance>> templateInstances = new ArrayList<>();
         private List<NodeBuilder<? extends ClassTemplateInstance>> classTemplateInstances = new ArrayList<>();
         Builder addClassTemplateInstance(ClassTemplateInstance.Builder value) { classTemplateInstances.add(value); return this; }
@@ -318,7 +324,11 @@ public final class Project extends Node {
         @Override
         void fillNode(Project node, BuildContext context) {
             node.files = context.copyAll(files);
-            node.librarySources = context.copyAll(librarySources);
+            if (!librarySources.isEmpty()) {
+                var collection = libraryCollection == null ? new StandardLibrary.Builder() : libraryCollection; collection.headers = librarySources;
+                node.standardLibrary = context.copy(collection);
+                node.librarySources = node.standardLibrary.headers();
+            }
             node.classTemplateInstances = context.copyAll(classTemplateInstances);
             node.templateInstances = context.copyAll(templateInstances); node.instanceSyntax = instanceSyntax;
             node.build = build;

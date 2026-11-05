@@ -51,7 +51,7 @@ public abstract class NodeBuilder<T extends Node> {
     }
     public final void clearAccess() { declarationAccess = null; }
     boolean declarationDefinition = true;
-    NodeBuilder<? extends Declaration> previousDeclaration, definition;
+    NodeBuilder<? extends Declaration> previousDeclaration, definition, templateOrigin;
     public final void setLinkage(Declaration.Linkage value) { declarationLinkage = Objects.requireNonNull(value); }
     public final void setLanguageLinkage(String value) { languageLinkage = Objects.requireNonNull(value); }
     public final void setDeclarationDefinition(boolean value) { declarationDefinition = value; }

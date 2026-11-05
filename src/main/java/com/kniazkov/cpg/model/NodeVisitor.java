@@ -10,6 +10,8 @@ package com.kniazkov.cpg.model;
  * <p>One call to Node.accept dispatches once. Use Node.walk for a whole subtree.
  */
 public interface NodeVisitor {
+    default void visit(OpaqueLibraryType node) { visit((TypeNode) node); }
+    default void visit(StandardLibrary node) { visit((Node) node); }
     default void visit(ClassTemplateInstance node) { visit((Node) node); }
     default void visit(TemplateInstance node) { visit((Node) node); }
     default void visit(TemplateArgument node) { visit((Node) node); }

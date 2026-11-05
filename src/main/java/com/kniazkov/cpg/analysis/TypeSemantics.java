@@ -378,6 +378,7 @@ public final class TypeSemantics {
     @SuppressWarnings("unchecked")
     private static NodeBuilder<? extends TypeNode> signatureType(TypeNode input) {
         TypeNode type = input.canonicalType();
+        if (type instanceof OpaqueLibraryType opaque) return OpaqueLibraryType.create().setName(opaque.name()).setIdentity(opaque.identity()).setCategory(opaque.category());
         if (type instanceof NamedType named) return NamedType.create().setName(named.fundamentalKind().map(FundamentalKind::spelling)
                 .orElseGet(() -> named.declaration().flatMap(Declaration::typeIdentity).orElse(named.name())));
         if (type instanceof QualifiedType qualified) return QualifiedType.create().setBaseType(signatureType(qualified.baseType())).setConst(qualified.isConst()).setVolatile(qualified.isVolatile());

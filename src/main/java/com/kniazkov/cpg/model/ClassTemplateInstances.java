@@ -37,7 +37,17 @@ public final class ClassTemplateInstances {
                 concrete.setTemplateParameters(List.of()).setTemplateKind(TemplateKind.NONE);
                 concrete.clearDefinition(); concrete.clearPreviousDeclaration(); concrete.setTypeIdentity(request.identity());
                 request.selected().walk(new NodeVisitor() {
-                    @Override public void visit(NamedType n) { fork.edit(n, NamedType.Builder.class).setDependent(false); }
+                    @Override public void visit(OpaqueLibraryType n) {
+                        fork.edit(n,OpaqueLibraryType.Builder.class).setIdentity(request.identity()+"::"+n.identity());
+                    }
+                    @Override public void visit(Declaration n) {
+                        if (com.kniazkov.cpg.analysis.LibraryDeclarations.isLibrary(request.selected()) && n != request.selected())
+                            fork.copy(n).templateOrigin = context.edge(n, Declaration.class);
+                    }
+                    @Override public void visit(NamedType n) {
+                        var b=fork.edit(n,NamedType.Builder.class).setDependent(false).clearResolutionSteps();
+                        if(n.declaration().orElse(null) instanceof TemplateParameterDeclaration) b.clearDeclaration();
+                    }
                     @Override public void visit(Expression n) { fork.copy(n).setDependent(false); }
                     @Override public void visit(CallExpression n) { fork.edit(n, CallExpression.Builder.class).clearTarget().setDependent(false); }
                     @Override public void visit(MemberExpression n) { ((MemberExpression.Builder<?, ?>)fork.copy(n)).clearTarget().setDependent(false); }

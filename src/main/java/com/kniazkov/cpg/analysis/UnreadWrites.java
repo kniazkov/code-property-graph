@@ -39,6 +39,7 @@ public final class UnreadWrites {
         Set<Node> read = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Declaration> escaped = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Node> unevaluated = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<Declaration> libraryAccessible = profile == null ? Set.of() : LibraryCallEffects.accessible(flow.entry(), profile);
         if (profile != null) walkEvaluatedSyntax(flow.entry(), new NodeVisitor() {
             @Override public void visit(TypeidExpression typeid) {
                 if (TypeSemantics.typeidOperandUnevaluated(typeid, profile)) mark(typeid);
@@ -54,17 +55,42 @@ public final class UnreadWrites {
                 });
             }
         });
+        if (profile != null && flow.auxiliaryVertices().stream().anyMatch(vertex ->
+                vertex.constructor().filter(LibraryCallEffects::unknown).isPresent()
+                || vertex.destructor().filter(LibraryCallEffects::unknown).isPresent())) escaped.addAll(libraryAccessible);
         if (profile != null) walkEvaluatedSyntax(flow.entry(), new NodeVisitor() {
+            @Override public void visit(MemberInitializer initializer) {
+                if (initializer.target().filter(LibraryCallEffects::libraryObject).isPresent()) {
+                    escaped.addAll(libraryAccessible);
+                    initializer.arguments().forEach(argument -> escaped.addAll(LibraryCallEffects.roots(argument)));
+                }
+            }
             // External code may retain a pointer or a reference to the local and read it later.
             @Override public void visit(Expression expression) {
                 if (!unevaluated.contains(expression) && OperatorSemantics.mayInvokeUserCode(expression))
                     OperatorSemantics.operands(expression).forEach(this::escape);
+                if (!unevaluated.contains(expression) && LibraryCallEffects.unknown(expression))
+                    escaped.addAll(libraryAccessible);
             }
             @Override public void visit(AddressOfExpression address) {
                 if (!unevaluated.contains(address)) escape(address.operand());
             }
+            @Override public void visit(VariableDeclaration variable) {
+                if (variable.constructorTarget().filter(LibraryCallEffects::unknown).isPresent()
+                        || variable.destructorTarget().filter(LibraryCallEffects::unknown).isPresent()) {
+                    escaped.addAll(libraryAccessible);
+                    variable.initializer().ifPresent(value -> value.walk(new NodeVisitor() {
+                        @Override public void visit(NameExpression use) { escaped.addAll(LibraryCallEffects.roots(use)); }
+                    }));
+                }
+            }
             @Override public void visit(CallExpression call) {
-                if (!unevaluated.contains(call) && call.target().isEmpty()) call.arguments().forEach(this::escape);
+                if (unevaluated.contains(call)) return;
+                if (call.target().isEmpty()) call.arguments().forEach(this::escape);
+                if (LibraryCallEffects.unknown(call)) {
+                    LibraryCallEffects.exposed(call).forEach(expression -> escaped.addAll(LibraryCallEffects.roots(expression)));
+                    escaped.addAll(libraryAccessible);
+                }
             }
             private void escape(Expression expr) {
                 if (expr instanceof ConversionExpression conversion) escape(conversion.operand());

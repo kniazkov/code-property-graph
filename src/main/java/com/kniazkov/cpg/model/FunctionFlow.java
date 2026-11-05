@@ -66,6 +66,10 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
             if (node instanceof CallExpression call)
                 call.defaultArguments().forEach(argument -> pending.add(argument.expression()));
         }
+        // Implicit subobject lifetime operations evaluate their referenced object,
+        // which remains owned by its class rather than by this callable.
+        // Project.withFlows separately verifies every auxiliary object is project-owned.
+        for (var auxiliary : indices.values()) auxiliary.object().ifPresent(evaluated::add);
         for (DataEdge edge : data) {
             if (!evaluated.contains(edge.from()) || !evaluated.contains(edge.to()))
                 throw new IllegalArgumentException("Foreign data-flow endpoint");
