@@ -1189,3 +1189,32 @@ value_type retains const key and writable mapped value. Iterators refer to owned
 value-type declarations instead of assuming a pointer ABI. JSON/DOT include
 CONTAINER_TYPE, SOURCE_CONTAINER, COMPARATOR_TARGET and type/handle edges; copy
 and edit invalidation preserve the same ownership rules as vector annotations.
+
+## Character sequences and algorithms (#40)
+
+`Project.characterSequenceTypes()` and `sequenceSemantics()` retain owned common
+facts for trusted C++03 string, iterator and algorithm operations. A character
+sequence keeps its character, traits and allocator types. Explicit-count and
+iterator-range operations preserve embedded NUL characters; null-terminated
+input is a separate length contract. Append mutates its destination, find reads
+its input, and substr produces an independent sequence rather than an alias.
+Append/assign return a whole-sequence reference, distinct from a character
+reference; chained access and saved aliases retain the original string storage.
+Unproven substring-copy constructor/append/assign overloads with a source-string
+position remain raw C++ rather than being mislabeled as counted buffers.
+
+Sequence operations keep selected C++ targets and written operands. Range-first,
+range-last, second-range, input-sequence and output-destination edges distinguish
+reading, in-place modification and output-iterator writes. Back insertion names
+the receiving container. Traversal direction is recorded only when known.
+REMOVE returns a logical end and changes values without shrinking physical size;
+a later erase is a separate container operation. ACCUMULATE retains the initial
+value and accumulator/result type, rather than inferring them from element type.
+
+A callable implementation is linked when resolution proves its target. Its
+possible effects are separate from the algorithm's range writes: a predicate or
+comparator may modify globals even when the algorithm only reads its range.
+Unknown implementations remain conservative; callback invocation counts and
+unspecified ordering are not invented. Original C++ syntax and unsupported
+operations are preserved. JSON and DOT export the same owned type, range,
+callable, result and mutation relationships, including copied snapshots.

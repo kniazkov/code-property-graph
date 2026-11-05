@@ -74,7 +74,7 @@ final class TemplateDeduction {
         CallableDeclaration signature = TemplateSubstitution.signature(origin,substitutions);
         if (OverloadResolution.candidate(signature,actual,profile,OverloadResolution.requiredArguments(origin)).isEmpty()) return Optional.empty();
         var arguments=origin.templateParameters().stream().map(p -> values.containsKey(p)
-                ? TemplateArgument.create().setType(values.get(p).edit()).setKind(p.kind()==TemplateParameterDeclaration.Kind.TEMPLATE?TemplateArgument.Kind.TEMPLATE:TemplateArgument.Kind.TYPE).build()
+                ? TemplateSubstitution.typeArgument(values.get(p),p.kind()==TemplateParameterDeclaration.Kind.TEMPLATE?TemplateArgument.Kind.TEMPLATE:TemplateArgument.Kind.TYPE)
                 : TemplateArgument.create().setExpression(((IntegerLiteral)constants.get(p)).edit()).build()).toList();
         return Optional.of(new Result(arguments,substitutions,signature));
     }
@@ -151,7 +151,33 @@ final class TemplateDeduction {
         }
         return true; // Nondependent portions are checked by standard conversion ranking.
     }
+    private static TypeNode iteratorDifference(TypeNode iterator,PlatformProfile profile) {
+        if(iterator==null)return null;
+        iterator=TypeSemantics.unqualified(TypeSemantics.withoutReference(iterator));
+        // Match the catalogue ptrdiff_t profile policy, not a host ABI assumption.
+        if(iterator instanceof PointerType) return NamedType.create().setName(profile.sizeType().replace("unsigned ","")).build();
+        var info=LibraryIteratorSemantics.info(iterator);
+        if(info.isPresent())return info.get().iterator().iteratorDifferenceType().orElse(null);
+        if(iterator instanceof NamedType named && named.declaration().orElse(null) instanceof ClassDeclaration owner
+                && LibraryDeclarations.isLibrary(owner) && owner.name().equals("reverse_iterator")) {
+            var arguments=named.templateArguments().isEmpty()?owner.templateArguments():named.templateArguments();
+            if(!arguments.isEmpty())return iteratorDifference(arguments.getFirst().type().orElse(null),profile);
+        }
+        return null;
+    }
     static TypeNode dependentType(NamedType named, Map<TemplateParameterDeclaration,TypeNode> values) {
+        if (named.qualifier().orElse(null) instanceof NamedType traits
+                && traits.declaration().orElse(null) instanceof ClassDeclaration owner
+                && owner.name().equals("iterator_traits") && LibraryDeclarations.isLibrary(owner)
+                && owner.templateKind()!=TemplateKind.FULL_SPECIALIZATION && traits.templateArguments().size()==1
+                && named.name().endsWith("::difference_type")) {
+            TypeNode iterator=traits.templateArguments().getFirst().type().orElse(null);
+            if(iterator instanceof NamedType argument && argument.declaration().orElse(null) instanceof TemplateParameterDeclaration parameter)
+                iterator=values.getOrDefault(parameter,iterator);
+            var profile=named.provenance().map(p->p.unit().configuration().platform()).orElseGet(PlatformProfile::defaults);
+            TypeNode difference=iteratorDifference(iterator,profile);
+            if(difference!=null)return difference;
+        }
         String[] parts=named.name().split("::"); if(parts.length<2)return null;
         TypeNode current=null;
         for(var entry:values.entrySet()) if(entry.getKey().name().equals(parts[0])) current=entry.getValue();
@@ -167,6 +193,10 @@ final class TemplateDeduction {
             }
             String member=parts[i]; current=null;
             for(Node node:klass.members()) if(node instanceof TypedefDeclaration alias && alias.name().equals(member)) {
+                // Abstract iterator identity belongs to the concrete container. Keep
+                // the qualified member until that instance is available for binding.
+                if(!klass.templateParameters().isEmpty() && alias.type().canonicalType() instanceof OpaqueLibraryType opaque
+                        && Set.of("iterator","const_iterator").contains(opaque.name()))return null;
                 current=ClassTemplateSemantics.substituteType(alias.type(),bindings); break;
             }
         }

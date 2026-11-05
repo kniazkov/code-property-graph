@@ -426,3 +426,13 @@ for stack/queue/priority_queue on identical inputs. A user comparator has a real
 linked body and observable comparison count, without asserting its exact value.
 API/CLI JSON, full DOT, compact splice SVG, copied snapshots and native original /
 GREEN/FOLDED sources are checked separately.
+
+### Strings, iterators and algorithms
+
+The `strings-algorithms` scenario checks an explicitly sized string containing
+NUL, substring independence, append, back insertion, advance/distance, reverse
+traversal, callable targets/effects, sorted and transformed ranges, logical end
+before erase, and an accumulator wider than its elements. Original, GREEN and
+FOLDED source programs run under strict C++03 with GCC and Clang. API/CLI JSON,
+full DOT, copied graphs and a compact output-adapter SVG are checked separately
+so graph layout time does not weaken semantic coverage.

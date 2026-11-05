@@ -83,7 +83,10 @@ public final class LibraryGraph {
                 ClassDeclaration owner=com.kniazkov.cpg.analysis.ClassSemantics.objectClass(type).orElse(null);
                 if(owner==null || !com.kniazkov.cpg.analysis.LibraryDeclarations.isLibrary(owner)) return;
                 var initialization=com.kniazkov.cpg.analysis.ClassSemantics.initialization(project,variable);
-                var candidates=com.kniazkov.cpg.analysis.ClassSemantics.constructorCandidates(initialization);
+                // Constructor templates participate only after deduction; unresolved
+                // template parameters must not poison an exact ordinary overload.
+                var candidates=com.kniazkov.cpg.analysis.ClassSemantics.constructorCandidates(initialization).stream()
+                        .filter(candidate->candidate.templateParameters().isEmpty()).toList();
                 Expression value=variable.initializer().orElse(null);
                 List<Expression> arguments=value==null ? List.of() : value instanceof InitializationExpression i && i.form()==InitializationExpression.Form.DIRECT ? i.arguments() : List.of(value);
                 var constructor=com.kniazkov.cpg.analysis.OverloadResolution.select(candidates,arguments,com.kniazkov.cpg.analysis.TypeSemantics.profile(source)).selected().orElse(null);

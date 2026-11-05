@@ -12,6 +12,8 @@ package com.kniazkov.cpg.model;
 public interface NodeVisitor {
     default void visit(OpaqueLibraryType node) { visit((TypeNode) node); }
     default void visit(StandardLibrary node) { visit((Node) node); }
+    default void visit(CharacterSequenceType node) { visit((Node) node); }
+    default void visit(SequenceOperation node) { visit((Node) node); }
     default void visit(ContainerType node) { visit((Node) node); }
     default void visit(ContainerOperation node) { visit((Node) node); }
     default void visit(DynamicArrayType node) { visit((Node) node); }

@@ -150,7 +150,15 @@ public final class NameResolver {
             }
             for (TemplateInstance instance : project.templateInstances()) {
                 Scope root = roots.get(instance.source());
-                Scope lexical=scopes.getOrDefault(instance.origin(),root);
+                Scope original=scopes.get(instance.origin());
+                Scope lexical=original==null?root:original;
+                // Catalogue templates use the importing translation unit's namespace
+                // scope, so substituted user functor types keep their declarations.
+                if(LibraryDeclarations.isLibrary(instance.origin()) && original!=null && !original.qualified.isEmpty()) {
+                    Scope candidate=root;
+                    for(String part:original.qualified.split("::")) candidate=candidate==null ? null : candidate.nested.get(part);
+                    if(candidate!=null) lexical=candidate;
+                }
                 Scope isolated = new Scope(lexical, instance.source(), lexical.qualified + "#instance" + position, true, false, false);
                 scopes.put(instance, isolated); positions.put(instance, position++);
                 instance.structuredArguments().forEach(argument -> index(argument,isolated));
@@ -689,7 +697,7 @@ public final class NameResolver {
                     // Resolve a member type against the concrete qualifier, rather than
                     // dropping its template arguments and searching the primary template.
                     ClassDeclaration qualifier=type.qualifier().flatMap(ClassSemantics::objectClass).orElse(null);
-                    if(!LibraryDeclarations.isLibrary(type) && qualifier!=null && introduced.containsKey(qualifier)
+                    if(qualifier!=null && introduced.containsKey(qualifier)
                             && project.classTemplateInstances().stream().anyMatch(instance->instance.declaration()==qualifier)) {
                         String member=type.name().contains("::")?type.name().substring(type.name().lastIndexOf("::")+2):type.name();
                         matches=direct(member,introduced.get(qualifier),Integer.MAX_VALUE,new HashSet<>(),type.elaboratedKeyword().isPresent(),true);
@@ -704,6 +712,7 @@ public final class NameResolver {
                     if (type.range().isEmpty() && type.provenance().isEmpty() && type.alias().isPresent())
                         match = new Match(type.alias().orElseThrow(), List.of());
                     if (match != null && !isType(match.declaration())) match = null;
+                    if (match != null && match.declaration() instanceof TypedefDeclaration alias && containsNode(alias.type(), type)) match = null;
                     if (match != null) typeBindings.put(type, match);
                 }
             });
@@ -737,9 +746,9 @@ public final class NameResolver {
                             ? isObjectQualified(member) ? unique(qualifiedObjectMatches(member))
                                     : written == null ? null : unique(lookup(written, scopes.get(member), positions.get(member), new HashSet<>()))
                             : memberMatch(member);
-                    if(member instanceof ScopeMemberExpression && member.receiver() instanceof NameExpression name
-                            && name.target().orElse(null) instanceof ClassDeclaration owner
-                            && project.classTemplateInstances().stream().anyMatch(instance -> instance.declaration()==owner)) match=memberMatch(member);
+                    if(member instanceof ScopeMemberExpression && receiverClass(member.receiver(),false)!=null) match=memberMatch(member);
+                    for(ClassTemplateInstance instance:project.classTemplateInstances())
+                        if(instance.requests().contains(member))match=new Match(instance.declaration(),List.of());
                     editor.bind(member, match == null ? null : match.declaration());
                 }
             });
@@ -1133,6 +1142,8 @@ public final class NameResolver {
                 return null;
             }
             Declaration target = null;
+            if (receiver instanceof ScopeMemberExpression member && member.target().orElse(null) instanceof ClassDeclaration owner
+                    && project.classTemplateInstances().stream().anyMatch(instance -> instance.declaration()==owner)) return owner;
             if (receiver instanceof NameExpression name && name.target().orElse(null) instanceof ClassDeclaration owner
                     && project.classTemplateInstances().stream().anyMatch(instance -> instance.declaration()==owner)) return owner;
             if (receiver instanceof NameExpression name) {
@@ -1625,9 +1636,8 @@ public final class NameResolver {
                 return;
             }
             String written = expressionName(call.callee());
-            List<Match> visible = call.callee() instanceof ScopeMemberExpression concrete && concrete.receiver() instanceof NameExpression name
-                    && name.target().orElse(null) instanceof ClassDeclaration owner
-                    && project.classTemplateInstances().stream().anyMatch(instance -> instance.declaration()==owner) ? memberMatches(concrete)
+            List<Match> visible = call.callee() instanceof ScopeMemberExpression concrete
+                    && receiverClass(concrete.receiver(),false)!=null ? memberMatches(concrete)
                     : call.callee() instanceof MemberExpression qualified && isObjectQualified(qualified)
                     ? qualifiedObjectMatches(qualified)
                     : call.callee() instanceof MemberExpression member && !(member instanceof ScopeMemberExpression)

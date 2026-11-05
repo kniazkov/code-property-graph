@@ -8,7 +8,7 @@ public final class LibraryIteratorSemantics {
     private LibraryIteratorSemantics() {}
     public record Info(OpaqueLibraryType iterator, TypeNode element, boolean readOnly, boolean reverse) {
         public ClassDeclaration container() { return iterator.iteratorContainer().orElseThrow(); }
-        public boolean randomAccess() { return Set.of("vector","deque").contains(container().name()); }
+        public boolean randomAccess() { return Set.of("vector","deque","basic_string").contains(container().name()); }
         public boolean compatible(Info other) { return reverse==other.reverse && container().typeIdentity().equals(other.container().typeIdentity()); }
         public TypeNode referenceType() { return readOnly ? QualifiedType.create().setBaseType(element.edit()).setConst(true).build() : element; }
     }
@@ -17,7 +17,7 @@ public final class LibraryIteratorSemantics {
         if(type instanceof OpaqueLibraryType opaque && LibraryDeclarations.isLibrary(opaque)
                 && opaque.iteratorContainer().filter(LibraryDeclarations::isLibrary).isPresent()) {
             var owner=opaque.iteratorContainer().orElseThrow();
-            if(!Set.of("vector","deque","list","set","multiset","map","multimap").contains(owner.name()) || owner.templateArguments().isEmpty())return Optional.empty();
+            if(!Set.of("vector","deque","list","set","multiset","map","multimap","basic_string").contains(owner.name()) || owner.templateArguments().isEmpty())return Optional.empty();
             Optional<TypeNode> element = Set.of("map","multimap").contains(owner.name())
                     ? opaque.iteratorValueType()
                     : owner.templateArguments().getFirst().type();

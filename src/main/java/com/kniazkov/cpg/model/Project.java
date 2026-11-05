@@ -139,6 +139,52 @@ public final class Project extends Node {
     public List<ContainerType> containerTypes() { return containerTypes; }
     private List<ContainerOperation> containerSemantics = List.of();
     public List<ContainerOperation> containerSemantics() { return containerSemantics; }
+    private List<Object> sequenceBindings;
+    private List<Object> sequenceBindings() { return containerBindings(); }
+    private List<String> sequenceSyntax;
+    /** Discard derived semantics if their written operands were detached by an edit. */
+    void validateSequenceSemantics() {
+        if (characterSequenceTypes.isEmpty() && sequenceSemantics.isEmpty()) return;
+        List<String> syntax;
+        try { syntax = files.stream().map(file -> com.kniazkov.cpg.generation.Source.render(file, file.language())).toList(); }
+        catch (IllegalArgumentException exception) { syntax = null; }
+        var bindings = sequenceBindings();
+        if (syntax == null || sequenceSyntax != null && !sequenceSyntax.equals(syntax)
+                || sequenceBindings != null && !sequenceBindings.equals(bindings)) {
+            characterSequenceTypes = List.of(); sequenceSemantics = List.of(); sequenceSyntax = null; return;
+        }
+        boolean fresh = sequenceSyntax == null;
+        sequenceBindings = bindings;
+        sequenceSyntax = syntax;
+        var owned = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
+        files.forEach(file -> file.walk(new NodeVisitor() { @Override public void visit(Node n) { owned.add(n); } }));
+        librarySources.forEach(file -> file.walk(new NodeVisitor() { @Override public void visit(Node n) { owned.add(n); } }));
+        classTemplateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node n) { owned.add(n); } }));
+        templateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node n) { owned.add(n); } }));
+        if (fresh && characterSequenceTypes.stream().anyMatch(type -> !type.references().stream().allMatch(owned::contains)))
+            throw new IllegalStateException("Character sequence type references foreign syntax");
+        characterSequenceTypes = characterSequenceTypes.stream().filter(type -> type.references().stream().allMatch(owned::contains)).toList();
+        owned.addAll(characterSequenceTypes);
+        // Temporal handle effects may reference other owned operations, never foreign graphs.
+        owned.addAll(sequenceSemantics);
+        if (fresh && sequenceSemantics.stream().anyMatch(operation -> !operation.references().stream().allMatch(owned::contains)))
+            throw new IllegalStateException("Sequence operation references foreign syntax");
+        boolean removed;
+        do {
+            var retained = sequenceSemantics.stream()
+                    .filter(operation -> operation.references().stream().allMatch(owned::contains)).toList();
+            removed = retained.size() != sequenceSemantics.size();
+            if (removed) {
+                owned.removeAll(sequenceSemantics);
+                owned.addAll(retained);
+                sequenceSemantics = retained;
+            }
+        } while (removed);
+    }
+    private List<CharacterSequenceType> characterSequenceTypes = List.of();
+    public List<CharacterSequenceType> characterSequenceTypes() { return characterSequenceTypes; }
+    private List<SequenceOperation> sequenceSemantics = List.of();
+    public List<SequenceOperation> sequenceSemantics() { return sequenceSemantics; }
     private List<SourceFile> files = List.of();
     private List<SourceFile> librarySources = List.of();
     private StandardLibrary standardLibrary;
@@ -167,7 +213,9 @@ public final class Project extends Node {
         var discarded = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
         templateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { discarded.add(node); } }));
         classTemplateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { discarded.add(node); } }));
-        files.forEach(file -> file.walk(new NodeVisitor() {
+        // Library typedefs (for example std::string) can bind a specialization too.
+        // Clear every retained written root before removing its derived declaration.
+        java.util.stream.Stream.concat(files.stream(), librarySources.stream()).forEach(file -> file.walk(new NodeVisitor() {
             @Override public void visit(CallExpression call) { call.invalidateTargets(discarded); }
             @Override public void visit(VariableDeclaration variable) { variable.invalidateLifetimeTargets(discarded); }
             @Override public void visit(NamedType type) { type.invalidateTemplateTargets(discarded); }
@@ -297,6 +345,7 @@ public final class Project extends Node {
         copy.classTemplateInstances = classTemplateInstances;
         copy.dynamicArrayBindings = dynamicArrayBindings; copy.dynamicArraySyntax = dynamicArraySyntax; copy.dynamicArraySemantics = dynamicArraySemantics; copy.dynamicArrayTypes = dynamicArrayTypes;
         copy.containerBindings = containerBindings; copy.containerSyntax = containerSyntax; copy.containerSemantics = containerSemantics; copy.containerTypes = containerTypes;
+        copy.sequenceBindings = sequenceBindings; copy.sequenceSyntax = sequenceSyntax; copy.sequenceSemantics = sequenceSemantics; copy.characterSequenceTypes = characterSequenceTypes;
         copy.standardLibrary = standardLibrary; copy.librarySources = librarySources; copy.templateInstances = templateInstances; copy.instanceSyntax = instanceSyntax;
         copy.externalInputs = externalInputs;
         copy.build = build;
@@ -311,7 +360,7 @@ public final class Project extends Node {
         walk(new NodeVisitor() { @Override public void visit(Node node) { nodes.add(node); } });
         for (FunctionFlow flow : copy.flows) {
             for (var edge : flow.data()) for (Node endpoint : List.of(edge.from(), edge.to()))
-                if ((endpoint instanceof DynamicArrayOperation || endpoint instanceof ContainerOperation) && !nodes.contains(endpoint))
+                if ((endpoint instanceof DynamicArrayOperation || endpoint instanceof ContainerOperation || endpoint instanceof SequenceOperation) && !nodes.contains(endpoint))
                     throw new IllegalArgumentException("Foreign dynamic-array flow operation");
             for (var auxiliary : flow.auxiliaryVertices()) {
                 if (auxiliary.object().filter(n -> !nodes.contains(n)).isPresent()
@@ -383,7 +432,7 @@ public final class Project extends Node {
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         children.addAll(files);
-        if (standardLibrary != null) children.add(standardLibrary); children.addAll(templateInstances); children.addAll(classTemplateInstances); children.addAll(dynamicArraySemantics); children.addAll(dynamicArrayTypes); children.addAll(containerSemantics); children.addAll(containerTypes);
+        if (standardLibrary != null) children.add(standardLibrary); children.addAll(templateInstances); children.addAll(classTemplateInstances); children.addAll(dynamicArraySemantics); children.addAll(dynamicArrayTypes); children.addAll(containerSemantics); children.addAll(containerTypes); children.addAll(sequenceSemantics); children.addAll(characterSequenceTypes);
         children.addAll(externalInputs);
         return List.copyOf(children);
     }
@@ -413,10 +462,13 @@ public final class Project extends Node {
         builder.classTemplateInstances = context.copyAll(classTemplateInstances, ClassTemplateInstance.class);
         builder.dynamicArrayBindings = dynamicArrayBindings; builder.dynamicArraySyntax = dynamicArraySyntax;
         builder.containerBindings = containerBindings; builder.containerSyntax = containerSyntax;
+        builder.sequenceBindings = sequenceBindings; builder.sequenceSyntax = sequenceSyntax;
         builder.dynamicArrayTypes = context.copyAll(dynamicArrayTypes, DynamicArrayType.class);
         builder.containerTypes = context.copyAll(containerTypes, ContainerType.class);
+        builder.characterSequenceTypes = context.copyAll(characterSequenceTypes, CharacterSequenceType.class);
         builder.dynamicArraySemantics = context.copyAll(dynamicArraySemantics, DynamicArrayOperation.class);
         builder.containerSemantics = context.copyAll(containerSemantics, ContainerOperation.class);
+        builder.sequenceSemantics = context.copyAll(sequenceSemantics, SequenceOperation.class);
         builder.instanceSyntax = instanceSyntax;
         builder.build = build;
         builder.externalInputs = context.copyAll(externalInputs, ExternalInput.class);
@@ -431,16 +483,22 @@ public final class Project extends Node {
         private List<NodeBuilder<? extends TemplateInstance>> templateInstances = new ArrayList<>();
         private List<Object> dynamicArrayBindings;
         private List<Object> containerBindings;
+        private List<Object> sequenceBindings;
         private List<String> dynamicArraySyntax;
         private List<String> containerSyntax;
+        private List<String> sequenceSyntax;
         private List<NodeBuilder<? extends DynamicArrayType>> dynamicArrayTypes = new ArrayList<>();
         private List<NodeBuilder<? extends ContainerType>> containerTypes = new ArrayList<>();
+        private List<NodeBuilder<? extends CharacterSequenceType>> characterSequenceTypes = new ArrayList<>();
         public Builder setDynamicArrayTypes(List<NodeBuilder<? extends DynamicArrayType>> value) { dynamicArrayTypes = new ArrayList<>(value); return this; }
         public Builder setContainerTypes(List<NodeBuilder<? extends ContainerType>> value) { containerTypes = new ArrayList<>(value); return this; }
+        public Builder setCharacterSequenceTypes(List<NodeBuilder<? extends CharacterSequenceType>> value) { characterSequenceTypes = new ArrayList<>(value); return this; }
         private List<NodeBuilder<? extends DynamicArrayOperation>> dynamicArraySemantics = new ArrayList<>();
         private List<NodeBuilder<? extends ContainerOperation>> containerSemantics = new ArrayList<>();
+        private List<NodeBuilder<? extends SequenceOperation>> sequenceSemantics = new ArrayList<>();
         public Builder setDynamicArraySemantics(List<NodeBuilder<? extends DynamicArrayOperation>> value) { dynamicArraySemantics = new ArrayList<>(value); dynamicArraySyntax = null; dynamicArrayBindings = null; return this; }
         public Builder setContainerSemantics(List<NodeBuilder<? extends ContainerOperation>> value) { containerSemantics = new ArrayList<>(value); containerSyntax = null; containerBindings = null; return this; }
+        public Builder setSequenceSemantics(List<NodeBuilder<? extends SequenceOperation>> value) { sequenceSemantics = new ArrayList<>(value); sequenceSyntax = null; sequenceBindings = null; return this; }
         private List<NodeBuilder<? extends ClassTemplateInstance>> classTemplateInstances = new ArrayList<>();
         Builder addClassTemplateInstance(ClassTemplateInstance.Builder value) { classTemplateInstances.add(value); return this; }
         private List<String> instanceSyntax;
@@ -487,10 +545,13 @@ public final class Project extends Node {
             node.classTemplateInstances = context.copyAll(classTemplateInstances);
             node.dynamicArrayBindings = dynamicArrayBindings; node.dynamicArraySyntax = dynamicArraySyntax;
             node.containerBindings = containerBindings; node.containerSyntax = containerSyntax;
+            node.sequenceBindings = sequenceBindings; node.sequenceSyntax = sequenceSyntax;
             node.dynamicArrayTypes = context.copyAll(dynamicArrayTypes);
             node.containerTypes = context.copyAll(containerTypes);
+            node.characterSequenceTypes = context.copyAll(characterSequenceTypes);
             node.dynamicArraySemantics = context.copyAll(dynamicArraySemantics);
             node.containerSemantics = context.copyAll(containerSemantics);
+            node.sequenceSemantics = context.copyAll(sequenceSemantics);
             node.templateInstances = context.copyAll(templateInstances); node.instanceSyntax = instanceSyntax;
             node.build = build;
             var inputs = new java.util.LinkedHashMap<String, ExternalInput.Builder>();

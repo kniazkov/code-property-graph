@@ -51,3 +51,6 @@ vector-access
 
 # Deque/list, associative containers and adapter ordering.
 container-families
+
+# Strings with embedded NUL, output iterators and algorithm range effects.
+strings-algorithms
