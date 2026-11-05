@@ -19,7 +19,47 @@ public final class Source {
         this.target = target;
     }
 
-    public static String render(Node node, Language target) { return renderFragment(node, target, false); }
+    public static String render(Node node, Language target) {
+        String syntax = renderFragment(node, target, false);
+        return commentText(node, target) + syntax;
+    }
+
+    /** Validated physical C++ sources, including captured headers, keyed by absolute path. */
+    public static Map<String,String> physicalSources(Project project) {
+        requireComplete(project);
+        if (!PreservedSource.captured(project))
+            throw new IllegalArgumentException("Physical source emission requires captured C++ translation units");
+        return PreservedSource.physicalSources(project);
+    }
+
+    /** Canonical fragments retain each explanatory comment once, without parsing it as syntax. */
+    private static String commentText(Node root, Language target) {
+        var comments = new LinkedHashSet<Comment>();
+        root.walk(new NodeVisitor() {
+            @Override public void visit(Node node) {
+                if (node instanceof SourceFile file) comments.addAll(file.comments());
+                if (node instanceof Comment comment) comments.add(comment);
+                comments.addAll(node.commentReferences());
+            }
+        });
+        if (target == Language.JAVA && comments.stream().anyMatch(comment -> !javaComment(comment)))
+            throw new IllegalArgumentException("C++ comment spelling cannot be preserved safely in Java");
+        return comments.stream().map(comment -> terminateComment(comment.text())).collect(Collectors.joining());
+    }
+
+    private static boolean javaComment(Comment comment) {
+        String text = comment.text();
+        // Java performs Unicode escape translation before recognizing comments; C++ does not.
+        if (text.contains("\\u")) return false;
+        return comment.kind() == Comment.Kind.LINE
+                ? text.startsWith("//") && !text.contains("\n") && !text.contains("\r")
+                : text.startsWith("/*") && text.endsWith("*/") && text.indexOf("*/") == text.length() - 2;
+    }
+
+    /** EOF line comments may end with a splice introducer; keep following syntax on a real logical line. */
+    static String terminateComment(String text) {
+        return text + (text.endsWith("\\") || text.endsWith("??/") ? "\n\n" : "\n");
+    }
 
     /** Retains lexical block context when a source-preserving edit renders one local declaration. */
     static String renderFragment(Node node, Language target, boolean local) {
@@ -37,6 +77,7 @@ public final class Source {
         if (!implicitIntroductionsMatch(node)) targets.clear();
         node.walk(new NodeVisitor() {
             @Override public void visit(Node n) {
+                if (n instanceof Comment comment && !javaComment(comment)) targets.remove(Language.JAVA);
                 if (n instanceof SourceFile file && file.hasErrors() || n instanceof ErrorExpression || hasSemanticError(n) || unrepresentableDeclaration(n))
                     targets.clear();
                 if (n instanceof Expression expression && !expression.operatorCandidates().isEmpty()
@@ -92,7 +133,7 @@ public final class Source {
             String content;
             if (!translate) {
                 if (!languages(file).contains(target)) throw out.unsupported(file);
-                content = out.emit(file, 0);
+                content = commentText(file, target) + out.emit(file, 0);
             }
             else {
                 out.checkPortable(file);
@@ -106,13 +147,13 @@ public final class Source {
                     if (classes.size() != 1) throw new IllegalArgumentException("Expected one class per translated Java file");
                     var cls = classes.getFirst();
                     name = cls.name() + ".java";
-                    content = out.translatedClass(cls, file.language());
+                    content = commentText(file, target) + out.translatedClass(cls, file.language());
                 } else {
                     if (classes.size() != 1 || project.files().size() != 1)
                         throw new IllegalArgumentException("Java to C++ entry-point adaptation requires one file with one class");
                     var cls = classes.getFirst();
                     name = cls.name() + ".cpp";
-                    content = "#include <iostream>\n\n" + out.translatedClass(cls, file.language())
+                    content = commentText(file, target) + "#include <iostream>\n\n" + out.translatedClass(cls, file.language())
                             + "\nint main() {\n    " + cls.name() + "::main();\n    return 0;\n}\n";
                 }
             }
@@ -324,6 +365,7 @@ public final class Source {
     private String emit(Node n, int level) {
         String pad = "    ".repeat(level);
         return switch (n) {
+            case Comment ignored -> "";
             case SourceFile f -> f.items().stream().map(item -> emit(item, level)).collect(Collectors.joining("\n"));
             case IncludeDirective i when target == Language.CPP -> "#include " + (i.system() ? "<" + i.header() + ">" : "\"" + i.header() + "\"") + "\n";
             case NamespaceDeclaration namespace -> pad + "namespace" + (namespace.anonymous() ? "" : " " + namespace.name()) + " {\n"

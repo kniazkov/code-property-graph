@@ -859,3 +859,51 @@ also reaches `TERMINATE_EXIT`, rather than an ordinary catch or exceptional retu
 Incomplete analysis does not itself invalidate the preserved AST or source; syntax
 and semantic errors still independently block generation. A complete-flow flag is
 not a claim of whole-language C++ exception/lifetime coverage.
+
+## Physical comments and explicit removal (#32)
+
+C++ comments are data, never syntax tokens or documentation directives. A `Comment`
+records `Kind.LINE` or `Kind.BLOCK`, exact physical `text()` (including delimiters,
+line splices and internal line endings), and a half-open physical `range()`.
+`SourceFile.comments()` owns each physical comment once, including comments in
+captured headers and inactive branches. `Node.commentReferences()` supplies
+non-owning explanatory `HAS_COMMENT` links, separate from semantic `references()`.
+Consecutive leading line comments can explain the following declaration; a trailing
+comment on a multi-declarator statement explains its last declaration; a comment
+after an argument comma explains the following argument. These links are heuristics,
+not documentation interpretation. Copying/editing remaps their identities into the
+new snapshot. Java parsing keeps its existing behavior and does not capture comments.
+
+JSON owns comments in the source file's `comments` array, with `commentKind`, `text`
+and normal range metadata. Explanatory edges use `kind: "HAS_COMMENT"` and destination
+IDs. DOT has numbered ownership edges and dashed `HAS_COMMENT` edges. Traversal
+visits each owned comment once; explanatory links never become extra syntax children.
+
+Ordinary `Source.files`/`Cpg.sources` preserve captured C++ comments: unchanged input
+is byte-identical, including inactive branches. A validated syntax edit retains
+surrounding physical text; when an entire subtree must be replaced, its internal
+comments are retained once before the replacement. `Source.render` is a canonical
+fragment renderer, not a layout-preserving printer: it emits owned/referenced comments
+once as a preamble, with their original text, for either supported target. Use file
+emission when attachment position and physical layout matter. Comment-catalogue edits
+are rejected by physical emission rather than silently ignored; canonical rendering
+can emit a manually edited catalogue.
+
+`com.kniazkov.cpg.utilities.Comments.remove(Project)` explicitly creates a separate
+comment-free C++ project. It materializes validated AST edits, removes comments from
+all captured physical sources (including inactive branches and headers), then
+reparses and analyzes the result with the original build configuration and translation
+time. Input snapshots and literal contents are unchanged. The overload
+`Comments.remove(String file, String source)` exposes lexical cleanup of one source.
+Whitespace prevents token concatenation; retained/spliced physical line endings
+preserve preprocessing line semantics. The project utility requires complete captured
+C++ input and rejects Java, missing provenance and invalid snapshots. It is never
+called automatically by reading, analysis, generation or the CLI.
+
+Canonical printing keeps each original comment text verbatim as a substring but
+may add separating newlines. In particular an EOF `//` comment ending in `\` or
+`??/` needs two newlines before subsequent syntax so phase-two splicing cannot
+swallow it; its newly lexed range may therefore differ. Physical unchanged file
+emission has no such relocation and remains exact. Java emission rejects comment
+spellings whose C++ splicing/delimiters or Java Unicode escapes could expose commented
+text as code rather than silently changing their meaning.

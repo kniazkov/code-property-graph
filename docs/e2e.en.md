@@ -305,3 +305,24 @@ runtime controls. Separate invalid and truncated inputs must export diagnostics 
 flow completeness without generated source.
 Run `mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=statements-exceptions verify`.
 The #31 corpus contains **25 scenarios and 27 results including infrastructure tests**.
+
+## Comments and opt-in cleanup (#32)
+
+The `comments-cleanup` corpus fixture exercises ordinary preservation and the explicit
+`Comments.remove(Project)` library operation. The ordinary export keeps comments;
+the cleaned project has no comment nodes/links or lexical comments, including in
+inactive branches, while string/character literal contents remain unchanged. Native
+GCC and Clang checks use the same strict C++03 flags and runtime expectations.
+`CppCommentGraphTest`, `CommentExportTest` and `CommentsTest` cover physical ranges,
+association boundaries, copy identity, JSON/DOT ownership, canonical fragment output,
+validated literal/structural edits, and lexical cleanup. Cleanup is opt-in, not a new
+CLI switch or an automatic analysis stage. Java parsing/translation regressions keep
+their existing contract. See the model guide for canonical-versus-physical rendering.
+
+Run just this scenario with
+`mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=comments-cleanup verify`.
+The full inventory now has 26 scenarios and 28 corpus results including the two
+harness checks. The fixture runs original, ordinary generated and explicitly cleaned
+programs under GCC and Clang for both FEATURE configurations; assertions cover
+headers/inactive branches, macro line continuations, physical `__LINE__`, literal
+markers, copy/association identity and API/CLI JSON/SVG exports.

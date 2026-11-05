@@ -79,6 +79,7 @@ final class BuildContext {
         if (node instanceof Expression expression) expression.expressionInfo = builder.expressionInfo;
         nodes.put(builder, node);
         builder.fillNode(node, this);
+        node.commentReferences = copyAll(builder.commentReferences);
         if (node instanceof Expression expression) {
             expression.operatorCandidates = copyAll(builder.operatorCandidates);
             expression.operatorResolution = builder.operatorResolution;

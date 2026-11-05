@@ -66,6 +66,14 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("comments-cleanup".equals(settings.getProperty("mode"))) {
+            var output = CommentsCleanupAcceptance.verify(fixture, work);
+            for (Path source : List.of(output.original(), output.generated(), output.cleaned())) {
+                nativePrograms(work, source, "", 0);
+                nativePrograms(work, source, "", 0, "-DFEATURE=1");
+            }
+            return;
+        }
         if ("statements-exceptions".equals(settings.getProperty("mode"))) {
             var output = StatementsExceptionsAcceptance.verify(fixture, work);
             for (Path source : List.of(output.original(), output.generated(), output.folded())) nativePrograms(work, source, "", 0);

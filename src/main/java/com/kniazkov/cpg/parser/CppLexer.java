@@ -18,10 +18,17 @@ import static com.kniazkov.cpg.parser.PreprocessingToken.Kind.*;
 public final class CppLexer {
     private CppLexer() {}
 
+    /** Exact spelling and physical bounds before phase-3 comment replacement. */
+    public record CommentToken(com.kniazkov.cpg.model.Comment.Kind kind, String text, SourceRange range) {}
+
     /** Immutable phase-3 text, tokens, physical character mappings and physical EOF. */
     public record Result(String text, List<SourceRange> characterRanges,
-            List<PreprocessingToken> tokens, SourcePosition eof) {
+            List<PreprocessingToken> tokens, SourcePosition eof, List<CommentToken> comments) {
+        public Result(String text, List<SourceRange> ranges, List<PreprocessingToken> tokens, SourcePosition eof) {
+            this(text, ranges, tokens, eof, List.of());
+        }
         public Result {
+            comments = List.copyOf(comments);
             characterRanges = List.copyOf(characterRanges);
             tokens = List.copyOf(tokens);
         }
@@ -57,12 +64,14 @@ public final class CppLexer {
             SourcePosition stop = error.range().orElseThrow().start();
             scanner.tokens.add(new PreprocessingToken(EOF, "", "", new SourceRange(file, stop, stop),
                     scanner.output.length(), scanner.output.length()));
-            return new Recovery(new Result(scanner.output.toString(), scanner.outputRanges, scanner.tokens, stop), error);
+            return new Recovery(new Result(scanner.output.toString(), scanner.outputRanges, scanner.tokens, stop, scanner.comments), error);
         }
     }
 
     private static final class Scanner {
         private final String file;
+        private final String original;
+        private final List<CommentToken> comments = new ArrayList<>();
         private final String input;
         private final List<SourceRange> inputRanges;
         private final SourcePosition eof;
@@ -75,6 +84,7 @@ public final class CppLexer {
 
         Scanner(String file, String source) {
             this.file = file;
+            this.original = source;
             var phaseOne = new StringBuilder();
             var ranges = new ArrayList<SourceRange>();
             int line = 1, column = 1;
@@ -127,7 +137,10 @@ public final class CppLexer {
                         offset += 2;
                     } else while (offset < input.length() && input.charAt(offset) != '\n') offset++;
                     int logical = output.length();
-                    SourceRange range = range(start, offset);
+                    SourceRange range = block ? range(start, offset) : new SourceRange(file,
+                            inputRanges.get(start).start(), offset < inputRanges.size() ? inputRanges.get(offset).start() : eof);
+                    comments.add(new CommentToken(block ? com.kniazkov.cpg.model.Comment.Kind.BLOCK : com.kniazkov.cpg.model.Comment.Kind.LINE,
+                            original.substring(range.start().offset(), range.end().offset()), range));
                     output.append(' '); outputRanges.add(range);
                     tokens.add(new PreprocessingToken(WHITESPACE, " ", " ", range, logical, logical + 1));
                     continue;
@@ -200,7 +213,7 @@ public final class CppLexer {
                 else directive = 3;
             }
             tokens.add(new PreprocessingToken(EOF, "", "", new SourceRange(file, eof, eof), output.length(), output.length()));
-            return new Result(output.toString(), outputRanges, tokens, eof);
+            return new Result(output.toString(), outputRanges, tokens, eof, comments);
         }
 
         private int nondigit(int at) { return nondigit(at, true); }
