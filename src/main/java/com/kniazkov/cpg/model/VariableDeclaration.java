@@ -9,11 +9,14 @@ import java.util.Optional;
 /** A variable with optional written type and initializer. */
 public final class VariableDeclaration extends Declaration {
     private String name;
+    private List<String> modifiers = List.of();
     private TypeNode type;
     private Expression initializer;
 
     private VariableDeclaration() {
     }
+
+    public List<String> modifiers() { return modifiers; }
 
     public String name() {
         return name;
@@ -58,6 +61,7 @@ public final class VariableDeclaration extends Declaration {
         Builder builder = new Builder();
         context.register(this, builder);
         builder.name = name;
+        builder.modifiers = new ArrayList<>(modifiers);
         builder.type = type == null ? null : context.edge(type, TypeNode.class);
         builder.initializer = initializer == null ? null : context.edge(initializer, Expression.class);
         return builder;
@@ -66,12 +70,17 @@ public final class VariableDeclaration extends Declaration {
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<VariableDeclaration> {
         private String name;
+        private List<String> modifiers = new ArrayList<>();
         private NodeBuilder<? extends TypeNode> type;
         private NodeBuilder<? extends Expression> initializer;
 
         private Builder() {
             super(VariableDeclaration.class);
         }
+
+        public List<String> modifiers() { return List.copyOf(modifiers); }
+        public Builder setModifiers(List<String> values) { modifiers = new ArrayList<>(List.copyOf(values)); return this; }
+        public Builder addModifier(String value) { modifiers.add(Objects.requireNonNull(value)); return this; }
 
         public Optional<String> name() {
             return Optional.ofNullable(name);
@@ -118,6 +127,7 @@ public final class VariableDeclaration extends Declaration {
         @Override
         void fillNode(VariableDeclaration node, BuildContext context) {
             node.name = requiredText(name, "VariableDeclaration.name");
+            node.modifiers = List.copyOf(modifiers);
             node.type = type == null ? null : context.copy(type);
             node.initializer = initializer == null ? null : context.copy(initializer);
         }

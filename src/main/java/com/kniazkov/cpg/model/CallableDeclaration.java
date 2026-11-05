@@ -12,6 +12,7 @@ public abstract class CallableDeclaration extends Declaration {
     private boolean variadic, isConst, isVolatile;
     private List<String> modifiers = List.of();
     private TypeNode returnType;
+    private TypeNode writtenType;
     private List<ParameterDeclaration> parameters = List.of();
     private BlockStatement body;
     private Exit exit;
@@ -23,6 +24,9 @@ public abstract class CallableDeclaration extends Declaration {
     public String name() {
         return name;
     }
+
+    /** Original typedef-based function declaration spelling, when no parameter clause was written. */
+    public Optional<TypeNode> writtenType() { return Optional.ofNullable(writtenType); }
 
     public boolean variadic() { return variadic; }
     public boolean isConst() { return isConst; }
@@ -54,6 +58,7 @@ public abstract class CallableDeclaration extends Declaration {
     @Override
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
+        if (writtenType != null) children.add(writtenType);
         if (returnType != null) {
             children.add(returnType);
         }
@@ -76,6 +81,7 @@ public abstract class CallableDeclaration extends Declaration {
         builder.variadic = variadic; builder.isConst = isConst; builder.isVolatile = isVolatile;
         builder.modifiers = new ArrayList<>(modifiers);
         builder.returnType = returnType == null ? null : context.edge(returnType, TypeNode.class);
+        builder.writtenType = writtenType == null ? null : context.edge(writtenType, TypeNode.class);
         builder.parameters = context.copyAll(parameters, ParameterDeclaration.class);
         builder.body = body == null ? null : context.edge(body, BlockStatement.class);
         builder.exit = context.edge(exit, Exit.class);
@@ -90,6 +96,10 @@ public abstract class CallableDeclaration extends Declaration {
         private boolean variadic, isConst, isVolatile;
         private List<String> modifiers = new ArrayList<>();
         private NodeBuilder<? extends TypeNode> returnType;
+        private NodeBuilder<? extends TypeNode> writtenType;
+        public Optional<NodeBuilder<? extends TypeNode>> writtenType() { return Optional.ofNullable(writtenType); }
+        public B setWrittenType(NodeBuilder<? extends TypeNode> value) { writtenType = Objects.requireNonNull(value); return self(); }
+        public B clearWrittenType() { writtenType = null; return self(); }
         private List<NodeBuilder<? extends ParameterDeclaration>> parameters = new ArrayList<>();
         private NodeBuilder<? extends BlockStatement> body;
         private NodeBuilder<? extends Exit> exit = Exit.create();
@@ -195,6 +205,7 @@ public abstract class CallableDeclaration extends Declaration {
             node.variadic = variadic; node.isConst = isConst; node.isVolatile = isVolatile;
             node.modifiers = List.copyOf(modifiers);
             node.returnType = returnType == null ? null : context.copy(returnType);
+            node.writtenType = writtenType == null ? null : context.copy(writtenType);
             node.parameters = context.copyAll(parameters);
             node.body = body == null ? null : context.copy(body);
             node.exit = context.copy(exit);

@@ -17,6 +17,8 @@ public final class Parser {
     private final ExpressionParser expressions;
     private final TypeParser types;
     private final ParseRecovery recovery;
+    private String languageLinkage = "C++";
+    private final java.util.Deque<java.util.List<Runnable>> deferredBodies = new java.util.ArrayDeque<>();
 
     private Parser(String file, Language language, java.util.List<Token> input, Preprocessing preprocessing) {
         this(file, language, input, preprocessing, null);
@@ -31,6 +33,7 @@ public final class Parser {
         types = new TypeParser(tokens, expressions);
         expressions.setTypes(types);
         statements = new StatementParser(tokens, expressions, recovery, types);
+        statements.setDeclarationReader(() -> cppDeclarations(false, true));
     }
 
     private static java.util.List<Token> parserTokens(CppPreprocessor.Result result, Preprocessing provenance) { return parserTokens(result, provenance, false, null); }
@@ -225,12 +228,12 @@ public final class Parser {
                     boolean system = include.group(1) != null;
                     tokens.advance();
                     result.addItem(tokens.span(start, IncludeDirective.create().setSystem(system).setHeader(include.group(system ? 1 : 2))));
-                } else if (language == Language.CPP && (tokens.peek().equals("class") || tokens.peek().equals("struct") || tokens.peek().equals("union")) && tokens.peek(2).equals("{")) {
-                    result.addItem(cppClass());
                 } else if (language == Language.JAVA && (tokens.peek().equals("class") || tokens.peek().equals("public"))) {
                     result.addItem(clazz());
-                } else if (language == Language.CPP && types.startsType()) {
-                    for (var declaration : declarations(false)) result.addItem(declaration);
+                } else if (language == Language.CPP && tokens.take(";")) {
+                    // Empty namespace-scope declarations have no semantic identity.
+                } else if (language == Language.CPP) {
+                    for (var declaration : cppDeclarations(false, false)) result.addItem(declaration);
                 } else {
                     if (language == Language.CPP) tokens.checkUnsupportedDeclaration();
                     throw tokens.error("Unsupported top-level declaration");
@@ -250,47 +253,205 @@ public final class Parser {
     }
 
     /** One declaration-specifier sequence may introduce several independently owned declarators. */
-    private java.util.List<NodeBuilder<? extends Declaration>> declarations(boolean member) {
+    private java.util.List<NodeBuilder<? extends Declaration>> declarations(boolean member, boolean local) {
         var start = tokens.start();
         var specs = types.specifiers();
+        validateStorage(specs.modifiers(), member, local);
         var result = new java.util.ArrayList<NodeBuilder<? extends Declaration>>();
+        int declaratorCount = 0;
         do {
+            declaratorCount++;
             var declarator = types.declarator(false);
             var type = declarator.apply().apply(specs.type().get());
+            var function = types.functionType(type);
+            result.addAll(types.takeImplicitDeclarations());
             if (specs.typedef()) {
                 if (!specs.modifiers().isEmpty()) throw tokens.error("Storage specifier on typedef");
                 var declaration = TypedefDeclaration.create().setName(declarator.name()).setType(type);
                 types.declareAlias(declarator.name(), declaration);
                 result.add(tokens.span(start, declaration));
-            } else if (type instanceof FunctionType.Builder function) {
+            } else if (function != null) {
                 CallableDeclaration.Builder<?, ?> declaration = member ? MethodDeclaration.create() : FunctionDeclaration.create();
+                if (!(type instanceof FunctionType.Builder)) declaration.setWrittenType(type);
                 declaration.setName(declarator.name()).setReturnType(function.returnType().orElseThrow())
                         .setParameters(function.parameters()).setModifiers(specs.modifiers()).setVariadic(function.variadic())
                         .setConst(function.isConst()).setVolatile(function.isVolatile());
                 if (!member && (function.isConst() || function.isVolatile())) throw tokens.error("Free function cannot have cv qualifiers");
+                if (specs.modifiers().stream().anyMatch(java.util.Set.of("auto", "register", "mutable")::contains))
+                    throw tokens.error("Invalid function storage class");
+                declaration.setLanguageLinkage(member ? "C++" : languageLinkage);
+                declaration.setDeclarationDefinition(tokens.peek().equals("{"));
                 types.declareName(declarator.name());
                 if (tokens.peek().equals("{")) {
-                    types.pushScope();
-                    try {
-                        for (var parameter : function.parameters()) types.declareName(((ParameterDeclaration.Builder) parameter).name().orElse(""));
-                        declaration.setBody(statements.block());
-                    } finally { types.popScope(); }
+                    if (local) throw tokens.error("Function definition is not permitted in a block");
+                    if (declaration.writtenType().isPresent()) throw tokens.error("A function definition cannot use a function typedef declarator in C++03");
+                    if (member && !deferredBodies.isEmpty()) {
+                        int bodyPosition = tokens.checkpoint();
+                        try {
+                            tokens.skipBlock();
+                            deferredBodies.peek().add(types.inCurrentScope(() -> {
+                                int resume = tokens.checkpoint(); tokens.restore(bodyPosition);
+                                try { functionBody(declaration, function.parameters()); }
+                                finally { tokens.restore(resume); }
+                            }));
+                        } catch (ParseException error) {
+                            if (recovery == null) throw error;
+                            for (var earlier : deferredBodies.peek()) earlier.run();
+                            deferredBodies.peek().clear();
+                            tokens.restore(bodyPosition);
+                            if (!recovery.stopped()) functionBody(declaration, function.parameters());
+                        }
+                    } else functionBody(declaration, function.parameters());
                     result.add(tokens.span(start, declaration));
                     return result;
                 }
                 result.add(tokens.span(start, declaration));
             } else {
-                if (type.build().canonicalType() instanceof FunctionType) throw tokens.error("Function declarations through typedef names are not yet supported");
-                if (!specs.modifiers().isEmpty()) throw tokens.error("Variable storage specifiers are not yet supported");
-                var declaration = VariableDeclaration.create().setName(declarator.name()).setType(type);
+                if (specs.modifiers().contains("inline")) throw tokens.error("inline applies only to functions in C++03");
+                var declaration = VariableDeclaration.create().setName(declarator.name()).setType(type).setModifiers(specs.modifiers());
+                declaration.setLanguageLinkage(member || local ? "C++" : languageLinkage);
                 types.declareName(declarator.name());
-                if (tokens.take("=")) declaration.setInitializer(expressions.parse());
+                if (tokens.take("=")) {
+                    var initializerStart = tokens.start();
+                    try { declaration.setInitializer(expressions.parse()); }
+                    catch (ParseException error) {
+                        if (recovery == null) throw error;
+                        var skipped = tokens.recoverInitializer(initializerStart);
+                        if (skipped == null) throw error;
+                        declaration.setInitializer(ErrorExpression.create().setProblem(recovery.recovered(error, skipped)));
+                    }
+                }
+                result.addAll(types.takeImplicitDeclarations());
+                declaration.setDeclarationDefinition((!specs.modifiers().contains("extern") || declaration.initializer().isPresent())
+                        && !(member && specs.modifiers().contains("static")));
                 result.add(tokens.span(start, declaration));
             }
         } while (tokens.take(","));
         tokens.expect(";");
-        if (result.size() == 1) tokens.span(start, result.getFirst());
+        if (declaratorCount == 1) tokens.span(start, result.getLast());
         return result;
+    }
+
+    private void functionBody(CallableDeclaration.Builder<?, ?> declaration,
+            java.util.List<NodeBuilder<? extends ParameterDeclaration>> parameters) {
+        types.pushScope();
+        try {
+            for (var parameter : parameters) types.declareName(((ParameterDeclaration.Builder) parameter).name().orElse(""));
+            declaration.setBody(statements.block());
+        } finally { types.popScope(); }
+    }
+
+    private void validateStorage(java.util.List<String> modifiers, boolean member, boolean local) {
+        var storage = modifiers.stream().filter(m -> !m.equals("inline")).toList();
+        if (new java.util.HashSet<>(modifiers).size() != modifiers.size() || storage.size() > 1)
+            throw tokens.error("Conflicting or duplicate storage-class specifiers");
+        if (modifiers.contains("mutable") && !member) throw tokens.error("mutable requires a class member");
+        if ((modifiers.contains("auto") || modifiers.contains("register")) && !local)
+            throw tokens.error("auto and register require block scope");
+        if (member && modifiers.contains("extern")) throw tokens.error("extern is not a class-member storage class");
+    }
+
+    /** Namespace and class bodies use the same declaration dispatch as the translation unit. */
+    private java.util.List<NodeBuilder<? extends Declaration>> cppDeclarations(boolean member, boolean local) {
+        var start = tokens.start();
+        if (tokens.peek().equals("namespace")) {
+            if (member || local) throw tokens.error("Namespace definitions require namespace scope");
+            return java.util.List.of(namespace());
+        }
+        if (tokens.peek().equals("using")) {
+            if (member && tokens.peek(1).equals("namespace")) throw tokens.error("A using-directive is not permitted in class scope");
+            return java.util.List.of(using());
+        }
+        if (tokens.peek().equals("extern") && tokens.peek(1).startsWith("\"")) {
+            if (member || local) throw tokens.error("Language linkage specifications require namespace scope");
+            tokens.advance(); String spelling = tokens.peek(); tokens.advance();
+            if (!spelling.equals("\"C\"") && !spelling.equals("\"C++\"")) throw tokens.error("Unsupported language linkage " + spelling);
+            String previous = languageLinkage;
+            languageLinkage = spelling.substring(1, spelling.length() - 1);
+            try {
+                var result = new java.util.ArrayList<NodeBuilder<? extends Declaration>>();
+                if (tokens.take("{")) {
+                    while (!tokens.take("}")) {
+                        if (tokens.take(";")) continue;
+                        result.addAll(cppDeclarations(false, false));
+                    }
+                } else {
+                    result.addAll(cppDeclarations(false, false));
+                    for (var declaration : result) {
+                        if (declaration instanceof VariableDeclaration.Builder variable && variable.initializer().isEmpty()) {
+                            if (!variable.modifiers().contains("extern")) variable.addModifier("extern");
+                            variable.setDeclarationDefinition(false);
+                        }
+                    }
+                    if (result.size() == 1) tokens.span(start, result.getFirst());
+                }
+                return result;
+            } finally { languageLinkage = previous; }
+        }
+        if (java.util.Set.of("class", "struct", "union").contains(tokens.peek())
+                && java.util.Set.of("{", ";").contains(tokens.peek(2))) {
+            var declaration = cppClass();
+            var result = new java.util.ArrayList<NodeBuilder<? extends Declaration>>(types.takeImplicitDeclarations());
+            result.add(declaration); return result;
+        }
+        if (tokens.peek().equals("enum") && (tokens.peek(1).equals("{") || tokens.peek(2).equals("{")))
+            return java.util.List.of(enumeration());
+        if (!types.startsType()) { tokens.checkUnsupportedDeclaration(); throw tokens.error("Unsupported declaration or unknown type name"); }
+        return declarations(member, local);
+    }
+
+    private NodeBuilder<? extends Declaration> namespace() {
+        var start = tokens.start(); tokens.expect("namespace");
+        boolean anonymous = tokens.peek().equals("{");
+        String name = anonymous ? "" : tokens.identifier();
+        if (tokens.take("=")) {
+            String target = types.qualifiedName(); tokens.expect(";"); types.namespaceAlias(name, target);
+            return tokens.span(start, NamespaceAliasDeclaration.create().setName(name).setTargetName(target));
+        }
+        var result = NamespaceDeclaration.create().setName(name).setAnonymous(anonymous);
+        tokens.expect("{"); types.pushNamedScope(name);
+        try {
+            while (!tokens.take("}")) {
+                if (tokens.take(";")) continue;
+                for (var declaration : cppDeclarations(false, false)) result.addMember(declaration);
+            }
+        } finally { types.popScope(); }
+        if (anonymous) types.usingNamespace("");
+        return tokens.span(start, result);
+    }
+
+    private NodeBuilder<? extends Declaration> using() {
+        var start = tokens.start(); tokens.expect("using");
+        if (tokens.take("namespace")) {
+            String name = types.qualifiedName(); tokens.expect(";"); types.usingNamespace(name);
+            return tokens.span(start, UsingDirective.create().setNamespaceName(name));
+        }
+        String name = types.qualifiedName();
+        if (!name.contains("::")) throw tokens.error("A using-declaration requires a qualified name");
+        tokens.expect(";"); types.usingDeclaration(name);
+        return tokens.span(start, UsingDeclaration.create().setQualifiedName(name));
+    }
+
+    private EnumDeclaration.Builder enumeration() {
+        var start = tokens.start(); tokens.expect("enum");
+        String name = tokens.peek().equals("{") ? "" : tokens.identifier();
+        if (!name.isEmpty()) types.registerClass(name);
+        var result = EnumDeclaration.create().setName(name);
+        tokens.expect("{");
+        if (!tokens.take("}")) {
+            do {
+                var itemStart = tokens.start(); String itemName = tokens.identifier();
+                var item = EnumeratorDeclaration.create().setName(itemName);
+                if (tokens.take("=")) item.setValue(expressions.parse());
+                types.declareName(itemName);
+                result.addEnumerator(tokens.span(itemStart, item));
+                if (!tokens.take(",")) break;
+                if (tokens.peek().equals("}")) throw tokens.error("Trailing enum comma is not permitted in C++03");
+            } while (true);
+            tokens.expect("}");
+        }
+        tokens.expect(";");
+        return tokens.span(start, result);
     }
 
     private ClassDeclaration.Builder cppClass() {
@@ -298,7 +459,12 @@ public final class Parser {
         String name = tokens.identifier(); types.registerClass(name);
         String access = keyword.equals("class") ? "private" : "public";
         var result = ClassDeclaration.create().setName(name).setKeyword(keyword).setMemberAccess(access);
-        tokens.expect("{"); types.pushScope();
+        if (tokens.take(";")) {
+            result.setDeclarationDefinition(false);
+            return tokens.span(start, result);
+        }
+        tokens.expect("{"); types.pushNamedScope(name, true);
+        var deferred = new java.util.ArrayList<Runnable>(); deferredBodies.push(deferred);
         try {
             while ((recovery == null || !recovery.stopped()) && !tokens.take("}")) {
                 if (java.util.Set.of("public", "private", "protected").contains(tokens.peek())) {
@@ -306,12 +472,25 @@ public final class Parser {
                     if (!result.members().isEmpty() && !next.equals(access)) throw tokens.error("Mixed class access sections are not yet supported");
                     access = next; result.setMemberAccess(access);
                 } else if (tokens.take(";")) { /* Empty member declaration. */ }
-                else for (var declaration : declarations(true)) result.addMember(declaration);
+                else for (var declaration : cppDeclarations(true, false)) result.addMember(declaration);
             }
         } catch (ParseException error) {
             if (recovery == null) throw error;
+            // A malformed class tail must not discard already delimited inline bodies.
+            for (var body : deferred) {
+                if (recovery.stopped()) break;
+                body.run();
+            }
+            deferred.clear();
             recovery.stop(error, tokens.currentRange());
-        } finally { types.popScope(); }
+        } finally { types.popScope(); deferredBodies.pop(); }
+        if (recovery == null || !recovery.stopped()) {
+            if (!deferredBodies.isEmpty()) deferredBodies.peek().addAll(deferred);
+            else for (var body : deferred) {
+                try { body.run(); }
+                catch (ParseException error) { if (recovery == null) throw error; recovery.stop(error, tokens.currentRange()); break; }
+            }
+        }
         if (recovery == null || !recovery.stopped()) {
             try { tokens.expect(";"); }
             catch (ParseException error) { if (recovery == null) throw error; recovery.stop(error, tokens.currentRange()); }

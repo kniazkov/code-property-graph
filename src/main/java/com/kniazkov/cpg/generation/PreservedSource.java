@@ -104,7 +104,8 @@ final class PreservedSource {
                         throw unsupported("structural edit crosses preprocessing directive #" + directive.kind()
                                 + " in " + range.file() + "; use a narrower replacement");
                 patches.add(new Edit(new Context(i, includeId),
-                        new Patch(range.file(), range.start().offset(), range.end().offset(), render(selected.after()))));
+                        new Patch(range.file(), range.start().offset(), range.end().offset(),
+                                Source.renderFragment(selected.after(), Language.CPP, insideBlock(baseline.files().get(i), selected.before(), false)))));
             }
         }
         // Include unchanged active occurrences in reconciliation, not just edited
@@ -274,9 +275,21 @@ final class PreservedSource {
     private static Project normalize(Project project) { return ConsoleNormalizer.green(NameResolver.resolve(project)); }
     private static String render(Node node) { return Source.render(node, Language.CPP); }
 
+    private static boolean insideBlock(Node root, Node target, boolean local) {
+        if (root == target) return local;
+        for (Node child : root.children())
+            if (insideBlock(child, target, local || root instanceof BlockStatement)) return true;
+        return false;
+    }
+
     private static void diff(Node before, Node after, List<Pair> pairs, List<Pair> changes) {
         Pair pair = new Pair(before, after);
         pairs.add(pair);
+        if (before instanceof ClassDeclaration declaration && declaration.implicit()
+                && (!(after instanceof ClassDeclaration changed) || !changed.implicit()
+                    || !declaration.name().equals(changed.name()) || !declaration.keyword().equals(changed.keyword())
+                    || declaration.isDefinition() != changed.isDefinition() || !changed.members().isEmpty()))
+            throw unsupported("edit changes an implicit class declaration; edit its written elaborated type together with its declaration");
         if (render(before).equals(render(after))) return;
         // A declarator type can surround its name (int (*name)[3]). Its abstract
         // type rendering cannot replace that noncontiguous written syntax alone.

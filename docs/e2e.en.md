@@ -104,9 +104,38 @@ mvn verify
 python3 scripts/check-cpp03-reports.py
 ```
 
-With seventeen scenarios, the report guard expects nineteen corpus results including the two infrastructure checks. Run it only after the complete corpus, not a focused invocation. JDK 21, both strict C++ compilers and Graphviz remain required, as do the existing Java/C++ regression and translation tests.
+At the #23 milestone, seventeen scenarios required nineteen corpus results including the two infrastructure checks; the current inventory is described below. Run it only after the complete corpus, not a focused invocation. JDK 21, both strict C++ compilers and Graphviz remain required, as do the existing Java/C++ regression and translation tests.
 
 The `platform-declarators/signed-min` companion is also compiled and executed
 before and after folding by both mandatory compilers. Its `int`/`long` overload
 oracle must return 1: generated signed-minimum expressions must retain their
 original type. This native oracle does not claim CPG overload resolution (#30).
+
+## Scopes, declarations and linkage (#24)
+
+[scopes-linkage](../src/test/resources/cpp03/scopes-linkage/README.md) is the eighteenth mandatory scenario. `ScopesLinkageIT` and `Cpp03CorpusIT` share `ScopesLinkageAcceptance`, importing the same three ordinary `.cpp` files through their compilation database. The positive contract covers:
+
+- Two `config.h` typedef occurrences at the same physical range, with canonical types `long` and `int`. Only the `a.cpp` command defines `WIDE`; each `Width` use must reference its own translation unit's typedef.
+- Separate file-scope `static helper` functions and anonymous-namespace `hidden` functions in `a.cpp` and `b.cpp`; calls must stay within their unit even after selecting the complete build composition.
+- Reopened namespaces, a namespace alias, a using-declaration, sequential typedefs, and one using-directive traversed by two distinct type uses. API/JSON must preserve both per-use chains, the shared directive and its namespace target, and the absence of a using step for an explicitly qualified name.
+- A named pointer type referencing the visible forward class declaration, with a forward-declaration-to-definition link and false completeness at the earlier use; C language-linkage declarations and definitions remain connected.
+- Full API/packaged-CLI JSON parity for the same database, reference targets owned by the snapshot, preserved header text, generated-source reparse under the same per-unit flags, and equivalent links in copied and selected snapshots.
+
+The native oracle separately compiles each translation unit with `g++` and `clang++`, always using `-std=c++03 -pedantic-errors`, applying `-DWIDE` **only to `a.cpp`**, then links the objects. Both original and generated programs must produce empty stdout and exit 33. Passing a global `-DWIDE` to every file would test a different program and is not an acceptable substitute. No native execution is used as an oracle for an invalid incomplete-type or ODR case.
+
+`ScopesLinkageIT` also checks `sizeof` before a class definition as a negative semantic case. A pointer to the forward declaration is valid, but a later definition does not make the earlier `sizeof` valid. The analyzed API graph contains `incomplete-type` at ERROR severity, with no parser error; the CLI must return 1, write requested diagnostic JSON/SVG and leave the source-output directory absent. The same negative source must be rejected by both native compilers with `-fsyntax-only`. Parsing alone (`PARSED`) does not run this semantic rule; the diagnostic graph is requested at `RESOLVED`.
+
+`ScopeDeclarationParserTest`, `ScopedResolutionTest` and `ScopedExportTest` regressions cover block/function/class scopes, shadowing and declaration points, nested types, enums, storage specifiers, `T(a);` and `T x(U());` disambiguation, repeated declarations, linkage conflicts, semantic source-output guards, and edit/reanalysis ownership. Export checks traverse the JSON `resolutionSteps` IDs and ordinary reference edges, check that two uses share one directive, preserve forward/definition references in copied snapshots, and reject unsupported Java translation. Shared-header edit checks keep the #20 reconciliation guard active for namespace declarations rather than flattening conditional source text.
+
+```sh
+mvn -Dit.test=ScopesLinkageIT verify
+mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=scopes-linkage verify
+java -jar target/cpg-0.0.1-SNAPSHOT.jar --from cpp --stage resolved \
+  --compile-commands src/test/resources/cpp03/scopes-linkage/compile_commands.json \
+  --out target/scopes-linkage-cpp --json target/scopes-linkage.json
+# Full acceptance, without a corpus filter:
+mvn verify
+python3 scripts/check-cpp03-reports.py
+```
+
+The current inventory contains eighteen scenarios, so the report guard requires **twenty** corpus/harness results with no failures, errors or skips. It must run only after the complete corpus. JDK 21, GCC, Clang and Graphviz remain required; a focused local run is not a full acceptance result. The [model guide](model-guide.en.md#scopes-declarations-and-linkage-24) defines the exact fields and remaining limits: full overload selection/ADL, class ABI and complete C++03 declaration/ODR semantics are not claimed by this scenario.

@@ -89,7 +89,27 @@ public final class ProjectJson {
                             f.parseProblems().forEach(problem -> a.add(problem(problem))));
                     f.stoppedAt().ifPresent(position -> obj.put("stoppedAt", range(position)));
                 }
+                case NamespaceDeclaration namespace -> obj.put("name", namespace.name()).put("anonymous", namespace.anonymous())
+                        .put("members", nodes(namespace.members()));
+                case NamespaceAliasDeclaration alias -> {
+                    obj.put("name", alias.name()).put("targetName", alias.targetName());
+                    alias.target().ifPresent(target -> obj.put("targetId", ids.get(target)));
+                }
+                case UsingDirective using -> {
+                    obj.put("namespaceName", using.namespaceName());
+                    using.target().ifPresent(target -> obj.put("targetId", ids.get(target)));
+                }
+                case UsingDeclaration using -> {
+                    obj.put("qualifiedName", using.qualifiedName());
+                    using.target().ifPresent(target -> obj.put("targetId", ids.get(target)));
+                }
+                case EnumDeclaration enumeration -> obj.put("name", enumeration.name()).put("enumerators", nodes(enumeration.enumerators()));
+                case EnumeratorDeclaration value -> {
+                    obj.put("name", value.name());
+                    value.value().ifPresent(expression -> obj.put("value", node(expression)));
+                }
                 case ClassDeclaration c -> {
+                    if (c.implicit()) obj.put("implicit", true);
                     obj.put("name", c.name()).array("modifiers", a -> a.addAll(c.modifiers())).put("members", nodes(c.members()));
                     if (!c.keyword().equals("class")) obj.put("keyword", c.keyword());
                     if (!c.memberAccess().equals("public")) obj.put("memberAccess", c.memberAccess());
@@ -97,6 +117,7 @@ public final class ProjectJson {
                 case CallableDeclaration c -> {
                     obj.put("name", c.name()).array("modifiers", a -> a.addAll(c.modifiers()));
                     c.returnType().ifPresent(t -> obj.put("returnType", node(t)));
+                    c.writtenType().ifPresent(t -> obj.put("writtenType", node(t)));
                     obj.put("parameters", nodes(c.parameters()));
                     c.body().ifPresent(b -> obj.put("body", node(b)));
                     obj.put("exit", node(c.exit()));
@@ -107,16 +128,23 @@ public final class ProjectJson {
                 case BlockStatement b -> obj.put("items", nodes(b.items()));
                 case VariableDeclaration v -> {
                     obj.put("name", v.name());
+                    if (!v.modifiers().isEmpty()) obj.array("modifiers", a -> a.addAll(v.modifiers()));
                     v.type().ifPresent(t -> obj.put("type", node(t)));
                     v.initializer().ifPresent(i -> obj.put("initializer", node(i)));
                 }
                 case ParameterDeclaration p -> {
                     obj.put("name", p.name());
+                    if (!p.modifiers().isEmpty()) obj.array("modifiers", a -> a.addAll(p.modifiers()));
                     p.type().ifPresent(t -> obj.put("type", node(t)));
                 }
                 case NamedType t -> {
                     obj.put("name", t.name());
+                    t.elaboratedKeyword().ifPresent(keyword -> obj.put("elaboratedKeyword", keyword));
                     t.alias().ifPresent(a -> obj.put("aliasId", ids.get(a)).put("canonicalIdentity", t.canonicalIdentity()));
+                    t.declaration().ifPresent(declaration -> obj.put("declarationId", ids.get(declaration))
+                            .put("completeAtUse", t.completeAtUse()));
+                    if (!t.resolutionSteps().isEmpty()) obj.array("resolutionSteps", steps -> t.resolutionSteps().forEach(step ->
+                            steps.object(value -> value.put("kind", step.kind()).put("viaId", ids.get(step.via())).put("targetId", ids.get(step.target())))));
                 }
                 case TypedefDeclaration d -> obj.put("name", d.name()).put("type", node(d.type()));
                 case QualifiedType t -> obj.put("baseType", node(t.baseType())).put("const", t.isConst()).put("volatile", t.isVolatile());
@@ -146,11 +174,22 @@ public final class ProjectJson {
                 case CallExpression c -> obj.put("callee", node(c.callee())).put("arguments", nodes(c.arguments()))
                         .put("resolution", lower(c.resolution()))
                         .array("candidateIds", a -> c.candidates().forEach(candidate -> a.add(ids.get(candidate))));
-                case MemberExpression m -> obj.put("receiver", node(m.receiver())).put("member", m.member());
+                case MemberExpression m -> {
+                    obj.put("receiver", node(m.receiver())).put("member", m.member());
+                    m.target().ifPresent(target -> obj.put("targetId", ids.get(target)));
+                }
                 case BinaryExpression b -> obj.put("left", node(b.left())).put("right", node(b.right()));
                 case UnaryExpression u -> obj.put("operand", node(u.operand()));
                 case Exit ignored -> { }
                 default -> throw new IllegalStateException("Missing JSON schema for " + n.getClass().getName());
+            }
+            if (n instanceof Declaration declaration) {
+                declaration.typeIdentity().ifPresent(identity -> obj.put("typeIdentity", identity));
+                if (declaration.linkage() != Declaration.Linkage.NONE) obj.put("linkage", lower(declaration.linkage()));
+                if (!declaration.languageLinkage().equals("C++")) obj.put("languageLinkage", declaration.languageLinkage());
+                if (!declaration.isDefinition()) obj.put("isDefinition", false);
+                declaration.previousDeclaration().ifPresent(previous -> obj.put("previousDeclarationId", ids.get(previous)));
+                declaration.definition().ifPresent(definition -> obj.put("definitionId", ids.get(definition)));
             }
             if (n instanceof TypeNode type) {
                 if (!(type instanceof NamedType)) obj.put("canonicalIdentity", type.canonicalIdentity());

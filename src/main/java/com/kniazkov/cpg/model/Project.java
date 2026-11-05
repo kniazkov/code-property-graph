@@ -81,6 +81,15 @@ public final class Project extends Node {
         var root = context.edit(this, Builder.class);
         walk(new NodeVisitor() {
             @Override public void visit(CallExpression call) { context.edit(call, CallExpression.Builder.class).clearTarget(); }
+            @Override public void visit(NameExpression name) { context.edit(name, NameExpression.Builder.class).clearTarget(); }
+            @Override public void visit(MemberExpression member) {
+                NodeBuilder<?> copied = context.copy(member);
+                ((MemberExpression.Builder<?, ?>) copied).clearTarget();
+            }
+            @Override public void visit(Declaration declaration) {
+                var builder = context.copy(declaration);
+                builder.clearDefinition(); builder.clearPreviousDeclaration();
+            }
         });
         root.setFiles(context.copyAll(selected, SourceFile.class)).setBuild(selectedBuild);
         Project snapshot = root.build();
