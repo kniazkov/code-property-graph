@@ -28,6 +28,7 @@ public final class UnreadWrites {
     }
 
     private static void inspect(FunctionFlow flow, boolean cpp, Map<Node, Diagnostic> findings) {
+        if (!flow.complete()) return;
         Map<Node, String> candidates = new IdentityHashMap<>();
         Set<Node> read = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Declaration> escaped = Collections.newSetFromMap(new IdentityHashMap<>());

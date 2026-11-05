@@ -8,6 +8,11 @@ import java.util.Optional;
 
 /** A method or free function with explicit placement. */
 public abstract class CallableDeclaration extends Declaration {
+    public enum Kind { FUNCTION, CONSTRUCTOR, DESTRUCTOR }
+    private Kind kind = Kind.FUNCTION;
+    private List<MemberInitializer> initializers = List.of();
+    public Kind kind() { return kind; }
+    public List<MemberInitializer> initializers() { return initializers; }
     private String name;
     private boolean variadic, isConst, isVolatile;
     private List<String> modifiers = List.of();
@@ -63,6 +68,7 @@ public abstract class CallableDeclaration extends Declaration {
             children.add(returnType);
         }
         children.addAll(parameters);
+        children.addAll(initializers);
         if (body != null) {
             children.add(body);
         }
@@ -78,6 +84,8 @@ public abstract class CallableDeclaration extends Declaration {
         Builder<?, ?> builder = emptyBuilder();
         context.register(this, builder);
         builder.name = name;
+        builder.kind = kind;
+        builder.initializers = context.copyAll(initializers, MemberInitializer.class);
         builder.variadic = variadic; builder.isConst = isConst; builder.isVolatile = isVolatile;
         builder.modifiers = new ArrayList<>(modifiers);
         builder.returnType = returnType == null ? null : context.edge(returnType, TypeNode.class);
@@ -92,6 +100,13 @@ public abstract class CallableDeclaration extends Declaration {
      * @param <T> concrete node allocated by the leaf builder
      * @param <B> concrete builder returned by fluent setters */
     public abstract static class Builder<T extends CallableDeclaration, B extends Builder<T, B>> extends NodeBuilder<T> {
+        private Kind kind = Kind.FUNCTION;
+        private List<NodeBuilder<? extends MemberInitializer>> initializers = new ArrayList<>();
+        public Kind kind() { return kind; }
+        public B setKind(Kind value) { kind = Objects.requireNonNull(value); return self(); }
+        public List<NodeBuilder<? extends MemberInitializer>> initializers() { return List.copyOf(initializers); }
+        public B setInitializers(List<? extends NodeBuilder<? extends MemberInitializer>> values) { initializers = new ArrayList<>(List.copyOf(values)); return self(); }
+        public B addInitializer(NodeBuilder<? extends MemberInitializer> value) { initializers.add(Objects.requireNonNull(value)); return self(); }
         private String name;
         private boolean variadic, isConst, isVolatile;
         private List<String> modifiers = new ArrayList<>();
@@ -201,6 +216,8 @@ public abstract class CallableDeclaration extends Declaration {
         @Override
         final void fillNode(T shell, BuildContext context) {
             CallableDeclaration node = shell;
+            node.kind = kind;
+            node.initializers = context.copyAll(initializers);
             node.name = requiredText(name, "CallableDeclaration.name");
             node.variadic = variadic; node.isConst = isConst; node.isVolatile = isVolatile;
             node.modifiers = List.copyOf(modifiers);

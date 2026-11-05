@@ -74,20 +74,28 @@ public final class DotVisualizer {
     private static void render(Path source, Path svg) throws IOException, InterruptedException {
         Path diagnostics = Files.createTempFile(svg.getParent(), "cpg-", ".log");
         try {
-            Process process = new ProcessBuilder("dot", "-Tsvg", "-o", svg.toString(), source.toString())
-                    .redirectErrorStream(true)
-                    .redirectOutput(diagnostics.toFile())
-                    .start();
-            try {
-                int status = process.waitFor();
-                if (status != 0) {
-                    throw new IOException("Graphviz exited with status " + status + ": "
-                            + Files.readString(diagnostics));
-                }
-            } finally {
-                if (process.isAlive()) {
-                    process.destroyForcibly();
-                    process.waitFor();
+            String firstFailure = null;
+            for (int attempt = 0; attempt < 2; attempt++) {
+                var command = new java.util.ArrayList<String>();
+                command.add("dot");
+                if (attempt == 1) command.addAll(java.util.List.of("-Grankdir=LR", "-Gsplines=line", "-Gnewrank=true"));
+                command.addAll(java.util.List.of("-Tsvg", "-o", svg.toString(), source.toString()));
+                Process process = new ProcessBuilder(command).redirectErrorStream(true).redirectOutput(diagnostics.toFile()).start();
+                try {
+                    int status = process.waitFor();
+                    if (status == 0) return;
+                    String failure = Files.readString(diagnostics);
+                    // Some Graphviz versions fail on large, valid graphs with many
+                    // unconstrained semantic edges. Retry the same complete graph with
+                    // a different orientation/router; never drop nodes, edges or labels.
+                    if (attempt == 0 && (failure.contains("trouble in init_rank") || failure.contains("triangulation failed") || failure.contains("Pshortestpath failed"))) {
+                        firstFailure = failure;
+                        continue;
+                    }
+                    throw new IOException("Graphviz exited with status " + status + ": " + failure
+                            + (firstFailure == null ? "" : "\nInitial layout failure:\n" + firstFailure));
+                } finally {
+                    if (process.isAlive()) { process.destroyForcibly(); process.waitFor(); }
                 }
             }
         } finally {

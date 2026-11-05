@@ -114,6 +114,7 @@ public final class TypeSemantics {
 
     /** Semantic result type before context-dependent decay. References denote the referred object. */
     public static Optional<TypeNode> expressionType(Expression expression, PlatformProfile profile) {
+        if (expression instanceof InitializationExpression initialization) return initialization.type();
         return rawExpressionType(expression, profile).map(TypeSemantics::withoutReference);
     }
     static TypeNode withoutReference(TypeNode type) {
@@ -293,12 +294,36 @@ public final class TypeSemantics {
             if (target instanceof CallableDeclaration callable) {
                 if (callable.writtenType().isPresent()) return callable.writtenType();
                 if (callable.returnType().isEmpty()) return Optional.empty();
-                var function = FunctionType.create().setReturnType(callable.returnType().get().edit()).setVariadic(callable.variadic());
-                for (var parameter : callable.parameters()) function.addParameter(parameter.edit().clearDefaultValue());
+                var function = FunctionType.create().setReturnType(signatureType(callable.returnType().get())).setVariadic(callable.variadic())
+                        .setConst(callable.isConst()).setVolatile(callable.isVolatile());
+                for (var parameter : callable.parameters()) function.addParameter(ParameterDeclaration.create().setName(parameter.name())
+                        .setType(signatureType(parameter.type().orElseThrow())));
                 return Optional.of(function.build());
             }
             return Optional.empty();
         });
+    }
+
+    /** A detached signature must not copy the class owning one of its own parameters. */
+    @SuppressWarnings("unchecked")
+    private static NodeBuilder<? extends TypeNode> signatureType(TypeNode input) {
+        TypeNode type = input.canonicalType();
+        if (type instanceof NamedType named) return NamedType.create().setName(named.fundamentalKind().map(FundamentalKind::spelling)
+                .orElseGet(() -> named.declaration().flatMap(Declaration::typeIdentity).orElse(named.name())));
+        if (type instanceof QualifiedType qualified) return QualifiedType.create().setBaseType(signatureType(qualified.baseType())).setConst(qualified.isConst()).setVolatile(qualified.isVolatile());
+        if (type instanceof ReferenceType reference) return ReferenceType.create().setReferredType(signatureType(reference.referredType()));
+        if (type instanceof PointerType pointer) return PointerType.create().setPointee(signatureType(pointer.pointee()));
+        if (type instanceof MemberPointerType pointer) return MemberPointerType.create().setOwnerType(signatureType(pointer.ownerType())).setPointee(signatureType(pointer.pointee()));
+        if (type instanceof ArrayType array) {
+            var result = ArrayType.create().setElementType(signatureType(array.elementType()));
+            array.bound().ifPresent(bound -> result.setBound((NodeBuilder<? extends Expression>) bound.edit())); return result;
+        }
+        if (type instanceof FunctionType function) {
+            var result = FunctionType.create().setReturnType(signatureType(function.returnType())).setVariadic(function.variadic()).setConst(function.isConst()).setVolatile(function.isVolatile());
+            function.parameters().forEach(parameter -> result.addParameter(ParameterDeclaration.create().setName(parameter.name()).setType(signatureType(parameter.type().orElseThrow()))));
+            return result;
+        }
+        throw new IllegalArgumentException("Unsupported signature type");
     }
 
     static Optional<ConstantEvaluator.IntegerType> integerType(TypeNode type, PlatformProfile profile) {

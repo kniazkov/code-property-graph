@@ -61,6 +61,8 @@ final class BuildContext {
             declaration.typeIdentity = builder.declarationTypeIdentity;
             declaration.linkage = builder.declarationLinkage;
             declaration.languageLinkage = builder.languageLinkage;
+            declaration.access = builder.declarationAccess;
+            declaration.friend = builder.declarationFriend;
             declaration.definitionOccurrence = builder.declarationDefinition;
             declaration.previousDeclaration = builder.previousDeclaration == null ? null : copy(builder.previousDeclaration);
             declaration.definition = builder.definition == null ? null : copy(builder.definition);

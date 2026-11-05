@@ -40,7 +40,7 @@ final class StatementParser {
                 var itemStart = tokens.start();
                 if (tokens.language() == Language.CPP && types.startsDeclaration()) {
                     for (var declaration : declarationReader == null ? declarations() : declarationReader.get()) block.addItem(declaration);
-                } else if (tokens.take("int")) {
+                } else if (tokens.language() == Language.JAVA && tokens.take("int")) {
                     var type = tokens.span(itemStart, NamedType.create().setName("int"));
                     String name = tokens.identifier();
                     tokens.expect("=");

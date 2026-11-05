@@ -14,6 +14,8 @@ public final class ClassDeclaration extends Declaration {
     private String memberAccess = "public";
     private List<String> modifiers = List.of();
     private List<Declaration> members = List.of();
+    private List<BaseSpecifier> bases = List.of();
+    public List<BaseSpecifier> bases() { return bases; }
 
     private ClassDeclaration() {
     }
@@ -37,6 +39,7 @@ public final class ClassDeclaration extends Declaration {
     @Override
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
+        children.addAll(bases);
         children.addAll(members);
         return List.copyOf(children);
     }
@@ -60,6 +63,7 @@ public final class ClassDeclaration extends Declaration {
         Builder builder = new Builder();
         context.register(this, builder);
         builder.name = name;
+        builder.bases = context.copyAll(bases, BaseSpecifier.class);
         builder.implicit = implicit;
         builder.keyword = keyword; builder.memberAccess = memberAccess;
         builder.modifiers = new ArrayList<>(modifiers);
@@ -69,6 +73,10 @@ public final class ClassDeclaration extends Declaration {
 
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<ClassDeclaration> {
+        private List<NodeBuilder<? extends BaseSpecifier>> bases = new ArrayList<>();
+        public List<NodeBuilder<? extends BaseSpecifier>> bases() { return List.copyOf(bases); }
+        public Builder setBases(List<? extends NodeBuilder<? extends BaseSpecifier>> values) { bases = new ArrayList<>(List.copyOf(values)); return this; }
+        public Builder addBase(NodeBuilder<? extends BaseSpecifier> value) { bases.add(Objects.requireNonNull(value)); return this; }
         private String name;
         private boolean implicit;
         public boolean implicit() { return implicit; }
@@ -129,6 +137,7 @@ public final class ClassDeclaration extends Declaration {
 
         @Override
         void fillNode(ClassDeclaration node, BuildContext context) {
+            node.bases = context.copyAll(bases);
             node.name = requiredText(name, "ClassDeclaration.name");
             node.implicit = implicit;
             node.keyword = keyword; node.memberAccess = memberAccess;

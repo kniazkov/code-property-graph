@@ -593,3 +593,63 @@ Default-argument name restrictions follow the checked-in C++03/N1638 baseline: p
 JSON nests `defaultValue` under its parameter and exports nonempty call `defaultArguments` as `parameterIndex`, `declarationId`, `parameterId` and `expressionId`. DOT displays labelled declaration/parameter/expression edges. Snapshot copying redirects every link into the copied graph. C++ generation emits defaults only at their written parameter declarations and leaves omitted calls omitted; preserved-source edits retain unrelated comments and macro invocations. Java generation rejects C++ defaults and unsupported function signatures rather than silently erasing them.
 
 Defaults follow declaration visibility, not a later definition or the dynamic target. Function-pointer calls do not inherit declaration defaults. Full overload ranking/ADL (#30), virtual dispatch and static-vs-dynamic default selection (#29), and full interprocedural effects (#42) remain separate work. See the [E2E contract](e2e.en.md#functions-and-default-arguments-26).
+
+## Classes, initialization and lifetime (#27)
+
+`Declaration.access()` retains each member's public/protected/private access;
+`isFriend()` distinguishes friendship from ownership and storage. The original
+`ClassDeclaration.memberAccess()` remains the initial/default section. Classes,
+structs and unions retain ordered members, nested types and `bases()`; each
+`BaseSpecifier` owns its written type and records access and `isVirtual()`.
+`VariableDeclaration.bitWidth()` owns a named or unnamed bit-field width. Static
+and mutable fields retain their modifiers. Qualified out-of-class member names
+remain written names while resolution connects them to class declarations.
+
+`CallableDeclaration.kind()` distinguishes ordinary functions, constructors and
+destructors. Constructors/destructors have no invented return type. Constructor
+`initializers()` own ordered `MemberInitializer` nodes (name and arguments) in
+**written order**. `MemberInitializer.target()` is a non-owning link to the field or written base type/typedef declaration; JSON exports `targetId`. Resolution excludes constructor parameters from initializer-id lookup and distinguishes aliases and a field hiding a base name. This order is not execution order. Copy constructors and
+`operator=` retain their actual source declarations and observable bodies.
+
+`InitializationExpression` represents `DIRECT` parentheses, `AGGREGATE` braces,
+and typed `TEMPORARY` construction. A normal `= expression` remains the variable's
+owned initializer, preserving copy initialization. Empty typed construction is
+value initialization; an absent initializer is default initialization, with a
+separate zero-initialization phase for defined static-storage objects. `T x()`
+remains a function declaration and C++11 `T x{...}` is rejected. Source generation
+preserves these distinctions instead of introducing calls or braces that could
+change overload selection.
+
+`ClassSemantics` computes immutable, non-owning facts from the current snapshot:
+
+- `specialMembers(class)` reports default constructor, copy constructor, copy
+  assignment and destructor as `IMPLICIT`, `USER_DECLARED` or `SUPPRESSED`, with
+  original declaration references. A user constructor suppresses implicit default
+  construction, not implicit copy/assignment/destruction. Implicit members are
+  descriptors, not fabricated source nodes. This API does not assert that an
+  implicit definition is usable for every member type.
+- `aggregate(class)` checks the represented C++03 class/union aggregate conditions.
+- `constructionOrder(class, constructor)` pairs direct non-virtual bases and
+  non-static fields in declaration order with their written initializer, if any.
+  `destructionOrder` reverses that subobject order; destructor bodies execute first.
+  Transitive virtual bases, unresolved bases and incomplete hierarchies are rejected by the ordering API. Their constructors receive an `unsupported-constructor-flow` warning and no partial CFG. Valid indirect virtual-base initializers are not misdiagnosed as unknown fields.
+  The constructor CFG also orders supported written initializer vertices this way, and DFG
+  includes their argument evaluation. Implicit calls are not cloned into the AST.
+- `initialization(project, variable)` reports storage, initialization phases,
+  class and written expression. `constructorCandidates` supplies source candidates
+  with compatible arity, not a ranked overload result.
+- `lifetimes(project)` distinguishes automatic block exit, static program exit,
+  temporary full-expression end and direct reference-lifetime extension. These
+  are lexical facts, not a runtime trace or an inter-TU initialization ordering.
+
+JSON exports all written nodes, access, friend, special-member kind and implicit
+member descriptors. DOT/SVG preserves ownership/reference edges; SVG retries known Graphviz ranking/triangulation failures with left-to-right straight-line routing, preserving every node, edge and label. Copies
+retain syntax and redirect references; derived class facts are recalculated after
+edits. Unsupported C++ class constructs are not silently translated into Java.
+
+Inherited member lookup and virtual-base traversal/dispatch (#29), full overload ranking and access checking
+(#30), ABI layout/new/delete (#28), implicit-definition validity for every class,
+optional copy elision and full interprocedural lifetime effects are not claimed by
+these APIs. See the [native acceptance fixture](../src/test/resources/cpp03/classes-initialization/README.md).
+
+`FunctionFlow.complete()` is false for unsupported constructor hierarchies; its edge lists are empty, JSON exports `flowComplete: false`, and data-flow/unread-write analysis does not treat it as a complete result.

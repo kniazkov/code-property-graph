@@ -139,6 +139,18 @@ final class ExpressionParser {
         var start = tokens.start();
         if (java.util.Set.of(";", ")", "]", "}", ",", ":", "<eof>").contains(tokens.peek())) throw tokens.missingExpression();
         NodeBuilder<? extends Expression> value;
+        if (language == Language.CPP && types != null && types.functionalTypeAhead()) {
+            int checkpoint = tokens.checkpoint();
+            try {
+                var specs = types.specifiers();
+                if (tokens.take("(")) {
+                    var construction = InitializationExpression.create().setForm(InitializationExpression.Form.TEMPORARY).setType(specs.type().get());
+                    if (!tokens.take(")")) { do { construction.addArgument(nestedExpression(1)); } while (tokens.take(",")); tokens.expect(")"); }
+                    return postfix(start, tokens.span(start, construction));
+                }
+            } catch (ParseException ignored) { /* Ordinary expression or qualified name. */ }
+            tokens.restore(checkpoint);
+        }
         if (language == Language.CPP && tokens.take("static_cast")) {
             tokens.expect("<");
             var target = types.abstractType();
