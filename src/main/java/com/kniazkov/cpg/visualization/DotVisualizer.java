@@ -142,6 +142,11 @@ public final class DotVisualizer {
                         .append(" [label=<&#160;ref>, style=dashed, constraint=false];\n");
             }
             for (Comment comment : node.commentReferences()) semanticEdge(node, comment, "HAS_COMMENT");
+            if (node instanceof DocumentationEntry entry) for (var binding : entry.bindings()) {
+                String context = binding.declaration().provenance().map(p -> " include " + (p.startToken() < p.unit().tokens().size() ? p.unit().tokens().get(p.startToken()).includeId() : -1) + " TU " + p.unit().translationUnit() + (p.unit().configuration() == null ? "" : " variant " + p.unit().configuration().variantId())).orElse("");
+                semanticEdge(entry, binding.declaration(), "documents declaration" + context);
+                if (binding.target() != null) semanticEdge(entry, binding.target(), "documents parameter" + context);
+            }
             if (node instanceof Expression expression) {
                 expression.operatorTarget().ifPresent(target -> semanticEdge(expression, target, "operator implementation"));
                 if (expression.operatorTarget().isEmpty()) for (var candidate : expression.operatorCandidates())
@@ -313,6 +318,8 @@ public final class DotVisualizer {
             Label label = new Label();
             node.accept(label);
             if (node instanceof Comment comment) label.detail = comment.kind() + " " + comment.text();
+            if (node instanceof DocumentationEntry entry) label.detail = entry.kind() + " " + entry.name() + " " + entry.description();
+            if (node instanceof TemplateParameterDeclaration parameter) label.detail = parameter.keyword() + " " + parameter.name();
             String border = node.languages().equals(Source.SUPPORTED_TARGETS) ? "#008000" : "#ff0000";
             dot.append("  n").append(id).append(" [color=\"").append(border).append("\", label=<")
                     .append(node.getClass().getSimpleName());

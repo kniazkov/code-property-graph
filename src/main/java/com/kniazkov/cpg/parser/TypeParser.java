@@ -90,6 +90,7 @@ final class TypeParser {
         qualifier.classScope = true;
         scope.names.putIfAbsent(name, new Binding(true, null, qualifier));
     }
+    void declareTemplateType(String name) { scope.names.put(name, new Binding(true, null, null)); }
     void declareName(String name) { if (!name.isEmpty()) scope.names.put(name, new Binding(false, null, null)); }
     void declareAlias(String name, TypedefDeclaration.Builder declaration) {
         Scope qualifier = typeScope(declaration.type().orElseThrow(), Collections.newSetFromMap(new IdentityHashMap<>()));

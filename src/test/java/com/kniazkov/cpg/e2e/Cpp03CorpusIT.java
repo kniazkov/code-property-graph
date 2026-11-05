@@ -66,6 +66,11 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("doxygen-parameters".equals(settings.getProperty("mode"))) {
+            var output = DoxygenParametersAcceptance.verify(fixture, work);
+            for (Path source : output.sources()) nativePrograms(work, source, "", 0);
+            return;
+        }
         if ("comments-cleanup".equals(settings.getProperty("mode"))) {
             var output = CommentsCleanupAcceptance.verify(fixture, work);
             for (Path source : List.of(output.original(), output.generated(), output.cleaned())) {

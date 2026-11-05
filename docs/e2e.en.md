@@ -326,3 +326,22 @@ harness checks. The fixture runs original, ordinary generated and explicitly cle
 programs under GCC and Clang for both FEATURE configurations; assertions cover
 headers/inactive branches, macro line continuations, physical `__LINE__`, literal
 markers, copy/association identity and API/CLI JSON/SVG exports.
+
+## Linked Doxygen declarations (#33)
+
+The `doxygen-parameters` fixture retains prototype/definition comments and both
+briefs, checks parameter-position queries across different names, repeated-header
+and include-context bindings, unknown tags, and minimal template type parameters.
+Independent header and definition renames must preserve all free prose exactly.
+`DocumentationRenameTest` additionally checks backslash tags, dependent type uses,
+JSON/DOT links, copy ownership, macro rejection and conflicting physical contexts.
+Run `mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=doxygen-parameters verify`.
+Original and generated programs are compiled under strict C++03 with GCC and Clang.
+The mandatory scenario also compiles the explicitly cleaned snapshot and two
+independently renamed snapshots. Header `count` changes only its declaration and
+bound tag name; definition `n` changes its declaration/body uses while the header
+remains byte-exact. It checks complete raw unknown commands, ordered T/U entries,
+consecutive line prose, both include-context parameter types, the exact warning
+span for unmatched `size`, and absence of documentation after cleanup. Body macros
+do not prevent a physical signature from being documented. The full corpus has
+**27 scenarios and 29 results including infrastructure tests**.
