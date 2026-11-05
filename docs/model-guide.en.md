@@ -1303,3 +1303,37 @@ Binding-preservation validation requires a whole `Project`: it applies to
 `Source.files`, `Source.physicalSources`, `Source.render(Project, ...)` and
 `Cpg.sources`. Rendering an isolated node or `SourceFile` is a context-free
 fragment printer, not proof that the fragment preserves project-wide lookup.
+
+### Snapshot transformation history and standalone JSON (#44)
+
+`Node.transformationProvenance()` exposes immutable links `(passId, role, source)`
+to immediate predecessor nodes. These links are neither owning children nor
+current-snapshot semantic references. Copying a node retains historical identity;
+transforming a construct records the responsible pass and its source root and
+contributors. Unchanged unrelated syntax does not acquire artificial copy history.
+For console normalization, stream, value, newline and flush are distinct roles;
+C++ `std::endl` contributes both newline and flush. Folding `2 + 3` into `5` links
+the new literal to the preceding expression, whose own history reaches the source
+expression and its coordinates. Earlier snapshots remain immutable and usable.
+
+`Project.transformationResults(originalNode)` queries the selected snapshot for
+all results reachable from an original node, with pass and contribution role.
+It computes the reverse view from existing forward links rather than storing a
+second set of edges. `Project.snapshotStage()` explicitly identifies parsed,
+resolved, green or folded, even when a stage contains no common nodes or retains
+errors that prevent transformation.
+
+JSON is a one-way export, not a `Project` persistence/import format. The root
+contains numeric `schemaVersion: 1` and the selected `stage`. During development
+the schema version remains 1; after stabilization optional compatible fields keep
+the version while incompatible changes require a new one. IDs belong only to one
+JSON file. The same inputs and parameters produce deterministic numbering; source
+edits may renumber everything.
+
+The current snapshot remains nested. `history` contains reachable historical node
+definitions once, with child references `{nodeId: ...}`. Transformation links carry
+`passId`, `role` and `sourceId`. Historical Project/SourceFile context is shallow,
+so it does not import unrelated old syntax. Necessary semantic dependencies and
+source context are included to make IDs and coordinates self-contained. A plain
+JSON parser can follow `5` to its folding pass and earlier `2 + 3` without opening
+source files. No JSON-to-Project importer is provided.

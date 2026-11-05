@@ -139,7 +139,7 @@ public final class Cpg {
         // CFG construction independently excludes incomplete/invalid function bodies.
         if (options.stage() == Stage.PARSED) return result;
         boolean partial = result.hasErrors();
-        result = NameResolver.resolve(result);
+        result = NameResolver.resolve(result).withSnapshotStage(SnapshotStage.RESOLVED);
         // Green rewrites clear annotations. Do not erase the invalid syntax that
         // produced semantic errors before the folding stage can observe them.
         boolean[] semanticError = {false};
@@ -148,7 +148,7 @@ public final class Cpg {
                 semanticError[0] |= node.diagnostics().stream().anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR);
             }
         });
-        if (semanticError[0] || partial) return UnreadWrites.analyze(result);
+        if (semanticError[0] || partial) return UnreadWrites.analyze(result).withSnapshotStage(SnapshotStage.valueOf(options.stage().name()));
         if (options.stage() != Stage.RESOLVED) result = com.kniazkov.cpg.analysis.TypeNormalizer.green(ConsoleNormalizer.green(result));
         if (options.stage() == Stage.FOLDED) result = ConstantFolder.fold(result);
         // Transformations deliberately drop annotations; recompute links and build diagnostics.
@@ -158,7 +158,7 @@ public final class Cpg {
             result = com.kniazkov.cpg.analysis.ContainerSemantics.green(result);
             result = com.kniazkov.cpg.analysis.SequenceSemantics.green(result);
         }
-        return UnreadWrites.analyze(result);
+        return UnreadWrites.analyze(result).withSnapshotStage(SnapshotStage.valueOf(options.stage().name()));
     }
 
     /** Generates one named source string per output file for the selected target language. */

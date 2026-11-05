@@ -66,6 +66,10 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("snapshot-history".equals(settings.getProperty("mode"))) {
+            for (Path source : SnapshotHistoryAcceptance.verify(fixture, work)) nativePrograms(work, source, "5\n", 0);
+            return;
+        }
         if ("safe-editing".equals(settings.getProperty("mode"))) {
             for (Path source : SafeEditingAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
             return;

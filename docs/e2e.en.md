@@ -469,3 +469,13 @@ original erroneous snapshot survive. Every successful original/edited source set
 is compiled and run with strict GCC and Clang. Run the focused native scenario
 with `-Dcpg.cpp03.scenario=safe-editing`; the full corpus still discovers it from
 the checked-in manifest.
+
+### Standalone transformation history
+
+`snapshot-history` runs one console program through all four stages and reads
+its JSON with an ordinary parser. It checks schemaVersion 1, explicit stage,
+unique file-local node IDs and resolved history links, then follows folded 5 to
+the previous AddExpression and coordinates. An unrelated old function is excluded
+from history. Direct API checks verify stream/value/newline/flush contributions,
+both reverse roles of endl and unchanged earlier snapshots. Error snapshots keep
+explicit requested stage metadata. All generated variants run under GCC/Clang.

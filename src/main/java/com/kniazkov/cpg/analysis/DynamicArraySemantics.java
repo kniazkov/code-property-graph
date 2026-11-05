@@ -28,6 +28,7 @@ public final class DynamicArraySemantics {
             if (element == null || allocator == null || bool(element) || !standardAllocator(project, allocator, element)) continue;
             var cls = instance.declaration();
             types.put(cls, DynamicArrayType.create().setConcreteClass(context.copy(cls)).setElementType(context.copy(element)));
+            types.get(cls).addTransformationProvenance("DynamicArraySemantics", "source-construct", cls);
             elements.put(cls, element); sites.put(cls, new ArrayList<>());
         }
         var operations = new ArrayList<NodeBuilder<? extends DynamicArrayOperation>>();
@@ -74,6 +75,7 @@ public final class DynamicArraySemantics {
                     var operation = DynamicArrayOperation.create().setKind(kind).setSyntax(context.copy(syntax))
                             .setDestination(context.copy(destination)).setType(types.get(cls)).setSelectedTarget(context.copy(target));
                     var inputs = new ArrayList<NodeBuilder<? extends Node>>();
+                    operation.addTransformationProvenance("DynamicArraySemantics", "source-construct", syntax);
                     arguments.forEach(argument -> inputs.add(context.copy(argument))); operation.setSources(inputs);
                     // vector and the standard allocator copy through const T& even
                     // when the caller supplies a mutable lvalue to push_back/fill.

@@ -9,13 +9,16 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.util.*;
 
-/** Writes syntax ownership as nested fields and non-owning edges as destination IDs. */
+/** Writes selected syntax ownership as nested fields and non-owning edges as destination IDs.
+ * Reachable historical nodes are defined once in {@code history}; their child fields
+ * contain {@code nodeId} references. Earlier project/file nodes are context only,
+ * so provenance never implicitly imports unrelated earlier syntax. */
 public final class ProjectJson {
     private ProjectJson() {}
 
     /** Numbers syntax nodes in preorder before encoding any edge, including forward and cyclic references. */
     public static JsonObject encode(Project project) {
-        return new Export(project).node(project);
+        return new Export(project).encode();
     }
 
     /** Creates a UTF-8 file containing the complete snapshot. Existing files are protected. */
@@ -34,6 +37,11 @@ public final class ProjectJson {
         private final boolean compilationBuild;
         private final Project project;
         private final Map<FlowVertex,Integer> ids = new IdentityHashMap<>();
+        private final List<FlowVertex> ordered = new ArrayList<>();
+        private final List<Preprocessing> sourceContexts = new ArrayList<>();
+        private int currentCount;
+        private boolean discovering;
+        private boolean referenceChildren;
         private final Map<Preprocessing,Integer> units = new IdentityHashMap<>();
         private final Map<FlowVertex,List<Edge>> outgoing = new IdentityHashMap<>();
 
@@ -43,7 +51,7 @@ public final class ProjectJson {
             // Configuration attribution can differ between API and CLI. Number executable
             // syntax and its flow operations first so their IDs do not depend on that catalogue.
             var index = new NodeVisitor() {
-                @Override public void visit(Node n) { ids.put(n, ids.size()); }
+                @Override public void visit(Node n) { register(n); }
             };
             index.visit(project);
             project.files().forEach(file -> file.walk(index));
@@ -56,9 +64,33 @@ public final class ProjectJson {
             project.containerSemantics().forEach(operation -> operation.walk(index));
             project.characterSequenceTypes().forEach(type -> type.walk(index));
             project.sequenceSemantics().forEach(operation -> operation.walk(index));
-            for (var flow : project.flows()) for (var vertex : flow.auxiliaryVertices()) ids.put(vertex, ids.size());
+            for (var flow : project.flows()) for (var vertex : flow.auxiliaryVertices()) register(vertex);
             project.externalInputs().forEach(input -> input.walk(index));
-            for (SourceFile file : java.util.stream.Stream.concat(project.files().stream(), project.librarySources().stream()).toList()) file.provenance().ifPresent(p -> units.put(p.unit(), ids.get(file)));
+            for (SourceFile file : java.util.stream.Stream.concat(project.files().stream(), project.librarySources().stream()).toList()) file.provenance().ifPresent(p -> units.put(p.unit(), id(file)));
+            currentCount = ordered.size();
+            // Discover exactly the fields we serialize, not every node in earlier snapshots.
+            // In discovery mode child objects are references, so cycles cannot recurse.
+            discovering = true;
+            referenceChildren = true;
+            int nodeCursor = 0;
+            int contextCursor = 0;
+            while (nodeCursor < ordered.size() || contextCursor < sourceContexts.size()) {
+                if (nodeCursor < ordered.size()) {
+                    if (ordered.get(nodeCursor++) instanceof Node n) {
+                        n.references().forEach(this::id);
+                        n.commentReferences().forEach(this::id);
+                        fullNode(n);
+                    }
+                } else {
+                    // Detached history can introduce a token unit without retaining its
+                    // SourceFile. Discover that unit's attribution dependencies too.
+                    preprocessing(sourceContexts.get(contextCursor++));
+                }
+            }
+            discovering = false;
+            referenceChildren = false;
+            for (int i = 0; i < sourceContexts.size(); i++)
+                units.put(sourceContexts.get(i), ordered.size() + i);
             for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n) for (Node target : n.references()) edge(n, target, "ref");
             for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n)
                 for (Comment comment : n.commentReferences()) edge(n, comment, "HAS_COMMENT");
@@ -177,6 +209,30 @@ public final class ProjectJson {
             }
         }
 
+        private void register(FlowVertex vertex) {
+            if (!ids.containsKey(vertex)) {
+                ids.put(vertex, ordered.size());
+                ordered.add(vertex);
+            }
+        }
+
+        private Integer id(FlowVertex vertex) {
+            if (!ids.containsKey(vertex)) {
+                if (!discovering) throw new IllegalStateException("Unindexed JSON dependency: " + vertex);
+                register(vertex);
+            }
+            return ids.get(vertex);
+        }
+
+        private JsonObject encode() { return fullNode(project); }
+
+        private JsonObject historyNode(Node n) {
+            boolean previous = referenceChildren;
+            referenceChildren = true;
+            try { return fullNode(n); }
+            finally { referenceChildren = previous; }
+        }
+
         private static String lower(Enum<?> kind) { return kind.name().toLowerCase(Locale.ROOT); }
 
         private void edge(FlowVertex from, FlowVertex to, String kind) {
@@ -186,7 +242,7 @@ public final class ProjectJson {
         private void edge(FlowVertex from, FlowVertex to, String kind, CallExpression callSite) {
             if (!ids.containsKey(from) || !ids.containsKey(to) || callSite != null && !ids.containsKey(callSite))
                 throw new IllegalStateException("Edge outside project");
-            outgoing.computeIfAbsent(from, ignored -> new ArrayList<>()).add(new Edge(kind, ids.get(to), callSite == null ? null : ids.get(callSite)));
+            outgoing.computeIfAbsent(from, ignored -> new ArrayList<>()).add(new Edge(kind, id(to), callSite == null ? null : id(callSite)));
         }
 
         private JsonArray nodes(List<? extends Node> children) {
@@ -196,12 +252,29 @@ public final class ProjectJson {
         }
 
         private JsonObject node(Node n) {
-            var obj = Json.object().put("id", ids.get(n)).put("kind", n.getClass().getSimpleName());
+            if (referenceChildren) return Json.object().put("nodeId", id(n)).build();
+            return fullNode(n);
+        }
+
+        private JsonObject fullNode(Node n) {
+            boolean historical = id(n) >= currentCount;
+            var obj = Json.object().put("id", id(n)).put("kind", n.getClass().getSimpleName());
             switch (n) {
                 case Project p -> {
+                    obj.put("schemaVersion", 1).put("stage", lower(p.snapshotStage()));
+                    if (historical) break; // Context, never ownership of an entire old snapshot.
+                    if (!discovering) {
+                        obj.array("history", a -> {
+                            for (int i = currentCount; i < ordered.size(); i++)
+                                if (ordered.get(i) instanceof Node old) a.add(historyNode(old));
+                        });
+                        if (!sourceContexts.isEmpty()) obj.array("sourceContexts", a -> sourceContexts.forEach(unit ->
+                                a.object(context -> context.put("id", units.get(unit)).put("kind", "SourceContext")
+                                        .put("preprocessing", preprocessing(unit)))));
+                    }
                     obj.put("files", nodes(p.files()));
                     p.standardLibrary().ifPresent(library -> obj.put("standardLibrary", node(library)));
-                    if (!p.librarySources().isEmpty()) obj.array("librarySources", a -> p.librarySources().forEach(header -> a.add(ids.get(header))));
+                    if (!p.librarySources().isEmpty()) obj.array("librarySources", a -> p.librarySources().forEach(header -> a.add(id(header))));
                     if (!p.templateInstances().isEmpty()) obj.put("templateInstances", nodes(p.templateInstances()));
                     if (!p.classTemplateInstances().isEmpty()) obj.put("classTemplateInstances", nodes(p.classTemplateInstances()));
                     if (!p.dynamicArrayTypes().isEmpty()) obj.put("dynamicArrayTypes", nodes(p.dynamicArrayTypes()));
@@ -222,123 +295,123 @@ public final class ProjectJson {
                     }));
                 }
                 case DynamicArrayType type -> {
-                    obj.put("elementTypeId", ids.get(type.elementType()))
-                        .array("writtenTypeIds", a -> type.writtenTypes().forEach(site -> a.add(ids.get(site))));
-                    if (type.concreteClass() != null) obj.put("concreteClassId", ids.get(type.concreteClass()));
+                    obj.put("elementTypeId", id(type.elementType()))
+                        .array("writtenTypeIds", a -> type.writtenTypes().forEach(site -> a.add(id(site))));
+                    if (type.concreteClass() != null) obj.put("concreteClassId", id(type.concreteClass()));
                 }
                 case DynamicArrayOperation operation -> {
-                    obj.put("operation", lower(operation.kind())).put("syntaxId", ids.get(operation.syntax()))
-                        .put("destinationId", ids.get(operation.destination())).put("typeId", ids.get(operation.type()))
-                        .put("selectedTargetId", ids.get(operation.selectedTarget()))
-                        .array("sourceIds", a -> operation.sources().forEach(source -> a.add(ids.get(source))));
-                    operation.elementCopyConstructor().ifPresent(target -> obj.put("elementCopyConstructorId", ids.get(target)));
-                    operation.elementDestructor().ifPresent(target -> obj.put("elementDestructorId", ids.get(target)));
-                    operation.elementAssignment().ifPresent(target -> obj.put("elementAssignmentId", ids.get(target)));
+                    obj.put("operation", lower(operation.kind())).put("syntaxId", id(operation.syntax()))
+                        .put("destinationId", id(operation.destination())).put("typeId", id(operation.type()))
+                        .put("selectedTargetId", id(operation.selectedTarget()))
+                        .array("sourceIds", a -> operation.sources().forEach(source -> a.add(id(source))));
+                    operation.elementCopyConstructor().ifPresent(target -> obj.put("elementCopyConstructorId", id(target)));
+                    operation.elementDestructor().ifPresent(target -> obj.put("elementDestructorId", id(target)));
+                    operation.elementAssignment().ifPresent(target -> obj.put("elementAssignmentId", id(target)));
                     obj.put("resultKind", lower(operation.resultKind())).put("writable", operation.writable())
                         .put("boundsChecked", operation.boundsChecked())
-                        .array("mutatedObjectIds", a -> operation.mutatedObjects().forEach(target -> a.add(ids.get(target))));
-                    operation.index().ifPresent(operand -> obj.put("indexId", ids.get(operand)));
+                        .array("mutatedObjectIds", a -> operation.mutatedObjects().forEach(target -> a.add(id(target))));
+                    operation.index().ifPresent(operand -> obj.put("indexId", id(operand)));
                     operation.handle().ifPresent(handle -> obj.object("handle", h -> {
-                        h.put("kind", lower(handle.kind())).put("sequenceId", ids.get(handle.sequence()))
+                        h.put("kind", lower(handle.kind())).put("sequenceId", id(handle.sequence()))
                             .put("direction", lower(handle.direction())).put("positionKind", lower(handle.positionKind()))
                             .put("writable", handle.writable()).put("validity", lower(handle.validity()));
-                        handle.position().ifPresent(position -> h.put("positionId", ids.get(position)));
+                        handle.position().ifPresent(position -> h.put("positionId", id(position)));
                     }));
                     obj.array("handleEffects", a -> operation.handleEffects().forEach(effect -> a.object(e -> {
-                        e.put("producerId", ids.get(effect.producer())).put("validityAfter", lower(effect.validityAfter()));
-                        effect.sequenceAfter().ifPresent(sequence -> e.put("sequenceAfterId", ids.get(sequence)));
-                        effect.positionAfter().ifPresent(position -> e.put("positionAfterId", ids.get(position)));
+                        e.put("producerId", id(effect.producer())).put("validityAfter", lower(effect.validityAfter()));
+                        effect.sequenceAfter().ifPresent(sequence -> e.put("sequenceAfterId", id(sequence)));
+                        effect.positionAfter().ifPresent(position -> e.put("positionAfterId", id(position)));
                     })));
                 }
                 case CharacterSequenceType type -> {
-                    obj.put("characterTypeId", ids.get(type.characterType()));
-                    type.declaration().ifPresent(value -> obj.put("concreteClassId", ids.get(value)));
-                    type.traitsType().ifPresent(value -> obj.put("traitsTypeId", ids.get(value)));
-                    type.allocatorType().ifPresent(value -> obj.put("allocatorTypeId", ids.get(value)));
-                    obj.array("writtenTypeIds", a -> type.writtenTypes().forEach(value -> a.add(ids.get(value))));
+                    obj.put("characterTypeId", id(type.characterType()));
+                    type.declaration().ifPresent(value -> obj.put("concreteClassId", id(value)));
+                    type.traitsType().ifPresent(value -> obj.put("traitsTypeId", id(value)));
+                    type.allocatorType().ifPresent(value -> obj.put("allocatorTypeId", id(value)));
+                    obj.array("writtenTypeIds", a -> type.writtenTypes().forEach(value -> a.add(id(value))));
                 }
                 case SequenceOperation operation -> {
-                    obj.put("operation", lower(operation.kind())).put("syntaxId", ids.get(operation.syntax()))
-                        .put("selectedTargetId", ids.get(operation.selectedTarget()))
+                    obj.put("operation", lower(operation.kind())).put("syntaxId", id(operation.syntax()))
+                        .put("selectedTargetId", id(operation.selectedTarget()))
                         .put("lengthKind", lower(operation.lengthKind())).put("resultKind", lower(operation.resultKind()))
                         .put("direction", lower(operation.direction())).put("sizeEffect", lower(operation.sizeEffect()))
                         .put("writable", operation.writable()).put("callableEffect", lower(operation.callableEffect()))
                         .put("callableMayThrow", operation.callableMayThrow());
-                    operation.characterType().ifPresent(value -> obj.put("characterTypeId", ids.get(value)));
-                    operation.destination().ifPresent(value -> obj.put("destinationId", ids.get(value)));
-                    operation.inputSequence().ifPresent(value -> obj.put("inputSequenceId", ids.get(value)));
-                    operation.outputDestination().ifPresent(value -> obj.put("outputDestinationId", ids.get(value)));
-                    operation.first().ifPresent(value -> obj.put("firstId", ids.get(value)));
-                    operation.last().ifPresent(value -> obj.put("lastId", ids.get(value)));
-                    operation.secondFirst().ifPresent(value -> obj.put("secondFirstId", ids.get(value)));
-                    operation.count().ifPresent(value -> obj.put("countId", ids.get(value)));
-                    operation.position().ifPresent(value -> obj.put("positionId", ids.get(value)));
-                    operation.initialValue().ifPresent(value -> obj.put("initialValueId", ids.get(value)));
-                    operation.callable().ifPresent(value -> obj.put("callableId", ids.get(value)));
-                    operation.callableTarget().ifPresent(value -> obj.put("callableTargetId", ids.get(value)));
-                    operation.resultType().ifPresent(value -> obj.put("resultTypeId", ids.get(value)));
-                    operation.accumulatorType().ifPresent(value -> obj.put("accumulatorTypeId", ids.get(value)));
-                    obj.array("sourceIds", a -> operation.sources().forEach(value -> a.add(ids.get(value))));
-                    obj.array("mutatedObjectIds", a -> operation.mutatedObjects().forEach(value -> a.add(ids.get(value))));
-                    obj.array("callableEffectIds", a -> operation.callableEffects().forEach(value -> a.add(ids.get(value))));
+                    operation.characterType().ifPresent(value -> obj.put("characterTypeId", id(value)));
+                    operation.destination().ifPresent(value -> obj.put("destinationId", id(value)));
+                    operation.inputSequence().ifPresent(value -> obj.put("inputSequenceId", id(value)));
+                    operation.outputDestination().ifPresent(value -> obj.put("outputDestinationId", id(value)));
+                    operation.first().ifPresent(value -> obj.put("firstId", id(value)));
+                    operation.last().ifPresent(value -> obj.put("lastId", id(value)));
+                    operation.secondFirst().ifPresent(value -> obj.put("secondFirstId", id(value)));
+                    operation.count().ifPresent(value -> obj.put("countId", id(value)));
+                    operation.position().ifPresent(value -> obj.put("positionId", id(value)));
+                    operation.initialValue().ifPresent(value -> obj.put("initialValueId", id(value)));
+                    operation.callable().ifPresent(value -> obj.put("callableId", id(value)));
+                    operation.callableTarget().ifPresent(value -> obj.put("callableTargetId", id(value)));
+                    operation.resultType().ifPresent(value -> obj.put("resultTypeId", id(value)));
+                    operation.accumulatorType().ifPresent(value -> obj.put("accumulatorTypeId", id(value)));
+                    obj.array("sourceIds", a -> operation.sources().forEach(value -> a.add(id(value))));
+                    obj.array("mutatedObjectIds", a -> operation.mutatedObjects().forEach(value -> a.add(id(value))));
+                    obj.array("callableEffectIds", a -> operation.callableEffects().forEach(value -> a.add(id(value))));
                 }
                 case ContainerType type -> {
                     obj.put("kind", lower(type.kind())).put("iteratorCategory", lower(type.iteratorCategory()))
                         .put("order", lower(type.order())).put("referenceStability", lower(type.referenceStability()))
-                        .put("uniqueKeys", type.uniqueKeys()).put("valueTypeId", ids.get(type.valueType()));
-                    type.keyType().ifPresent(value -> obj.put("keyTypeId", ids.get(value)));
-                    type.mappedType().ifPresent(value -> obj.put("mappedTypeId", ids.get(value)));
-                    type.comparatorType().ifPresent(value -> obj.put("comparatorTypeId", ids.get(value)));
-                    type.underlyingType().ifPresent(value -> obj.put("underlyingTypeId", ids.get(value)));
-                    obj.put("elementTypeId", ids.get(type.elementType()))
-                        .array("writtenTypeIds", a -> type.writtenTypes().forEach(site -> a.add(ids.get(site))));
-                    if (type.concreteClass() != null) obj.put("concreteClassId", ids.get(type.concreteClass()));
+                        .put("uniqueKeys", type.uniqueKeys()).put("valueTypeId", id(type.valueType()));
+                    type.keyType().ifPresent(value -> obj.put("keyTypeId", id(value)));
+                    type.mappedType().ifPresent(value -> obj.put("mappedTypeId", id(value)));
+                    type.comparatorType().ifPresent(value -> obj.put("comparatorTypeId", id(value)));
+                    type.underlyingType().ifPresent(value -> obj.put("underlyingTypeId", id(value)));
+                    obj.put("elementTypeId", id(type.elementType()))
+                        .array("writtenTypeIds", a -> type.writtenTypes().forEach(site -> a.add(id(site))));
+                    if (type.concreteClass() != null) obj.put("concreteClassId", id(type.concreteClass()));
                 }
                 case ContainerOperation operation -> {
-                    obj.put("operation", lower(operation.kind())).put("syntaxId", ids.get(operation.syntax()))
-                        .put("destinationId", ids.get(operation.destination())).put("typeId", ids.get(operation.type()))
-                        .put("selectedTargetId", ids.get(operation.selectedTarget()))
-                        .array("sourceIds", a -> operation.sources().forEach(source -> a.add(ids.get(source))));
-                    operation.elementCopyConstructor().ifPresent(target -> obj.put("elementCopyConstructorId", ids.get(target)));
-                    operation.elementDestructor().ifPresent(target -> obj.put("elementDestructorId", ids.get(target)));
-                    operation.elementAssignment().ifPresent(target -> obj.put("elementAssignmentId", ids.get(target)));
-                    operation.comparator().ifPresent(value -> obj.put("comparatorId", ids.get(value)));
-                    operation.sourceContainer().ifPresent(value -> obj.put("sourceContainerId", ids.get(value)));
+                    obj.put("operation", lower(operation.kind())).put("syntaxId", id(operation.syntax()))
+                        .put("destinationId", id(operation.destination())).put("typeId", id(operation.type()))
+                        .put("selectedTargetId", id(operation.selectedTarget()))
+                        .array("sourceIds", a -> operation.sources().forEach(source -> a.add(id(source))));
+                    operation.elementCopyConstructor().ifPresent(target -> obj.put("elementCopyConstructorId", id(target)));
+                    operation.elementDestructor().ifPresent(target -> obj.put("elementDestructorId", id(target)));
+                    operation.elementAssignment().ifPresent(target -> obj.put("elementAssignmentId", id(target)));
+                    operation.comparator().ifPresent(value -> obj.put("comparatorId", id(value)));
+                    operation.sourceContainer().ifPresent(value -> obj.put("sourceContainerId", id(value)));
                     obj.put("mayInsert", operation.mayInsert()).put("preservesTransferredReferences", operation.preservesTransferredReferences());
                     if (operation.kind() == ContainerOperation.Kind.SPLICE) obj.put("transferKind", lower(operation.transferKind()));
                     obj.put("resultKind", lower(operation.resultKind())).put("writable", operation.writable())
                         .put("boundsChecked", operation.boundsChecked())
-                        .array("mutatedObjectIds", a -> operation.mutatedObjects().forEach(target -> a.add(ids.get(target))));
-                    operation.index().ifPresent(operand -> obj.put("indexId", ids.get(operand)));
+                        .array("mutatedObjectIds", a -> operation.mutatedObjects().forEach(target -> a.add(id(target))));
+                    operation.index().ifPresent(operand -> obj.put("indexId", id(operand)));
                     operation.handle().ifPresent(handle -> obj.object("handle", h -> {
-                        h.put("kind", lower(handle.kind())).put("sequenceId", ids.get(handle.sequence()))
+                        h.put("kind", lower(handle.kind())).put("sequenceId", id(handle.sequence()))
                             .put("direction", lower(handle.direction())).put("positionKind", lower(handle.positionKind()))
                             .put("writable", handle.writable()).put("validity", lower(handle.validity()));
-                        handle.position().ifPresent(position -> h.put("positionId", ids.get(position)));
+                        handle.position().ifPresent(position -> h.put("positionId", id(position)));
                     }));
                     obj.array("handleEffects", a -> operation.handleEffects().forEach(effect -> a.object(e -> {
-                        e.put("producerId", ids.get(effect.producer())).put("validityAfter", lower(effect.validityAfter()));
-                        effect.sequenceAfter().ifPresent(sequence -> e.put("sequenceAfterId", ids.get(sequence)));
-                        effect.positionAfter().ifPresent(position -> e.put("positionAfterId", ids.get(position)));
+                        e.put("producerId", id(effect.producer())).put("validityAfter", lower(effect.validityAfter()));
+                        effect.sequenceAfter().ifPresent(sequence -> e.put("sequenceAfterId", id(sequence)));
+                        effect.positionAfter().ifPresent(position -> e.put("positionAfterId", id(position)));
                     })));
                 }
                 case StandardLibrary library -> obj.put("headers", nodes(library.headers()));
                 case ClassTemplateInstance instance -> {
-                    obj.put("originId", ids.get(instance.origin())).put("selectedId", ids.get(instance.selected()))
-                        .put("sourceId", ids.get(instance.source())).put("identity", instance.identity())
-                        .array("requestIds", a -> instance.requests().forEach(request -> a.add(ids.get(request))))
+                    obj.put("originId", id(instance.origin())).put("selectedId", id(instance.selected()))
+                        .put("sourceId", id(instance.source())).put("identity", instance.identity())
+                        .array("requestIds", a -> instance.requests().forEach(request -> a.add(id(request))))
                         .put("arguments", nodes(instance.arguments())).put("declaration", node(instance.declaration()));
                 }
                 case TemplateInstance instance -> {
-                    obj.put("originId", ids.get(instance.origin()))
-                        .array("requestIds", a -> instance.requests().forEach(request -> a.add(ids.get(request))))
-                        .array("causeIds", a -> instance.causes().forEach(cause -> a.add(ids.get(cause))))
-                        .put("sourceId", ids.get(instance.source())).put("status", instance.status()).put("complete", instance.complete())
+                    obj.put("originId", id(instance.origin()))
+                        .array("requestIds", a -> instance.requests().forEach(request -> a.add(id(request))))
+                        .array("causeIds", a -> instance.causes().forEach(cause -> a.add(id(cause))))
+                        .put("sourceId", id(instance.source())).put("status", instance.status()).put("complete", instance.complete())
                         .put("structuredArguments", nodes(instance.structuredArguments()))
-                        .array("structuredArgumentIds", a -> instance.structuredArguments().forEach(argument -> a.add(ids.get(argument))))
-                        .array("argumentIds", a -> instance.arguments().forEach(argument -> a.add(ids.get(argument))))
+                        .array("structuredArgumentIds", a -> instance.structuredArguments().forEach(argument -> a.add(id(argument))))
+                        .array("argumentIds", a -> instance.arguments().forEach(argument -> a.add(id(argument))))
                         .put("declaration", node(instance.declaration()));
-                    if (instance.cause() != null) obj.put("causeId", ids.get(instance.cause()));
+                    if (instance.cause() != null) obj.put("causeId", id(instance.cause()));
                 }
                 case ExternalInput input -> obj.put("key", input.key()).put("role", input.role())
                         .put("text", input.text()).put("inputs", nodes(input.inputs()));
@@ -351,8 +424,8 @@ public final class ProjectJson {
                     entry.nameRange().ifPresent(r -> obj.put("nameRange", range(r)));
                     entry.tagRange().ifPresent(r -> obj.put("tagRange", range(r)));
                     obj.array("bindings", a -> entry.bindings().forEach(binding -> a.object(b -> {
-                        b.put("declarationId", ids.get(binding.declaration()));
-                        if (binding.target() != null) b.put("targetId", ids.get(binding.target()));
+                        b.put("declarationId", id(binding.declaration()));
+                        if (binding.target() != null) b.put("targetId", id(binding.target()));
                         binding.declaration().provenance().ifPresent(p -> {
                             b.put("translationUnitId", units.get(p.unit()));
                             if (p.startToken() < p.unit().tokens().size()) b.put("includeId", p.unit().tokens().get(p.startToken()).includeId());
@@ -375,8 +448,9 @@ public final class ProjectJson {
                     if (project.librarySources().contains(f)) obj.put("libraryDeclaration", true);
                     obj.put("path", f.range().map(SourceRange::file)
                                 .orElseGet(() -> Path.of(f.path()).toAbsolutePath().normalize().toString()))
-                        .put("language", f.language().name()).put("items", nodes(f.items()));
-                    if (!f.comments().isEmpty()) obj.put("comments", nodes(f.comments()));
+                        .put("language", f.language().name());
+                    if (!historical) obj.put("items", nodes(f.items()));
+                    if (!historical && !f.comments().isEmpty()) obj.put("comments", nodes(f.comments()));
                     if (f.hasErrors()) obj.put("hasErrors", true);
                     if (!f.parseProblems().isEmpty()) obj.array("parseProblems", a ->
                             f.parseProblems().forEach(problem -> a.add(problem(problem))));
@@ -386,15 +460,15 @@ public final class ProjectJson {
                         .put("members", nodes(namespace.members()));
                 case NamespaceAliasDeclaration alias -> {
                     obj.put("name", alias.name()).put("targetName", alias.targetName());
-                    alias.target().ifPresent(target -> obj.put("targetId", ids.get(target)));
+                    alias.target().ifPresent(target -> obj.put("targetId", id(target)));
                 }
                 case UsingDirective using -> {
                     obj.put("namespaceName", using.namespaceName());
-                    using.target().ifPresent(target -> obj.put("targetId", ids.get(target)));
+                    using.target().ifPresent(target -> obj.put("targetId", id(target)));
                 }
                 case UsingDeclaration using -> {
                     obj.put("qualifiedName", using.qualifiedName());
-                    using.target().ifPresent(target -> obj.put("targetId", ids.get(target)));
+                    using.target().ifPresent(target -> obj.put("targetId", id(target)));
                 }
                 case EnumDeclaration enumeration -> obj.put("name", enumeration.name()).put("enumerators", nodes(enumeration.enumerators()));
                 case EnumeratorDeclaration value -> {
@@ -410,7 +484,7 @@ public final class ProjectJson {
                         obj.put("aggregate", ClassSemantics.aggregate(c));
                         obj.array("specialMembers", values -> ClassSemantics.specialMembers(c).forEach(member -> values.add(Json.object()
                                 .put("kind", member.kind().name()).put("origin", member.origin().name())
-                                .array("declarationIds", declarations -> member.declarations().forEach(declaration -> declarations.add(ids.get(declaration)))).build())));
+                                .array("declarationIds", declarations -> member.declarations().forEach(declaration -> declarations.add(id(declaration)))).build())));
                     }
                     if (!c.bases().isEmpty()) obj.put("bases", nodes(c.bases()));
                     if (c.implicit()) obj.put("implicit", true);
@@ -444,16 +518,18 @@ public final class ProjectJson {
                     if (c.isConst()) obj.put("const", true);
                     if (c.isVolatile()) obj.put("volatile", true);
                     if (c.isPureVirtual()) obj.put("pureVirtual", true);
-                    if (InheritanceSemantics.isVirtual(project, c)) obj.put("virtual", true);
-                    var overrides = InheritanceSemantics.overrides(project, c);
-                    var overriddenBy = InheritanceSemantics.overriddenBy(project, c);
-                    if (!overrides.isEmpty()) obj.array("overridesIds", a -> overrides.forEach(method -> a.add(ids.get(method))));
-                    if (!overriddenBy.isEmpty()) obj.array("overriddenByIds", a -> overriddenBy.forEach(method -> a.add(ids.get(method))));
+                    if (!historical) {
+                        if (InheritanceSemantics.isVirtual(project, c)) obj.put("virtual", true);
+                        var overrides = InheritanceSemantics.overrides(project, c);
+                        var overriddenBy = InheritanceSemantics.overriddenBy(project, c);
+                        if (!overrides.isEmpty()) obj.array("overridesIds", a -> overrides.forEach(method -> a.add(id(method))));
+                        if (!overriddenBy.isEmpty()) obj.array("overriddenByIds", a -> overriddenBy.forEach(method -> a.add(id(method))));
+                    }
                 }
                 case BlockStatement b -> { obj.put("items", nodes(b.items())); if (!b.complete()) obj.put("complete", false); }
                 case VariableDeclaration v -> {
-                    v.constructorTarget().ifPresent(target -> obj.put("constructorTargetId", ids.get(target)));
-                    v.destructorTarget().ifPresent(target -> obj.put("destructorTargetId", ids.get(target)));
+                    v.constructorTarget().ifPresent(target -> obj.put("constructorTargetId", id(target)));
+                    v.destructorTarget().ifPresent(target -> obj.put("destructorTargetId", id(target)));
                     v.bitWidth().ifPresent(value -> obj.put("bitWidth", node(value)));
                     obj.put("name", v.name());
                     if (!v.modifiers().isEmpty()) obj.array("modifiers", a -> a.addAll(v.modifiers()));
@@ -465,7 +541,7 @@ public final class ProjectJson {
                     obj.put("form", i.form().name()).put("arguments", nodes(i.arguments()));
                     i.type().ifPresent(type -> obj.put("type", node(type)));
                 }
-                case MemberInitializer i -> { obj.put("name", i.name()).put("arguments", nodes(i.arguments())); i.target().ifPresent(target -> obj.put("targetId", ids.get(target))); }
+                case MemberInitializer i -> { obj.put("name", i.name()).put("arguments", nodes(i.arguments())); i.target().ifPresent(target -> obj.put("targetId", id(target))); }
                 case ParameterDeclaration p -> {
                     obj.put("name", p.name());
                     if (!p.modifiers().isEmpty()) obj.array("modifiers", a -> a.addAll(p.modifiers()));
@@ -474,9 +550,9 @@ public final class ProjectJson {
                 }
                 case OpaqueLibraryType t -> {
                     obj.put("name", t.name()).put("identity", t.identity()).put("category", t.category().name());
-                    t.iteratorContainer().ifPresent(container -> obj.put("iteratorContainerId", ids.get(container)));
-                    t.iteratorDifferenceType().ifPresent(difference -> obj.put("iteratorDifferenceTypeId", ids.get(difference)));
-                    t.iteratorValueType().ifPresent(value -> obj.put("iteratorValueTypeId", ids.get(value)));
+                    t.iteratorContainer().ifPresent(container -> obj.put("iteratorContainerId", id(container)));
+                    t.iteratorDifferenceType().ifPresent(difference -> obj.put("iteratorDifferenceTypeId", id(difference)));
+                    t.iteratorValueType().ifPresent(value -> obj.put("iteratorValueTypeId", id(value)));
                 }
                 case NamedType t -> {
                     obj.put("name", t.name());
@@ -486,11 +562,11 @@ public final class ProjectJson {
                     if (t.templateKeyword()) obj.put("templateKeyword", true);
                     if (t.dependent()) obj.put("dependent", true);
                     t.elaboratedKeyword().ifPresent(keyword -> obj.put("elaboratedKeyword", keyword));
-                    t.alias().ifPresent(a -> obj.put("aliasId", ids.get(a)).put("canonicalIdentity", t.canonicalIdentity()));
-                    t.declaration().ifPresent(declaration -> obj.put("declarationId", ids.get(declaration))
+                    t.alias().ifPresent(a -> obj.put("aliasId", id(a)).put("canonicalIdentity", t.canonicalIdentity()));
+                    t.declaration().ifPresent(declaration -> obj.put("declarationId", id(declaration))
                             .put("completeAtUse", t.completeAtUse()));
                     if (!t.resolutionSteps().isEmpty()) obj.array("resolutionSteps", steps -> t.resolutionSteps().forEach(step ->
-                            steps.object(value -> value.put("kind", step.kind()).put("viaId", ids.get(step.via())).put("targetId", ids.get(step.target())))));
+                            steps.object(value -> value.put("kind", step.kind()).put("viaId", id(step.via())).put("targetId", id(step.target())))));
                 }
                 case TypedefDeclaration d -> obj.put("name", d.name()).put("type", node(d.type()));
                 case QualifiedType t -> obj.put("baseType", node(t.baseType())).put("const", t.isConst()).put("volatile", t.isVolatile());
@@ -541,7 +617,7 @@ public final class ProjectJson {
                 case ErrorExpression e -> obj.put("problem", problem(e.problem()));
                 case IncludeDirective i -> {
                     obj.put("header", i.header()).put("system", i.system());
-                    i.libraryHeader().ifPresent(header -> obj.put("libraryHeaderId", ids.get(header)));
+                    i.libraryHeader().ifPresent(header -> obj.put("libraryHeaderId", id(header)));
                 }
                 case IfStatement i -> {
                     obj.put("condition", node(i.condition())).put("thenBranch", node(i.thenBranch()));
@@ -571,20 +647,20 @@ public final class ProjectJson {
                 case AssignmentExpression a -> obj.put("target", node(a.target())).put("value", node(a.value()));
                 case CallExpression c -> { obj.put("callee", node(c.callee())).put("arguments", nodes(c.arguments()))
                         .put("resolution", lower(c.resolution()))
-                        .array("candidateIds", a -> c.candidates().forEach(candidate -> a.add(ids.get(candidate))));
-                    c.target().ifPresent(target -> obj.put("staticTargetId", ids.get(target)));
+                        .array("candidateIds", a -> c.candidates().forEach(candidate -> a.add(id(candidate))));
+                    c.target().ifPresent(target -> obj.put("staticTargetId", id(target)));
                     if (c.isVirtualDispatch()) obj.put("virtualDispatch", true)
                             .put("virtualTargetsComplete", c.virtualTargetsComplete())
-                            .array("virtualTargetIds", a -> c.virtualTargets().forEach(target -> a.add(ids.get(target))));
+                            .array("virtualTargetIds", a -> c.virtualTargets().forEach(target -> a.add(id(target))));
                     if (!c.defaultArguments().isEmpty()) obj.array("defaultArguments", a -> c.defaultArguments().forEach(argument -> a.object(value -> value
-                                .put("parameterIndex", argument.parameterIndex()).put("declarationId", ids.get(argument.declaration()))
-                                .put("parameterId", ids.get(argument.parameter())).put("expressionId", ids.get(argument.expression())))));
+                                .put("parameterIndex", argument.parameterIndex()).put("declarationId", id(argument.declaration()))
+                                .put("parameterId", id(argument.parameter())).put("expressionId", id(argument.expression())))));
                 }
                 case MemberExpression m -> {
                     obj.put("receiver", node(m.receiver())).put("member", m.member());
                     if (m.hasTemplateArguments()) obj.put("templateArguments", nodes(m.templateArguments()));
                     if (m.templateKeyword()) obj.put("templateKeyword", true);
-                    m.target().ifPresent(target -> obj.put("targetId", ids.get(target)));
+                    m.target().ifPresent(target -> obj.put("targetId", id(target)));
                 }
                 case BinaryExpression b -> obj.put("left", node(b.left())).put("right", node(b.right()));
                 case UnaryExpression u -> obj.put("operand", node(u.operand()));
@@ -595,23 +671,23 @@ public final class ProjectJson {
             if (n instanceof Expression expression && (!expression.operatorCandidates().isEmpty()
                     || expression.operatorResolution() != CallExpression.Resolution.UNRESOLVED)) {
                 obj.put("operatorResolution", lower(expression.operatorResolution()))
-                        .array("operatorCandidateIds", a -> expression.operatorCandidates().forEach(candidate -> a.add(ids.get(candidate))));
-                expression.operatorTarget().ifPresent(target -> obj.put("operatorTargetId", ids.get(target)));
+                        .array("operatorCandidateIds", a -> expression.operatorCandidates().forEach(candidate -> a.add(id(candidate))));
+                expression.operatorTarget().ifPresent(target -> obj.put("operatorTargetId", id(target)));
             }
             if (n instanceof Expression expression) expression.semanticInfo().ifPresent(info -> obj.object("semanticInfo", value -> {
                 info.resultType().ifPresent(type -> value.put("resultType", type));
                 value.put("category", lower(info.category()));
             }));
             if (n instanceof Declaration declaration) {
-                declaration.templateOrigin().ifPresent(origin -> obj.put("templateOriginId", ids.get(origin)));
+                declaration.templateOrigin().ifPresent(origin -> obj.put("templateOriginId", id(origin)));
                 if (declaration.isFriend()) obj.put("friend", true);
                 declaration.access().ifPresent(value -> obj.put("access", value));
                 declaration.typeIdentity().ifPresent(identity -> obj.put("typeIdentity", identity));
                 if (declaration.linkage() != Declaration.Linkage.NONE) obj.put("linkage", lower(declaration.linkage()));
                 if (!declaration.languageLinkage().equals("C++")) obj.put("languageLinkage", declaration.languageLinkage());
                 if (!declaration.isDefinition()) obj.put("isDefinition", false);
-                declaration.previousDeclaration().ifPresent(previous -> obj.put("previousDeclarationId", ids.get(previous)));
-                declaration.definition().ifPresent(definition -> obj.put("definitionId", ids.get(definition)));
+                declaration.previousDeclaration().ifPresent(previous -> obj.put("previousDeclarationId", id(previous)));
+                declaration.definition().ifPresent(definition -> obj.put("definitionId", id(definition)));
             }
             if (n instanceof TypeNode type) {
                 if (!(type instanceof NamedType)) obj.put("canonicalIdentity", type.canonicalIdentity());
@@ -628,12 +704,21 @@ public final class ProjectJson {
             n.range().ifPresent(r -> obj.put("range", range(r)));
             n.provenance().ifPresent(p -> {
                 Integer sourceFileId = units.get(p.unit());
-                if (sourceFileId == null) throw new IllegalStateException("Provenance unit outside project");
-                obj.object("provenance", v -> v.put("sourceFileId", sourceFileId)
+                if (sourceFileId == null && discovering) {
+                    sourceContexts.add(p.unit());
+                    units.put(p.unit(), -1);
+                    sourceFileId = -1;
+                }
+                if (sourceFileId == null) throw new IllegalStateException("Provenance unit outside export");
+                final int sourceId = sourceFileId;
+                obj.object("provenance", v -> v.put("sourceFileId", sourceId)
                         .put("startToken", p.startToken()).put("endToken", p.endToken())
                         .array("expansionIds", a -> p.expansions().forEach(e -> a.add(e.id()))));
                 if (n instanceof SourceFile) obj.put("preprocessing", preprocessing(p.unit()));
             });
+            if (!n.transformationProvenance().isEmpty()) obj.array("transformationProvenance", a ->
+                    n.transformationProvenance().forEach(link -> a.object(value -> value
+                            .put("passId", link.passId()).put("role", link.role()).put("sourceId", id(link.source())))));
             if (!n.diagnostics().isEmpty()) {
                 obj.array("diagnostics", a -> n.diagnostics().forEach(d -> a.object(o -> {
                     o.put("code", d.code()).put("severity", lower(d.severity())).put("message", d.message());
@@ -653,11 +738,11 @@ public final class ProjectJson {
         }
 
         private JsonObject auxiliary(AuxiliaryFlowVertex vertex) {
-            var obj = Json.object().put("id", ids.get(vertex)).put("kind", vertex.kind().name())
-                    .put("ownerId", ids.get(vertex.owner())).put("index", vertex.index());
-            vertex.object().ifPresent(object -> obj.put("objectId", ids.get(object)));
-            vertex.destructor().ifPresent(destructor -> obj.put("destructorId", ids.get(destructor)));
-            vertex.constructor().ifPresent(constructor -> obj.put("constructorId", ids.get(constructor)));
+            var obj = Json.object().put("id", id(vertex)).put("kind", vertex.kind().name())
+                    .put("ownerId", id(vertex.owner())).put("index", vertex.index());
+            vertex.object().ifPresent(object -> obj.put("objectId", id(object)));
+            vertex.destructor().ifPresent(destructor -> obj.put("destructorId", id(destructor)));
+            vertex.constructor().ifPresent(constructor -> obj.put("constructorId", id(constructor)));
             var links = outgoing.get(vertex);
             if (links != null) {
                 links.sort(Comparator.comparingInt(Edge::group).thenComparing(Edge::kind).thenComparingInt(Edge::to).thenComparing(e -> e.callSiteId() == null ? -1 : e.callSiteId()));
@@ -762,7 +847,7 @@ public final class ProjectJson {
                                 .array("parameters", values -> values.addAll(d.parameters()))
                                 .put("rawReplacement", d.rawReplacement()).put("range", range(d.range()))
                                 .put("includeId", d.includeId()).put("originKind", d.originKind()).put("sourceKey", d.sourceKey());
-                        project.externalInput(d.sourceKey()).ifPresent(input -> o.put("sourceNodeId", ids.get(input)));
+                        project.externalInput(d.sourceKey()).ifPresent(input -> o.put("sourceNodeId", id(input)));
                         o.array("expansionIds", values -> p.expansions().stream().filter(e -> e.definitionId() == d.id()).forEach(e -> values.add(e.id())));
                         o.array("presenceCheckIds", values -> p.presenceChecks().stream().filter(c -> c.definitionId() != null && c.definitionId() == d.id()).forEach(c -> values.add(c.id())));
                     })))

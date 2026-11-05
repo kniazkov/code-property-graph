@@ -61,3 +61,4 @@ remaining-library
 # Call-site-sensitive aliases, returns, recursion and exceptional writes.
 interprocedural-dfg
 safe-editing
+snapshot-history
