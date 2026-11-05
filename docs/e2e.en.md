@@ -417,3 +417,12 @@ sufficient reserved capacity and the distinction between container and element
 references after swap. A possibly invalidated reference is inspected only in the
 graph, never dereferenced in the executable. API/JSON/SVG, copied snapshots and
 original/GREEN/FOLDED source runs are checked under both GCC and Clang.
+
+`container-families` uses genuine system deque/list/set/map/multi-containers and
+adapters. It checks deque end insertion/indexing; list single/all splice with a
+preserved iterator/reference and unchanged source-object alias; lookup versus
+map insertion; duplicate multimap/multiset keys; and extraction order 231/132/321
+for stack/queue/priority_queue on identical inputs. A user comparator has a real
+linked body and observable comparison count, without asserting its exact value.
+API/CLI JSON, full DOT, compact splice SVG, copied snapshots and native original /
+GREEN/FOLDED sources are checked separately.

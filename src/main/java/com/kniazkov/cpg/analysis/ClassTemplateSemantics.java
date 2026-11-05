@@ -64,7 +64,9 @@ public final class ClassTemplateSemantics {
                 var declaration = candidate.declaration();
                 if (failures.containsKey(declaration)) continue;
                 if (declaration.templateKind() != TemplateKind.FULL_SPECIALIZATION && declaration.templateKind() != TemplateKind.PARTIAL_SPECIALIZATION) continue;
-                var bindings = deduce(declaration, arguments, profile);
+                var patternArguments=declaration.templateKind()==TemplateKind.FULL_SPECIALIZATION
+                        ? completeArguments(primary,declaration.templateArguments(),profile) : declaration.templateArguments();
+                var bindings = patternArguments==null ? null : deduce(declaration, patternArguments, arguments, profile);
                 if (bindings != null) matches.add(new Match(declaration, bindings));
             }
             var full = matches.stream().filter(m -> m.declaration().templateKind() == TemplateKind.FULL_SPECIALIZATION).toList();
@@ -327,9 +329,13 @@ public final class ClassTemplateSemantics {
         return result;
     }
     private static Map<TemplateParameterDeclaration, TemplateArgument> deduce(ClassDeclaration pattern, List<TemplateArgument> arguments, PlatformProfile profile) {
-        if (pattern.templateArguments().size() != arguments.size()) return null;
+        return deduce(pattern,pattern.templateArguments(),arguments,profile);
+    }
+    private static Map<TemplateParameterDeclaration, TemplateArgument> deduce(ClassDeclaration pattern, List<TemplateArgument> patternArguments,
+            List<TemplateArgument> arguments, PlatformProfile profile) {
+        if (patternArguments.size() != arguments.size()) return null;
         var bindings = new LinkedHashMap<TemplateParameterDeclaration, TemplateArgument>();
-        for (int i = 0; i < arguments.size(); i++) if (!matchArgument(pattern.templateArguments().get(i), arguments.get(i), pattern.templateParameters(), bindings, profile)) return null;
+        for (int i = 0; i < arguments.size(); i++) if (!matchArgument(patternArguments.get(i), arguments.get(i), pattern.templateParameters(), bindings, profile)) return null;
         return bindings.keySet().containsAll(pattern.templateParameters()) ? bindings : null;
     }
     private static boolean moreSpecialized(ClassDeclaration a, ClassDeclaration b, PlatformProfile profile) {
@@ -452,10 +458,16 @@ public final class ClassTemplateSemantics {
         }});
         return replacements.isEmpty() ? argument : ClassTemplateInstances.substituteArgument(argument, replacements);
     }
-    private static TypeNode substituteType(TypeNode type, Map<TemplateParameterDeclaration, TemplateArgument> bindings) {
+    static TypeNode substituteType(TypeNode type, Map<TemplateParameterDeclaration, TemplateArgument> bindings) {
         if (type instanceof NamedType n) {
             var p = parameter(n, List.copyOf(bindings.keySet()));
             if (p != null && !n.hasTemplateArguments()) return bindings.get(p).type().orElse(type);
+            if(n.qualifier().isPresent()) {
+                var types=new LinkedHashMap<TemplateParameterDeclaration,TypeNode>();
+                bindings.forEach((parameter,argument)->argument.type().ifPresent(value->types.put(parameter,value)));
+                TypeNode member=TemplateDeduction.dependentType(n,types);
+                if(member!=null)return member;
+            }
             if (n.hasTemplateArguments()) {
                 var arguments=n.templateArguments().stream().map(a -> substitute(a,bindings)).toList();
                 return n.edit().setTemplateArguments(arguments.stream().map(TemplateArgument::edit).toList())

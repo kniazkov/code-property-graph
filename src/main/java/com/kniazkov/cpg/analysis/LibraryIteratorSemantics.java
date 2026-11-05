@@ -3,11 +3,12 @@ package com.kniazkov.cpg.analysis;
 import com.kniazkov.cpg.model.*;
 import java.util.*;
 
-/** Facts come exclusively from a trusted concrete catalogue vector instance. */
+/** Facts come exclusively from a trusted concrete catalogue container instance. */
 public final class LibraryIteratorSemantics {
     private LibraryIteratorSemantics() {}
     public record Info(OpaqueLibraryType iterator, TypeNode element, boolean readOnly, boolean reverse) {
         public ClassDeclaration container() { return iterator.iteratorContainer().orElseThrow(); }
+        public boolean randomAccess() { return Set.of("vector","deque").contains(container().name()); }
         public boolean compatible(Info other) { return reverse==other.reverse && container().typeIdentity().equals(other.container().typeIdentity()); }
         public TypeNode referenceType() { return readOnly ? QualifiedType.create().setBaseType(element.edit()).setConst(true).build() : element; }
     }
@@ -16,9 +17,12 @@ public final class LibraryIteratorSemantics {
         if(type instanceof OpaqueLibraryType opaque && LibraryDeclarations.isLibrary(opaque)
                 && opaque.iteratorContainer().filter(LibraryDeclarations::isLibrary).isPresent()) {
             var owner=opaque.iteratorContainer().orElseThrow();
-            if(!owner.name().equals("vector") || owner.templateArguments().isEmpty())return Optional.empty();
-            return owner.templateArguments().getFirst().type().filter(element->!element.canonicalIdentity().equals("bool"))
-                    .map(element->new Info(opaque,element,opaque.name().equals("const_iterator"),false));
+            if(!Set.of("vector","deque","list","set","multiset","map","multimap").contains(owner.name()) || owner.templateArguments().isEmpty())return Optional.empty();
+            Optional<TypeNode> element = Set.of("map","multimap").contains(owner.name())
+                    ? opaque.iteratorValueType()
+                    : owner.templateArguments().getFirst().type();
+            return element.filter(t->!owner.name().equals("vector") || !t.canonicalIdentity().equals("bool"))
+                    .map(t->new Info(opaque,t,opaque.name().equals("const_iterator") || Set.of("set","multiset").contains(owner.name()),false));
         }
         if(type instanceof NamedType named && named.declaration().orElse(null) instanceof ClassDeclaration owner
                 && LibraryDeclarations.isLibrary(owner) && owner.name().equals("reverse_iterator") && !owner.templateArguments().isEmpty())

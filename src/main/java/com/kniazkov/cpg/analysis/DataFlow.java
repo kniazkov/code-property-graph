@@ -16,6 +16,7 @@ public final class DataFlow {
     private final Language language;
     private final PlatformProfile profile;
     private Set<Declaration> libraryAccessible = Set.of();
+    private final Map<Node, ContainerOperation> containers = new IdentityHashMap<>();
     private final Map<Node, DynamicArrayOperation> arrays = new IdentityHashMap<>();
     private final Map<Declaration, Declaration> arrayAliases = new IdentityHashMap<>();
     private final Map<Node, Expression> expandedValues = new IdentityHashMap<>();
@@ -32,17 +33,19 @@ public final class DataFlow {
         var contexts = SourceContexts.index(cfg);
         return cfg.withFlows(cfg.flows().stream().map(flow -> {
             SourceFile source = SourceContexts.require(contexts, flow.entry());
-            return new DataFlow(source.language(), TypeSemantics.profile(source)).analyzeFunction(flow, cfg.dynamicArraySemantics());
+            return new DataFlow(source.language(), TypeSemantics.profile(source)).analyzeFunction(flow, cfg.dynamicArraySemantics(), cfg.containerSemantics());
         }).toList());
     }
 
-    private FunctionFlow analyzeFunction(FunctionFlow flow, List<DynamicArrayOperation> operations) {
+    private FunctionFlow analyzeFunction(FunctionFlow flow, List<DynamicArrayOperation> operations, List<ContainerOperation> containerOperations) {
+        containerOperations.forEach(operation -> containers.put(operation.syntax(), operation));
         operations.forEach(operation -> arrays.put(operation.syntax(), operation));
         flow.entry().walk(new NodeVisitor() {
             @Override public void visit(VariableDeclaration variable) {
                 if (variable.type().map(TypeSemantics::unqualified).filter(ReferenceType.class::isInstance).isPresent()
                         && variable.type().map(TypeSemantics::withoutReference).flatMap(ClassSemantics::objectClass)
-                                .filter(cls -> operations.stream().anyMatch(op -> op.type().concreteClass() == cls)).isPresent())
+                                .filter(cls -> operations.stream().anyMatch(op -> op.type().concreteClass() == cls)
+                                        || containerOperations.stream().anyMatch(op -> op.type().concreteClass() == cls)).isPresent())
                     variable.initializer().ifPresent(value -> {
                         var roots = LibraryCallEffects.roots(value);
                         if (roots.size() == 1) arrayAliases.put(variable, roots.iterator().next());
@@ -155,7 +158,7 @@ public final class DataFlow {
     }
 
     /** Element storage is distinct from a reference to the container object itself. */
-    private record ElementBinding(DynamicArrayOperation producer, Declaration sequence,
+    private record ElementBinding(Node producer, Declaration sequence,
             boolean iterator, boolean writable, boolean uncertain) { }
 
     @FunctionalInterface
@@ -171,9 +174,13 @@ public final class DataFlow {
             sink.edge(value, consumer, Dependency.VALUE);
             if (consumer instanceof VariableDeclaration variable) { state.write(variable, variable); bindElement(variable, value, state); constructLibraryObject(variable, state, sink); }
             else if (consumer instanceof AssignmentExpression assignment) {
+                address(assignment, state, sink);
                 if (arrays.containsKey(assignment)) {
                     arrayEffect(arrays.get(assignment), state, sink);
                     sink.edge(arrays.get(assignment), assignment, Dependency.VALUE);
+                } else if (containers.containsKey(assignment)) {
+                    containerEffect(containers.get(assignment), state, sink);
+                    sink.edge(containers.get(assignment), assignment, Dependency.VALUE);
                 } else writeTarget(assignment.target(), assignment, state);
             }
             return;
@@ -230,6 +237,7 @@ public final class DataFlow {
     }
 
     private void constructLibraryObject(VariableDeclaration variable, State state, Sink sink) {
+        if (containers.containsKey(variable)) { containerEffect(containers.get(variable), state, sink); return; }
         if (arrays.containsKey(variable)) { arrayEffect(arrays.get(variable), state, sink); return; }
         if (variable.constructorTarget().filter(LibraryCallEffects::unknown).isEmpty()) return;
         state.write(variable, variable);
@@ -274,6 +282,7 @@ public final class DataFlow {
             state.elements.replaceAll((variable, bindings) -> {
                 var moved = new LinkedHashSet<ElementBinding>();
                 for (var binding : bindings) {
+                    if (binding.producer() instanceof MemberExpression) { moved.add(binding); continue; }
                     Declaration sequence = binding.sequence();
                     if (sequence == objects.get(0)) sequence = objects.get(1);
                     else if (sequence == objects.get(1)) sequence = objects.get(0);
@@ -299,6 +308,88 @@ public final class DataFlow {
         for (Declaration destination : destinations) state.write(destination, operation);
     }
 
+    /** Semantic writes change a container's contents, never its reference identity. */
+    private void containerEffect(ContainerOperation operation, State state, Sink sink) {
+        for (Node source : operation.sources()) sink.edge(source, operation, Dependency.VALUE);
+        Set<Declaration> destinations = new LinkedHashSet<>();
+        for (Node object : operation.mutatedObjects()) destinations.addAll(sequenceRoots(object));
+        // Queries and accessors read the actual sequence state; they never replace it.
+        // Mutations also depend on the previous size/content/lifetime of the object.
+        var reads = new LinkedHashSet<>(sequenceRoots(operation.destination()));
+        reads.addAll(destinations);
+        for (Declaration destination : reads)
+            for (Node definition : state.definitions.getOrDefault(destination, Set.of()))
+                sink.edge(definition, operation, Dependency.DEFINITION);
+        // Record lifetime/copy/assignment code can read and change accessible state.
+        // Pure accessors do not invoke such element code.
+        if (mayInvokeComparator(operation) || (!destinations.isEmpty() && operation.kind() != ContainerOperation.Kind.EMPTY
+                && operation.kind() != ContainerOperation.Kind.SWAP
+                && operation.kind() != ContainerOperation.Kind.SPLICE
+                && (operation.elementCopyConstructor().isPresent()
+                    || ClassSemantics.objectClass(operation.type().elementType()).isPresent()))) {
+            var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
+            for (Node source : operation.sources()) if (source instanceof Expression expression)
+                exposed.addAll(LibraryCallEffects.roots(expression));
+            opaqueMutation(operation, exposed, state, sink);
+        }
+        if (operation.kind() == ContainerOperation.Kind.SWAP && destinations.size() == 2) {
+            var objects = new ArrayList<>(destinations);
+            state.elements.replaceAll((variable, bindings) -> {
+                var moved = new LinkedHashSet<ElementBinding>();
+                for (var binding : bindings) {
+                    if (binding.producer() instanceof MemberExpression) { moved.add(binding); continue; }
+                    Declaration sequence = binding.sequence();
+                    if (sequence == objects.get(0)) sequence = objects.get(1);
+                    else if (sequence == objects.get(1)) sequence = objects.get(0);
+                    moved.add(new ElementBinding(binding.producer(), sequence, binding.iterator(),
+                            binding.writable(), binding.uncertain()));
+                }
+                return moved;
+            });
+        } else if (!destinations.isEmpty()) {
+            // Stable node storage is not vector storage: consume temporal handle facts.
+            // An unknown partial splice may move an element, never all elements definitively.
+            var sourceRoots = operation.sourceContainer().map(this::sequenceRoots).orElse(Set.of());
+            var targetRoots = sequenceRoots(operation.destination());
+            state.elements.replaceAll((variable, bindings) -> {
+                var updated = new LinkedHashSet<ElementBinding>();
+                for (var binding : bindings) {
+                    if (binding.producer() instanceof MemberExpression || !destinations.contains(binding.sequence())) { updated.add(binding); continue; }
+                    var effect = operation.handleEffects().stream().filter(e -> e.producer() == binding.producer()).findFirst();
+                    boolean uncertain = binding.uncertain() || effect.map(e ->
+                            e.validityAfter() != ContainerOperation.Handle.Validity.VALID).orElse(false);
+                    var known = effect.flatMap(ContainerOperation.HandleEffect::sequenceAfter);
+                    if (known.isPresent()) {
+                        for (var root : sequenceRoots(known.get())) updated.add(new ElementBinding(binding.producer(), root,
+                                binding.iterator(), binding.writable(), uncertain));
+                    } else if ((operation.kind() == ContainerOperation.Kind.SPLICE || operation.kind() == ContainerOperation.Kind.MERGE)
+                            && sourceRoots.contains(binding.sequence())) {
+                        if (operation.transferKind() != ContainerOperation.TransferKind.ALL)
+                            updated.add(binding);
+                        for (var root : targetRoots) updated.add(new ElementBinding(binding.producer(), root,
+                                binding.iterator(), binding.writable(), uncertain));
+                    } else updated.add(new ElementBinding(binding.producer(), binding.sequence(), binding.iterator(),
+                            binding.writable(), uncertain));
+                }
+                return updated;
+            });
+        }
+        for (Declaration destination : destinations) state.write(destination, operation);
+    }
+
+    /** A missing selected target is not evidence that comparison is pure. */
+    private boolean mayInvokeComparator(ContainerOperation operation) {
+        if (operation.comparator().isPresent()) return true;
+        if (operation.type().comparatorType().isEmpty()) return false;
+        if (operation.type().associative()) return switch (operation.kind()) {
+            case FIND, COUNT_KEY, LOWER_BOUND, UPPER_BOUND, EQUAL_RANGE,
+                    INSERT, INSERT_RANGE, ERASE, SUBSCRIPT -> true;
+            default -> false;
+        };
+        return operation.type().kind() == ContainerType.Kind.PRIORITY_QUEUE
+                && (operation.kind() == ContainerOperation.Kind.PUSH || operation.kind() == ContainerOperation.Kind.POP);
+    }
+
     private Set<Declaration> sequenceRoots(Node object) {
         var result = new LinkedHashSet<Declaration>();
         if (object instanceof Declaration declaration) result.add(alias(declaration));
@@ -319,6 +410,16 @@ public final class DataFlow {
                         handle.validity() != DynamicArrayOperation.Handle.Validity.VALID));
             return result;
         }
+        ContainerOperation container = containers.get(value);
+        if (container != null && container.handle().isPresent()) {
+            var handle = container.handle().get();
+            var result = new LinkedHashSet<ElementBinding>();
+            for (Declaration sequence : sequenceRoots(handle.sequence()))
+                result.add(new ElementBinding(container, sequence,
+                        handle.kind() == ContainerOperation.Handle.Kind.ITERATOR, handle.writable(),
+                        handle.validity() != ContainerOperation.Handle.Validity.VALID));
+            return result;
+        }
         if (value instanceof NameExpression name)
             return name.target().map(target -> state.elements.getOrDefault(target, Set.of())).orElse(Set.of());
         if (value instanceof DereferenceExpression || value instanceof IndexExpression) {
@@ -330,7 +431,26 @@ public final class DataFlow {
         }
         if (value instanceof MemberExpression member) {
             var result = new LinkedHashSet<ElementBinding>();
-            for (var binding : elementBindings(member.receiver(), state)) if (!binding.iterator()) result.add(binding);
+            boolean arrow = member instanceof PointerMemberExpression
+                    && TypeSemantics.expressionType(member.receiver(), profile).flatMap(LibraryIteratorSemantics::info).isPresent();
+            boolean writable = TypeSemantics.expressionType(member, profile).map(TypeSemantics::withoutReference)
+                    .map(type -> (TypeSemantics.qualifiers(type) & 1) == 0).orElse(false);
+            var field = member.target().filter(VariableDeclaration.class::isInstance).map(VariableDeclaration.class::cast).orElse(null);
+            if (field != null && field.modifiers().contains("static"))
+                return Set.of(new ElementBinding(member, field, false, writable, false));
+            if (field != null && field.type().map(TypeSemantics::unqualified).filter(ReferenceType.class::isInstance).isPresent()) {
+                // The reference's referent is outside the element's storage. Without
+                // a proven binding retain every currently reachable possible target.
+                var possible = new LinkedHashSet<Declaration>(state.definitions.keySet());
+                possible.addAll(libraryAccessible);
+                for (var target : possible) result.add(new ElementBinding(member, target, false, writable, true));
+                return result;
+            }
+            boolean independent = field != null && field.modifiers().contains("mutable");
+            for (var binding : elementBindings(member.receiver(), state))
+                if (!binding.iterator() || arrow)
+                    result.add(new ElementBinding(binding.producer(), binding.sequence(), false,
+                            (binding.writable() || independent) && writable, binding.uncertain()));
             return result;
         }
         if (value instanceof AddExpression || value instanceof SubtractExpression) {
@@ -385,6 +505,21 @@ public final class DataFlow {
             sink.edge(operation, value, Dependency.VALUE);
             return;
         }
+        ContainerOperation container = containers.get(value);
+        if (container != null) {
+            if (value instanceof CallExpression call) {
+                consume(call.callee(), call, state, sink);
+                arguments(call, state, sink);
+            } else if (OperatorSemantics.mayInvokeUserCode(value))
+                arguments(OperatorSemantics.operands(value), value, state, sink);
+            else if (value instanceof AssignmentExpression assignment) {
+                consume(assignment.value(), assignment, state, sink);
+                address(assignment, state, sink);
+            }
+            containerEffect(container, state, sink);
+            sink.edge(container, value, Dependency.VALUE);
+            return;
+        }
         if (value instanceof ConditionDeclarationExpression condition) {
             VariableDeclaration declaration = condition.declaration();
             state.definitions.remove(declaration);
@@ -413,7 +548,7 @@ public final class DataFlow {
             }
             arguments.addAll(allocation.initializerArguments());
             arguments(arguments, allocation, state, sink);
-        } else if ((value instanceof DereferenceExpression || value instanceof IndexExpression) && !elementBindings(value, state).isEmpty()) {
+        } else if ((value instanceof DereferenceExpression || value instanceof IndexExpression || value instanceof MemberExpression) && !elementBindings(value, state).isEmpty()) {
             for (Node child : value.children()) if (child instanceof Expression operand) consume(operand, value, state, sink);
             for (var binding : elementBindings(value, state))
                 for (Node write : state.definitions.getOrDefault(binding.sequence(), Set.of()))
@@ -505,7 +640,16 @@ public final class DataFlow {
     }
 
     private void address(AssignmentExpression assignment, State state, Sink sink) {
-        if (arrays.containsKey(assignment.target())) {
+        if (assignment.target() instanceof NameExpression name) {
+            // Writing through a reference consumes its stored binding/address,
+            // but does not read the old value in the referred-to element.
+            name.target().filter(target -> state.elements.getOrDefault(target, Set.of()).stream()
+                    .anyMatch(binding -> !binding.iterator())).ifPresent(target -> {
+                for (Node definition : state.definitions.getOrDefault(target, Set.of()))
+                    sink.edge(definition, assignment, Dependency.DEFINITION);
+            });
+        }
+        if (arrays.containsKey(assignment.target()) || containers.containsKey(assignment.target())) {
             consume(assignment.target(), assignment, state, sink);
         } else if (assignment.target() instanceof MemberExpression member) {
             consume(member.receiver(), assignment, state, sink);

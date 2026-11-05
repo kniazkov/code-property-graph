@@ -155,6 +155,7 @@ public final class DotVisualizer {
             if (node instanceof OpaqueLibraryType type) {
                 type.iteratorContainer().ifPresent(container -> semanticEdge(type, container, "ITERATOR_CONTAINER"));
                 type.iteratorDifferenceType().ifPresent(difference -> semanticEdge(type, difference, "ITERATOR_DIFFERENCE_TYPE"));
+                type.iteratorValueType().ifPresent(value -> semanticEdge(type, value, "ITERATOR_VALUE_TYPE"));
             }
             if (node instanceof DynamicArrayType type) {
                 if (type.concreteClass() != null) semanticEdge(type, type.concreteClass(), "DYNAMIC_ARRAY_CLASS");
@@ -167,6 +168,39 @@ public final class DotVisualizer {
                 semanticEdge(operation, operation.destination(), "DESTINATION");
                 operation.sources().forEach(source -> semanticEdge(operation, source, "SOURCE"));
                 semanticEdge(operation, operation.selectedTarget(), "CPP_TARGET");
+                operation.elementCopyConstructor().ifPresent(target -> semanticEdge(operation, target, "ELEMENT_COPY_CONSTRUCTOR"));
+                operation.elementDestructor().ifPresent(target -> semanticEdge(operation, target, "ELEMENT_DESTRUCTOR"));
+                operation.elementAssignment().ifPresent(target -> semanticEdge(operation, target, "ELEMENT_ASSIGNMENT"));
+                operation.index().ifPresent(operand -> semanticEdge(operation, operand, "INDEX"));
+                operation.mutatedObjects().forEach(target -> semanticEdge(operation, target, "MUTATES"));
+                operation.handle().ifPresent(handle -> {
+                    semanticEdge(operation, handle.sequence(), "HANDLE_SEQUENCE");
+                    handle.position().ifPresent(position -> semanticEdge(operation, position, "HANDLE_POSITION"));
+                });
+                operation.handleEffects().forEach(effect -> {
+                    semanticEdge(operation, effect.producer(), "HANDLE_" + effect.validityAfter().name());
+                    effect.sequenceAfter().ifPresent(sequence -> semanticEdge(operation, sequence, "SEQUENCE_AFTER"));
+                    effect.positionAfter().ifPresent(position -> semanticEdge(operation, position, "POSITION_AFTER"));
+                });
+            }
+            if (node instanceof IncludeDirective include) include.libraryHeader().ifPresent(header -> semanticEdge(include, header, "LIBRARY_HEADER"));
+            if (node instanceof ContainerType type) {
+                if (type.concreteClass() != null) semanticEdge(type, type.concreteClass(), "CONTAINER_CLASS");
+                semanticEdge(type, type.elementType(), "ELEMENT_TYPE");
+                type.keyType().ifPresent(value -> semanticEdge(type, value, "KEY_TYPE"));
+                type.mappedType().ifPresent(value -> semanticEdge(type, value, "MAPPED_TYPE"));
+                type.comparatorType().ifPresent(value -> semanticEdge(type, value, "COMPARATOR_TYPE"));
+                type.underlyingType().ifPresent(value -> semanticEdge(type, value, "UNDERLYING_TYPE"));
+                type.writtenTypes().forEach(site -> semanticEdge(site, type, "COMMON_TYPE"));
+            }
+            if (node instanceof ContainerOperation operation) {
+                semanticEdge(operation.syntax(), operation, "COMMON_OPERATION");
+                semanticEdge(operation, operation.type(), "CONTAINER_TYPE");
+                semanticEdge(operation, operation.destination(), "DESTINATION");
+                operation.sources().forEach(source -> semanticEdge(operation, source, "SOURCE"));
+                semanticEdge(operation, operation.selectedTarget(), "CPP_TARGET");
+                operation.comparator().ifPresent(value -> semanticEdge(operation, value, "COMPARATOR_TARGET"));
+                operation.sourceContainer().ifPresent(value -> semanticEdge(operation, value, "SOURCE_CONTAINER"));
                 operation.elementCopyConstructor().ifPresent(target -> semanticEdge(operation, target, "ELEMENT_COPY_CONSTRUCTOR"));
                 operation.elementDestructor().ifPresent(target -> semanticEdge(operation, target, "ELEMENT_DESTRUCTOR"));
                 operation.elementAssignment().ifPresent(target -> semanticEdge(operation, target, "ELEMENT_ASSIGNMENT"));
@@ -480,6 +514,8 @@ public final class DotVisualizer {
             detail = node.header();
         }
 
+        @Override public void visit(ContainerType node) { detail = node.kind().name() + " / " + node.elementType().canonicalIdentity(); }
+        @Override public void visit(ContainerOperation node) { detail = node.kind().name() + " / " + node.resultKind().name(); }
         @Override public void visit(DynamicArrayType node) { detail = "sequence of " + node.elementType().canonicalIdentity(); }
         @Override public void visit(DynamicArrayOperation node) { detail = node.kind().name() + " / " + node.resultKind().name(); }
 

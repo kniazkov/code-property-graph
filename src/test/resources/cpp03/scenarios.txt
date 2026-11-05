@@ -48,3 +48,6 @@ vector-semantics
 
 # Vector access, capacity, modifiers, iterator and reference validity.
 vector-access
+
+# Deque/list, associative containers and adapter ordering.
+container-families

@@ -118,3 +118,7 @@ expressions using that fragment.
 
 Source basis: C++03 library synopsis, clauses 18–27 and Annex D, with applicable
 library defect corrections; [repository reference](standards/cpp/cpp03/README.ru.md).
+
+The #39 common family model distinguishes deque/list, associative uniqueness and
+adapter ordering, with selected comparator links and scoped splice transfer.
+See model-guide.en.md for conservative effects and iterator-category boundaries.

@@ -158,8 +158,17 @@ final class TemplateDeduction {
         for(int i=1;i<parts.length && current!=null;i++) {
             current=TypeSemantics.unqualified(current);
             if(!(current instanceof NamedType type) || !(type.declaration().orElse(null) instanceof ClassDeclaration klass)) return null;
+            // Member aliases from a primary template must be substituted with the
+            // qualifier's actual arguments, not leaked as the primary's T.
+            var bindings=new LinkedHashMap<TemplateParameterDeclaration,TemplateArgument>();
+            if(!klass.templateParameters().isEmpty()) {
+                for(int j=0;j<Math.min(klass.templateParameters().size(),type.templateArguments().size());j++)
+                    bindings.put(klass.templateParameters().get(j),type.templateArguments().get(j));
+            }
             String member=parts[i]; current=null;
-            for(Node node:klass.members()) if(node instanceof TypedefDeclaration alias && alias.name().equals(member)) { current=alias.type(); break; }
+            for(Node node:klass.members()) if(node instanceof TypedefDeclaration alias && alias.name().equals(member)) {
+                current=ClassTemplateSemantics.substituteType(alias.type(),bindings); break;
+            }
         }
         return current;
     }
