@@ -129,6 +129,20 @@ final class TokenCursor {
     /** Attaches the current token position to a grammar diagnostic. */
     ParseException error(String reason) {
         Token token = tokens.get(position);
-        return new ParseException(java.nio.file.Path.of(token.file() == null ? file : token.file()).getFileName().toString(), token.start().line(), token.start().column(), reason, range(token));
+        var error = new ParseException(java.nio.file.Path.of(token.file() == null ? file : token.file()).getFileName().toString(), token.start().line(), token.start().column(), reason, range(token));
+        return error.withDiagnostic("syntax-error", reason + " [token: " + token.text() + "]" + DiagnosticProvenance.causeOrigin(preprocessing, token.sourceIndex()), range(token),
+                DiagnosticProvenance.related(preprocessing, token.sourceIndex()), context(token));
+    }
+    /** An absent expression belongs to the gap, not to the following delimiter. */
+    ParseException missingExpression() {
+        var current = tokens.get(position);
+        var point = new SourceRange(range(current).file(), current.start(), current.start());
+        var origin = position > 0 ? tokens.get(position - 1) : current;
+        return error("Expected expression").withDiagnostic("expected-expression", "Expected expression before '" + current.text() + "'" + DiagnosticProvenance.causeOrigin(preprocessing, origin.sourceIndex()),
+                point, DiagnosticProvenance.related(preprocessing, origin.sourceIndex()), context(origin));
+    }
+    private DiagnosticContext context(Token token) {
+        var value = DiagnosticProvenance.context(preprocessing, token.sourceIndex());
+        return value == null ? new DiagnosticContext(file, null, List.of(), List.of()) : value;
     }
 }

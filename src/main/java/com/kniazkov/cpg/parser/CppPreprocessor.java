@@ -4,6 +4,9 @@ package com.kniazkov.cpg.parser;
 import com.kniazkov.cpg.build.Build;
 import com.kniazkov.cpg.model.SourceRange;
 import com.kniazkov.cpg.model.SourcePosition;
+import com.kniazkov.cpg.model.Preprocessing;
+import com.kniazkov.cpg.model.DiagnosticContext;
+import com.kniazkov.cpg.model.DiagnosticRelatedRange;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -141,14 +144,23 @@ public final class CppPreprocessor {
         catch (ParseException error) {
             SourceRange range = error.range().orElseGet(() -> new SourceRange(unit.source().path().toString(),
                     new SourcePosition(1, 1, 0), new SourcePosition(1, 1, 0)));
-            var include = processor.includes.stream().filter(i -> i.source().path().toString().equals(range.file())).findFirst()
-                    .orElse(processor.includes.getFirst());
+            Long occurrence = error.context() == null || error.context().includeChain().isEmpty() ? null
+                    : error.context().includeChain().getLast().id();
+            var include = processor.includes.stream().filter(i -> occurrence != null ? i.occurrence() == occurrence
+                    : i.source().path().toString().equals(range.file())).findFirst().orElse(processor.includes.getFirst());
             var end = new PreprocessingToken(EOF, "", "", new SourceRange(range.file(), range.start(), range.start()), 0, 0);
             processor.output.add(new Work(new ExpandedToken(end, include, List.of(), end.range())));
             for (var arm : processor.branches) if (arm.end < 0) {
                 arm.end = arm.source.length(); arm.endOutput = processor.output.size() - 1;
             }
-            return new Recovery(processor.finish(), error);
+            Result result = processor.finish();
+            var context = error.context();
+            if (context != null) {
+                var expanded = context.expansionChain().stream().map(e -> result.expansions().stream()
+                        .filter(event -> event.id() == e.id()).findFirst().map(processor::diagnosticExpansion).orElse(e)).toList();
+                error = error.withContext(new DiagnosticContext(context.translationUnit(), context.variantId(), context.includeChain(), expanded));
+            }
+            return new Recovery(result, error);
         }
     }
 
@@ -267,6 +279,15 @@ public final class CppPreprocessor {
         }
 
         Result run(String source) {
+            try { return runSource(source); }
+            catch (ParseException error) {
+                if (error.context() != null) throw error;
+                var include = includes.stream().filter(i -> error.range().map(r -> r.file().equals(i.source().path().toString())).orElse(false))
+                        .reduce((first, last) -> last).orElse(includes.getFirst());
+                throw withChain(error, include);
+            }
+        }
+        Result runSource(String source) {
             var root = instance(unit.source().path(), null);
             if (recovering) captured.put(unit.source().path().toString(), source);
             predefined(root);
@@ -372,18 +393,20 @@ public final class CppPreprocessor {
                                     case "error" -> throw error(location, "#error " + spelling(rawArgs));
                                     case "pragma" -> { /* No implementation-specific pragmas are recognized. */ }
                                     case "line" -> {
+                                        int firstEvent = events.size();
                                         var expanded = significant(expandDirective(rawArgs));
                                         if (expanded.isEmpty() || expanded.size() > 2 || !expanded.getFirst().text().matches("[0-9]+"))
-                                            throw error(location, "Invalid #line directive");
+                                            throw expandedError(location, "Invalid #line directive", expanded, firstEvent);
                                         int number;
                                         try { number = Integer.parseInt(expanded.getFirst().text()); }
-                                        catch (NumberFormatException e) { throw error(location, "#line number outside C++03 range 1..32767"); }
-                                        if (number < 1 || number > 32767) throw error(location, "#line number outside C++03 range 1..32767");
+                                        catch (NumberFormatException e) { throw expandedError(location, "#line number outside C++03 range 1..32767", expanded, firstEvent); }
+                                        if (number < 1 || number > 32767) throw expandedError(location, "#line number outside C++03 range 1..32767", expanded, firstEvent);
                                         if (expanded.size() == 2) {
                                             String quoted = expanded.get(1).text();
                                             if (expanded.get(1).value.token().kind() != STRING_LITERAL || !quoted.startsWith("\""))
-                                                throw error(location, "Expected character string literal after #line number");
-                                            logicalFile = lineFilename(quoted, location);
+                                                throw expandedError(location, "Expected character string literal after #line number", expanded, firstEvent);
+                                            try { logicalFile = lineFilename(quoted, location); }
+                                            catch (ParseException error) { throw withExpandedCause(error, location, expanded, firstEvent); }
                                         }
                                         lineDelta = number - lineRange.end().line();
                                     }
@@ -436,16 +459,20 @@ public final class CppPreprocessor {
                 }
                 operand.add(synthetic(token, PP_NUMBER, presence(name, arm.id, false) ? "1" : "0"));
             }
+            int firstEvent = events.size();
             var expanded = significant(expandDirective(operand));
-            if (expanded.isEmpty()) throw error(location, "Empty #if expression");
-            if (expanded.stream().anyMatch(t -> t.text().equals("defined"))) throw error(location, "Macro-generated defined has undefined behavior in C++03");
+            if (expanded.isEmpty()) throw expandedError(location, "Empty #if expression", expanded, firstEvent);
+            if (expanded.stream().anyMatch(t -> t.text().equals("defined")))
+                throw expandedError(location, "Macro-generated defined has undefined behavior in C++03", expanded, firstEvent);
             try { return CppConditionalExpression.evaluate(expanded.stream().map(t -> t.value.token()).toList()); }
             catch (ParseException e) {
                 Work fault = expanded.stream().filter(t -> {
                     SourceRange range = t.value.token().range();
                     return range.file().equals(e.file()) && range.start().line() == e.line() && range.start().column() == e.column();
                 }).findFirst().orElse(location);
-                throw error(fault, e.reason());
+                var error = expandedError(fault, e.reason(), expanded, firstEvent);
+                throw error.withDiagnostic("preprocessor-conditional", error.causeReason(),
+                        error.range().orElse(null), error.relatedRanges(), error.context());
             }
         }
         List<Work> expandDirective(List<Work> input) {
@@ -585,7 +612,15 @@ public final class CppPreprocessor {
             var macro = new Macro(definitions.size() + 1L, name.text(), parameters == null ? null : List.copyOf(parameters), List.copyOf(replacement), name.value.token().range(), new SourceRange(name.value.token().range().file(),
                     name.value.token().range().start(), raw.getLast().value.token().range().end()));
             Macro old = macros.get(name.text());
-            if (old != null && (!Objects.equals(old.parameters, macro.parameters) || !spelling(old.replacement).equals(spelling(macro.replacement)))) throw error(name, "Incompatible redefinition of macro " + name.text());
+            if (old != null && (!Objects.equals(old.parameters, macro.parameters) || !spelling(old.replacement).equals(spelling(macro.replacement)))) {
+                var error = error(name, "Incompatible redefinition of macro " + name.text());
+                String cause = "Incompatible redefinition of macro " + name.text() + " [previous parameters: " + old.parameters
+                        + "; previous replacement: " + spelling(old.replacement) + "; new parameters: " + macro.parameters
+                        + "; new replacement: " + spelling(macro.replacement) + "]";
+                throw error.withDiagnostic("macro-redefinition", cause, error.range().orElse(null), List.of(
+                        new DiagnosticRelatedRange("previous-definition", "Previous macro definition", old.fullDefinition),
+                        new DiagnosticRelatedRange("new-definition", "New macro definition", macro.fullDefinition)), error.context());
+            }
             definitions.add(new Definition(macro.id, macro.name, parameters != null,
                     parameters == null ? List.of() : parameters, rawReplacement(replacement), macro.fullDefinition,
                     name.value.include(), originKind, sourceKey));
@@ -603,10 +638,10 @@ public final class CppPreprocessor {
             boolean quote = spec.startsWith("\"") && spec.endsWith("\"");
             boolean angle = spec.startsWith("<") && spec.endsWith(">");
             if ((!quote && !angle) || spec.length() <= 2 || quote && args.size() != 1)
-                throw error(location, "Expected quoted or angle header name after #include");
+                throw expandedError(location, "Expected quoted or angle header name after #include", expanded, firstEvent);
             String header = spec.substring(1, spec.length() - 1);
             if (virtualSources != null && Path.of(header).isAbsolute())
-                throw error(location, "Cannot preserve C++ source safely: absolute include is not relocatable: " + header);
+                throw expandedError(location, "Cannot preserve C++ source safely: absolute include is not relocatable: " + header, expanded, firstEvent);
             var candidates = new ArrayList<Path>();
             if (quote) candidates.add(parent.source().path().getParent().resolve(header));
             if (quote) for (var path : unit.includes()) if (path.kind().equals("-iquote")) candidates.add(path.path().resolve(header));
@@ -616,7 +651,7 @@ public final class CppPreprocessor {
                 if (!(virtualSources == null ? Files.isRegularFile(candidate) : virtualSources.containsKey(candidate.toString()))) continue;
                 var included = instance(candidate, parent);
                 try { process(included, virtualSources == null ? Files.readString(candidate) : virtualSources.get(candidate.toString()), depth + 1); }
-                catch (IOException e) { throw error(location, "Cannot read header " + candidate + ": " + e.getMessage()); }
+                catch (IOException e) { throw expandedError(location, "Cannot read header " + candidate + ": " + e.getMessage(), expanded, firstEvent); }
                 return;
             }
             if (angle && OPAQUE_HEADERS.contains(header)) {
@@ -624,7 +659,7 @@ public final class CppPreprocessor {
                 output.add(new Work(new ExpandedToken(token, parent, location.value.origins(), location.value.expansionRange())));
                 return;
             }
-            throw error(location, "Header not found: " + header);
+            throw expandedError(location, "Header not found: " + header, expanded, firstEvent);
         }
 
         List<Work> expandOutput(List<Work> input) { return expand(input, null, recovering); }
@@ -632,7 +667,7 @@ public final class CppPreprocessor {
         List<Work> expand(List<Work> input, Long context) { return expand(input, context, false); }
         List<Work> expand(List<Work> input, Long context, boolean preservePrefix) {
             var work = new ArrayList<>(input);
-            int index = 0;
+            int index = 0, firstEvent = events.size();
             try {
                 while (index < work.size()) {
                     Work invocation = work.get(index);
@@ -681,7 +716,17 @@ public final class CppPreprocessor {
                 }
             } catch (ParseException error) {
                 // Only ordinary output may commit a prefix. Argument/directive prescans cannot.
-                if (preservePrefix) output.addAll(work.subList(0, index));
+                if (preservePrefix) {
+                    output.addAll(work.subList(0, index));
+                    int boundary = (int) output.stream().filter(t -> !t.anchor).count();
+                    // Failed expansions have no emitted replacement. Their zero-length
+                    // boundary is the end of the committed prefix, not token zero.
+                    for (int i = firstEvent; i < events.size(); i++) {
+                        Event event = events.get(i);
+                        if (event.anchor < 0 && output.stream().noneMatch(t -> t.value.expansionIds().contains(event.id)))
+                            event.anchor = boundary;
+                    }
+                }
                 throw error;
             }
             return work;
@@ -724,15 +769,18 @@ public final class CppPreprocessor {
                 Work a = replacement.get(left), b = replacement.get(right), merged;
                 {
                     String joined = a.value.token().spelling() + b.value.token().spelling();
+                    var fragments = new ArrayList<>(a.fragments); fragments.addAll(b.fragments);
+                    var operation = new Operation("paste", replacement.get(i).value.token().range(), fragments, joined);
+                    // Failed operations are evidence too: retain them before attempting synthetic lexing.
+                    event.operations.add(operation);
                     List<PreprocessingToken> scanned;
                     try { scanned = CppLexer.scan(invocation.value.token().range().file(), joined).tokens(); }
-                    catch (ParseException e) { throw error(invocation, "Invalid token paste: " + joined); }
-                    if (scanned.size() != 2 || scanned.get(0).kind() == WHITESPACE || scanned.get(0).kind() == NEWLINE || scanned.get(0).kind() == OTHER || !scanned.get(0).spelling().equals(joined)) throw error(invocation, "Invalid token paste: " + joined);
+                    catch (ParseException e) { throw invalidPaste(invocation, event, operation, a, b); }
+                    if (scanned.size() != 2 || scanned.get(0).kind() == WHITESPACE || scanned.get(0).kind() == NEWLINE || scanned.get(0).kind() == OTHER || !scanned.get(0).spelling().equals(joined))
+                        throw invalidPaste(invocation, event, operation, a, b);
                     PreprocessingToken lexical = scanned.getFirst();
                     var token = new PreprocessingToken(lexical.kind(), joined, lexical.canonicalSpelling(), a.value.token().range(), 0, joined.length());
                     var origins = new ArrayList<>(a.value.origins()); origins.addAll(b.value.origins());
-                    var fragments = new ArrayList<>(a.fragments); fragments.addAll(b.fragments);
-                    event.operations.add(new Operation("paste", replacement.get(i).value.token().range(), fragments, joined));
                     var ids = new LinkedHashSet<>(a.value.expansionIds()); ids.addAll(b.value.expansionIds());
                     var bothHidden = new HashSet<>(a.hidden); bothHidden.retainAll(b.hidden);
                     merged = new Work(new ExpandedToken(token, a.value.include(), origins, a.value.expansionRange(), List.copyOf(ids)), Set.copyOf(bothHidden), false, false, List.copyOf(fragments));
@@ -753,6 +801,39 @@ public final class CppPreprocessor {
             var token = new PreprocessingToken(kind, text, text, source.value.token().range(), 0, text.length());
             return new Work(new ExpandedToken(token, source.value.include(), source.value.origins(), source.value.expansionRange()), source.hidden, false);
         }
+        ParseException expandedError(Work location, String reason, List<Work> operands, int firstEvent) {
+            return withExpandedCause(error(location, reason), location, operands, firstEvent);
+        }
+        ParseException withExpandedCause(ParseException error, Work location, List<Work> operands, int firstEvent) {
+            var ids = new LinkedHashSet<Long>(location.value.expansionIds());
+            // Empty replacements emit no operand tokens. Their executed events still
+            // caused this directive's result and must survive trimming/significance.
+            for (int i = firstEvent; i < events.size(); i++) ids.add(events.get(i).id);
+            for (Work operand : operands) ids.addAll(operand.value.expansionIds());
+            var expansionContext = context(location.value.include(), List.copyOf(ids));
+            var base = error.context();
+            var occurrence = new DiagnosticContext(unit.source().path().toString(), unit.variantId(),
+                    base == null ? expansionContext.includeChain() : base.includeChain(), expansionContext.expansionChain());
+            var related = new ArrayList<DiagnosticRelatedRange>();
+            for (var event : occurrence.expansionChain())
+                related.add(new DiagnosticRelatedRange("macro-invocation", "Expansion of macro " + event.name(), event.invocation()));
+            var origins = new LinkedHashSet<SourceRange>();
+            for (Work operand : operands) if (!operand.value.expansionIds().isEmpty()) origins.add(operand.value.token().range());
+            for (SourceRange origin : origins)
+                related.add(new DiagnosticRelatedRange("macro-definition", "Expanded directive operand originates here", origin));
+            return error.withDiagnostic(error.code(), error.causeReason() + " [expanded operands: " + spelling(operands) + "]",
+                    error.range().orElse(null), related, occurrence);
+        }
+        ParseException invalidPaste(Work invocation, Event event, Operation operation, Work left, Work right) {
+            var related = new ArrayList<DiagnosticRelatedRange>();
+            for (var fragment : left.fragments) related.add(new DiagnosticRelatedRange("macro-argument-left", "Left operand of ##", fragment.range()));
+            for (var fragment : right.fragments) related.add(new DiagnosticRelatedRange("macro-argument-right", "Right operand of ##", fragment.range()));
+            related.add(new DiagnosticRelatedRange("macro-paste-operator", "Token-pasting operator", operation.operator()));
+            var cause = "Invalid token paste: " + operation.spelling() + " [left: " + left.value.token().spelling()
+                    + ", right: " + right.value.token().spelling() + "]";
+            return error(invocation, "Invalid token paste: " + operation.spelling()).withDiagnostic("invalid-token-paste", cause,
+                    event.call, related, context(event.include, List.of(event.id)));
+        }
         ParseException error(Work location, String reason) {
             SourceRange range = location.value.expansionRange();
             Build.IncludeInstance include = location.value.include();
@@ -767,7 +848,14 @@ public final class CppPreprocessor {
                     file = logical.file(); line = logical.line() + range.start().line() - logical.range().start().line(); break;
                 }
             }
-            return withChain(new ParseException(file, line, range.start().column(), reason, range), include);
+            var context = context(include, location.value.expansionIds());
+            var related = new ArrayList<DiagnosticRelatedRange>();
+            for (var expansion : context.expansionChain())
+                related.add(new DiagnosticRelatedRange("macro-invocation", "Expansion of macro " + expansion.name(), expansion.invocation()));
+            if (!context.expansionChain().isEmpty())
+                related.add(new DiagnosticRelatedRange("macro-definition", "Expanded token originates here", location.value.token().range()));
+            return withChain(new ParseException(file, line, range.start().column(), reason, range, "preprocessor-error",
+                    reason + " [token: " + location.text() + "]", related, context), include);
         }
         ParseException error(Build.IncludeInstance include, String reason) {
             return withChain(error(include.source().path().toString(), reason), include);
@@ -780,7 +868,45 @@ public final class CppPreprocessor {
             var chain = new ArrayList<String>();
             for (var cursor = include; cursor != null; cursor = cursor.parent()) chain.add(cursor.source().path().toString());
             Collections.reverse(chain);
-            return new ParseException(error.file(), error.line(), error.column(), error.reason() + " [include chain: " + String.join(" -> ", chain) + "]", error.range().orElse(null));
+            return (error.context() == null ? error.withContext(context(include, List.of())) : error)
+                    .withReason(error.reason() + " [include chain: " + String.join(" -> ", chain) + "]");
+        }
+        DiagnosticContext context(Build.IncludeInstance include, List<Long> expansionIds) {
+            var chain = new ArrayList<Preprocessing.Include>();
+            for (var cursor = include; cursor != null; cursor = cursor.parent())
+                chain.add(new Preprocessing.Include(cursor.occurrence(), cursor.source().path().toString(),
+                        cursor.parent() == null ? null : cursor.parent().occurrence()));
+            Collections.reverse(chain);
+            var ancestry = new LinkedHashSet<Long>();
+            for (long id : expansionIds) addExpansionAncestry(id, ancestry);
+            var expanded = ancestry.stream().map(id -> diagnosticExpansion(events.get(id.intValue() - 1))).toList();
+            return new DiagnosticContext(unit.source().path().toString(), unit.variantId(), chain, expanded);
+        }
+        void addExpansionAncestry(long id, Set<Long> result) {
+            if (result.contains(id)) return;
+            Event event = events.get((int) id - 1);
+            if (event.parent != null) addExpansionAncestry(event.parent, result);
+            result.add(id);
+        }
+        Preprocessing.Fragment diagnosticFragment(Fragment fragment) {
+            return new Preprocessing.Fragment(fragment.range(), fragment.include().occurrence(), fragment.spelling());
+        }
+        Preprocessing.Expansion diagnosticExpansion(Event event) {
+            int boundary = (int) output.stream().filter(t -> !t.anchor).count();
+            int start = event.start >= 0 ? event.start : event.anchor >= 0 ? event.anchor : boundary;
+            int end = event.end >= 0 ? event.end : start;
+            return diagnosticExpansion(new ExpansionEvent(event.id, event.macro.name, event.macro.fullDefinition,
+                    fragments(event.macro.replacement), event.call, event.include, event.parent,
+                    event.arguments, event.operations, start, end, event.macro.id));
+        }
+        Preprocessing.Expansion diagnosticExpansion(ExpansionEvent event) {
+            return new Preprocessing.Expansion(event.id(), event.name(), event.definition(),
+                    event.replacement().stream().map(this::diagnosticFragment).toList(),
+                    event.invocation(), event.include().occurrence(), event.parentId(),
+                    event.arguments().stream().map(arg -> arg.stream().map(this::diagnosticFragment).toList()).toList(),
+                    event.operations().stream().map(op -> new Preprocessing.Operation(op.kind(), op.operator(),
+                            op.fragments().stream().map(this::diagnosticFragment).toList(), op.spelling())).toList(),
+                    event.startToken(), event.endToken(), event.definitionId());
         }
     }
     private static boolean identifier(Work token) {

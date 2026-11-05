@@ -67,7 +67,10 @@ public final class ProjectJson {
             switch (n) {
                 case Project p -> {
                     obj.put("files", nodes(p.files()));
-                    if (p.hasErrors()) obj.put("hasErrors", true);
+                    if (p.hasErrors()) {
+                        obj.put("hasErrors", true);
+                        obj.array("diagnosticGroups", a -> p.diagnosticGroups().forEach(g -> a.add(diagnosticGroup(g))));
+                    }
                     if (!p.externalInputs().isEmpty()) obj.put("externalInputs", nodes(p.externalInputs()));
                     p.build().ifPresent(b -> obj.object("build", v -> {
                         v.array("units", a -> b.units().forEach(u -> a.add(configuration(u))));
@@ -176,9 +179,46 @@ public final class ProjectJson {
         }
 
         private static JsonObject problem(ParseProblem p) {
-            return Json.object().put("code", p.code()).put("message", p.message())
+            var obj = Json.object().put("code", p.code()).put("message", p.message())
                     .put("range", range(p.range())).put("skippedText", p.skippedText())
-                    .put("recovered", p.recovered()).build();
+                    .put("recovered", p.recovered()).put("primaryRange", range(p.primaryRange()))
+                    .put("reason", p.reason()).array("relatedRanges", a -> p.relatedRanges().forEach(r ->
+                            a.object(o -> o.put("role", r.role()).put("label", r.label()).put("range", range(r.range())))));
+            if (p.context() != null) obj.put("context", diagnosticContext(p.context()));
+            return obj.build();
+        }
+
+        private static JsonObject diagnosticGroup(DiagnosticGroup group) {
+            return Json.object().put("code", group.code()).put("primaryRange", range(group.primaryRange()))
+                    .put("reason", group.reason()).put("message", group.message())
+                    .put("translationUnitCount", group.translationUnitCount()).put("variantCount", group.variantCount())
+                    .put("occurrenceCount", group.occurrenceCount())
+                    .array("occurrences", a -> group.occurrences().forEach(p -> a.add(problem(p)))).build();
+        }
+
+        private static JsonObject diagnosticContext(DiagnosticContext context) {
+            var obj = Json.object().put("translationUnit", context.translationUnit());
+            if (context.variantId() != null) obj.put("variantId", context.variantId());
+            return obj.array("includeChain", a -> context.includeChain().forEach(i -> a.object(o -> {
+                        o.put("id", i.id()).put("file", i.file());
+                        if (i.parentId() != null) o.put("parentId", i.parentId());
+                    })))
+                    .array("expansionChain", a -> context.expansionChain().forEach(e -> a.object(o -> {
+                        o.put("id", e.id()).put("name", e.name()).put("definition", range(e.definition()))
+                                .array("replacement", fs -> e.replacement().forEach(f -> fs.add(fragment(f))))
+                                .put("invocation", range(e.invocation())).put("includeId", e.includeId())
+                                .put("startToken", e.startToken()).put("endToken", e.endToken())
+                                .put("definitionId", e.definitionId());
+                        if (e.parentId() != null) o.put("parentId", e.parentId());
+                        o.array("arguments", args -> e.arguments().forEach(arg -> {
+                            var fragments = Json.array();
+                            arg.forEach(f -> fragments.add(fragment(f)));
+                            args.add(fragments.build());
+                        }));
+                        o.array("operations", ops -> e.operations().forEach(op -> ops.object(v -> v
+                                .put("kind", op.kind()).put("operator", range(op.operator())).put("spelling", op.spelling())
+                                .array("fragments", fs -> op.fragments().forEach(f -> fs.add(fragment(f)))))));
+                    }))).build();
         }
 
         private static JsonObject fragment(Preprocessing.Fragment f) {
