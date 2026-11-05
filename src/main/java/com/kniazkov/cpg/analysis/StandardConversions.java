@@ -11,7 +11,7 @@ public final class StandardConversions {
 
     /** Discards derived implicit wrappers before re-resolving edited declarations or operands. */
     public static Project written(Project project) {
-        var editor = new ProjectEditor(project);
+        var editor = new ProjectEditor(project).withoutRevalidation();
         boolean[] changed = {false};
         project.walk(new NodeVisitor() {
             @Override public void visit(ConversionExpression conversion) {
@@ -25,7 +25,7 @@ public final class StandardConversions {
     }
 
     public static Project analyze(Project project) {
-        var editor = new ProjectEditor(project);
+        var editor = new ProjectEditor(project).withoutRevalidation();
         for (var root : SourceContexts.roots(project)) {
             var file = root.source();
             if (file.language() != Language.CPP) continue;

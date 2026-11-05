@@ -141,6 +141,7 @@ public final class NameResolver {
         final Map<Declaration, String> keys = new IdentityHashMap<>();
         final Map<String, List<Declaration>> groups = new LinkedHashMap<>();
         final Set<Declaration> conflicting = Collections.newSetFromMap(new IdentityHashMap<>());
+        final Set<Declaration> writtenClassMembers = Collections.newSetFromMap(new IdentityHashMap<>());
         int position;
         final Map<SourceFile,Map<String,Integer>> libraryActivation=new IdentityHashMap<>();
         final Map<SourceFile,Set<SourceFile>> visibleLibraries=new IdentityHashMap<>();
@@ -270,6 +271,7 @@ public final class NameResolver {
                 owner.templateParameters().forEach(parameter -> index(parameter, nested));
                 owner.templateArguments().forEach(argument -> index(argument,nested));
                 owner.bases().forEach(base -> index(base, nested));
+                writtenClassMembers.addAll(owner.members());
                 owner.members().forEach(member -> index(member, nested));
                 classEnds.put(owner, position);
             } else if (node instanceof CallableDeclaration callable) {
@@ -1607,6 +1609,25 @@ public final class NameResolver {
             return owner + ":" + declaration.languageLinkage() + ":" + qualified + ":" + category;
         }
         void connect(List<Declaration> group) {
+            // Unlike namespace-scope redeclarations, a member cannot be declared twice
+            // in the same class definition, even when neither occurrence has a body.
+            if (group.getFirst() instanceof CallableDeclaration) {
+                var inClass = new IdentityHashMap<Scope, List<Declaration>>();
+                for (Declaration declaration : group) {
+                    Scope scope = scopes.get(declaration);
+                    if (scope.classScope && scope.file.language() == Language.CPP
+                            && writtenClassMembers.contains(declaration) && !declaration.isFriend())
+                        inClass.computeIfAbsent(scope, ignored -> new ArrayList<>()).add(declaration);
+                }
+                for (var duplicates : inClass.values()) if (duplicates.size() > 1)
+                    for (Declaration declaration : duplicates) {
+                        var related = duplicates.stream().filter(other -> other != declaration)
+                                .flatMap(other -> other.range().stream())
+                                .map(range -> new DiagnosticRelatedRange("previous-declaration", "Conflicting member declaration", range)).toList();
+                        editor.diagnose(declaration, new Diagnostic("conflicting-declaration", Diagnostic.Severity.ERROR,
+                                "Duplicate member declaration of " + name(declaration), declaration.range().orElse(null), related));
+                    }
+            }
             List<Declaration> definitions = group.stream().filter(this::isDefinition).toList();
             boolean badType = group.stream().map(this::declaredType).distinct().count() > 1;
             if (badType) for (Declaration declaration : group) {
