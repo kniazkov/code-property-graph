@@ -6,6 +6,13 @@ import java.nio.file.*;
 import java.util.ArrayList;
 
 public final class EditSquare {
+    /** Semantic-only value conversions do not change which written operand we edit. */
+    private static Expression written(Expression expression) {
+        while (expression instanceof ConversionExpression conversion && !conversion.isExplicit())
+            expression = conversion.operand();
+        return expression;
+    }
+
     public static void main(String[] args) throws Exception {
         if (args.length != 2) throw new IllegalArgumentException("EditSquare COMPILE_COMMANDS NEW_OUTPUT_DIRECTORY");
         Path database = Path.of(args[0]), output = Path.of(args[1]);
@@ -13,11 +20,11 @@ public final class EditSquare {
         var project = Cpg.readCompilationDatabase(database, new Cpg.Options(Language.CPP, Cpg.Stage.RESOLVED));
         var matches = new ArrayList<MultiplyExpression>();
         project.walk(new NodeVisitor() { @Override public void visit(MultiplyExpression n) {
-            if (n.left() instanceof NameExpression name && name.name().equals("a")) matches.add(n);
+            if (written(n.left()) instanceof NameExpression name && name.name().equals("a")) matches.add(n);
         }});
         if (matches.size() != 1) throw new IllegalArgumentException("Expected one SQUARE(a) expansion");
         var editor = new ProjectEditor(project);
-        editor.replace(matches.getFirst().right(), NameExpression.create().setName("b").build());
+        editor.replace(written(matches.getFirst().right()), NameExpression.create().setName("b").build());
         var edited = editor.build();
         var files = Cpg.sources(edited, Language.CPP);
         Files.createDirectories(output);
