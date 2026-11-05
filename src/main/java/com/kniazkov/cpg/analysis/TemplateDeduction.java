@@ -39,6 +39,10 @@ final class TemplateDeduction {
                     TypeSemantics.unqualified(TypeSemantics.withoutReference(type)), values, fixed,classOrigins)) return Optional.empty();
         }
         if (origin.templateParameters().stream().anyMatch(p -> !values.containsKey(p) && !constants.containsKey(p))) return Optional.empty();
+        // An unbound nested alias is not yet a concrete template argument. Wait
+        // for a later binding round instead of publishing a malformed instance.
+        if (values.values().stream().anyMatch(type -> type instanceof NamedType name
+                && name.fundamentalKind().isEmpty() && name.declaration().isEmpty() && name.alias().isEmpty())) return Optional.empty();
         var substitutions = new IdentityHashMap<Node,Node>();
         for(int i=0;i<Math.min(actual.size(),origin.parameters().size());i++) {
             TypeNode formal=origin.parameters().get(i).type().orElseThrow();
@@ -71,6 +75,17 @@ final class TemplateDeduction {
         origin.walk(new NodeVisitor(){@Override public void visit(NameExpression name){
             if(name.target().orElse(null) instanceof TemplateParameterDeclaration p && constants.containsKey(p))substitutions.put(name,constants.get(p));
         }});
+        // setfill's unspecified result retains the character parameter of its
+        // specified output operation without exposing any representation.
+        if (LibraryDeclarations.isLibrary(origin)) origin.walk(new NodeVisitor() {
+            @Override public void visit(OpaqueLibraryType type) {
+                if (!type.name().equals("setfill_result")) return;
+                for (var entry : values.entrySet()) if (entry.getKey().name().equals("CharT")) {
+                    substitutions.put(type, type.edit().setIdentity("library::setfill_result<" + entry.getValue().canonicalIdentity() + ">").build());
+                    break;
+                }
+            }
+        });
         CallableDeclaration signature = TemplateSubstitution.signature(origin,substitutions);
         if (OverloadResolution.candidate(signature,actual,profile,OverloadResolution.requiredArguments(origin)).isEmpty()) return Optional.empty();
         var arguments=origin.templateParameters().stream().map(p -> values.containsKey(p)
@@ -97,7 +112,11 @@ final class TemplateDeduction {
     }
     static void rememberTemplateTypes(TypeNode formal,TypeNode actual,Map<Node,Node> substitutions) {
         formal=TypeSemantics.unqualified(formal);actual=TypeSemantics.unqualified(actual);
-        if(formal instanceof NamedType name && name.hasTemplateArguments() && actual instanceof NamedType concrete)substitutions.put(formal,actual);
+        if(formal instanceof NamedType name && name.hasTemplateArguments() && actual instanceof NamedType concrete) {
+            NamedType matched = name.declaration().orElse(null) instanceof TemplateParameterDeclaration parameter
+                    && parameter.kind() == TemplateParameterDeclaration.Kind.TEMPLATE ? concrete : templateMatch(name,concrete,new HashSet<>());
+            if (matched != null) substitutions.put(formal,matched);
+        }
         else if(formal instanceof PointerType p && actual instanceof PointerType q)rememberTemplateTypes(p.pointee(),q.pointee(),substitutions);
         else if(formal instanceof ArrayType p && actual instanceof ArrayType q)rememberTemplateTypes(p.elementType(),q.elementType(),substitutions);
     }
@@ -114,6 +133,25 @@ final class TemplateDeduction {
             return deduceValues(array.elementType(),other.elementType(),values,profile);
         }
         if(formal instanceof PointerType pointer && actual instanceof PointerType other)return deduceValues(pointer.pointee(),other.pointee(),values,profile);
+        if (formal instanceof NamedType pattern && pattern.hasTemplateArguments() && actual instanceof NamedType concrete) {
+            NamedType matched = pattern.declaration().orElse(null) instanceof TemplateParameterDeclaration parameter
+                    && parameter.kind() == TemplateParameterDeclaration.Kind.TEMPLATE ? concrete : templateMatch(pattern,concrete,new HashSet<>());
+            if (matched == null || pattern.templateArguments().size()!=concreteArguments(matched).size()) return false;
+            for (int i=0;i<pattern.templateArguments().size();i++) {
+                TemplateArgument a=pattern.templateArguments().get(i), b=concreteArguments(matched).get(i);
+                if (a.type().isPresent() && b.type().isPresent()) {
+                    if (!deduceValues(a.type().get(),b.type().get(),values,profile)) return false;
+                } else if (a.expression().isPresent() && b.expression().isPresent()) {
+                    var value=ConstantEvaluator.evaluate(b.expression().get(),profile);
+                    if (value.isEmpty()) return false;
+                    Expression supplied=IntegerLiteral.create().setValue(value.get().number()).build();
+                    if (a.expression().get() instanceof NameExpression name && name.target().orElse(null) instanceof TemplateParameterDeclaration parameter) {
+                        Expression prior=values.putIfAbsent(parameter,supplied);
+                        if (prior!=null && !ConstantEvaluator.evaluate(prior,profile).map(v->v.number().equals(value.get().number())).orElse(false)) return false;
+                    } else if (!ConstantEvaluator.evaluate(a.expression().get(),profile).map(v->v.number().equals(value.get().number())).orElse(false)) return false;
+                } else return false;
+            }
+        }
         return true;
     }
     static boolean deduceType(TypeNode formal, TypeNode actual, Map<TemplateParameterDeclaration,TypeNode> values, Set<TemplateParameterDeclaration> fixed,Map<ClassDeclaration,ClassDeclaration> classOrigins) {
@@ -142,14 +180,67 @@ final class TemplateDeduction {
         if(formal instanceof ArrayType array)return actual instanceof ArrayType other && deduceType(array.elementType(),other.elementType(),values,fixed,classOrigins);
         if (formal instanceof PointerType pointer) return actual instanceof PointerType other && deduceType(pointer.pointee(),other.pointee(),values,fixed,classOrigins);
         if (formal instanceof ReferenceType ref) return deduceType(ref.referredType(),TypeSemantics.withoutReference(actual),values,fixed,classOrigins);
+        if (formal instanceof MemberPointerType pointer)
+            return actual instanceof MemberPointerType other
+                    && deduceType(pointer.ownerType(),other.ownerType(),values,fixed,classOrigins)
+                    && deduceType(pointer.pointee(),other.pointee(),values,fixed,classOrigins);
+        if (formal instanceof FunctionType function) {
+            if (!(actual instanceof FunctionType other) || function.parameters().size()!=other.parameters().size()
+                    || function.variadic()!=other.variadic() || function.isConst()!=other.isConst()
+                    || function.isVolatile()!=other.isVolatile()) return false;
+            if (!deduceType(function.returnType(),other.returnType(),values,fixed,classOrigins)) return false;
+            for (int i=0;i<function.parameters().size();i++) {
+                var expected=function.parameters().get(i).type(); var supplied=other.parameters().get(i).type();
+                if(expected.isEmpty() || supplied.isEmpty() || !deduceType(expected.get(),supplied.get(),values,fixed,classOrigins)) return false;
+            }
+            return true;
+        }
         if (formal instanceof NamedType named && actual instanceof NamedType other && named.hasTemplateArguments()) {
-            if (!named.name().equals(other.name()) || named.templateArguments().size()!=other.templateArguments().size()) return false;
+            NamedType matched = templateMatch(named,other,new HashSet<>());
+            if (matched == null || named.templateArguments().size()!=concreteArguments(matched).size()) return false;
             for (int i=0;i<named.templateArguments().size();i++) {
-                var a=named.templateArguments().get(i).type(); var b=other.templateArguments().get(i).type();
+                var a=named.templateArguments().get(i).type(); var b=concreteArguments(matched).get(i).type();
+                if(a.isEmpty() && b.isEmpty()) continue; // Value arguments were checked by deduceValues.
                 if(a.isEmpty() || b.isEmpty() || !deduceType(a.get(),b.get(),values,fixed,classOrigins)) return false;
             }
         }
         return true; // Nondependent portions are checked by standard conversion ranking.
+    }
+    private static List<TemplateArgument> concreteArguments(NamedType type) {
+        if (type.declaration().orElse(null) instanceof ClassDeclaration owner
+                && owner.templateParameters().isEmpty() && !owner.templateArguments().isEmpty()) return owner.templateArguments();
+        return type.templateArguments();
+    }
+    private record MatchedBase(NamedType type, String subobject) {}
+    private static NamedType templateMatch(NamedType formal, NamedType actual, Set<ClassDeclaration> visited) {
+        MatchedBase match = templateBase(formal,actual,visited,"root");
+        return match == null ? null : match.type();
+    }
+    private static MatchedBase templateBase(NamedType formal, NamedType actual, Set<ClassDeclaration> visited, String path) {
+        ClassDeclaration owner = actual.declaration().filter(ClassDeclaration.class::isInstance).map(ClassDeclaration.class::cast).orElse(null);
+        ClassDeclaration pattern = formal.declaration().filter(ClassDeclaration.class::isInstance).map(ClassDeclaration.class::cast).orElse(null);
+        boolean sameTemplate = pattern != null && owner != null && pattern.typeIdentity().isPresent() && owner.typeIdentity().isPresent()
+                ? pattern.typeIdentity().map(i -> i.split("<",2)[0]).equals(owner.typeIdentity().map(i -> i.split("<",2)[0]))
+                : formal.name().equals(actual.name());
+        if (sameTemplate) {
+            return new MatchedBase(actual,path);
+        }
+        if (owner == null || !visited.add(owner)) return null;
+        MatchedBase found = null;
+        for (int i=0;i<owner.bases().size();i++) {
+            BaseSpecifier base=owner.bases().get(i);
+            TypeNode type = TypeSemantics.unqualified(base.type());
+            if (type instanceof NamedType named) {
+                String subobject = base.isVirtual() ? "virtual:"+type.canonicalIdentity() : path+"/"+i;
+                MatchedBase candidate = templateBase(formal,named,new HashSet<>(visited),subobject);
+                if (candidate != null) {
+                    if (found != null && (!found.subobject().equals(candidate.subobject())
+                            || !found.type().canonicalIdentity().equals(candidate.type().canonicalIdentity()))) return null;
+                    found = candidate;
+                }
+            }
+        }
+        return found;
     }
     private static TypeNode iteratorDifference(TypeNode iterator,PlatformProfile profile) {
         if(iterator==null)return null;
@@ -163,7 +254,32 @@ final class TemplateDeduction {
             var arguments=named.templateArguments().isEmpty()?owner.templateArguments():named.templateArguments();
             if(!arguments.isEmpty())return iteratorDifference(arguments.getFirst().type().orElse(null),profile);
         }
-        return null;
+        return inheritedAlias(iterator,"difference_type",new HashSet<>());
+    }
+    private static TypeNode inheritedAlias(TypeNode type, String member, Set<ClassDeclaration> visited) {
+        TypedefDeclaration alias=inheritedAliasDeclaration(type,member,visited);
+        return alias==null?null:alias.type();
+    }
+    private static TypedefDeclaration inheritedAliasDeclaration(TypeNode type, String member, Set<ClassDeclaration> visited) {
+        type=TypeSemantics.unqualified(type);
+        if (!(type instanceof NamedType named) || !(named.declaration().orElse(null) instanceof ClassDeclaration owner)
+                || !LibraryDeclarations.isLibrary(owner) || !owner.templateParameters().isEmpty() || !visited.add(owner)) return null;
+        // This is a catalogue iterator contract, not a replacement for C++ name
+        // and access lookup on arbitrary user classes. Concrete catalogue instances
+        // have already substituted their aliases and bases.
+        // Re-entering substitution here can recurse through iterator_traits back
+        // into this same query before a dependent iterator has been instantiated.
+        for (Node node : owner.members()) if (node instanceof TypedefDeclaration alias && alias.name().equals(member))
+            return TypeSemantics.dependent(alias.type()) ? null : alias;
+        TypedefDeclaration found=null;
+        for (BaseSpecifier base : owner.bases()) {
+            TypedefDeclaration candidate=inheritedAliasDeclaration(base.type(),member,new HashSet<>(visited));
+            if (candidate!=null) {
+                if (found!=null && found!=candidate) return null;
+                found=candidate;
+            }
+        }
+        return found;
     }
     static TypeNode dependentType(NamedType named, Map<TemplateParameterDeclaration,TypeNode> values) {
         if (named.qualifier().orElse(null) instanceof NamedType traits

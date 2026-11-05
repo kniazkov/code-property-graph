@@ -29,6 +29,7 @@ final class TypeParser {
     private final List<Implicit> implicitDeclarations = new ArrayList<>();
     private final Scope root = new Scope(null);
     private Scope scope = root;
+    private final Set<String> libraryMemberTemplates = new HashSet<>();
     private final Deque<Scope> enclosing = new ArrayDeque<>();
     TypeParser(TokenCursor tokens, ExpressionParser expressions) { this.tokens = tokens; this.expressions = expressions; }
     void pushScope() { enclosing.push(scope); scope = new Scope(scope); }
@@ -101,6 +102,8 @@ final class TypeParser {
                 if (com.kniazkov.cpg.analysis.StandardLibraryCatalogue.canonicalHeader(header).equals("cstddef")) scope.libraryScalars.add(name);
             }
             for (String name : com.kniazkov.cpg.analysis.StandardLibraryCatalogue.templateNames(header)) declareTemplate(name);
+            for (String name : com.kniazkov.cpg.analysis.StandardLibraryCatalogue.callableTemplateNames(header)) declareTemplate(name);
+            libraryMemberTemplates.addAll(com.kniazkov.cpg.analysis.StandardLibraryCatalogue.memberCallableTemplateNames(header));
             for (String name : com.kniazkov.cpg.analysis.StandardLibraryCatalogue.nestedTypeNames(header)) registerQualifiedLibraryType(name);
         } finally { if (!global) popScope(); scope = saved; }
         for (String dependency : com.kniazkov.cpg.analysis.StandardLibraryCatalogue.dependencies(header)) {
@@ -152,6 +155,7 @@ final class TypeParser {
     void declareTemplateType(String name) { scope.names.put(name, new Binding(true, null, null)); scope.templateTypes.add(name); }
     void declareTemplateValue(String name) { declareName(name); scope.templateValues.add(name); }
     void declareTemplate(String name) { scope.templates.add(name); }
+    boolean memberTemplateName(String name) { return templateName(name) || libraryMemberTemplates.contains(name); }
     boolean templateName(String name) {
         int separator = name.lastIndexOf("::");
         if (separator >= 0) {

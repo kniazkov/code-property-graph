@@ -1,0 +1,2 @@
+#include <complex>
+void operators(std::complex<double>& a,const std::complex<double>& b){(void)(a+b);(void)(a+1.0);(void)(1.0+a);(void)(a-b);(void)(a-1.0);(void)(1.0-a);(void)(a*b);(void)(a*1.0);(void)(1.0*a);(void)(a/b);(void)(a/1.0);(void)(1.0/a);(void)(a==b);(void)(a==1.0);(void)(1.0==a);(void)(a!=b);(void)(a!=1.0);(void)(1.0!=a);(void)(+a);(void)(-a);a+=b;a-=b;a*=b;a/=b;a+=1.0;a-=1.0;a*=1.0;a/=1.0;}

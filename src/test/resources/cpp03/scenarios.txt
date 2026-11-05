@@ -54,3 +54,6 @@ container-families
 
 # Strings with embedded NUL, output iterators and algorithm range effects.
 strings-algorithms
+
+# Remaining library families: stream state and I/O iterators.
+remaining-library

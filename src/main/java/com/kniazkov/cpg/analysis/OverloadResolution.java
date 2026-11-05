@@ -142,7 +142,7 @@ public final class OverloadResolution {
                     && callable.kind() == CallableDeclaration.Kind.CONSTRUCTOR && !callable.modifiers().contains("explicit")
                     && !callable.parameters().isEmpty() && requiredArguments(callable) <= 1) {
                 callable.parameters().getFirst().type().flatMap(type -> conversion(expression, type, profile, false))
-                        .filter(sequence -> sequence.rank() != Rank.UNKNOWN)
+                        .filter(Sequence::knownViable)
                         .ifPresent(sequence -> constructors.add(new Candidate(callable, List.of(sequence))));
             }
         });
@@ -175,6 +175,21 @@ public final class OverloadResolution {
             // implementation may be a qualification or a converting constructor.
             return Optional.of(new Sequence(Rank.UNKNOWN,0,null,target instanceof ReferenceType,true));
         }
+        // No basic_string-to-stream-bitmask conversion is specified. Do not
+        // invent one and let it obscure the guaranteed string-stream constructor.
+        // Unspecified conversions for arbitrary user classes remain conservative.
+        if (targetBase instanceof OpaqueLibraryType opaque
+                && Set.of("fmtflags", "iostate", "openmode", "seekdir", "ctype_mask").contains(opaque.name())
+                && ClassSemantics.objectClass(sourceBase).filter(LibraryDeclarations::isLibrary)
+                    .filter(owner -> owner.name().equals("basic_string")).isPresent()) return Optional.empty();
+        // Parameterized manipulators expose only their specified stream operation.
+        // Their unspecified representation supplies no numeric conversion contract.
+        if (sourceBase instanceof OpaqueLibraryType opaque
+                && Set.of("setw_result", "setprecision_result", "setbase_result", "setfill_result", "setiosflags_result", "resetiosflags_result").contains(opaque.name())
+                && !sourceBase.canonicalIdentity().equals(targetBase.canonicalIdentity())) return Optional.empty();
+        if (targetBase instanceof OpaqueLibraryType opaque
+                && Set.of("setw_result", "setprecision_result", "setbase_result", "setfill_result", "setiosflags_result", "resetiosflags_result").contains(opaque.name())
+                && !sourceBase.canonicalIdentity().equals(targetBase.canonicalIdentity())) return Optional.empty();
         if((sourceBase instanceof OpaqueLibraryType || targetBase instanceof OpaqueLibraryType)
                 && !sourceBase.canonicalIdentity().equals(targetBase.canonicalIdentity()))
             return Optional.of(new Sequence(Rank.UNKNOWN,0,null,target instanceof ReferenceType,

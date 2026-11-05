@@ -66,6 +66,10 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("remaining-library".equals(settings.getProperty("mode"))) {
+            for (Path source : RemainingLibraryAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
+            return;
+        }
         if ("strings-algorithms".equals(settings.getProperty("mode"))) {
             for (Path source : StringsAlgorithmsAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
             return;

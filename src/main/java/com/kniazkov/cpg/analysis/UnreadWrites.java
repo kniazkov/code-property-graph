@@ -97,6 +97,7 @@ public final class UnreadWrites {
                 }
             }
             private void escape(Expression expr) {
+                escaped.addAll(LibraryCallEffects.roots(expr));
                 if (expr instanceof ConversionExpression conversion) escape(conversion.operand());
                 if (expr instanceof AssignmentExpression a) escape(a.target());
                 if (expr instanceof CompoundAssignmentExpression a) escape(a.target());

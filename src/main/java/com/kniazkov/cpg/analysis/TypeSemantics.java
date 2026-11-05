@@ -218,12 +218,19 @@ public final class TypeSemantics {
             return commonArithmeticType(a.get(), b.get(), profile);
         }
         if (expression instanceof AddressOfExpression address) {
-            // A qualified non-static class member forms a member pointer. Owner/class ABI
-            // resolution is deliberately not inferred from an unqualified field type.
+            // A directly declared qualified non-static member has a member-pointer type.
+            // Keep inherited/unknown owners conservative; no ABI layout is inferred.
             if (address.operand() instanceof ScopeMemberExpression member
                     && member.target().filter(target -> target instanceof VariableDeclaration variable
                             && !variable.modifiers().contains("static") || target instanceof MethodDeclaration method
-                            && !method.modifiers().contains("static")).isPresent()) return Optional.empty();
+                            && !method.modifiers().contains("static")).isPresent()) {
+                Declaration owner = member.receiver() instanceof NameExpression name ? name.target().orElse(null)
+                        : member.receiver() instanceof ScopeMemberExpression scope ? scope.target().orElse(null) : null;
+                if (!(owner instanceof ClassDeclaration klass) || !klass.members().contains(member.target().orElseThrow())) return Optional.empty();
+                return declarationType(member.target()).map(type -> MemberPointerType.create()
+                        .setOwnerType(NamedType.create().setName(klass.name()).setDeclaration(klass.edit()))
+                        .setPointee(signatureType(type)).build());
+            }
             return expressionType(address.operand(), profile).map(type -> PointerType.create().setPointee(type.edit()).build());
         }
         if (expression instanceof DereferenceExpression dereference)

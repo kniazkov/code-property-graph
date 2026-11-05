@@ -57,7 +57,7 @@ public final class ClassTemplateSemantics {
                     .orElseGet(() -> family.stream().map(Located::declaration).filter(c -> c.templateKind() == TemplateKind.PRIMARY).findFirst().orElse(null));
             if (primary == null) continue;
             PlatformProfile profile = TypeSemantics.profile(use.file());
-            var arguments = completeArguments(primary, use.arguments(), profile);
+            var arguments = completeArguments(primary, family, use.arguments(), profile);
             if (arguments == null) { failures.put(use.node(), error("invalid-class-template-arguments", "Invalid arguments for class template " + primary.name())); continue; }
             var matches = new ArrayList<Match>();
             for (Located candidate : family) {
@@ -65,7 +65,7 @@ public final class ClassTemplateSemantics {
                 if (failures.containsKey(declaration)) continue;
                 if (declaration.templateKind() != TemplateKind.FULL_SPECIALIZATION && declaration.templateKind() != TemplateKind.PARTIAL_SPECIALIZATION) continue;
                 var patternArguments=declaration.templateKind()==TemplateKind.FULL_SPECIALIZATION
-                        ? completeArguments(primary,declaration.templateArguments(),profile) : declaration.templateArguments();
+                        ? completeArguments(primary,family,declaration.templateArguments(),profile) : declaration.templateArguments();
                 var bindings = patternArguments==null ? null : deduce(declaration, patternArguments, arguments, profile);
                 if (bindings != null) matches.add(new Match(declaration, bindings));
             }
@@ -252,7 +252,7 @@ public final class ClassTemplateSemantics {
         if (!dependent && node instanceof NamedType type && type.hasTemplateArguments() && !TypeSemantics.dependent(type))
             uses.add(new Use(type, file, scope, type.name(), type.templateArguments(), point));
         // A catalogue typedef is instantiated only when source syntax demands its type.
-        if (!dependent && node instanceof NamedType alias && !LibraryDeclarations.isLibrary(alias) && alias.alias().isPresent()
+        if (!dependent && node instanceof NamedType alias && alias.alias().isPresent()
                 && alias.canonicalType() instanceof NamedType type && type != alias
                 && type.hasTemplateArguments() && !TypeSemantics.dependent(type))
             uses.add(new Use(type, file, scope, type.name(), type.templateArguments(), point));
@@ -298,13 +298,26 @@ public final class ClassTemplateSemantics {
             int separator = scope.lastIndexOf("::"); scope = separator < 0 ? "" : scope.substring(0, separator);
         }
     }
-    private static List<TemplateArgument> completeArguments(ClassDeclaration primary, List<TemplateArgument> written, PlatformProfile profile) {
+    private static List<TemplateArgument> completeArguments(ClassDeclaration primary, List<Located> family, List<TemplateArgument> written, PlatformProfile profile) {
         if (written.size() > primary.templateParameters().size()) return null;
         var result = new ArrayList<TemplateArgument>();
-        var bindings = new LinkedHashMap<TemplateParameterDeclaration, TemplateArgument>();
         for (int i = 0; i < primary.templateParameters().size(); i++) {
             var parameter = primary.templateParameters().get(i);
-            TemplateArgument argument = i < written.size() ? written.get(i) : parameter.defaultArgument().map(a -> substitute(a, bindings)).orElse(null);
+            TemplateArgument argument = i < written.size() ? written.get(i) : null;
+            if (argument == null) {
+                // Defaults belong to the visible declaration family, not just its
+                // definition. Bind each declaration's own parameter identities
+                // before substituting a dependent default from a forward declaration.
+                for (Located location : family) {
+                    ClassDeclaration declaration = location.declaration();
+                    if (declaration.templateKind() != TemplateKind.PRIMARY
+                            || declaration.templateParameters().size() != primary.templateParameters().size()) continue;
+                    var local = new LinkedHashMap<TemplateParameterDeclaration, TemplateArgument>();
+                    for (int j = 0; j < result.size(); j++) local.put(declaration.templateParameters().get(j), result.get(j));
+                    var value = declaration.templateParameters().get(i).defaultArgument();
+                    if (value.isPresent()) { argument = substitute(value.get(), local); break; }
+                }
+            }
             if (argument == null) return null;
             if (parameter.kind() == TemplateParameterDeclaration.Kind.VALUE) {
                 Expression expression = argument.expression().orElse(null);
@@ -328,7 +341,7 @@ public final class ClassTemplateSemantics {
                     argument = TemplateArgument.create().setType(type.edit()).setKind(TemplateArgument.Kind.TEMPLATE).build();
                 }
             }
-            result.add(argument); bindings.put(parameter, argument);
+            result.add(argument);
         }
         return List.copyOf(result);
     }

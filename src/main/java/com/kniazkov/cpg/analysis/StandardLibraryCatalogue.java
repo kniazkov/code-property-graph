@@ -92,6 +92,46 @@ public final class StandardLibraryCatalogue {
             default -> Set.of();
         };
     }
+    /** Parser visibility of namespace function templates, separate from the type index. */
+    public static Set<String> callableTemplateNames(String header) {
+        String comparisons = "operator== operator!= operator< operator> operator<= operator>= ";
+        String math = "abs acos asin atan cos cosh exp log log10 sin sinh sqrt tan tanh ";
+        return names(switch (canonicalHeader(header)) {
+            case "utility" -> comparisons + "make_pair";
+            case "memory" -> "operator== operator!= get_temporary_buffer return_temporary_buffer uninitialized_copy uninitialized_fill uninitialized_fill_n";
+            case "vector", "deque", "list", "map", "set" -> comparisons + "swap";
+            case "queue", "stack" -> comparisons;
+            case "string" -> comparisons + "swap operator+ operator>> operator<< getline";
+            case "iterator" -> comparisons + "operator+ operator- advance distance back_inserter front_inserter inserter";
+            case "functional" -> "not1 not2 bind1st bind2nd ptr_fun mem_fun mem_fun_ref";
+            case "numeric" -> "accumulate inner_product partial_sum adjacent_difference";
+            case "algorithm" -> "swap for_each find find_if find_end find_first_of adjacent_find count count_if mismatch equal search search_n copy copy_backward swap_ranges iter_swap transform replace replace_if replace_copy replace_copy_if fill fill_n generate generate_n remove remove_if remove_copy remove_copy_if unique unique_copy reverse reverse_copy rotate rotate_copy random_shuffle partition stable_partition sort stable_sort partial_sort partial_sort_copy nth_element lower_bound upper_bound equal_range binary_search merge inplace_merge includes set_union set_intersection set_difference set_symmetric_difference push_heap pop_heap make_heap sort_heap min max min_element max_element lexicographical_compare next_permutation prev_permutation";
+            case "bitset" -> "operator& operator| operator^ operator>> operator<<";
+            case "complex" -> "operator+ operator- operator* operator/ operator== operator!= operator>> operator<< real imag abs arg norm conj polar pow cos cosh exp log log10 sin sinh sqrt tan tanh";
+            case "valarray" -> comparisons + math + "atan2 pow operator* operator/ operator% operator+ operator- operator^ operator& operator| operator<< operator>> operator&& operator||";
+            case "locale" -> "use_facet has_facet isspace isprint iscntrl isupper islower isalpha isdigit ispunct isxdigit isalnum isgraph toupper tolower";
+            case "iosfwd" -> "operator== operator!=";
+            case "istream" -> "operator>> ws";
+            case "ostream" -> "operator<< endl ends flush";
+            case "iomanip" -> "setfill operator>> operator<<";
+            default -> "";
+        });
+    }
+    /** Member identifiers only; these must not introduce unqualified free functions. */
+    public static Set<String> memberCallableTemplateNames(String header) {
+        String names = switch(canonicalHeader(header)) {
+            case "bitset" -> "to_string";
+            case "locale" -> "combine operator()";
+            case "memory" -> "operator=";
+            case "complex" -> "operator= operator+= operator-= operator*= operator/=";
+            case "vector", "deque" -> "assign insert";
+            case "list" -> "assign insert remove_if unique merge sort";
+            case "map", "set" -> "insert";
+            case "string" -> "append assign insert replace";
+            default -> "";
+        };
+        return names.isEmpty() ? Set.of() : Set.of(names.split(" "));
+    }
     private static Set<String> names(String names) { var out=new LinkedHashSet<String>(); for(String n:names.split(" ")){if(n.isEmpty())continue;out.add(n);out.add("std::"+n);}return Set.copyOf(out); }
     /** Namespace-relative member type paths for parser visibility, never namespace declarations. */
     public static Set<String> nestedTypeNames(String header) {
