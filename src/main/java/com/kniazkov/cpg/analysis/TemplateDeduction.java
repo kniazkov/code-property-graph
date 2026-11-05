@@ -39,6 +39,10 @@ final class TemplateDeduction {
                     TypeSemantics.unqualified(TypeSemantics.withoutReference(type)), values, fixed,classOrigins)) return Optional.empty();
         }
         if (origin.templateParameters().stream().anyMatch(p -> !values.containsKey(p) && !constants.containsKey(p))) return Optional.empty();
+        // An unbound nested alias is not yet a concrete template argument. Wait
+        // for a later binding round instead of publishing a malformed instance.
+        if (values.values().stream().anyMatch(type -> type instanceof NamedType name
+                && name.fundamentalKind().isEmpty() && name.declaration().isEmpty() && name.alias().isEmpty())) return Optional.empty();
         var substitutions = new IdentityHashMap<Node,Node>();
         for(int i=0;i<Math.min(actual.size(),origin.parameters().size());i++) {
             TypeNode formal=origin.parameters().get(i).type().orElseThrow();
@@ -253,19 +257,25 @@ final class TemplateDeduction {
         return inheritedAlias(iterator,"difference_type",new HashSet<>());
     }
     private static TypeNode inheritedAlias(TypeNode type, String member, Set<ClassDeclaration> visited) {
+        TypedefDeclaration alias=inheritedAliasDeclaration(type,member,visited);
+        return alias==null?null:alias.type();
+    }
+    private static TypedefDeclaration inheritedAliasDeclaration(TypeNode type, String member, Set<ClassDeclaration> visited) {
         type=TypeSemantics.unqualified(type);
         if (!(type instanceof NamedType named) || !(named.declaration().orElse(null) instanceof ClassDeclaration owner)
-                || !visited.add(owner)) return null;
-        var bindings=new LinkedHashMap<TemplateParameterDeclaration,TemplateArgument>();
-        for (int i=0;i<Math.min(owner.templateParameters().size(),named.templateArguments().size());i++)
-            bindings.put(owner.templateParameters().get(i),named.templateArguments().get(i));
+                || !LibraryDeclarations.isLibrary(owner) || !owner.templateParameters().isEmpty() || !visited.add(owner)) return null;
+        // This is a catalogue iterator contract, not a replacement for C++ name
+        // and access lookup on arbitrary user classes. Concrete catalogue instances
+        // have already substituted their aliases and bases.
+        // Re-entering substitution here can recurse through iterator_traits back
+        // into this same query before a dependent iterator has been instantiated.
         for (Node node : owner.members()) if (node instanceof TypedefDeclaration alias && alias.name().equals(member))
-            return ClassTemplateSemantics.substituteType(alias.type(),bindings);
-        TypeNode found=null;
+            return TypeSemantics.dependent(alias.type()) ? null : alias;
+        TypedefDeclaration found=null;
         for (BaseSpecifier base : owner.bases()) {
-            TypeNode candidate=inheritedAlias(ClassTemplateSemantics.substituteType(base.type(),bindings),member,new HashSet<>(visited));
+            TypedefDeclaration candidate=inheritedAliasDeclaration(base.type(),member,new HashSet<>(visited));
             if (candidate!=null) {
-                if (found!=null && !found.canonicalIdentity().equals(candidate.canonicalIdentity())) return null;
+                if (found!=null && found!=candidate) return null;
                 found=candidate;
             }
         }

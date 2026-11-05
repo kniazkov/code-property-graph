@@ -83,4 +83,10 @@ class StreamLibraryResolutionTest {
   }});
  }
 
+ @Test void iteratorDifferenceAliasDoesNotMergeUnrelatedBaseDeclarations() {
+  var project=NameResolver.resolve(Project.create().addFile(Parser.parse("ambiguous-iterator.cpp",
+   "#include <iterator>\nstruct L{typedef int difference_type;};struct R{typedef int difference_type;};struct I:L,R{typedef int value_type;typedef int* pointer;typedef int& reference;typedef std::input_iterator_tag iterator_category;};void f(I a,I b){std::distance(a,b);}",Language.CPP)).build());
+  project.files().getFirst().walk(new NodeVisitor(){@Override public void visit(CallExpression call){assertTrue(call.target().isEmpty());}});
+ }
+
 }

@@ -157,10 +157,14 @@ class ExpressionSemanticsTest {
     @Test void foldingNarrowConversionsAndMemberAddressRemainConservative() throws Exception {
         var project = read("struct S { int x; }; int main(){ bool b=1; short s=2; int S::*p=&S::x; return b+s; }");
         assertDoesNotThrow(() -> ConstantFolder.fold(project));
-        assertTrue(nodes(project,AddressOfExpression.class).getFirst().semanticInfo().orElseThrow().resultType().isEmpty());
+        var address=nodes(project,AddressOfExpression.class).getFirst();
+        var memberType=assertInstanceOf(MemberPointerType.class,TypeSemantics.expressionType(address,PROFILE).orElseThrow());
+        assertEquals(Optional.of(memberType.canonicalIdentity()),address.semanticInfo().orElseThrow().resultType());
         var folded = ConstantFolder.fold(project);
         assertTrue(assertInstanceOf(BooleanLiteral.class,initializer(folded,"b")).value());
         assertInstanceOf(ConversionExpression.class,initializer(folded,"s"));
+        assertInstanceOf(AddressOfExpression.class,underlying(initializer(folded,"p")));
+        assertEquals(address.source(Language.CPP),underlying(initializer(folded,"p")).source(Language.CPP));
     }
 
 }
