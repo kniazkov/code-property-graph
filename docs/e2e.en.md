@@ -275,3 +275,33 @@ a claim that their long width was changed. Run
 `mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=overloads-adl verify`.
 At #30 the complete corpus has **24 scenarios and 26 results including
 infrastructure tests**, with no skipped native compilers.
+
+### Statement and exception export checks (#31)
+
+`StatementExceptionExportTest` checks generated-source reparsing for empty statements,
+for initializers, do/while, switch fall-through, labels and goto; exception specifications,
+typed/catch-all handlers and rethrow; and constructor function-try-block initializer order.
+It also checks JSON edit/copy stability and DOT references for non-syntax cleanup vertices.
+A recovered incomplete body must remain visible in JSON/DOT while source generation fails.
+
+Native cleanup scenarios must compare event order **and counts** with reachable CFG paths:
+normal exit destroys `b, a`, an exception in work destroys `b, a`, and a failure to construct
+`b` destroys only successfully constructed `a`. The generated source must retain ordinary
+local declarations, not explicit destructor calls. Pair an unknown `void work();` declaration
+with `void work() throw();` inside try/catch to distinguish possible exceptional cleanup from
+a nonthrowing call. A failure elsewhere in a file must not erase a complete function's flow;
+an interrupted function must not be presented as fully analyzed.
+
+Mandatory `statements-exceptions` runs original, generated and folded sources with
+GCC and Clang under strict C++03. `StatementsExceptionsAcceptance` compares
+API/CLI JSON and copied snapshots, resolves cleanup targets, and checks exceptional
+edges independently of the native result. Its event traces are `1221` for normal
+reverse destruction, `12219` for work failure then an outer handler, `119` for
+failure of the second constructor, and `1189` for constructor function-try cleanup.
+Destructor function-try cleanup produces `122189`: both members are destroyed
+before its handler and the outer handler. Every path also checks destruction counts.
+Return, goto, continue/break, nested switch, condition declarations and rethrow have
+runtime controls. Separate invalid and truncated inputs must export diagnostics and
+flow completeness without generated source.
+Run `mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=statements-exceptions verify`.
+The #31 corpus contains **25 scenarios and 27 results including infrastructure tests**.

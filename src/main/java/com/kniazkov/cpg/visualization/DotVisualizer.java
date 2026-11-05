@@ -264,15 +264,36 @@ public final class DotVisualizer {
 
         /** Draws analysis overlays after syntax IDs have been assigned. */
         private void flow(FunctionFlow flow) {
+            if (!flow.complete()) dot.append("  n").append(id(flow.entry())).append(" [xlabel=\"incomplete flow\"];\n");
+            for (var vertex : flow.auxiliaryVertices()) {
+                String key = flowId(vertex);
+                dot.append("  ").append(key).append(" [shape=ellipse, style=dashed, label=<")
+                        .append(vertex.kind().name()).append(">];\n");
+                vertex.object().ifPresent(object -> auxiliaryReference(key, object, "object ref"));
+                vertex.destructor().ifPresent(destructor -> auxiliaryReference(key, destructor, "destructor ref"));
+                vertex.constructor().ifPresent(constructor -> auxiliaryReference(key, constructor, "constructor ref"));
+            }
             for (var edge : flow.control()) {
-                String from = "n" + id((Node) edge.from());
-                String to = "n" + id((Node) edge.to());
+                String from = flowId(edge.from());
+                String to = flowId(edge.to());
                 flowEdge(from, to, "CFG " + edge.kind().name().toLowerCase(java.util.Locale.ROOT), "#1565c0");
             }
             for (var edge : flow.data()) {
                 String label = edge.kind() == FunctionFlow.Dependency.VALUE ? "DFG value" : "DFG def";
                 flowEdge("n" + id(edge.from()), "n" + id(edge.to()), label, "#aa3377");
             }
+        }
+
+        private void auxiliaryReference(String from, Node to, String label) {
+            dot.append("  ").append(from).append(" -> n").append(id(to))
+                    .append(" [label=<&#160;").append(label)
+                    .append(">, style=dashed, color=\"#455a64\", constraint=false];\n");
+        }
+
+        private String flowId(FlowVertex vertex) {
+            if (vertex instanceof Node node) return "n" + id(node);
+            var auxiliary = (AuxiliaryFlowVertex) vertex;
+            return "f" + id(auxiliary.owner()) + "v" + auxiliary.index();
         }
 
         private void flowEdge(String from, String to, String label, String color) {
@@ -329,6 +350,12 @@ public final class DotVisualizer {
             detail = node.bigValue().toString();
         }
 
+        @Override public void visit(GotoStatement node) { detail = node.label(); }
+        @Override public void visit(LabelStatement node) { detail = node.label(); }
+        @Override public void visit(CaseStatement node) { detail = node.value().isEmpty() ? "default" : "case"; }
+        @Override public void visit(CatchClause node) { detail = node.parameter().isEmpty() ? "catch (...)" : "typed catch"; }
+        @Override public void visit(ThrowExpression node) { detail = node.value().isEmpty() ? "rethrow" : "throw"; }
+
         @Override public void visit(BooleanLiteral node) { detail = node.spelling(); }
         @Override public void visit(FloatingLiteral node) { detail = node.spelling() + " : " + node.cppType(); }
         @Override public void visit(CharacterLiteral node) { detail = node.spelling() + " : " + node.cppType(); }
@@ -358,7 +385,9 @@ public final class DotVisualizer {
 
         @Override
         public void visit(CallableDeclaration node) {
-            detail = node.name() + (node.isPureVirtual() ? " (pure virtual)" : node.modifiers().contains("virtual") ? " (virtual)" : "");
+            detail = node.name() + (node.bodyComplete() ? "" : " (incomplete body)")
+                    + (node.hasExceptionSpecification() ? " throw(" + node.exceptionTypes().stream().map(TypeNode::canonicalIdentity).collect(java.util.stream.Collectors.joining(", ")) + ")" : "")
+                    + (node.functionTryBlock() ? " (function try)" : "") + (node.isPureVirtual() ? " (pure virtual)" : node.modifiers().contains("virtual") ? " (virtual)" : "");
         }
 
         @Override

@@ -39,8 +39,17 @@ javac "$work/cpp-to-java/Program.java"
 java -cp "$work/cpp-to-java" Program > "$work/converted-java.txt"
 diff -u "$work/original-cpp.txt" "$work/converted-java.txt"
 java -jar "$jar" --input examples/java --from java --stage parsed --svg "$work/parsed.svg"
-python3 - "$work/tree.svg" "$work/parsed.svg" <<'PY'
-import sys
+mkdir "$work/cleanup-input"
+cat > "$work/cleanup-input/cleanup.cpp" <<'CPP'
+struct Guard { Guard(); ~Guard(); };
+struct Outer { Guard member; Outer() {} };
+void work();
+void cleanup() { Guard local; work(); }
+int literal() { return 1; }
+CPP
+java -jar "$jar" --from cpp --input "$work/cleanup-input" --stage resolved --svg "$work/cleanup.svg"
+python3 - "$work/tree.svg" "$work/parsed.svg" "$work/cleanup.svg" <<'PY'
+import sys, re
 import xml.etree.ElementTree as ET
 ns = {"s": "http://www.w3.org/2000/svg"}
 def labels(path):
@@ -57,6 +66,17 @@ def labels(path):
             assert outline is not None and outline.get("stroke").lower() == "#7b1fa2"
             assert all(float(t.get("font-size")) == 10 for t in group.findall("s:text", ns))
             continue
+        identity = group.find("s:title", ns).text
+        if re.fullmatch(r"f[0-9]+v[0-9]+", identity):
+            # Flow-owned operations have no AST ownership: dashed ellipses, not boxes.
+            outline = group.find("s:ellipse", ns)
+            assert outline is not None and outline.get("stroke-dasharray")
+            assert outline.get("stroke").lower() == "black"
+            texts = group.findall("s:text", ns)
+            assert len(texts) == 1 and float(texts[0].get("font-size")) == 10
+            assert texts[0].text in {"EXCEPTIONAL_EXIT", "TERMINATE_EXIT", "IMPLICIT_CONSTRUCTOR", "IMPLICIT_DESTRUCTOR"}
+            continue
+        assert re.fullmatch(r"n[0-9]+", identity), identity
         outline = group.find("s:path", ns)
         assert outline is not None and "C" in outline.get("d", "")
         texts = group.findall("s:text", ns)
@@ -69,8 +89,18 @@ def labels(path):
         label = group.find("s:text", ns)
         assert float(label.get("font-size")) == 9
         endpoints = group.find("s:title", ns).text.split("->")
-        if all(endpoint.startswith("n") for endpoint in endpoints):
+        if all(re.fullmatch(r"n[0-9]+|f[0-9]+v[0-9]+", endpoint) for endpoint in endpoints):
             assert label.text[0].isspace() and not label.text[1].isspace()
+            if any(endpoint.startswith("f") for endpoint in endpoints):
+                path = group.find("s:path", ns)
+                text = label.text.strip()
+                if text.startswith("CFG "):
+                    assert text[4:] in {"entry", "next", "true", "false", "return", "back", "exception", "throw", "cleanup", "break", "continue", "goto", "case", "default"}
+                    assert path.get("stroke").lower() == "#1565c0"
+                else:
+                    assert text in {"object ref", "constructor ref", "destructor ref"}
+                    assert endpoints[0].startswith("f") and endpoints[1].startswith("n")
+                    assert path.get("stroke").lower() == "#455a64" and path.get("stroke-dasharray")
         else:
             assert label.text and label.text.strip() == label.text
             assert group.find("s:path", ns).get("stroke").lower() == "#7b1fa2"
@@ -78,6 +108,8 @@ def labels(path):
 assert {"Project", "PrintStatement", "ref"} <= labels(sys.argv[1])
 assert "CallExpression" in labels(sys.argv[2])
 assert "PrintStatement" not in labels(sys.argv[2])
+assert {"EXCEPTIONAL_EXIT", "TERMINATE_EXIT", "IMPLICIT_CONSTRUCTOR", "IMPLICIT_DESTRUCTOR",
+        "constructor ref", "destructor ref", "object ref", "CFG exception", "CFG cleanup"} <= labels(sys.argv[3])
 PY
 cp "$work/tree.svg" target/demo/tree.svg
 echo 'Both translations and SVG exports passed.'
