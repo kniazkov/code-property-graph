@@ -1,0 +1,24 @@
+[
+  {
+    "directory": "sources",
+    "file": "a.cpp",
+    "arguments": [
+      "g++",
+      "-std=c++03",
+      "-DBAD=*",
+      "-c",
+      "a.cpp"
+    ]
+  },
+  {
+    "directory": "sources",
+    "file": "b.cpp",
+    "arguments": [
+      "g++",
+      "-std=c++03",
+      "-DBAD=/",
+      "-c",
+      "b.cpp"
+    ]
+  }
+]

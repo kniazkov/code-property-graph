@@ -64,11 +64,7 @@ public final class Main {
         Project project = flags.containsKey("--compile-commands")
                 ? Cpg.readCompilationDatabaseRecovering(Path.of(flags.get("--compile-commands")), options)
                 : Cpg.readRecovering(Path.of(flags.get("--input")), options);
-        for (SourceFile file : project.files()) for (ParseProblem problem : file.parseProblems()) {
-            SourceRange range = problem.range();
-            System.err.println(range.file() + ":" + range.start().line() + ":" + range.start().column()
-                    + ": error [" + problem.code() + "]: " + problem.message());
-        }
+        printParseProblems(project);
         project.walk(new NodeVisitor() {
             @Override public void visit(Node node) {
                 for (Diagnostic d : node.diagnostics()) {
@@ -130,6 +126,29 @@ public final class Main {
             }
             System.out.println("Generated " + generated.size() + " " + to + " file(s) in " + output);
         }
+    }
+
+    /** One primary error per root cause, with distinct evidence retained as labeled notes. */
+    static void printParseProblems(Project project) {
+        for (DiagnosticGroup group : project.diagnosticGroups()) {
+            System.err.println(position(group.primaryRange()) + "error [" + group.code() + "]: " + group.message()
+                    + " (" + count(group.translationUnitCount(), "translation unit")
+                    + ", " + count(group.variantCount(), "variant") + ", " + count(group.occurrenceCount(), "occurrence") + ")");
+            group.occurrences().stream().flatMap(p -> p.relatedRanges().stream()).distinct()
+                    .sorted(Comparator.comparing((DiagnosticRelatedRange r) -> r.range().file())
+                            .thenComparingInt(r -> r.range().start().offset())
+                            .thenComparingInt(r -> r.range().end().offset())
+                            .thenComparing(DiagnosticRelatedRange::role).thenComparing(DiagnosticRelatedRange::label))
+                    .forEach(r -> System.err.println(position(r.range()) + "note [" + r.role() + "]: " + r.label()));
+        }
+    }
+
+    private static String position(SourceRange range) {
+        return range.file() + ":" + range.start().line() + ":" + range.start().column() + ": ";
+    }
+
+    private static String count(int number, String noun) {
+        return number + " " + noun + (number == 1 ? "" : "s");
     }
 
     private static boolean conflicts(Path left, Path right) {
