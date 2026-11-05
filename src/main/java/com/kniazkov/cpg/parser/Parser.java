@@ -514,6 +514,36 @@ public final class Parser {
     /** Namespace and class bodies use the same declaration dispatch as the translation unit. */
     private java.util.List<NodeBuilder<? extends Declaration>> cppDeclarations(boolean member, boolean local) {
         var start = tokens.start();
+        if (tokens.take("template")) {
+            if (member || local || !languageLinkage.equals("C++"))
+                throw tokens.error("Only namespace-scope C++ function templates are supported");
+            tokens.expect("<");
+            var parameters = new java.util.ArrayList<TemplateParameterDeclaration.Builder>();
+            var names = new java.util.HashSet<String>();
+            types.pushScope();
+            java.util.List<NodeBuilder<? extends Declaration>> result;
+            try {
+                do {
+                    var parameterStart = tokens.start();
+                    String keyword = tokens.peek();
+                    if (!keyword.equals("class") && !keyword.equals("typename"))
+                        throw tokens.error("Only named type template parameters are supported");
+                    tokens.advance();
+                    String name = tokens.identifier();
+                    if (!names.add(name)) throw tokens.error("Duplicate template parameter " + name);
+                    parameters.add(tokens.span(parameterStart, TemplateParameterDeclaration.create().setName(name).setKeyword(keyword)));
+                    types.declareTemplateType(name);
+                } while (tokens.take(","));
+                tokens.expect(">");
+                result = declarations(false, false);
+                if (result.size() != 1 || !(result.getFirst() instanceof FunctionDeclaration.Builder function))
+                    throw tokens.error("Only a single free function template is supported");
+                function.setTemplateParameters(parameters);
+                tokens.span(start, function);
+            } finally { types.popScope(); }
+            types.declareName(((FunctionDeclaration.Builder)result.getFirst()).name().orElseThrow());
+            return result;
+        }
         if (tokens.take("friend")) {
             if (!member) throw tokens.error("friend requires class scope");
             var declarations = cppDeclarations(false, false);

@@ -16,27 +16,31 @@ public final class TypeIdentity {
         return type;
     }
     public static String canonicalIdentity(TypeNode type) {
-        return identity(type, Collections.newSetFromMap(new IdentityHashMap<>()));
+        return canonicalIdentity(type, Map.of());
     }
-    private static String identity(TypeNode written, Set<TypeNode> seen) {
+    /** Contextual identities for bound dependent types, keyed by declaration rather than spelling. */
+    public static String canonicalIdentity(TypeNode type, Map<? extends Declaration, String> dependentNames) {
+        return identity(type, Collections.newSetFromMap(new IdentityHashMap<>()), dependentNames);
+    }
+    private static String identity(TypeNode written, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
         TypeNode type = canonicalType(written);
         if (!seen.add(type)) throw new IllegalStateException("Cyclic type identity");
         try {
             return switch (type) {
-                case NamedType n -> n.fundamentalKind().map(FundamentalKind::spelling).orElseGet(() -> "named(" + n.declaration().flatMap(Declaration::typeIdentity).orElse(n.name()) + ")");
-                case QualifiedType q -> qualified(q.baseType(), q.isConst(), q.isVolatile(), seen);
-                case PointerType p -> "pointer(" + identity(p.pointee(), seen) + ")";
-                case ReferenceType r -> "reference(" + identity(r.referredType(), seen) + ")";
-                case ArrayType a -> "array(" + bound(a) + "," + identity(a.elementType(), seen) + ")";
-                case FunctionType f -> "function(" + f.parameters().stream().map(p -> parameter(p.type().orElseThrow(), seen)).collect(Collectors.joining(","))
-                        + (f.variadic() ? ",..." : "") + ")->" + identity(f.returnType(), seen)
+                case NamedType n -> n.fundamentalKind().map(FundamentalKind::spelling).orElseGet(() -> "named(" + n.declaration().map(declaration -> dependentNames.getOrDefault(declaration, declaration.typeIdentity().orElse(n.name()))).orElse(n.name()) + ")");
+                case QualifiedType q -> qualified(q.baseType(), q.isConst(), q.isVolatile(), seen, dependentNames);
+                case PointerType p -> "pointer(" + identity(p.pointee(), seen, dependentNames) + ")";
+                case ReferenceType r -> "reference(" + identity(r.referredType(), seen, dependentNames) + ")";
+                case ArrayType a -> "array(" + bound(a) + "," + identity(a.elementType(), seen, dependentNames) + ")";
+                case FunctionType f -> "function(" + f.parameters().stream().map(p -> parameter(p.type().orElseThrow(), seen, dependentNames)).collect(Collectors.joining(","))
+                        + (f.variadic() ? ",..." : "") + ")->" + identity(f.returnType(), seen, dependentNames)
                         + (f.isConst() ? " const" : "") + (f.isVolatile() ? " volatile" : "");
-                case MemberPointerType p -> "member-pointer(" + identity(p.ownerType(), seen) + "," + identity(p.pointee(), seen) + ")";
+                case MemberPointerType p -> "member-pointer(" + identity(p.ownerType(), seen, dependentNames) + "," + identity(p.pointee(), seen, dependentNames) + ")";
                 default -> throw new IllegalArgumentException("Unknown type identity: " + type.getClass().getName());
             };
         } finally { seen.remove(type); }
     }
-    private static String qualified(TypeNode written, boolean c, boolean v, Set<TypeNode> seen) {
+    private static String qualified(TypeNode written, boolean c, boolean v, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
         TypeNode type = canonicalType(written);
         var visited = Collections.newSetFromMap(new IdentityHashMap<TypeNode, Boolean>());
         while (type instanceof QualifiedType q) {
@@ -46,17 +50,21 @@ public final class TypeIdentity {
         // Typedef-applied array cv belongs to every array element; references ignore it.
         if (type instanceof ArrayType a) {
             if (!seen.add(type)) throw new IllegalStateException("Cyclic array type identity");
-            try { return "array(" + bound(a) + "," + qualified(a.elementType(), c, v, seen) + ")"; }
+            try { return "array(" + bound(a) + "," + qualified(a.elementType(), c, v, seen, dependentNames) + ")"; }
             finally { seen.remove(type); }
         }
-        if (type instanceof ReferenceType) return identity(type, seen);
-        return (c ? "const(" : "") + (v ? "volatile(" : "") + identity(type, seen) + (v ? ")" : "") + (c ? ")" : "");
+        if (type instanceof ReferenceType) return identity(type, seen, dependentNames);
+        return (c ? "const(" : "") + (v ? "volatile(" : "") + identity(type, seen, dependentNames) + (v ? ")" : "") + (c ? ")" : "");
     }
     /** Parameter identity with array/function adjustment and top-level cv removal. */
     public static String parameterIdentity(TypeNode written) {
-        return parameter(written, Collections.newSetFromMap(new IdentityHashMap<>()));
+        return parameterIdentity(written, Map.of());
     }
-    private static String parameter(TypeNode written, Set<TypeNode> seen) {
+    /** Parameter adjustment with contextual identities for bound dependent types. */
+    public static String parameterIdentity(TypeNode written, Map<? extends Declaration, String> dependentNames) {
+        return parameter(written, Collections.newSetFromMap(new IdentityHashMap<>()), dependentNames);
+    }
+    private static String parameter(TypeNode written, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
         TypeNode type = canonicalType(written);
         boolean c = false, v = false;
         var visited = Collections.newSetFromMap(new IdentityHashMap<TypeNode, Boolean>());
@@ -66,9 +74,9 @@ public final class TypeIdentity {
         }
         // Adjust arrays before discarding top-level parameter cv: these qualifiers
         // belong to the pointed-to element, not to the resulting pointer.
-        if (type instanceof ArrayType a) return "pointer(" + qualified(a.elementType(), c, v, seen) + ")";
-        if (type instanceof FunctionType f) return "pointer(" + identity(f, seen) + ")";
-        return identity(type, seen);
+        if (type instanceof ArrayType a) return "pointer(" + qualified(a.elementType(), c, v, seen, dependentNames) + ")";
+        if (type instanceof FunctionType f) return "pointer(" + identity(f, seen, dependentNames) + ")";
+        return identity(type, seen, dependentNames);
     }
     private static String bound(ArrayType type) {
         return type.bound().map(e -> portableInteger(e).map(Object::toString).orElseGet(() -> e.source(Language.CPP))).orElse("");

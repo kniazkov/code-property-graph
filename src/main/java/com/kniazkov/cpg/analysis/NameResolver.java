@@ -16,7 +16,7 @@ public final class NameResolver {
         // The syntax depth bounds this propagation, without assuming a fixed nesting limit.
         int depth = expressionDepth(typed);
         for (int i = 0; i <= depth; i++) typed = new Engine(typed.edit().build()).linkDeclarations();
-        return new Engine(StandardConversions.analyze(typed)).validateStatements();
+        return Documentation.analyze(new Engine(StandardConversions.analyze(typed)).validateStatements());
     }
 
     private static int expressionDepth(Node node) {
@@ -118,15 +118,17 @@ public final class NameResolver {
             } else if (node instanceof CallableDeclaration callable) {
                 Scope nested = new Scope(scope, scope.file, qualify(scope.qualified, callable.name()), true, scope.anonymous, false);
                 functionScopes.add(nested); callableScopes.put(nested, callable);
-                callable.writtenType().ifPresent(type -> index(type, scope));
-                callable.returnType().ifPresent(type -> index(type, scope));
+                callable.templateParameters().forEach(parameter -> index(parameter, nested));
+                Scope signatureScope = callable.templateParameters().isEmpty() ? scope : nested;
+                callable.writtenType().ifPresent(type -> index(type, signatureScope));
+                callable.returnType().ifPresent(type -> index(type, signatureScope));
                 callable.conversionType().ifPresent(type -> index(type, scope));
                 callable.parameters().forEach(parameter -> index(parameter, nested));
                 positions.put(callable, position++); // A function name follows its complete declarator.
                 callable.initializers().forEach(initializer -> index(initializer, nested));
                 callable.body().ifPresent(body -> index(body, nested));
                 callable.handlers().forEach(handler -> index(handler, nested));
-                callable.exceptionTypes().forEach(type -> index(type, scope));
+                callable.exceptionTypes().forEach(type -> index(type, signatureScope));
                 index(callable.exit(), nested);
             } else if (node instanceof FunctionType function) {
                 Scope nested = new Scope(scope, scope.file, scope.qualified + "#prototype" + positions.get(node), true, scope.anonymous, false);
@@ -1038,7 +1040,7 @@ public final class NameResolver {
             Scope scope = scopes.get(declaration);
             if ((declaration instanceof EnumDeclaration || declaration instanceof VariableDeclaration) && name(declaration).isEmpty()) return null;
             String category;
-            if (declaration instanceof CallableDeclaration callable) category = "function:" + signature(callable);
+            if (declaration instanceof CallableDeclaration callable) category = (callable.templateParameters().isEmpty() ? "function:" : "function-template:") + signature(callable);
             else if (declaration instanceof VariableDeclaration) category = "variable";
             else if (declaration instanceof ClassDeclaration) category = "class";
             else if (declaration instanceof NamespaceDeclaration) category = "namespace";
@@ -1084,15 +1086,16 @@ public final class NameResolver {
         }
         boolean permittedRepeatedDefinitions(List<Declaration> definitions) {
             if (definitions.stream().anyMatch(declaration -> !(declaration instanceof CallableDeclaration callable)
-                    || !(callable instanceof MethodDeclaration) && !callable.modifiers().contains("inline"))) return false;
+                    || !(callable instanceof MethodDeclaration) && !callable.modifiers().contains("inline")
+                        && callable.templateParameters().isEmpty())) return false;
             Set<SourceFile> files = Collections.newSetFromMap(new IdentityHashMap<>());
             if (definitions.stream().anyMatch(declaration -> !files.add(scopes.get(declaration).file))) return false;
-            // Compare syntax, not token locations, across repeated inline definitions.
+            // Compare syntax, not token locations, across repeated inline/template definitions.
             return definitions.stream().map(declaration -> declaration.source(Language.CPP)).distinct().count() == 1;
         }
         String declaredType(Declaration declaration) {
             if (declaration instanceof CallableDeclaration callable)
-                return callable.returnType().map(TypeNode::canonicalIdentity).orElse("void")
+                return callable.returnType().map(type -> TypeIdentity.canonicalIdentity(type, templateIdentities(callable))).orElse("void")
                         + (callable.languageLinkage().equals("C") ? ":" + parameterSignature(callable) : "");
             if (declaration instanceof VariableDeclaration variable) return variable.type().map(TypeNode::canonicalIdentity).orElse("");
             if (declaration instanceof TypedefDeclaration alias) return alias.type().canonicalIdentity();
@@ -1197,6 +1200,12 @@ public final class NameResolver {
                     visible = distinct(combined);
                     declarations = visible.stream().map(Match::declaration).filter(CallableDeclaration.class::isInstance)
                             .map(CallableDeclaration.class::cast).toList();
+                }
+                // Template deduction/instantiation is deliberately deferred. Even a nondependent
+                // signature is not an ordinary callable candidate, nor can its presence be ignored.
+                if (declarations.stream().anyMatch(candidate -> !candidate.templateParameters().isEmpty())) {
+                    editor.resolve(call, List.of(), CallExpression.Resolution.UNRESOLVED);
+                    return;
                 }
                 // Redeclarations represent one candidate, but retain the latest source declaration
                 // so defaults are collected from the statically selected declaration scope.
@@ -1542,9 +1551,20 @@ public final class NameResolver {
         if (declaration.writtenType().map(TypeNode::canonicalType).orElse(null) instanceof FunctionType written) {
             parameters = written.parameters(); variadic = written.variadic(); constant = written.isConst(); vol = written.isVolatile();
         }
-        return "function(" + parameters.stream().map(parameter -> parameter.type().map(TypeIdentity::parameterIdentity).orElse("named(<unknown>)"))
-                .collect(java.util.stream.Collectors.joining(",")) + (variadic ? ",..." : "") + ")->void"
+        Map<Declaration, String> dependentNames = templateIdentities(declaration);
+        String head = dependentNames.isEmpty() ? "" : "template[" + dependentNames.size() + "]:";
+        String result = dependentNames.isEmpty() ? "void" : declaration.returnType()
+                .map(type -> TypeIdentity.canonicalIdentity(type, dependentNames)).orElse("void");
+        return head + "function(" + parameters.stream().map(parameter -> parameter.type().map(type -> TypeIdentity.parameterIdentity(type, dependentNames)).orElse("named(<unknown>)"))
+                .collect(java.util.stream.Collectors.joining(",")) + (variadic ? ",..." : "") + ")->" + result
                 + (constant ? " const" : "") + (vol ? " volatile" : "");
+    }
+
+    private static Map<Declaration, String> templateIdentities(CallableDeclaration declaration) {
+        var result = new IdentityHashMap<Declaration, String>();
+        for (int i = 0; i < declaration.templateParameters().size(); i++)
+            result.put(declaration.templateParameters().get(i), "template-type#" + i);
+        return result;
     }
 
     private static String expressionName(Expression expression) {
@@ -1557,7 +1577,7 @@ public final class NameResolver {
         return null;
     }
     private static boolean isType(Declaration declaration) {
-        return declaration instanceof TypedefDeclaration || declaration instanceof ClassDeclaration || declaration instanceof EnumDeclaration;
+        return declaration instanceof TemplateParameterDeclaration || declaration instanceof TypedefDeclaration || declaration instanceof ClassDeclaration || declaration instanceof EnumDeclaration;
     }
     private static String qualify(String owner, String name) { return owner.isEmpty() ? name : owner + "::" + name; }
     private static List<String> modifiers(Declaration declaration) {
@@ -1570,6 +1590,7 @@ public final class NameResolver {
     private static String name(Declaration declaration) {
         if (declaration instanceof CallableDeclaration callable) return unqualified(callable.name());
         if (declaration instanceof VariableDeclaration variable) return unqualified(variable.name());
+        if (declaration instanceof TemplateParameterDeclaration parameter) return parameter.name();
         if (declaration instanceof ParameterDeclaration parameter) return parameter.name();
         if (declaration instanceof ClassDeclaration owner) return owner.name();
         if (declaration instanceof TypedefDeclaration alias) return alias.name();

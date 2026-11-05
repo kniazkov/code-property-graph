@@ -237,7 +237,7 @@ public final class Source {
                 || !declaration.languageLinkage().equals("C++")
                 || declaration instanceof VariableDeclaration variable && (!variable.modifiers().isEmpty() || variable.bitWidth().isPresent() || variable.initializer().orElse(null) instanceof InitializationExpression)
                 || declaration instanceof ParameterDeclaration parameter && (!parameter.modifiers().isEmpty() || parameter.defaultValue().isPresent())
-                || declaration instanceof CallableDeclaration callable && (callable.kind() != CallableDeclaration.Kind.FUNCTION || callable.variadic() || callable.isPureVirtual() || callable.isConst() || callable.isVolatile()
+                || declaration instanceof CallableDeclaration callable && (!callable.templateParameters().isEmpty() || callable.kind() != CallableDeclaration.Kind.FUNCTION || callable.variadic() || callable.isPureVirtual() || callable.isConst() || callable.isVolatile()
                         || callable.writtenType().isPresent() || callable.hasExceptionSpecification() || callable.functionTryBlock() || callable.modifiers().stream()
                         .anyMatch(m -> Set.of("extern", "inline", "virtual", "friend").contains(m)));
     }
@@ -366,6 +366,8 @@ public final class Source {
         String pad = "    ".repeat(level);
         return switch (n) {
             case Comment ignored -> "";
+            case DocumentationEntry ignored -> "";
+            case TemplateParameterDeclaration p -> p.keyword() + " " + p.name();
             case SourceFile f -> f.items().stream().map(item -> emit(item, level)).collect(Collectors.joining("\n"));
             case IncludeDirective i when target == Language.CPP -> "#include " + (i.system() ? "<" + i.header() + ">" : "\"" + i.header() + "\"") + "\n";
             case NamespaceDeclaration namespace -> pad + "namespace" + (namespace.anonymous() ? "" : " " + namespace.name()) + " {\n"
@@ -378,7 +380,7 @@ public final class Source {
             case EnumeratorDeclaration value -> value.name() + value.value().map(expression -> " = " + emit(expression, 0)).orElse("");
             case ClassDeclaration c -> c.implicit() ? "" : !c.isDefinition() ? pad + (c.isFriend() ? "friend " : "") + c.keyword() + " " + c.name() + ";\n"
                     : pad + classStart(c) + classMembers(c, level + 1) + pad + classEnd();
-            case CallableDeclaration f -> linkage(f, pad + (f.isFriend() ? "friend " : "") + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
+            case CallableDeclaration f -> linkage(f, (f.templateParameters().isEmpty() ? "" : pad + "template <" + f.templateParameters().stream().map(p -> emit(p, 0)).collect(Collectors.joining(", ")) + ">\n") + pad + (f.isFriend() ? "friend " : "") + String.join("", f.modifiers().stream().map(m -> m + " ").toList())
                     + (f.writtenType().isPresent() ? declaration(f.writtenType().orElseThrow(), f.name()) + ";\n"
                         : callableHead(f)
                             + f.body().map(b -> " " + emit(b, level) + f.handlers().stream().map(h -> emit(h, level)).collect(Collectors.joining())).orElse(f.isPureVirtual() ? " = 0;\n" : ";\n")), level);

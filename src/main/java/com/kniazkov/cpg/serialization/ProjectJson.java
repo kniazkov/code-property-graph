@@ -90,7 +90,24 @@ public final class ProjectJson {
                 }
                 case ExternalInput input -> obj.put("key", input.key()).put("role", input.role())
                         .put("text", input.text()).put("inputs", nodes(input.inputs()));
-                case Comment comment -> obj.put("commentKind", comment.kind().name()).put("text", comment.text());
+                case Comment comment -> {
+                    obj.put("commentKind", comment.kind().name()).put("text", comment.text());
+                    if (!comment.documentationEntries().isEmpty()) obj.put("documentationEntries", nodes(comment.documentationEntries()));
+                }
+                case DocumentationEntry entry -> {
+                    obj.put("documentationKind", entry.kind().name()).put("name", entry.name()).put("description", entry.description());
+                    entry.nameRange().ifPresent(r -> obj.put("nameRange", range(r)));
+                    entry.tagRange().ifPresent(r -> obj.put("tagRange", range(r)));
+                    obj.array("bindings", a -> entry.bindings().forEach(binding -> a.object(b -> {
+                        b.put("declarationId", ids.get(binding.declaration()));
+                        if (binding.target() != null) b.put("targetId", ids.get(binding.target()));
+                        binding.declaration().provenance().ifPresent(p -> {
+                            b.put("translationUnitId", units.get(p.unit()));
+                            if (p.startToken() < p.unit().tokens().size()) b.put("includeId", p.unit().tokens().get(p.startToken()).includeId());
+                        });
+                    })));
+                }
+                case TemplateParameterDeclaration parameter -> obj.put("name", parameter.name()).put("keyword", parameter.keyword());
                 case SourceFile f -> {
                     obj.put("path", f.range().map(SourceRange::file)
                                 .orElseGet(() -> Path.of(f.path()).toAbsolutePath().normalize().toString()))
@@ -149,6 +166,7 @@ public final class ProjectJson {
                     c.conversionType().ifPresent(t -> obj.put("conversionType", node(t)));
                     c.writtenType().ifPresent(t -> obj.put("writtenType", node(t)));
                     obj.put("parameters", nodes(c.parameters()));
+                    if (!c.templateParameters().isEmpty()) obj.put("templateParameters", nodes(c.templateParameters()));
                     c.body().ifPresent(b -> obj.put("body", node(b)));
                     obj.put("exit", node(c.exit()));
                     if (c.variadic()) obj.put("variadic", true);

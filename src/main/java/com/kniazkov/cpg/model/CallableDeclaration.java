@@ -31,6 +31,9 @@ public abstract class CallableDeclaration extends Declaration {
     /** Written conversion-type-id; conversion functions have no written return type. */
     public Optional<TypeNode> conversionType() { return Optional.ofNullable(conversionType); }
     private TypeNode writtenType;
+    private List<TemplateParameterDeclaration> templateParameters = List.of();
+    /** Written type template parameters; no deduction or instantiation is implied. */
+    public List<TemplateParameterDeclaration> templateParameters() { return templateParameters; }
     private List<ParameterDeclaration> parameters = List.of();
     private BlockStatement body;
     private Exit exit;
@@ -78,6 +81,7 @@ public abstract class CallableDeclaration extends Declaration {
     @Override
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
+        children.addAll(templateParameters);
         if (writtenType != null) children.add(writtenType);
         if (conversionType != null) children.add(conversionType);
         if (returnType != null) {
@@ -114,6 +118,7 @@ public abstract class CallableDeclaration extends Declaration {
         builder.exceptionTypes = context.copyAll(exceptionTypes, TypeNode.class);
         builder.returnType = returnType == null ? null : context.edge(returnType, TypeNode.class);
         builder.writtenType = writtenType == null ? null : context.edge(writtenType, TypeNode.class);
+        builder.templateParameters = context.copyAll(templateParameters, TemplateParameterDeclaration.class);
         builder.parameters = context.copyAll(parameters, ParameterDeclaration.class);
         builder.body = body == null ? null : context.edge(body, BlockStatement.class);
         builder.exit = context.edge(exit, Exit.class);
@@ -157,6 +162,10 @@ public abstract class CallableDeclaration extends Declaration {
         public Optional<NodeBuilder<? extends TypeNode>> writtenType() { return Optional.ofNullable(writtenType); }
         public B setWrittenType(NodeBuilder<? extends TypeNode> value) { syntaxEdited = true; writtenType = Objects.requireNonNull(value); return self(); }
         public B clearWrittenType() { syntaxEdited = true; writtenType = null; return self(); }
+        private List<NodeBuilder<? extends TemplateParameterDeclaration>> templateParameters = new ArrayList<>();
+        public List<NodeBuilder<? extends TemplateParameterDeclaration>> templateParameters() { return List.copyOf(templateParameters); }
+        public B setTemplateParameters(List<? extends NodeBuilder<? extends TemplateParameterDeclaration>> values) { syntaxEdited = true; templateParameters = new ArrayList<>(List.copyOf(values)); return self(); }
+        public B addTemplateParameter(NodeBuilder<? extends TemplateParameterDeclaration> value) { syntaxEdited = true; templateParameters.add(Objects.requireNonNull(value)); return self(); }
         private List<NodeBuilder<? extends ParameterDeclaration>> parameters = new ArrayList<>();
         private NodeBuilder<? extends BlockStatement> body;
         private NodeBuilder<? extends Exit> exit = Exit.create();
@@ -274,6 +283,7 @@ public abstract class CallableDeclaration extends Declaration {
             node.exceptionTypes = context.copyAll(exceptionTypes);
             node.returnType = returnType == null ? null : context.copy(returnType);
             node.writtenType = writtenType == null ? null : context.copy(writtenType);
+            node.templateParameters = context.copyAll(templateParameters);
             node.parameters = context.copyAll(parameters);
             node.body = body == null ? null : context.copy(body);
             node.exit = context.copy(exit);

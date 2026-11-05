@@ -862,7 +862,7 @@ not a claim of whole-language C++ exception/lifetime coverage.
 
 ## Physical comments and explicit removal (#32)
 
-C++ comments are data, never syntax tokens or documentation directives. A `Comment`
+C++ comments are physical data, never syntax tokens. Structured Doxygen interpretation is described below. A `Comment`
 records `Kind.LINE` or `Kind.BLOCK`, exact physical `text()` (including delimiters,
 line splices and internal line endings), and a half-open physical `range()`.
 `SourceFile.comments()` owns each physical comment once, including comments in
@@ -907,3 +907,41 @@ swallow it; its newly lexed range may therefore differ. Physical unchanged file
 emission has no such relocation and remains exact. Java emission rejects comment
 spellings whose C++ splicing/delimiters or Java Unicode escapes could expose commented
 text as code rather than silently changing their meaning.
+
+## Linked Doxygen entries and safe parameter rename (#33)
+
+`Comment.documentationEntries()` owns ordered `DocumentationEntry` nodes for
+`@brief`, `@param`, `@tparam` and `@return`, also accepting backslash commands.
+The full physical comment remains authoritative: unknown commands and free prose
+are retained, even when no structured entry is created. Each entry exposes its
+kind, name, description, tag range and exact parameter-name range. Its `bindings()`
+keep the exact callable declaration and parameter (or template parameter) target
+for each include/configuration occurrence. These are non-owning references and
+are remapped during copying. JSON exports the ordered entries, target/declaration
+IDs and translation-unit/include context; DOT displays both ownership and binding
+edges. Unbound names carry diagnostics rather than guessed links.
+
+`analysis.Documentation.forDeclaration(project, callable)` combines documentation
+from linked declarations and definitions. `commentsForDeclaration` keeps their
+separate comments and briefs; repeated physical header text is returned once.
+`forParameter(project, parameter)` follows the parameter position across those
+linked declarations, even when a prototype says `count` and its definition says
+`n`. Queries do not rewrite the original binding to the other occurrence.
+
+Use `utilities.Documentation.renameParameter(project, parameter, "amount")` for
+an explicit rename. It returns an independent project and changes only the exact
+parameter identifier, resolved code uses, and names of tags bound to that parameter.
+Renaming header `count` leaves definition `n` unchanged; renaming `n` leaves
+`@param count` unchanged. Description text is byte-for-byte preserved. Compatible
+repeated header occurrences are updated together. Conflicting include contexts,
+macro-expanded identifiers, names that might capture another symbol, missing
+provenance and unapplied syntax edits are conservatively rejected. The utility
+replays captured sources with the original configurations and translation times,
+rebuilding ranges, bindings and analysis; it never writes files or relaxes generic
+comment-catalogue validation. Emit/reparse existing edits before calling it.
+
+Minimal function-template declarations support owned `templateParameters()` with
+`TemplateParameterDeclaration.name()` and `keyword()` (`class`/`typename`), dependent
+written type references, C++ emission and JSON/DOT export. The same rename utility
+updates a template parameter's bound type occurrences and `@tparam` name. This is
+not general template instantiation, specialization or argument deduction support.
