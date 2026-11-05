@@ -447,3 +447,14 @@ library operators, constructors, storage effects and source preservation.
 Separate audited overload inventories, native signature-only probes and CPG
 resolution tests cover the other remaining families. Macro-only and opaque
 implementation boundaries are recorded in the library catalogue guide.
+
+### Contextual memory effects
+
+`interprocedural-dfg` executes pointer/reference aliases, exact and conditional
+callee writes, two calls with distinct objects, coincident reference arguments,
+returned pointers, field/array storage, mutual recursion and a write before
+throw. Original/GREEN/FOLDED and compact SVG programs compile and run under
+strict GCC and Clang C++03. API/CLI JSON, copied graphs, DOT and SVG retain
+call-site identity on body-to-caller dependencies and return-value edges.
+Declaration-only external effects and adversarial alias boundaries are checked
+separately by focused API/JSON regression tests.

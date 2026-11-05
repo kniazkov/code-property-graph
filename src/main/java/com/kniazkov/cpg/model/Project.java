@@ -359,9 +359,12 @@ public final class Project extends Node {
         var nodes = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
         walk(new NodeVisitor() { @Override public void visit(Node node) { nodes.add(node); } });
         for (FunctionFlow flow : copy.flows) {
-            for (var edge : flow.data()) for (Node endpoint : List.of(edge.from(), edge.to()))
-                if ((endpoint instanceof DynamicArrayOperation || endpoint instanceof ContainerOperation || endpoint instanceof SequenceOperation) && !nodes.contains(endpoint))
-                    throw new IllegalArgumentException("Foreign dynamic-array flow operation");
+            for (var edge : flow.data()) {
+                for (Node endpoint : List.of(edge.from(), edge.to()))
+                    if (!nodes.contains(endpoint)) throw new IllegalArgumentException("Foreign data-flow endpoint");
+                if (edge.callSite() != null && !nodes.contains(edge.callSite()))
+                    throw new IllegalArgumentException("Foreign data-flow call site");
+            }
             for (var auxiliary : flow.auxiliaryVertices()) {
                 if (auxiliary.object().filter(n -> !nodes.contains(n)).isPresent()
                         || auxiliary.destructor().or(auxiliary::constructor).filter(n -> !nodes.contains(n)).isPresent())
@@ -415,7 +418,8 @@ public final class Project extends Node {
             var control = flow.control().stream().map(e -> new FunctionFlow.ControlEdge(
                     endpoint.apply(e.from()), endpoint.apply(e.to()), e.kind())).toList();
             var data = flow.data().stream().map(e -> new FunctionFlow.DataEdge(
-                    copied.apply(e.from()), copied.apply(e.to()), e.kind())).toList();
+                    copied.apply(e.from()), copied.apply(e.to()), e.kind(),
+                    e.callSite() == null ? null : (CallExpression) copied.apply(e.callSite()))).toList();
             return new FunctionFlow(entry, entry.exit(), control, data, flow.complete());
         }).toList();
         return copy;

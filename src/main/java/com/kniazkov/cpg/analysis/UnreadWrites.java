@@ -19,10 +19,15 @@ public final class UnreadWrites {
     public static Project analyze(Project resolved) {
         Project project = DataFlow.analyze(resolved);
         Map<Node, Diagnostic> findings = new IdentityHashMap<>();
+        // A callee write may be observed only after returning to its caller.
+        Set<Node> observed = Collections.newSetFromMap(new IdentityHashMap<>());
+        project.flows().forEach(flow -> flow.data().stream()
+                .filter(edge -> edge.kind() == FunctionFlow.Dependency.DEFINITION)
+                .forEach(edge -> observed.add(edge.from())));
         var contexts = SourceContexts.index(project);
         for (var flow : project.flows()) {
             SourceFile source = SourceContexts.require(contexts, flow.entry());
-            inspect(flow, project.dynamicArraySemantics(), project.containerSemantics(), project.sequenceSemantics(), source.language() == Language.CPP ? TypeSemantics.profile(source) : null, findings);
+            inspect(flow, project.dynamicArraySemantics(), project.containerSemantics(), project.sequenceSemantics(), source.language() == Language.CPP ? TypeSemantics.profile(source) : null, observed, findings);
         }
         return project.withDiagnostics(CODE, findings);
     }
@@ -33,14 +38,13 @@ public final class UnreadWrites {
         callable.handlers().forEach(handler -> handler.walk(visitor));
     }
 
-    private static void inspect(FunctionFlow flow, List<DynamicArrayOperation> operations, List<ContainerOperation> containers, List<SequenceOperation> sequences, PlatformProfile profile, Map<Node, Diagnostic> findings) {
+    private static void inspect(FunctionFlow flow, List<DynamicArrayOperation> operations, List<ContainerOperation> containers, List<SequenceOperation> sequences, PlatformProfile profile, Set<Node> observed, Map<Node, Diagnostic> findings) {
         if (!flow.complete()) return;
         Map<Node, String> candidates = new IdentityHashMap<>();
         Set<Node> normalized = Collections.newSetFromMap(new IdentityHashMap<>());
         operations.forEach(operation -> normalized.add(operation.syntax()));
         containers.forEach(operation -> normalized.add(operation.syntax()));
         sequences.forEach(operation -> normalized.add(operation.syntax()));
-        Set<Node> read = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Declaration> escaped = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Node> unevaluated = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Declaration> libraryAccessible = profile == null ? Set.of() : LibraryCallEffects.accessible(flow.entry(), profile);
@@ -108,9 +112,8 @@ public final class UnreadWrites {
         for (var edge : flow.data()) {
             // Common sequence writes are observable object operations, not dead scalar stores.
             if (edge.kind() == FunctionFlow.Dependency.VALUE && normalized.contains(edge.to())) continue;
-            if (edge.kind() == FunctionFlow.Dependency.DEFINITION) {
-                read.add(edge.from());
-            } else if (edge.to() instanceof VariableDeclaration v && !escaped.contains(v)) {
+            if (edge.kind() == FunctionFlow.Dependency.DEFINITION) continue;
+            if (edge.to() instanceof VariableDeclaration v && !escaped.contains(v)) {
                 candidates.put(v, v.name());
             } else {
                 Node write = edge.to();
@@ -125,7 +128,7 @@ public final class UnreadWrites {
             }
         }
         candidates.forEach((write, name) -> {
-            if (!read.contains(write))
+            if (!observed.contains(write))
                 findings.put(write, new Diagnostic(CODE, Diagnostic.Severity.WARNING,
                         "Value written to '" + name + "' is never read"));
         });

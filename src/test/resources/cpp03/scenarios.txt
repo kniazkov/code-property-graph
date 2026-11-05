@@ -57,3 +57,6 @@ strings-algorithms
 
 # Remaining library families: stream state and I/O iterators.
 remaining-library
+
+# Call-site-sensitive aliases, returns, recursion and exceptional writes.
+interprocedural-dfg

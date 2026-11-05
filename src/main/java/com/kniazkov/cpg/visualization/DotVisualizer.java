@@ -392,6 +392,7 @@ public final class DotVisualizer {
             }
             for (var edge : flow.data()) {
                 String label = edge.kind() == FunctionFlow.Dependency.VALUE ? "DFG value" : "DFG def";
+                if (edge.callSite() != null) label += " via call n" + id(edge.callSite());
                 flowEdge("n" + id(edge.from()), "n" + id(edge.to()), label, "#aa3377");
             }
         }

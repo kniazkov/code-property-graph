@@ -1218,3 +1218,45 @@ Unknown implementations remain conservative; callback invocation counts and
 unspecified ordering are not invented. Original C++ syntax and unsupported
 operations are preserved. JSON and DOT export the same owned type, range,
 callable, result and mutation relationships, including copied snapshots.
+
+## Contextual object data flow (C++03)
+
+`FunctionFlow.DataEdge` retains `from`, `to` and `kind`, and adds nullable
+`callSite()`. An intraprocedural edge has no call site; the three-argument
+constructor remains available. For an edge carried through a function call,
+the site is the invocation in the owning caller flow. A callee assignment can
+therefore reach reads in two callers without conflating their actual objects.
+Nested effects are attributed to the outer invocation in that caller's flow.
+JSON exports `callSiteId` on contextual edges, and DOT labels the invocation.
+Diagnostic-only snapshot copies reconnect the endpoints and invocation to the
+new snapshot. Ordinary graph edits discard stale flow results for reanalysis.
+
+C++ object memory distinguishes pointer bindings from pointees, references from
+stored objects, and known fields/elements from their containing object. An
+external call through a writable reference or pointer may add a write; passing
+an address does not prove the previous value was overwritten. For example,
+`int x=1; update(x); use(x);` with declaration-only `void update(int&)` retains
+both the initialization and the specific call as possible reaching sources.
+For an ordinary `CallExpression`, an available body can prove an exact-object write
+on normal return. Conditional
+writes and uncertain aliases retain the earlier source. Normal and exceptional
+outcomes are separate, possible virtual targets are joined, and recursion uses
+stable conservative effects rather than an assumed finite execution depth.
+`UnreadWrites` considers reads of contextual body sources across function flows.
+
+The API/JSON tests cover external versus body-proven writes, two invocations,
+aliased reference arguments, returned pointers/references, fields/elements,
+recursion and exception paths. The native `interprocedural-dfg` scenario checks
+source round trips separately. Unknown memory and unavailable targets retain
+possible effects; this is not a whole-program proof of all C++ alias behavior.
+
+Implicit constructor/destructor invocations and overloaded operator syntax retain
+conservative local syntax/object effects even when their bodies are available.
+Their prior definitions remain possible; they do not claim body-proven kills or
+foreign-body invocation IDs. Exact contextual body attribution currently applies
+to ordinary `CallExpression` nodes, including resolved member and virtual calls.
+Reference-member bindings that are not proved, indirect data-member selections
+and pointer-arithmetic joins use conservative possible locations. They can add
+sources without proving an overwrite. Pointer-location widening keeps loop and
+recursive analysis finite; it does not assume a target object layout or ABI.
+Repeated or unresolved base-subobject paths use weak field views; distinct resolved field declarations remain separate even when their names match.
