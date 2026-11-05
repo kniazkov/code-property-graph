@@ -2,6 +2,7 @@
 package com.kniazkov.cpg.model;
 
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -28,7 +29,9 @@ public final class NameExpression extends Expression {
 
     @Override
     public List<Node> references() {
-        return target == null ? List.of() : List.of(target);
+        var result = new ArrayList<Node>(super.references());
+        if (target != null && !result.contains(target)) result.add(target);
+        return List.copyOf(result);
     }
 
     @Override

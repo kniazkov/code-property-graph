@@ -752,3 +752,50 @@ calls on unrelated receivers remain open-world.
 Declaration/base syntax edits through ProjectEditor conservatively clear stored
 virtual-call targets across the snapshot; rerun resolution to repopulate them.
 Unchanged copies retain and remap these non-owning edges.
+
+## Overloads, ADL and nominal type identity (#30)
+
+The supported selector compares conversion sequences pairwise: exact match,
+promotion, standard conversion, user-defined conversion, then ellipsis. It does
+not add numeric costs across arguments: crossed better/worse arguments remain
+ambiguous. Qualification/reference binding, supported derived-to-base paths,
+null pointer conversions and viable default/variadic arguments participate.
+An unknown conversion leaves selection unresolved. ADL adds associated class,
+base-class and namespace candidates, including hidden friends and enum namespaces.
+Selected inaccessible members receive diagnostics rather than silently choosing
+a worse accessible overload. Non-explicit converting constructors and conversion
+functions participate where their supported conversion sequence is known;
+`explicit` constructors do not supply an implicit argument conversion.
+
+Overload selection uses nominal C++ type identity, not storage width. On a
+profile where `int` and `long` are both 32 bits, `f(1)` still selects `f(int)`
+and `f(1L)` selects `f(long)`. Written types, typedef uses and literal suffixes
+remain available to source generation; a numeric range is not a type alias.
+
+The written operator expression remains the syntax owner. For
+`Money price; Money tax; ... price + tax`, the `AddExpression` still owns its
+left and right operands. `Expression.operatorTarget()` is a non-owning reference
+to the selected callable; `operatorCandidates()` and `operatorResolution()`
+preserve unresolved/ambiguous alternatives without inventing a unique target.
+They are separate from `CallExpression.target()` and its ordinary call candidates.
+Copies remap these references into the copied project. Generated C++ retains
+`price + tax`, rather than rewriting it as `operator+(price, tax)`.
+
+JSON exports `operatorResolution`, `operatorCandidateIds` and, for a selected
+implementation, `operatorTargetId`. These are destination IDs, not duplicated
+syntax children. DOT adds `operator implementation` or unresolved candidate
+edges alongside the ordinary dashed references. Written nominal types and
+`1L` remain visible in the same snapshot.
+
+A conversion function is a `CallableDeclaration` of kind `CONVERSION`. Its
+owned `conversionType()` is the written conversion-type-id, exported as
+`conversionType`; `returnType()` is absent. Source generation emits, for example,
+`operator int() const`, never `int operator int() const`. User-defined operators
+and conversion functions are not silently translated into Java.
+
+A selected overloaded logical operator evaluates both operands as a function
+operation. Built-in `&&` and `||` keep short-circuit semantics. Analysis and
+constant folding must not erase a selected user-defined implementation or treat
+it as built-in arithmetic merely because its spelling is `+`, `&&` or `||`.
+This contract does not claim full template overload resolution, complete ABI
+behavior, or guessed semantics for unknown external/user-defined bodies.

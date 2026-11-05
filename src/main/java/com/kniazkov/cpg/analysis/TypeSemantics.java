@@ -150,6 +150,9 @@ public final class TypeSemantics {
         return plain instanceof ReferenceType reference ? reference.referredType() : type;
     }
     private static Optional<TypeNode> rawExpressionType(Expression expression, PlatformProfile profile) {
+        if (expression instanceof ConversionExpression conversion) return Optional.of(conversion.targetType());
+        if (expression.operatorTarget().isPresent()) return expression.operatorTarget().orElseThrow().returnType();
+        if (!expression.operatorCandidates().isEmpty()) return Optional.empty();
         if (expression instanceof IntegerLiteral literal)
             return ConstantEvaluator.literal(literal, profile).map(value -> named(value.type().spelling()));
         if (expression instanceof BooleanLiteral) return Optional.of(named("bool"));
@@ -170,7 +173,8 @@ public final class TypeSemantics {
                 .setBaseType(NamedType.create().setName("std::type_info")).setConst(true).build());
         if (expression instanceof NameExpression name) return declarationType(name.target());
         if (expression instanceof MemberExpression member) return declarationType(member.target());
-        if (expression instanceof CallExpression call) return callType(call, profile).map(FunctionType::returnType);
+        if (expression instanceof CallExpression call) return call.target().flatMap(CallableDeclaration::returnType)
+                .or(() -> callType(call, profile).map(FunctionType::returnType));
         if (expression instanceof AssignmentExpression assignment) return expressionType(assignment.target(), profile);
         if (expression instanceof CompoundAssignmentExpression assignment) return expressionType(assignment.target(), profile);
         if (expression instanceof ConditionalExpression conditional) {
@@ -242,6 +246,12 @@ public final class TypeSemantics {
                 .orElse(false);
     }
     public static ValueCategory valueCategory(Expression expression, PlatformProfile profile) {
+        if (expression instanceof ConversionExpression conversion)
+            return unqualified(conversion.targetType()) instanceof ReferenceType ? ValueCategory.LVALUE : ValueCategory.RVALUE;
+        if (expression.operatorTarget().isPresent()) return expression.operatorTarget().orElseThrow().returnType()
+                .map(type -> unqualified(type) instanceof ReferenceType ? ValueCategory.LVALUE : ValueCategory.RVALUE)
+                .orElse(ValueCategory.UNKNOWN);
+        if (!expression.operatorCandidates().isEmpty()) return ValueCategory.UNKNOWN;
         if (expression instanceof TypeidExpression) return ValueCategory.LVALUE;
         if (expression instanceof StringLiteral || expression instanceof DereferenceExpression || expression instanceof IndexExpression
                 || expression instanceof AssignmentExpression || expression instanceof CompoundAssignmentExpression

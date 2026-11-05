@@ -129,6 +129,7 @@ public final class ProjectJson {
                     if (!c.initializers().isEmpty()) obj.put("initializers", nodes(c.initializers()));
                     obj.put("name", c.name()).array("modifiers", a -> a.addAll(c.modifiers()));
                     c.returnType().ifPresent(t -> obj.put("returnType", node(t)));
+                    c.conversionType().ifPresent(t -> obj.put("conversionType", node(t)));
                     c.writtenType().ifPresent(t -> obj.put("writtenType", node(t)));
                     obj.put("parameters", nodes(c.parameters()));
                     c.body().ifPresent(b -> obj.put("body", node(b)));
@@ -242,6 +243,12 @@ public final class ProjectJson {
                 case UnaryExpression u -> obj.put("operand", node(u.operand()));
                 case Exit ignored -> { }
                 default -> throw new IllegalStateException("Missing JSON schema for " + n.getClass().getName());
+            }
+            if (n instanceof Expression expression && (!expression.operatorCandidates().isEmpty()
+                    || expression.operatorResolution() != CallExpression.Resolution.UNRESOLVED)) {
+                obj.put("operatorResolution", lower(expression.operatorResolution()))
+                        .array("operatorCandidateIds", a -> expression.operatorCandidates().forEach(candidate -> a.add(ids.get(candidate))));
+                expression.operatorTarget().ifPresent(target -> obj.put("operatorTargetId", ids.get(target)));
             }
             if (n instanceof Expression expression) expression.semanticInfo().ifPresent(info -> obj.object("semanticInfo", value -> {
                 info.resultType().ifPresent(type -> value.put("resultType", type));

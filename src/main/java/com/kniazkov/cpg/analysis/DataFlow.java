@@ -137,6 +137,13 @@ public final class DataFlow {
             }
             arguments.addAll(allocation.initializerArguments());
             arguments(arguments, allocation, state, sink);
+        } else if (language == Language.CPP && OperatorSemantics.mayInvokeUserCode(value)) {
+            // Operator functions evaluate all arguments with unspecified relative order.
+            // In particular overloaded && and || do not short circuit.
+            arguments(OperatorSemantics.operands(value), value, state, sink);
+            // Unknown operator bodies may mutate objects passed by reference. Retain both
+            // incoming and possible call definitions, rather than claiming a definite write.
+            for (var operand : OperatorSemantics.operands(value)) possibleMutation(operand, value, state);
         } else if (value instanceof NameExpression use) {
             use.target().ifPresent(target -> {
                 for (Node write : state.definitions.getOrDefault(target, Set.of()))
@@ -188,6 +195,16 @@ public final class DataFlow {
             for (Node child : value.children())
                 if (child instanceof Expression operand) consume(operand, value, state, sink);
         }
+    }
+
+    private static void possibleMutation(Expression operand, Node call, State state) {
+        if (operand instanceof ConversionExpression conversion) possibleMutation(conversion.operand(), call, state);
+        else if (operand instanceof NameExpression name) name.target().ifPresent(target -> {
+            var definitions = new LinkedHashSet<>(state.definitions.getOrDefault(target, Set.of()));
+            definitions.add(call); state.definitions.put(target, definitions);
+        });
+        else if (operand instanceof MemberExpression member) possibleMutation(member.receiver(), call, state);
+        else if (operand instanceof AssignmentExpression assignment) possibleMutation(assignment.target(), call, state);
     }
 
     private void address(AssignmentExpression assignment, State state, Sink sink) {

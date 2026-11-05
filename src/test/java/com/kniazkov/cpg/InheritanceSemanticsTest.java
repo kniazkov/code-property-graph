@@ -44,7 +44,9 @@ class InheritanceSemanticsTest {
     @Test void hidingDoesNotFallThroughToBasesOrGlobals() {
         var p = parse("int f(){return 0;} struct B{int f(){return 1;}}; struct D:B{int f(int n){return n;}}; int use(D& d){return d.f();}");
         var call = nodes(p, CallExpression.class).getFirst();
-        assertEquals(1, call.target().orElseThrow().parameters().size());
+        assertTrue(call.target().isEmpty());
+        assertEquals(CallExpression.Resolution.UNRESOLVED, call.resolution());
+        assertTrue(call.diagnostics().stream().anyMatch(d -> d.code().equals("no-viable-overload")));
         assertTrue(call.diagnostics().stream().anyMatch(d -> d.code().equals("missing-call-argument")));
         var unknown = parse("struct Unknown; int f(){return 0;} int use(Unknown& u){return u.f();}");
         assertTrue(nodes(unknown, CallExpression.class).getFirst().target().isEmpty());

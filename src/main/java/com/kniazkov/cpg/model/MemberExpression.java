@@ -12,7 +12,9 @@ public abstract class MemberExpression extends Expression {
     private String member;
     private Declaration target;
     public Optional<Declaration> target() { return Optional.ofNullable(target); }
-    @Override public List<Node> references() { return target == null ? List.of() : List.of(target); }
+    @Override public List<Node> references() { var result = new ArrayList<Node>(super.references());
+        if (target != null && !result.contains(target)) result.add(target);
+        return List.copyOf(result); }
 
     MemberExpression() {
     }

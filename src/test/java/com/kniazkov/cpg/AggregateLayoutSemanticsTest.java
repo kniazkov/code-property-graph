@@ -203,13 +203,11 @@ class AggregateLayoutSemanticsTest {
             var project = read(source,profile);
             var calls = nodes(project,CallExpression.class);
             assertEquals(2,calls.size());
-            // Ranking standard-conversion candidates is a later overload-resolution task.
-            // Until then both candidates must remain distinct, rather than collapse by width.
-            assertEquals(List.of(CallExpression.Resolution.AMBIGUOUS,CallExpression.Resolution.AMBIGUOUS),
+            // Equal representation widths never erase nominal overload identities.
+            assertEquals(List.of(CallExpression.Resolution.RESOLVED,CallExpression.Resolution.RESOLVED),
                     calls.stream().map(CallExpression::resolution).toList());
-            for (var call : calls) assertEquals(Set.of("int","long"),call.candidates().stream()
-                    .map(candidate -> candidate.parameters().getFirst().type().orElseThrow().canonicalIdentity())
-                    .collect(java.util.stream.Collectors.toSet()));
+            assertEquals(List.of("int","long"),calls.stream().map(call -> call.target().orElseThrow()
+                    .parameters().getFirst().type().orElseThrow().canonicalIdentity()).toList());
             assertEquals(List.of("int","long"),calls.stream().map(call -> TypeSemantics.expressionType(
                     call.arguments().getFirst(),profile).orElseThrow().canonicalIdentity()).toList());
             assertEquals(Optional.of(BigInteger.valueOf(profile == DEFAULT ? 8 : 4)),

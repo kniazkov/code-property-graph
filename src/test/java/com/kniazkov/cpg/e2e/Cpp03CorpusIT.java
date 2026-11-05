@@ -66,6 +66,15 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("overloads-adl".equals(settings.getProperty("mode"))) {
+            var output = OverloadsAdlAcceptance.verify(fixture, work);
+            for (Path source : List.of(output.original(), output.generated(), output.folded())) nativePrograms(work, source, "", 0);
+            for (String compiler : List.of("g++", "clang++")) {
+                Result rejected = command(List.of(compiler, "-std=c++03", "-pedantic-errors", "-fsyntax-only", output.invalid().resolve("main.cpp").toString()), work);
+                assertNotEquals(0, rejected.status(), "An explicit constructor cannot perform an implicit argument conversion: " + compiler);
+            }
+            return;
+        }
         if ("inheritance-virtual".equals(settings.getProperty("mode"))) {
             var output = InheritanceVirtualAcceptance.verify(fixture, work);
             for (Path source : List.of(output.original(), output.generated(), output.folded())) nativePrograms(work, source, "", 0);

@@ -390,13 +390,21 @@ final class TypeParser {
         throw new IllegalArgumentException("Unsupported type syntax " + type.getClass().getName());
     }
 
-    private String operatorName() {
-        if (tokens.take("=")) return "operator=";
+    String operatorName() {
         String operation = tokens.peek();
-        if (!operation.equals("new") && !operation.equals("delete")) throw tokens.error("Unsupported operator function name");
+        if (Set.of("new", "delete").contains(operation)) {
+            tokens.advance();
+            if (tokens.take("[")) { tokens.expect("]"); operation += "[]"; }
+            return "operator " + operation;
+        }
+        if (tokens.take("(")) { tokens.expect(")"); return "operator()"; }
+        if (tokens.take("[")) { tokens.expect("]"); return "operator[]"; }
+        if (!Set.of("+", "-", "*", "/", "%", "^", "&", "|", "~", "!", "=", "<", ">",
+                "+=", "-=", "*=", "/=", "%=", "^=", "&=", "|=", "<<", ">>", "<<=", ">>=",
+                "==", "!=", "<=", ">=", "&&", "||", "++", "--", ",", "->*", "->").contains(operation))
+            throw tokens.error("Unsupported operator function name");
         tokens.advance();
-        if (tokens.take("[")) { tokens.expect("]"); operation += "[]"; }
-        return "operator " + operation;
+        return "operator" + operation;
     }
 
     private boolean functionClauseAhead() {

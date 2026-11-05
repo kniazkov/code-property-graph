@@ -141,6 +141,11 @@ public final class DotVisualizer {
                 dot.append("  n").append(from).append(" -> n").append(to)
                         .append(" [label=<&#160;ref>, style=dashed, constraint=false];\n");
             }
+            if (node instanceof Expression expression) {
+                expression.operatorTarget().ifPresent(target -> semanticEdge(expression, target, "operator implementation"));
+                if (expression.operatorTarget().isEmpty()) for (var candidate : expression.operatorCandidates())
+                    semanticEdge(expression, candidate, "operator candidate (" + expression.operatorResolution().name().toLowerCase(java.util.Locale.ROOT) + ")");
+            }
             if (node instanceof NamedType type) resolution(type);
             if (node instanceof CallExpression call) {
                 call.target().ifPresent(target -> semanticEdge(call, target, "static target"));
