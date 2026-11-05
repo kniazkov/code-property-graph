@@ -13,26 +13,49 @@ public final class Project extends Node {
     private List<String> instanceSyntax;
     /** Removes derived instances when a low-level builder changes written source. */
     java.util.Set<Node> invalidateTemplateInstances() {
-        if (templateInstances.isEmpty()) { instanceSyntax = null; return java.util.Set.of(); }
+        if (templateInstances.isEmpty() && classTemplateInstances.isEmpty()) { instanceSyntax = null; return java.util.Set.of(); }
         List<String> syntax;
         try { syntax = files.stream().map(file -> com.kniazkov.cpg.generation.Source.render(file, file.language())).toList(); }
         catch (IllegalArgumentException exception) { syntax = null; } // Recovery/edit syntax cannot retain derived instances.
         if (instanceSyntax == null && syntax != null) { instanceSyntax = syntax; return java.util.Set.of(); }
         var written = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
         files.forEach(file -> file.walk(new NodeVisitor() { @Override public void visit(Node node) { written.add(node); } }));
+        var allOwned = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
+        allOwned.addAll(written);
+        templateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { allOwned.add(node); } }));
+        classTemplateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { allOwned.add(node); } }));
         boolean owned = templateInstances.stream().allMatch(instance -> written.contains(instance.source())
-                && written.contains(instance.origin()) && written.contains(instance.cause()));
+                && written.contains(instance.origin()) && instance.requests().stream().allMatch(allOwned::contains))
+                && classTemplateInstances.stream().allMatch(instance -> written.contains(instance.source()) && written.contains(instance.origin())
+                && instance.requests().stream().allMatch(allOwned::contains));
         if (syntax != null && instanceSyntax != null && instanceSyntax.equals(syntax) && owned) return java.util.Set.of();
         var discarded = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
         templateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { discarded.add(node); } }));
-        files.forEach(file -> file.walk(new NodeVisitor() { @Override public void visit(CallExpression call) { call.invalidateTargets(discarded); } }));
-        templateInstances = List.of(); instanceSyntax = null;
+        classTemplateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { discarded.add(node); } }));
+        files.forEach(file -> file.walk(new NodeVisitor() {
+            @Override public void visit(CallExpression call) { call.invalidateTargets(discarded); }
+            @Override public void visit(NamedType type) { type.invalidateTemplateTargets(discarded); }
+            @Override public void visit(NameExpression name) { name.invalidateTemplateTargets(discarded); }
+            @Override public void visit(MemberExpression member) { member.invalidateTemplateTargets(discarded); }
+        }));
+        templateInstances = List.of(); classTemplateInstances = List.of(); instanceSyntax = null;
         return discarded;
     }
+    private List<ClassTemplateInstance> classTemplateInstances = List.of();
+    public List<ClassTemplateInstance> classTemplateInstances() { return classTemplateInstances; }
     public List<SourceFile> librarySources() { return librarySources; }
     public List<TemplateInstance> templateInstances() { return templateInstances; }
-    /** True when any translation unit contains a persistent parser error. */
-    public boolean hasErrors() { return files.stream().anyMatch(SourceFile::hasErrors); }
+    /** True when any persistent parser or semantic error is present. */
+    public boolean hasErrors() {
+        return files.stream().anyMatch(SourceFile::hasErrors)
+                || semanticDiagnostics().stream().anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR);
+    }
+    /** Semantic findings, including instantiation traces, independent of CFG/DFG generation. */
+    public List<Diagnostic> semanticDiagnostics() {
+        var result = new ArrayList<Diagnostic>();
+        walk(new NodeVisitor() { @Override public void visit(Node node) { result.addAll(node.diagnostics()); } });
+        return List.copyOf(result);
+    }
     /** Every persistent parse-failure occurrence in stable physical/context order. */
     public List<ParseProblem> parseProblems() {
         var result = new ArrayList<ParseProblem>();
@@ -129,7 +152,13 @@ public final class Project extends Node {
     /** Shares immutable syntax and attaches complete per-callable analysis results. */
     public Project withFlows(List<FunctionFlow> results) {
         var copy = new Project();
+        copy.findings = findings;
+        copy.origin = origin;
+        copy.provenance = provenance;
+        copy.commentReferences = commentReferences;
+        copy.editIdentity = editIdentity;
         copy.files = files;
+        copy.classTemplateInstances = classTemplateInstances;
         copy.librarySources = librarySources; copy.templateInstances = templateInstances; copy.instanceSyntax = instanceSyntax;
         copy.externalInputs = externalInputs;
         copy.build = build;
@@ -213,7 +242,7 @@ public final class Project extends Node {
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         children.addAll(files);
-        children.addAll(librarySources); children.addAll(templateInstances);
+        children.addAll(librarySources); children.addAll(templateInstances); children.addAll(classTemplateInstances);
         children.addAll(externalInputs);
         return List.copyOf(children);
     }
@@ -239,6 +268,7 @@ public final class Project extends Node {
         builder.files = context.copyAll(files, SourceFile.class);
         builder.librarySources = context.copyAll(librarySources, SourceFile.class);
         builder.templateInstances = context.copyAll(templateInstances, TemplateInstance.class);
+        builder.classTemplateInstances = context.copyAll(classTemplateInstances, ClassTemplateInstance.class);
         builder.instanceSyntax = instanceSyntax;
         builder.build = build;
         builder.externalInputs = context.copyAll(externalInputs, ExternalInput.class);
@@ -250,10 +280,12 @@ public final class Project extends Node {
         private List<NodeBuilder<? extends SourceFile>> files = new ArrayList<>();
         private List<NodeBuilder<? extends SourceFile>> librarySources = new ArrayList<>();
         private List<NodeBuilder<? extends TemplateInstance>> templateInstances = new ArrayList<>();
+        private List<NodeBuilder<? extends ClassTemplateInstance>> classTemplateInstances = new ArrayList<>();
+        Builder addClassTemplateInstance(ClassTemplateInstance.Builder value) { classTemplateInstances.add(value); return this; }
         private List<String> instanceSyntax;
         public Builder setLibrarySources(List<? extends NodeBuilder<? extends SourceFile>> values) { librarySources = new ArrayList<>(values); return this; }
         public Builder addLibrarySource(NodeBuilder<? extends SourceFile> value) { librarySources.add(value); return this; }
-        Builder clearTemplateInstances() { templateInstances.clear(); return this; }
+        Builder clearTemplateInstances() { templateInstances.clear(); classTemplateInstances.clear(); return this; }
         Builder addTemplateInstance(TemplateInstance.Builder value) { templateInstances.add(value); return this; }
         private com.kniazkov.cpg.build.Build build;
         private List<NodeBuilder<? extends ExternalInput>> externalInputs = new ArrayList<>();
@@ -287,6 +319,7 @@ public final class Project extends Node {
         void fillNode(Project node, BuildContext context) {
             node.files = context.copyAll(files);
             node.librarySources = context.copyAll(librarySources);
+            node.classTemplateInstances = context.copyAll(classTemplateInstances);
             node.templateInstances = context.copyAll(templateInstances); node.instanceSyntax = instanceSyntax;
             node.build = build;
             var inputs = new java.util.LinkedHashMap<String, ExternalInput.Builder>();

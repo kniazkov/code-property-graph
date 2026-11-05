@@ -7,6 +7,12 @@ import java.util.Optional;
 
 /** A written type name; no semantic type inference is implied. */
 public final class NamedType extends TypeNode {
+    void invalidateTemplateTargets(java.util.Set<Node> discarded) {
+        if(discarded.contains(declaration))declaration=null;
+        if(discarded.contains(alias))alias=null;
+        resolutionSteps=resolutionSteps.stream().filter(step->!discarded.contains(step.via())&&!discarded.contains(step.target())).toList();
+    }
+
     private List<TemplateArgument> templateArguments = List.of();
     private boolean hasTemplateArguments, templateKeyword;
     public List<TemplateArgument> templateArguments() { return templateArguments; }

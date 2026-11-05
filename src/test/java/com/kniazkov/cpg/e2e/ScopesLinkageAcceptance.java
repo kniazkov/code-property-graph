@@ -57,7 +57,8 @@ final class ScopesLinkageAcceptance {
     private static Path verifyIncomplete(Path fixture, Path work) throws Exception {
         var cli = new CliSandbox(work).directory(fixture);
         Project project = Cpg.read(cli.input, OPTIONS);
-        assertFalse(project.hasErrors(), "The source parses; completeness is a semantic failure");
+        assertTrue(project.parseProblems().isEmpty(), "The source parses; completeness is a semantic failure");
+        assertTrue(project.hasErrors());
         var errors = nodes(project, Node.class).stream().flatMap(n -> n.diagnostics().stream())
                 .filter(d -> d.severity() == Diagnostic.Severity.ERROR && d.code().equals("incomplete-type")).toList();
         assertEquals(1, errors.size());

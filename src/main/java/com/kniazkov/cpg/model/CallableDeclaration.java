@@ -31,6 +31,13 @@ public abstract class CallableDeclaration extends Declaration {
     /** Written conversion-type-id; conversion functions have no written return type. */
     public Optional<TypeNode> conversionType() { return Optional.ofNullable(conversionType); }
     private TypeNode writtenType;
+    private TemplateKind templateKind = TemplateKind.NONE;
+    private boolean exportedTemplate, hasTemplateArguments;
+    private List<TemplateArgument> templateArguments = List.of();
+    public TemplateKind templateKind() { return templateKind; }
+    public boolean exportedTemplate() { return exportedTemplate; }
+    public boolean hasTemplateArguments() { return hasTemplateArguments; }
+    public List<TemplateArgument> templateArguments() { return templateArguments; }
     private List<TemplateParameterDeclaration> templateParameters = List.of();
     /** Written type template parameters; no deduction or instantiation is implied. */
     public List<TemplateParameterDeclaration> templateParameters() { return templateParameters; }
@@ -82,6 +89,7 @@ public abstract class CallableDeclaration extends Declaration {
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         children.addAll(templateParameters);
+        children.addAll(templateArguments);
         if (writtenType != null) children.add(writtenType);
         if (conversionType != null) children.add(conversionType);
         if (returnType != null) {
@@ -118,6 +126,10 @@ public abstract class CallableDeclaration extends Declaration {
         builder.exceptionTypes = context.copyAll(exceptionTypes, TypeNode.class);
         builder.returnType = returnType == null ? null : context.edge(returnType, TypeNode.class);
         builder.writtenType = writtenType == null ? null : context.edge(writtenType, TypeNode.class);
+        builder.templateKind = templateKind;
+        builder.exportedTemplate = exportedTemplate;
+        builder.hasTemplateArguments = hasTemplateArguments;
+        builder.templateArguments = context.copyAll(templateArguments, TemplateArgument.class);
         builder.templateParameters = context.copyAll(templateParameters, TemplateParameterDeclaration.class);
         builder.parameters = context.copyAll(parameters, ParameterDeclaration.class);
         builder.body = body == null ? null : context.edge(body, BlockStatement.class);
@@ -162,6 +174,17 @@ public abstract class CallableDeclaration extends Declaration {
         public Optional<NodeBuilder<? extends TypeNode>> writtenType() { return Optional.ofNullable(writtenType); }
         public B setWrittenType(NodeBuilder<? extends TypeNode> value) { syntaxEdited = true; writtenType = Objects.requireNonNull(value); return self(); }
         public B clearWrittenType() { syntaxEdited = true; writtenType = null; return self(); }
+        private TemplateKind templateKind = TemplateKind.NONE;
+        private boolean exportedTemplate, hasTemplateArguments;
+        private List<NodeBuilder<? extends TemplateArgument>> templateArguments = new ArrayList<>();
+        public TemplateKind templateKind() { return templateKind; }
+        public boolean exportedTemplate() { return exportedTemplate; }
+        public boolean hasTemplateArguments() { return hasTemplateArguments; }
+        public List<NodeBuilder<? extends TemplateArgument>> templateArguments() { return List.copyOf(templateArguments); }
+        public B setTemplateKind(TemplateKind value) { syntaxEdited = true; templateKind = Objects.requireNonNull(value); return self(); }
+        public B setExportedTemplate(boolean value) { syntaxEdited = true; exportedTemplate = value; return self(); }
+        public B clearTemplateArguments() { syntaxEdited=true; hasTemplateArguments=false; templateArguments.clear(); return self(); }
+        public B setTemplateArguments(List<? extends NodeBuilder<? extends TemplateArgument>> values) { syntaxEdited = true; hasTemplateArguments = true; templateArguments = new ArrayList<>(List.copyOf(values)); return self(); }
         private List<NodeBuilder<? extends TemplateParameterDeclaration>> templateParameters = new ArrayList<>();
         public List<NodeBuilder<? extends TemplateParameterDeclaration>> templateParameters() { return List.copyOf(templateParameters); }
         public B setTemplateParameters(List<? extends NodeBuilder<? extends TemplateParameterDeclaration>> values) { syntaxEdited = true; templateParameters = new ArrayList<>(List.copyOf(values)); return self(); }
@@ -283,6 +306,10 @@ public abstract class CallableDeclaration extends Declaration {
             node.exceptionTypes = context.copyAll(exceptionTypes);
             node.returnType = returnType == null ? null : context.copy(returnType);
             node.writtenType = writtenType == null ? null : context.copy(writtenType);
+            node.templateKind = templateKind;
+            node.exportedTemplate = exportedTemplate;
+            node.hasTemplateArguments = hasTemplateArguments;
+            node.templateArguments = context.copyAll(templateArguments);
             node.templateParameters = context.copyAll(templateParameters);
             node.parameters = context.copyAll(parameters);
             node.body = body == null ? null : context.copy(body);

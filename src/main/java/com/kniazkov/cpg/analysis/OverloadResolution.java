@@ -140,8 +140,8 @@ public final class OverloadResolution {
             return Optional.of(new Sequence(Rank.UNKNOWN, 0, null));
         if (TypeSemantics.unqualified(target) instanceof ReferenceType reference) {
             TypeNode referred = reference.referredType();
-            int cv = TypeSemantics.qualifiers(referred), original = TypeSemantics.qualifiers(source);
-            boolean same = same(source, referred);
+            int cv = referenceQualifiers(referred), original = referenceQualifiers(source);
+            boolean same = referenceSame(source, referred);
             if ((original & cv) != original) return Optional.empty();
             if (same && (category == ValueCategory.LVALUE || cv == 1))
                 return Optional.of(new Sequence(Rank.EXACT, Integer.bitCount(cv & ~original), null, true));
@@ -182,6 +182,17 @@ public final class OverloadResolution {
         if (derives(source, target)) return Optional.of(new Sequence(Rank.CONVERSION, 0, null));
         if (unknown(source) || unknown(target)) return Optional.of(new Sequence(Rank.UNKNOWN, 0, null));
         return Optional.empty();
+    }
+    private static int referenceQualifiers(TypeNode type) {
+        int result=TypeSemantics.qualifiers(type);type=TypeSemantics.unqualified(type);
+        return type instanceof ArrayType array?result|referenceQualifiers(array.elementType()):result;
+    }
+    private static boolean referenceSame(TypeNode a,TypeNode b) {
+        a=TypeSemantics.unqualified(a);b=TypeSemantics.unqualified(b);
+        if(a instanceof ArrayType x && b instanceof ArrayType y)
+            return x.bound().map(bound->bound.source(Language.CPP)).equals(y.bound().map(bound->bound.source(Language.CPP)))
+                    && referenceSame(x.elementType(),y.elementType());
+        return same(a,b);
     }
     private static OptionalInt pointerQualification(PointerType source, PointerType target) {
         var from = new ArrayList<Integer>(); var to = new ArrayList<Integer>();
