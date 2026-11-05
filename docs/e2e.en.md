@@ -400,3 +400,12 @@ body errors with ordered primary/request ranges, partial function specialization
 and ambiguous class partials. The full corpus has **29 scenarios and 31 results
 including infrastructure checks**. Run just this gate with
 `mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=template-instantiation verify`.
+
+The mandatory `vector-semantics` corpus checks API/CLI JSON parity, typed semantic
+links in SVG, snapshot copies, GREEN/FOLDED source regeneration and genuine GCC /
+Clang C++03 execution. It distinguishes count/fill/range creation and assignment,
+container reference identity, independent copied sizes, shared pointer elements,
+const Record copy-constructor selection, bool proxies and custom allocator effects.
+The nested copy-overloads program checks observable const-copy selection without
+requiring an implementation-specific number of copies. Original, GREEN and FOLDED
+programs are compiled and run for both fixtures and both compilers.

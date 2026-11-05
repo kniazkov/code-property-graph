@@ -22,7 +22,7 @@ public final class UnreadWrites {
         var contexts = SourceContexts.index(project);
         for (var flow : project.flows()) {
             SourceFile source = SourceContexts.require(contexts, flow.entry());
-            inspect(flow, source.language() == Language.CPP ? TypeSemantics.profile(source) : null, findings);
+            inspect(flow, project.dynamicArraySemantics(), source.language() == Language.CPP ? TypeSemantics.profile(source) : null, findings);
         }
         return project.withDiagnostics(CODE, findings);
     }
@@ -33,9 +33,11 @@ public final class UnreadWrites {
         callable.handlers().forEach(handler -> handler.walk(visitor));
     }
 
-    private static void inspect(FunctionFlow flow, PlatformProfile profile, Map<Node, Diagnostic> findings) {
+    private static void inspect(FunctionFlow flow, List<DynamicArrayOperation> operations, PlatformProfile profile, Map<Node, Diagnostic> findings) {
         if (!flow.complete()) return;
         Map<Node, String> candidates = new IdentityHashMap<>();
+        Set<Node> normalized = Collections.newSetFromMap(new IdentityHashMap<>());
+        operations.forEach(operation -> normalized.add(operation.syntax()));
         Set<Node> read = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Declaration> escaped = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Node> unevaluated = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -101,6 +103,8 @@ public final class UnreadWrites {
         });
 
         for (var edge : flow.data()) {
+            // Common sequence writes are observable object operations, not dead scalar stores.
+            if (edge.kind() == FunctionFlow.Dependency.VALUE && normalized.contains(edge.to())) continue;
             if (edge.kind() == FunctionFlow.Dependency.DEFINITION) {
                 read.add(edge.from());
             } else if (edge.to() instanceof VariableDeclaration v && !escaped.contains(v)) {

@@ -87,6 +87,7 @@ public final class LibraryGraph {
                 Expression value=variable.initializer().orElse(null);
                 List<Expression> arguments=value==null ? List.of() : value instanceof InitializationExpression i && i.form()==InitializationExpression.Form.DIRECT ? i.arguments() : List.of(value);
                 var constructor=com.kniazkov.cpg.analysis.OverloadResolution.select(candidates,arguments,com.kniazkov.cpg.analysis.TypeSemantics.profile(source)).selected().orElse(null);
+                for(var instance:project.templateInstances())if(instance.requests().contains(variable) && instance.origin().kind()==CallableDeclaration.Kind.CONSTRUCTOR)constructor=instance.declaration();
                 var destructor=owner.members().stream().filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast)
                         .filter(c->c.kind()==CallableDeclaration.Kind.DESTRUCTOR).findFirst().orElse(null);
                 context.edit(variable,VariableDeclaration.Builder.class).setLifetimeTargets(constructor==null?null:context.edge(constructor,CallableDeclaration.class),

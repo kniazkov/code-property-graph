@@ -16,6 +16,8 @@ public final class DataFlow {
     private final Language language;
     private final PlatformProfile profile;
     private Set<Declaration> libraryAccessible = Set.of();
+    private final Map<Node, DynamicArrayOperation> arrays = new IdentityHashMap<>();
+    private final Map<Declaration, Declaration> arrayAliases = new IdentityHashMap<>();
     private final Map<Node, Expression> expandedValues = new IdentityHashMap<>();
     private final Map<Node, List<DataEdge>> expandedDependencies = new IdentityHashMap<>();
 
@@ -30,11 +32,23 @@ public final class DataFlow {
         var contexts = SourceContexts.index(cfg);
         return cfg.withFlows(cfg.flows().stream().map(flow -> {
             SourceFile source = SourceContexts.require(contexts, flow.entry());
-            return new DataFlow(source.language(), TypeSemantics.profile(source)).analyzeFunction(flow);
+            return new DataFlow(source.language(), TypeSemantics.profile(source)).analyzeFunction(flow, cfg.dynamicArraySemantics());
         }).toList());
     }
 
-    private FunctionFlow analyzeFunction(FunctionFlow flow) {
+    private FunctionFlow analyzeFunction(FunctionFlow flow, List<DynamicArrayOperation> operations) {
+        operations.forEach(operation -> arrays.put(operation.syntax(), operation));
+        flow.entry().walk(new NodeVisitor() {
+            @Override public void visit(VariableDeclaration variable) {
+                if (variable.type().map(TypeSemantics::unqualified).filter(ReferenceType.class::isInstance).isPresent()
+                        && variable.type().map(TypeSemantics::withoutReference).flatMap(ClassSemantics::objectClass)
+                                .filter(cls -> operations.stream().anyMatch(op -> op.type().concreteClass() == cls)).isPresent())
+                    variable.initializer().ifPresent(value -> {
+                        var roots = LibraryCallEffects.roots(value);
+                        if (roots.size() == 1) arrayAliases.put(variable, roots.iterator().next());
+                    });
+            }
+        });
         if (!flow.complete()) return flow;
         libraryAccessible = LibraryCallEffects.accessible(flow.entry(), profile);
         // Sequenced/branching values may already execute as separate CFG vertices.
@@ -149,7 +163,12 @@ public final class DataFlow {
             for (DataEdge edge : expandedDependencies.get(consumer)) sink.edge(edge.from(), edge.to(), edge.kind());
             sink.edge(value, consumer, Dependency.VALUE);
             if (consumer instanceof VariableDeclaration variable) { state.write(variable, variable); constructLibraryObject(variable, state, sink); }
-            else if (consumer instanceof AssignmentExpression assignment) writeTarget(assignment.target(), assignment, state);
+            else if (consumer instanceof AssignmentExpression assignment) {
+                if (arrays.containsKey(assignment)) {
+                    arrayEffect(arrays.get(assignment), state, sink);
+                    sink.edge(arrays.get(assignment), assignment, Dependency.VALUE);
+                } else writeTarget(assignment.target(), assignment, state);
+            }
             return;
         }
         switch (vertex) {
@@ -202,6 +221,7 @@ public final class DataFlow {
     }
 
     private void constructLibraryObject(VariableDeclaration variable, State state, Sink sink) {
+        if (arrays.containsKey(variable)) { arrayEffect(arrays.get(variable), state, sink); return; }
         if (variable.constructorTarget().filter(LibraryCallEffects::unknown).isEmpty()) return;
         state.write(variable, variable);
         var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
@@ -211,8 +231,41 @@ public final class DataFlow {
         opaqueMutation(variable, exposed, state, sink);
     }
 
+    private Declaration alias(Declaration target) {
+        Set<Declaration> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        while (arrayAliases.containsKey(target) && seen.add(target)) target = arrayAliases.get(target);
+        return target;
+    }
+
+    /** Semantic writes change a container's contents, never its reference identity. */
+    private void arrayEffect(DynamicArrayOperation operation, State state, Sink sink) {
+        for (Node source : operation.sources()) sink.edge(source, operation, Dependency.VALUE);
+        Set<Declaration> destinations = new LinkedHashSet<>();
+        if (operation.destination() instanceof Declaration declaration) destinations.add(declaration);
+        else if (operation.destination() instanceof Expression expression)
+            destinations.addAll(LibraryCallEffects.roots(expression));
+        if (operation.kind() == DynamicArrayOperation.Kind.APPEND)
+            for (Declaration destination : destinations)
+                for (Node definition : state.definitions.getOrDefault(alias(destination), Set.of()))
+                    sink.edge(definition, operation, Dependency.DEFINITION);
+        // Implicit record copies can invoke member/base copy constructors. Reallocation
+        // can also destroy existing elements, even with an implicit element copy.
+        // Until transitive lifetime effects are proven trivial, retain arbitrary reads
+        // and may-writes for every nonempty record operation, not just a direct copy link.
+        if (operation.kind() != DynamicArrayOperation.Kind.EMPTY
+                && (operation.elementCopyConstructor().isPresent()
+                    || ClassSemantics.objectClass(operation.type().elementType()).isPresent())) {
+            var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
+            for (Node source : operation.sources()) if (source instanceof Expression expression)
+                exposed.addAll(LibraryCallEffects.roots(expression));
+            opaqueMutation(operation, exposed, state, sink);
+        }
+        for (Declaration destination : destinations) state.write(alias(destination), operation);
+    }
+
     private void opaqueMutation(Node operation, Set<Declaration> exposed, State state, Sink sink) {
-        for (Declaration target : exposed) {
+        for (Declaration exposedTarget : exposed) {
+            Declaration target = alias(exposedTarget);
             var definitions = new LinkedHashSet<>(state.definitions.getOrDefault(target, Set.of()));
             for (Node definition : definitions) sink.edge(definition, operation, Dependency.DEFINITION);
             definitions.add(operation);
@@ -222,6 +275,22 @@ public final class DataFlow {
 
     /** Evaluates value operands and models assignment as a write after the right-hand side has been read. */
     private void evaluate(Expression value, State state, Sink sink) {
+        DynamicArrayOperation operation = arrays.get(value);
+        if (operation != null) {
+            // Evaluate preserved written operands once; common nodes reference their results.
+            if (value instanceof CallExpression call) {
+                consume(call.callee(), call, state, sink);
+                arguments(call, state, sink);
+            } else if (OperatorSemantics.mayInvokeUserCode(value))
+                arguments(OperatorSemantics.operands(value), value, state, sink);
+            else if (value instanceof AssignmentExpression assignment) {
+                consume(assignment.value(), assignment, state, sink);
+                address(assignment, state, sink);
+            }
+            arrayEffect(operation, state, sink);
+            sink.edge(operation, value, Dependency.VALUE);
+            return;
+        }
         if (value instanceof ConditionDeclarationExpression condition) {
             VariableDeclaration declaration = condition.declaration();
             state.definitions.remove(declaration);
@@ -229,6 +298,7 @@ public final class DataFlow {
                 consume(initializer, declaration, state, sink);
                 state.write(declaration, declaration);
             });
+            constructLibraryObject(declaration, state, sink);
             sink.edge(declaration, condition, Dependency.DEFINITION);
         } else if (value instanceof SizeofExpression) {
             // C++03 sizeof does not read or execute any expression in its operand.
@@ -259,7 +329,7 @@ public final class DataFlow {
             if (LibraryCallEffects.unknown(value)) opaqueMutation(value, libraryAccessible, state, sink);
         } else if (value instanceof NameExpression use) {
             use.target().ifPresent(target -> {
-                for (Node write : state.definitions.getOrDefault(target, Set.of()))
+                for (Node write : state.definitions.getOrDefault(alias(target), Set.of()))
                     sink.edge(write, use, Dependency.DEFINITION);
             });
         } else if (value instanceof AssignmentExpression a) {

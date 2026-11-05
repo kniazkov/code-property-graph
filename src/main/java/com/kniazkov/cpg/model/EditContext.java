@@ -10,7 +10,7 @@ import java.util.Map;
  * counterpart before copying children and references. Back edges therefore
  * resolve to the same builder, including cycles that cross file boundaries.
  * Independent edit calls allocate independent maps. */
-final class EditContext {
+public final class EditContext {
     private EditContext referenceContext;
     private boolean independentLineage;
     private java.util.Set<Node> localDeclarations = java.util.Set.of();
@@ -29,7 +29,7 @@ final class EditContext {
 
     private final Map<Expression, List<ProjectEditor.ConversionStep>> conversions;
 
-    EditContext() {
+    public EditContext() {
         this(Map.of(), java.util.Set.of());
     }
 
@@ -81,13 +81,13 @@ final class EditContext {
     }
 
     /** Starts from a concrete node and returns its corresponding concrete builder through a checked cast. */
-    <T extends Node, B extends NodeBuilder<T>> B edit(T node, Class<B> builderType) {
+    public <T extends Node, B extends NodeBuilder<T>> B edit(T node, Class<B> builderType) {
         return builderType.cast(copy(node));
     }
 
     /** Reuses a registered builder or delegates to the node to register and populate one. The register method checks the correspondence on insertion. */
     @SuppressWarnings("unchecked")
-    <T extends Node> NodeBuilder<T> copy(T node) {
+    public <T extends Node> NodeBuilder<T> copy(T node) {
         NodeBuilder<?> existing = builders.get(node);
         if (existing != null) {
             // Registration below guarantees the node/builder type correspondence.
@@ -130,7 +130,7 @@ final class EditContext {
     }
 
     /** Copies an ordered child list and returns the mutable list owned by the destination builder. */
-    <T extends Node> List<NodeBuilder<? extends T>> copyAll(List<T> nodes, Class<T> type) {
+    public <T extends Node> List<NodeBuilder<? extends T>> copyAll(List<T> nodes, Class<T> type) {
         List<NodeBuilder<? extends T>> result = new ArrayList<>();
         for (T node : nodes) {
             if (!removed.contains(node)) result.add(edge(node, type));

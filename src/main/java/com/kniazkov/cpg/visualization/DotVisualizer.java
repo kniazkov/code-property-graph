@@ -152,6 +152,19 @@ public final class DotVisualizer {
                 if (expression.operatorTarget().isEmpty()) for (var candidate : expression.operatorCandidates())
                     semanticEdge(expression, candidate, "operator candidate (" + expression.operatorResolution().name().toLowerCase(java.util.Locale.ROOT) + ")");
             }
+            if (node instanceof DynamicArrayType type) {
+                if (type.concreteClass() != null) semanticEdge(type, type.concreteClass(), "DYNAMIC_ARRAY_CLASS");
+                semanticEdge(type, type.elementType(), "ELEMENT_TYPE");
+                type.writtenTypes().forEach(site -> semanticEdge(site, type, "COMMON_TYPE"));
+            }
+            if (node instanceof DynamicArrayOperation operation) {
+                semanticEdge(operation.syntax(), operation, "COMMON_OPERATION");
+                semanticEdge(operation, operation.type(), "DYNAMIC_ARRAY_TYPE");
+                semanticEdge(operation, operation.destination(), "DESTINATION");
+                operation.sources().forEach(source -> semanticEdge(operation, source, "SOURCE"));
+                semanticEdge(operation, operation.selectedTarget(), "CPP_TARGET");
+                operation.elementCopyConstructor().ifPresent(target -> semanticEdge(operation, target, "ELEMENT_COPY_CONSTRUCTOR"));
+            }
             if (node instanceof IncludeDirective include) include.libraryHeader().ifPresent(header -> semanticEdge(include, header, "LIBRARY_HEADER"));
             if (node instanceof VariableDeclaration variable) {
                 variable.constructorTarget().ifPresent(target -> semanticEdge(variable, target, "CONSTRUCTOR_TARGET"));
@@ -449,6 +462,9 @@ public final class DotVisualizer {
         public void visit(IncludeDirective node) {
             detail = node.header();
         }
+
+        @Override public void visit(DynamicArrayType node) { detail = "sequence of " + node.elementType().canonicalIdentity(); }
+        @Override public void visit(DynamicArrayOperation node) { detail = node.kind().name(); }
 
         @Override
         public void visit(StandardLibrary node) {
