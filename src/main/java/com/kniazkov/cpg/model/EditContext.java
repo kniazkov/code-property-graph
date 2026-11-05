@@ -11,6 +11,7 @@ import java.util.Map;
  * resolve to the same builder, including cycles that cross file boundaries.
  * Independent edit calls allocate independent maps. */
 final class EditContext {
+    private EditContext referenceContext;
     private final Map<Node, NodeBuilder<?>> builders = new IdentityHashMap<>();
 
     private final Map<Node, Node> replacements;
@@ -35,6 +36,7 @@ final class EditContext {
     /** Applies scheduled replacements at an edge and verifies the destination slot type. */
     @SuppressWarnings("unchecked")
     <T extends Node> NodeBuilder<? extends T> edge(Node node, Class<T> type) {
+        if (referenceContext != null && node instanceof Declaration) return referenceContext.edge(node, type);
         Node replacement = replacements.getOrDefault(node, node);
         NodeBuilder<? extends T> result = copy(type.cast(replacement));
         if (replacement != node) {
@@ -44,15 +46,24 @@ final class EditContext {
         if (node instanceof Expression expression && conversions.containsKey(expression)) {
             NodeBuilder<? extends Expression> operand = (NodeBuilder<? extends Expression>) result;
             for (var step : conversions.get(expression)) {
-                var wrapper = ConversionExpression.create().setOperand(operand).setTargetType(step.targetType().edit())
+                var wrapper = ConversionExpression.create().setOperand(operand).setTargetType(copyTypeOccurrence(step.targetType()))
                         .setSourceType(step.sourceType()).setKind(step.kind()).setExplicit(false);
+                if (step.userDefined() != null) wrapper.setOperatorTarget(edge(step.userDefined(), CallableDeclaration.class));
                 if (node.origin != null) wrapper.setRange(node.origin);
                 if (node.provenance != null) wrapper.setProvenance(node.provenance);
+                wrapper.syntaxEdited = false; // Derived wrapper does not change the written operands.
                 operand = wrapper;
             }
             return (NodeBuilder<? extends T>) operand;
         }
         return result;
+    }
+
+    /** A fresh owned type occurrence shares declaration references with the enclosing edit. */
+    private NodeBuilder<? extends TypeNode> copyTypeOccurrence(TypeNode type) {
+        var context = new EditContext(replacements, removed);
+        context.referenceContext = this;
+        return context.edge(type, TypeNode.class);
     }
 
     /** Starts from a concrete node and returns its corresponding concrete builder through a checked cast. */
@@ -84,6 +95,11 @@ final class EditContext {
         if (node instanceof Expression expression) builder.expressionInfo = expression.semanticInfo().orElse(null);
         if (builders.putIfAbsent(node, builder) != null) {
             throw new IllegalStateException("Node already registered");
+        }
+        if (node instanceof Expression expression) {
+            builder.operatorCandidates = copyAll(expression.operatorCandidates(), CallableDeclaration.class);
+            builder.operatorResolution = expression.operatorResolution();
+            builder.operatorBindingCopied = true;
         }
         if (node instanceof Declaration declaration) {
             builder.declarationTypeIdentity = declaration.typeIdentity().orElse(null);

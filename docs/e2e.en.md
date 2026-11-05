@@ -247,3 +247,31 @@ infrastructure tests**, with no failed or skipped compiler checks.
 Construction-order API tests distinguish complete-object and base-subobject
 contexts; callable CFGs deliberately remain incomplete where the invocation
 context in a virtual hierarchy is unknown.
+
+## Overloads, ADL and nominal type identity (#30)
+
+`OverloadExportTest` checks source/reparse and copy stability for a `Money`
+addition, project-owned non-owning implementation references, distinct JSON
+operator binding fields and DOT implementation labels. It checks conversion
+functions without a written return type and rejects Java generation. An explicit
+equal-width platform verifies different `f(int)` / `f(long)` targets for `f(1)` /
+`f(1L)`, with the `long` spelling and `L` suffix preserved after regeneration.
+Run `mvn -Dtest=OverloadExportTest test`.
+
+Native acceptance compares original, generated and folded C++03 under GCC and
+Clang, including overloaded `&&` evaluating both operands and the built-in
+short-circuit control. Graph implementation references and source syntax are
+checked separately from runtime results; unknown implementation bodies are not
+assigned invented arithmetic semantics.
+See the [model contract](model-guide.en.md#overloads-adl-and-nominal-type-identity-30).
+
+Mandatory `overloads-adl` uses an explicit int32/long32 semantic profile for
+API/CLI green snapshots while retaining written int/long C++ types. It checks
+`f(1)`, `f(1L)` and folded long arithmetic, namespace ADL, Money addition,
+class-returning operands of overloaded &&, observable conversion-function and
+converting-constructor effects, and explicit-constructor rejection. Native
+compilers use their host ABI: the test checks preserved overload selection, not
+a claim that their long width was changed. Run
+`mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=overloads-adl verify`.
+At #30 the complete corpus has **24 scenarios and 26 results including
+infrastructure tests**, with no skipped native compilers.

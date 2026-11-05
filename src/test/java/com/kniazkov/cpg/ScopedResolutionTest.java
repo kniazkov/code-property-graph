@@ -80,7 +80,8 @@ class ScopedResolutionTest {
         assertSame(functions.getFirst(), functions.get(1).previousDeclaration().orElseThrow());
         assertFalse(error(project, "odr-conflict")); assertFalse(error(project, "conflicting-declaration"));
         var call = nodes(project, CallExpression.class).getFirst();
-        assertEquals(CallExpression.Resolution.AMBIGUOUS, call.resolution()); assertEquals(2, call.candidates().size());
+        assertEquals(CallExpression.Resolution.RESOLVED, call.resolution()); assertEquals(1, call.candidates().size());
+        assertEquals("int", call.target().orElseThrow().parameters().getFirst().type().orElseThrow().canonicalIdentity());
     }
     @Test void conflictingReturnTypesAndMultipleDefinitionsAreDiagnosed() {
         assertTrue(error(resolve("int f(int); long f(int);"), "conflicting-declaration"));

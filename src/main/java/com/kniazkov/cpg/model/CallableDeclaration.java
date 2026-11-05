@@ -8,15 +8,19 @@ import java.util.Optional;
 
 /** A method or free function with explicit placement. */
 public abstract class CallableDeclaration extends Declaration {
-    public enum Kind { FUNCTION, CONSTRUCTOR, DESTRUCTOR }
+    public enum Kind { FUNCTION, CONSTRUCTOR, DESTRUCTOR, CONVERSION }
     private Kind kind = Kind.FUNCTION;
     private List<MemberInitializer> initializers = List.of();
     public Kind kind() { return kind; }
+    public boolean isConversionFunction() { return kind == Kind.CONVERSION; }
     public List<MemberInitializer> initializers() { return initializers; }
     private String name;
     private boolean variadic, isConst, isVolatile, pureVirtual;
     private List<String> modifiers = List.of();
     private TypeNode returnType;
+    private TypeNode conversionType;
+    /** Written conversion-type-id; conversion functions have no written return type. */
+    public Optional<TypeNode> conversionType() { return Optional.ofNullable(conversionType); }
     private TypeNode writtenType;
     private List<ParameterDeclaration> parameters = List.of();
     private BlockStatement body;
@@ -66,6 +70,7 @@ public abstract class CallableDeclaration extends Declaration {
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         if (writtenType != null) children.add(writtenType);
+        if (conversionType != null) children.add(conversionType);
         if (returnType != null) {
             children.add(returnType);
         }
@@ -91,6 +96,7 @@ public abstract class CallableDeclaration extends Declaration {
         builder.pureVirtual = pureVirtual;
         builder.variadic = variadic; builder.isConst = isConst; builder.isVolatile = isVolatile;
         builder.modifiers = new ArrayList<>(modifiers);
+        builder.conversionType = conversionType == null ? null : context.edge(conversionType, TypeNode.class);
         builder.returnType = returnType == null ? null : context.edge(returnType, TypeNode.class);
         builder.writtenType = writtenType == null ? null : context.edge(writtenType, TypeNode.class);
         builder.parameters = context.copyAll(parameters, ParameterDeclaration.class);
@@ -106,18 +112,22 @@ public abstract class CallableDeclaration extends Declaration {
         private Kind kind = Kind.FUNCTION;
         private List<NodeBuilder<? extends MemberInitializer>> initializers = new ArrayList<>();
         public Kind kind() { return kind; }
-        public B setKind(Kind value) { kind = Objects.requireNonNull(value); return self(); }
+        public B setKind(Kind value) { syntaxEdited = true; kind = Objects.requireNonNull(value); return self(); }
         public List<NodeBuilder<? extends MemberInitializer>> initializers() { return List.copyOf(initializers); }
-        public B setInitializers(List<? extends NodeBuilder<? extends MemberInitializer>> values) { initializers = new ArrayList<>(List.copyOf(values)); return self(); }
-        public B addInitializer(NodeBuilder<? extends MemberInitializer> value) { initializers.add(Objects.requireNonNull(value)); return self(); }
+        public B setInitializers(List<? extends NodeBuilder<? extends MemberInitializer>> values) { syntaxEdited = true; initializers = new ArrayList<>(List.copyOf(values)); return self(); }
+        public B addInitializer(NodeBuilder<? extends MemberInitializer> value) { syntaxEdited = true; initializers.add(Objects.requireNonNull(value)); return self(); }
         private String name;
         private boolean variadic, isConst, isVolatile, pureVirtual;
         private List<String> modifiers = new ArrayList<>();
         private NodeBuilder<? extends TypeNode> returnType;
+        private NodeBuilder<? extends TypeNode> conversionType;
+        public Optional<NodeBuilder<? extends TypeNode>> conversionType() { return Optional.ofNullable(conversionType); }
+        public B setConversionType(NodeBuilder<? extends TypeNode> value) { syntaxEdited = true; conversionType = Objects.requireNonNull(value); return self(); }
+        public B clearConversionType() { syntaxEdited = true; conversionType = null; return self(); }
         private NodeBuilder<? extends TypeNode> writtenType;
         public Optional<NodeBuilder<? extends TypeNode>> writtenType() { return Optional.ofNullable(writtenType); }
-        public B setWrittenType(NodeBuilder<? extends TypeNode> value) { writtenType = Objects.requireNonNull(value); return self(); }
-        public B clearWrittenType() { writtenType = null; return self(); }
+        public B setWrittenType(NodeBuilder<? extends TypeNode> value) { syntaxEdited = true; writtenType = Objects.requireNonNull(value); return self(); }
+        public B clearWrittenType() { syntaxEdited = true; writtenType = null; return self(); }
         private List<NodeBuilder<? extends ParameterDeclaration>> parameters = new ArrayList<>();
         private NodeBuilder<? extends BlockStatement> body;
         private NodeBuilder<? extends Exit> exit = Exit.create();
@@ -132,10 +142,10 @@ public abstract class CallableDeclaration extends Declaration {
         public boolean isVolatile() { return isVolatile; }
         /** Whether the declaration explicitly contains a pure-specifier (= 0). */
         public boolean isPureVirtual() { return pureVirtual; }
-        public B setPureVirtual(boolean value) { pureVirtual = value; return self(); }
-        public B setVariadic(boolean value) { variadic = value; return self(); }
-        public B setConst(boolean value) { isConst = value; return self(); }
-        public B setVolatile(boolean value) { isVolatile = value; return self(); }
+        public B setPureVirtual(boolean value) { syntaxEdited = true; pureVirtual = value; return self(); }
+        public B setVariadic(boolean value) { syntaxEdited = true; variadic = value; return self(); }
+        public B setConst(boolean value) { syntaxEdited = true; isConst = value; return self(); }
+        public B setVolatile(boolean value) { syntaxEdited = true; isVolatile = value; return self(); }
 
         /** Reads the current name from the builder. */
         public Optional<String> name() {
@@ -163,55 +173,55 @@ public abstract class CallableDeclaration extends Declaration {
         }
 
         /** Replaces the name in the mutable state and returns the concrete builder. */
-        public final B setName(String name) {
+        public final B setName(String name) { syntaxEdited = true;
             this.name = Objects.requireNonNull(name);
             return self();
         }
 
         /** Replaces the modifiers in the mutable state and returns the concrete builder. */
-        public final B setModifiers(List<String> modifiers) {
+        public final B setModifiers(List<String> modifiers) { syntaxEdited = true;
             this.modifiers = new ArrayList<>(List.copyOf(modifiers));
             return self();
         }
 
         /** Appends one modifier in source order and returns the concrete builder. */
-        public final B addModifier(String value) {
+        public final B addModifier(String value) { syntaxEdited = true;
             modifiers.add(Objects.requireNonNull(value));
             return self();
         }
 
         /** Replaces the returnType in the mutable state and returns the concrete builder. */
-        public final B setReturnType(NodeBuilder<? extends TypeNode> returnType) {
+        public final B setReturnType(NodeBuilder<? extends TypeNode> returnType) { syntaxEdited = true;
             this.returnType = Objects.requireNonNull(returnType);
             return self();
         }
 
         /** Removes the optional returnType from the next snapshot. */
-        public final B clearReturnType() {
+        public final B clearReturnType() { syntaxEdited = true;
             this.returnType = null;
             return self();
         }
 
         /** Replaces the parameters in the mutable state and returns the concrete builder. */
-        public final B setParameters(List<? extends NodeBuilder<? extends ParameterDeclaration>> parameters) {
+        public final B setParameters(List<? extends NodeBuilder<? extends ParameterDeclaration>> parameters) { syntaxEdited = true;
             this.parameters = new ArrayList<>(List.copyOf(parameters));
             return self();
         }
 
         /** Appends one parameter in source order and returns the concrete builder. */
-        public final B addParameter(NodeBuilder<? extends ParameterDeclaration> value) {
+        public final B addParameter(NodeBuilder<? extends ParameterDeclaration> value) { syntaxEdited = true;
             parameters.add(Objects.requireNonNull(value));
             return self();
         }
 
         /** Replaces the body in the mutable state and returns the concrete builder. */
-        public final B setBody(NodeBuilder<? extends BlockStatement> body) {
+        public final B setBody(NodeBuilder<? extends BlockStatement> body) { syntaxEdited = true;
             this.body = Objects.requireNonNull(body);
             return self();
         }
 
         /** Removes the optional body from the next snapshot. */
-        public final B clearBody() {
+        public final B clearBody() { syntaxEdited = true;
             this.body = null;
             return self();
         }
@@ -228,6 +238,7 @@ public abstract class CallableDeclaration extends Declaration {
             node.pureVirtual = pureVirtual;
             node.variadic = variadic; node.isConst = isConst; node.isVolatile = isVolatile;
             node.modifiers = List.copyOf(modifiers);
+            node.conversionType = conversionType == null ? null : context.copy(conversionType);
             node.returnType = returnType == null ? null : context.copy(returnType);
             node.writtenType = writtenType == null ? null : context.copy(writtenType);
             node.parameters = context.copyAll(parameters);

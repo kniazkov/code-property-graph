@@ -358,6 +358,59 @@ public final class Parser {
         return tokens.span(start, result);
     }
 
+    /** Conversion functions have a conversion-type-id, not a return-type declarator. */
+    private boolean conversionFunctionAhead() {
+        int offset = 0;
+        while (java.util.Set.of("inline", "virtual", "explicit", "static").contains(tokens.peek(offset))) offset++;
+        if (tokens.peek(offset).equals("::")) offset++;
+        while (CppLexer.isIdentifier(tokens.peek(offset)) && tokens.peek(offset + 1).equals("::")) offset += 2;
+        return tokens.peek(offset).equals("operator");
+    }
+
+    private MethodDeclaration.Builder conversionFunction(boolean member, boolean local) {
+        var start = tokens.start();
+        var modifiers = new java.util.ArrayList<String>();
+        while (java.util.Set.of("inline", "virtual", "explicit", "static").contains(tokens.peek())) {
+            modifiers.add(tokens.peek()); tokens.advance();
+        }
+        if (modifiers.contains("explicit") || modifiers.contains("static"))
+            throw tokens.error("C++03 conversion functions cannot be explicit or static");
+        if (new java.util.HashSet<>(modifiers).size() != modifiers.size()) throw tokens.error("Duplicate function specifier");
+        String prefix = tokens.take("::") ? "::" : "";
+        while (!tokens.peek().equals("operator")) { prefix += tokens.identifier(); tokens.expect("::"); prefix += "::"; }
+        tokens.expect("operator");
+        if (local || !member && prefix.isEmpty()) throw tokens.error("Conversion function requires a class member");
+        if (!member && modifiers.contains("virtual")) throw tokens.error("virtual is permitted only in a class declaration");
+        var targetHolder = new java.util.ArrayList<NodeBuilder<? extends TypeNode>>();
+        types.inQualifier(prefix + "operator", () -> targetHolder.add(types.newType()));
+        var target = targetHolder.getFirst();
+        if (target instanceof ArrayType.Builder || target instanceof FunctionType.Builder)
+            throw tokens.error("Conversion function cannot target an array or function type");
+        tokens.expect("("); tokens.expect(")");
+        boolean constant = tokens.take("const"), vol = tokens.take("volatile");
+        if (!constant) constant = tokens.take("const");
+        var result = MethodDeclaration.create().setKind(CallableDeclaration.Kind.CONVERSION)
+                .setName(prefix + "operator " + target.build().source(Language.CPP)).setConversionType(target)
+                .setConst(constant).setVolatile(vol).setModifiers(modifiers);
+        result.setDeclarationDefinition(tokens.peek().equals("{"));
+        if (tokens.peek().equals("{")) {
+            if (!deferredBodies.isEmpty()) {
+                int position = tokens.checkpoint(); tokens.skipBlock();
+                deferredBodies.peek().add(types.inCurrentScope(() -> {
+                    int resume = tokens.checkpoint(); tokens.restore(position);
+                    try { functionBody(result, java.util.List.of()); } finally { tokens.restore(resume); }
+                }));
+            } else functionBody(result, java.util.List.of());
+        } else {
+            if (tokens.take("=")) {
+                if (!member) throw tokens.error("Pure-specifier requires a class member declaration");
+                tokens.expect("0"); result.setPureVirtual(true);
+            }
+            tokens.expect(";");
+        }
+        return tokens.span(start, result);
+    }
+
     private boolean specialMemberAhead(boolean member) {
         int offset = 0;
         while (java.util.Set.of("inline", "explicit", "virtual").contains(tokens.peek(offset))) offset++;
@@ -450,6 +503,7 @@ public final class Parser {
             declarations.forEach(declaration -> declaration.setFriend(true));
             return declarations;
         }
+        if (conversionFunctionAhead()) return java.util.List.of(conversionFunction(member, local));
         if (specialMemberAhead(member)) return java.util.List.of(specialMember());
         if (tokens.peek().equals("namespace")) {
             if (member || local) throw tokens.error("Namespace definitions require namespace scope");

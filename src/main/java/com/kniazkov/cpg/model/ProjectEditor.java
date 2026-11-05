@@ -27,12 +27,17 @@ public final class ProjectEditor {
     }
 
     /** Adds semantic wrappers without independently cloning the operand's declaration links. */
-    public record ConversionStep(String sourceType, TypeNode targetType, ConversionExpression.Kind kind) {
+    public record ConversionStep(String sourceType, TypeNode targetType, ConversionExpression.Kind kind, CallableDeclaration userDefined) {
+        public ConversionStep(String sourceType, TypeNode targetType, ConversionExpression.Kind kind) {
+            this(sourceType, targetType, kind, null);
+        }
         public ConversionStep { Objects.requireNonNull(sourceType); Objects.requireNonNull(targetType); Objects.requireNonNull(kind); }
     }
     private final Map<Expression, List<ConversionStep>> conversions = new IdentityHashMap<>();
     public void convert(Expression expression, List<ConversionStep> steps) {
-        requireMember(expression); if (!steps.isEmpty()) conversions.put(expression, List.copyOf(steps));
+        requireMember(expression);
+        steps.forEach(step -> { if (step.userDefined() != null) requireMember(step.userDefined()); });
+        if (!steps.isEmpty()) conversions.put(expression, List.copyOf(steps));
     }
 
     private record DeclarationFacts(Declaration.Linkage linkage, boolean definitionOccurrence,
@@ -96,6 +101,14 @@ public final class ProjectEditor {
     private final Map<CallExpression, CallableDeclaration> calls = new IdentityHashMap<>();
 
     private record Resolution(List<CallableDeclaration> candidates, CallExpression.Resolution status) {}
+    private final Map<Expression, Resolution> operatorResolutions = new IdentityHashMap<>();
+    public void bindOperator(Expression expression, CallableDeclaration target) {
+        resolveOperator(expression, List.of(target), CallExpression.Resolution.RESOLVED);
+    }
+    public void resolveOperator(Expression expression, List<CallableDeclaration> candidates, CallExpression.Resolution status) {
+        requireMember(expression); candidates.forEach(this::requireMember);
+        operatorResolutions.put(expression, new Resolution(List.copyOf(candidates), Objects.requireNonNull(status)));
+    }
     private final Map<CallExpression, Resolution> resolutions = new IdentityHashMap<>();
     public void resolve(CallExpression call, List<CallableDeclaration> candidates, CallExpression.Resolution status) {
         requireMember(call); candidates.forEach(this::requireMember);
@@ -168,7 +181,10 @@ public final class ProjectEditor {
     private boolean invalidateAffected(Node node, EditContext context, boolean hierarchyChanged) {
         boolean changed = replacements.containsKey(node) || removed.contains(node) || conversions.containsKey(node);
         for (Node child : node.children()) changed |= invalidateAffected(child, context, hierarchyChanged);
-        if (changed && node instanceof Expression && !removed.contains(node)) context.copy(node).clearExpressionInfo();
+        if ((changed || hierarchyChanged) && node instanceof Expression && !removed.contains(node)) {
+            if (hierarchyChanged || syntaxChanged(node)) context.copy(node).clearExpressionInfo();
+            else context.copy(node).expressionInfo = null; // Implicit conversion insertion preserves overload selection.
+        }
         if (node instanceof CallExpression call && !defaults.containsKey(call) && syntaxChanged(call))
             context.edit(call, CallExpression.Builder.class).setDefaultArguments(List.of());
         if (node instanceof CallExpression call && !virtualTargets.containsKey(call) && (hierarchyChanged || syntaxChanged(call)))
@@ -177,7 +193,7 @@ public final class ProjectEditor {
     }
 
     private boolean containsHierarchyDeclaration(Node node) {
-        return node instanceof ClassDeclaration || node instanceof CallableDeclaration || node instanceof BaseSpecifier
+        return node instanceof Declaration || node instanceof BaseSpecifier
                 || node.children().stream().anyMatch(this::containsHierarchyDeclaration);
     }
 
@@ -285,10 +301,12 @@ public final class ProjectEditor {
         // Until dependency-scoped reanalysis is requested, declaration syntax edits
         // conservatively invalidate dispatch facts throughout the snapshot.
         boolean hierarchyChanged = members.stream().anyMatch(node ->
-                (node instanceof ClassDeclaration || node instanceof CallableDeclaration || node instanceof BaseSpecifier) && syntaxChanged(node))
+                (node instanceof Declaration || node instanceof BaseSpecifier) && syntaxChanged(node))
                 || replacements.keySet().stream().anyMatch(this::containsHierarchyDeclaration)
                 || removed.stream().anyMatch(this::containsHierarchyDeclaration);
         invalidateAffected(source, context, hierarchyChanged);
+        operatorResolutions.forEach((expression, value) -> context.copy(expression)
+                .setOperatorCandidates(context.copyAll(value.candidates(), CallableDeclaration.class), value.status()));
         conversionSources.forEach((expression, type) -> context.edit(expression, ConversionExpression.Builder.class).setSourceType(type));
         expressions.forEach((expression, info) -> context.copy(expression).setExpressionInfo(info));
         var build = new BuildContext();

@@ -250,8 +250,8 @@ final class ExpressionParser {
             try { value = IntegerLiteral.create().setValue(Integer.parseInt(number)); }
             catch (NumberFormatException e) { throw tokens.error("Integer literal outside signed 32-bit range"); }
             tokens.advance();
-        } else if (language == Language.CPP && tokens.take("::")) value = NameExpression.create().setName("::" + tokens.identifier());
-        else value = NameExpression.create().setName(tokens.identifier());
+        } else if (language == Language.CPP && tokens.take("::")) value = NameExpression.create().setName("::" + expressionName());
+        else value = NameExpression.create().setName(expressionName());
         return postfix(start, tokens.span(start, value));
     }
 
@@ -267,11 +267,17 @@ final class ExpressionParser {
         return null;
     }
 
+    private String expressionName() {
+        if (language != Language.CPP || !tokens.take("operator")) return tokens.identifier();
+        if (types.startsType()) return "operator " + types.newType().build().source(Language.CPP);
+        return types.operatorName();
+    }
+
     private NodeBuilder<? extends Expression> postfix(TokenCursor.Mark start, NodeBuilder<? extends Expression> value) {
         while (true) {
-            if (tokens.take(".")) value = DotMemberExpression.create().setReceiver(value).setMember(tokens.identifier());
-            else if (language == Language.CPP && tokens.take("::")) value = ScopeMemberExpression.create().setReceiver(value).setMember(tokens.identifier());
-            else if (language == Language.CPP && tokens.take("->")) value = PointerMemberExpression.create().setReceiver(value).setMember(tokens.identifier());
+            if (tokens.take(".")) value = DotMemberExpression.create().setReceiver(value).setMember(expressionName());
+            else if (language == Language.CPP && tokens.take("::")) value = ScopeMemberExpression.create().setReceiver(value).setMember(expressionName());
+            else if (language == Language.CPP && tokens.take("->")) value = PointerMemberExpression.create().setReceiver(value).setMember(expressionName());
             else if (language == Language.CPP && tokens.take("[")) {
                 value = IndexExpression.create().setLeft(value).setRight(nestedExpression(0));
                 tokens.expect("]");

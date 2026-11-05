@@ -85,7 +85,8 @@ public final class CallExpression extends Expression {
 
     @Override
     public List<Node> references() {
-        List<Node> result = new ArrayList<>(candidates);
+        List<Node> result = new ArrayList<>(super.references());
+        for (var candidate : candidates) if (!result.contains(candidate)) result.add(candidate);
         for (var implementation : virtualTargets) if (!result.contains(implementation)) result.add(implementation);
         for (var argument : defaultArguments) {
             for (Node reference : List.of(argument.declaration(), argument.parameter(), argument.expression()))
