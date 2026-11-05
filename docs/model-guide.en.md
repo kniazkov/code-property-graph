@@ -1260,3 +1260,46 @@ and pointer-arithmetic joins use conservative possible locations. They can add
 sources without proving an overwrite. Pointer-location widening keeps loop and
 recursive analysis finite; it does not assume a target object layout or ABI.
 Repeated or unresolved base-subobject paths use weak field views; distinct resolved field declarations remain separate even when their names match.
+
+### Safe editing, renaming and generation (#43)
+
+An ordinary structural `ProjectEditor.build()` produces a new snapshot and
+rechecks diagnostics. Repairing an `ErrorExpression` removes that occurrence's
+parse problem; independent findings and other remaining errors are retained.
+The input snapshot remains unchanged. A conflicting declaration remains in the
+graph with its peer, a semantic diagnostic and `Project.hasErrors() == true`.
+Graph construction and source emission are separate operations: an invalid
+snapshot can be inspected/exported, but cannot generate C++ sources.
+
+`DeclarationRename.affectedDeclarations(project, declaration)` previews the
+selected declaration/redeclaration family and, for virtual methods, all connected
+overrides. `DeclarationRename.rename(project, declaration, newName)` returns a
+new snapshot with resolved uses and using declarations renamed. It does not write
+files. An uneditable external family member prevents the operation before any
+partial result is published. Independent declarations with the same spelling are
+not part of the family. Inspect the returned root status before generation.
+
+C++ emission checks lookup in the resulting scopes against selected source-graph
+targets. A still-valid spelling is preserved; a namespace/global qualification
+may restore the selected target after an added using directive. If no safe
+spelling can be established, or an ambiguous occurrence has no selected target,
+generation rejects the snapshot before files are written. Multiple valid virtual
+dispatch implementations are not themselves a lexical ambiguity.
+
+The existing C++03 corpus remains the round-trip coverage for accepted syntax,
+precedence, declarations, headers and translation-unit boundaries. This does not
+make every C++ construct portable to Java: `Source.languages` and generation's
+portability checks continue to reject unsupported cross-language constructs.
+
+Namespace, namespace-alias and class renames follow resolved qualifier components,
+including reopened namespaces and out-of-line constructor/destructor spellings.
+Unproved or ambiguous components, macro-derived identifiers, conflicting include
+contexts and unavailable physical sources are rejected rather than partly renamed.
+Existing structural edits must be emitted and reparsed before physical-token
+renaming. Partial overload-set using declarations and accidental name capture
+produce an erroneous result rather than silently changing imported targets.
+
+Binding-preservation validation requires a whole `Project`: it applies to
+`Source.files`, `Source.physicalSources`, `Source.render(Project, ...)` and
+`Cpg.sources`. Rendering an isolated node or `SourceFile` is a context-free
+fragment printer, not proof that the fragment preserves project-wide lookup.

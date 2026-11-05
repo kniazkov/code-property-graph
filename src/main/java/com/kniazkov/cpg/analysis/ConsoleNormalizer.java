@@ -23,7 +23,7 @@ public final class ConsoleNormalizer {
 
     /** Recognizes the supported console forms after name resolution, respecting local shadowing. */
     public static Project green(Project project) {
-        var editor = new ProjectEditor(project);
+        var editor = new ProjectEditor(project).withoutRevalidation();
         for (SourceFile file : project.files()) file.walk(new NodeVisitor() {
             @Override public void visit(ExpressionStatement statement) {
                 Expression expr = statement.expression();

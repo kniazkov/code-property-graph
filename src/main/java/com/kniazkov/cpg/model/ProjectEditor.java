@@ -7,7 +7,10 @@ import java.util.*;
 public final class ProjectEditor {
     private final Project source;
     private boolean retainDiagnostics;
-    /** Semantic passes may preserve prior findings; ordinary source edits still invalidate them. */
+    private boolean revalidate = true;
+    /** Internal semantic transformations do not recursively launch source-edit validation. */
+    public ProjectEditor withoutRevalidation() { revalidate = false; return this; }
+    /** Semantic passes may preserve prior findings; ordinary source edits revalidate errors. */
     public ProjectEditor retainDiagnostics() { retainDiagnostics=true; return this; }
     private record Instantiation(CallableDeclaration origin, Node cause, SourceFile file, List<TypeNode> arguments, Map<Node, Node> substitutions, CallableDeclaration definition, List<TemplateArgument> structuredArguments) {}
     private final List<Instantiation> instantiations = new ArrayList<>();
@@ -391,6 +394,55 @@ public final class ProjectEditor {
             for(Diagnostic finding:findings)if(!combined.contains(finding))combined.add(finding);
             target.findings=List.copyOf(combined);
         });
+        if (revalidate && (!replacements.isEmpty() || !removed.isEmpty())) revalidateDiagnostics(result);
         return result;
+    }
+
+    // These rules own their findings. Flow findings are invalidated with CFG/DFG;
+    // resolver and documentation findings are recomputed by the detached pass.
+    private static final Set<String> DERIVED_WARNINGS = Set.of("unread-write", "unsupported-constructor-flow",
+            "rethrow-without-lexical-handler", "doxygen.unresolved-parameter");
+    private static boolean derivedWarning(Diagnostic diagnostic) {
+        return DERIVED_WARNINGS.contains(diagnostic.code());
+    }
+
+    /** Validate a detached view without replacing the caller's chosen reference bindings.
+     * Publication remains immutable: only this build's unpublished nodes are annotated. */
+    private void revalidateDiagnostics(Project result) {
+        var destinations = new IdentityHashMap<Object, Node>();
+        result.walk(new NodeVisitor() {
+            @Override public void visit(Node node) {
+                destinations.put(node.editIdentity, node);
+                node.findings = node.findings.stream().filter(d -> !derivedWarning(d)).toList();
+            }
+        });
+        // Keep unrelated annotations; errors are reconstructed from the edited syntax.
+        for (Node original : members) {
+            Node target = destinations.get(original.editIdentity);
+            if (target == null) continue;
+            var preserved = new ArrayList<>(target.findings);
+            for (Diagnostic diagnostic : original.diagnostics())
+                if (diagnostic.severity() != Diagnostic.Severity.ERROR && !derivedWarning(diagnostic)
+                        && !preserved.contains(diagnostic))
+                    preserved.add(diagnostic);
+            target.findings = List.copyOf(preserved);
+        }
+        Project checked = com.kniazkov.cpg.analysis.NameResolver.resolve(result.edit().build());
+        checked.walk(new NodeVisitor() {
+            @Override public void visit(Node node) {
+                if (node.diagnostics().isEmpty()) return;
+                // New instantiated semantic nodes may not exist in the caller's unanalysed
+                // graph. Keep their located findings on the root rather than losing errors.
+                Node target = destinations.getOrDefault(node.editIdentity, result);
+                var findings = new ArrayList<>(target.findings);
+                for (Diagnostic diagnostic : node.diagnostics()) {
+                    Diagnostic located = diagnostic.primaryRange() != null ? diagnostic : new Diagnostic(
+                            diagnostic.code(), diagnostic.severity(), diagnostic.message(),
+                            node.range().orElse(null), diagnostic.relatedRanges());
+                    if (!findings.contains(located)) findings.add(located);
+                }
+                target.findings = List.copyOf(findings);
+            }
+        });
     }
 }

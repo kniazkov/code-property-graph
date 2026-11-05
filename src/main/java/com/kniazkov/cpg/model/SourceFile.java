@@ -75,6 +75,9 @@ public final class SourceFile extends Node {
         builder.path = path;
         builder.language = language;
         builder.parseProblems = new ArrayList<>(parseProblems);
+        walk(new NodeVisitor() {
+            @Override public void visit(ErrorExpression error) { builder.originalExpressionProblems.add(error.problem()); }
+        });
         builder.stoppedAt = stoppedAt;
         builder.items = context.copyAll(items, Node.class);
         return builder;
@@ -90,6 +93,8 @@ public final class SourceFile extends Node {
         private Language language = Language.JAVA;
         private List<ParseProblem> parseProblems = new ArrayList<>();
         private SourceRange stoppedAt;
+        private final java.util.Set<ParseProblem> originalExpressionProblems =
+                java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
         public List<ParseProblem> parseProblems() { return List.copyOf(parseProblems); }
         public Builder setParseProblems(List<ParseProblem> values) { parseProblems = new ArrayList<>(List.copyOf(values)); return this; }
@@ -151,12 +156,19 @@ public final class SourceFile extends Node {
             node.comments = context.copyAll(comments);
             node.path = requiredText(path, "SourceFile.path");
             node.language = language;
-            node.parseProblems = List.copyOf(parseProblems);
             node.stoppedAt = stoppedAt;
             node.items = context.copyAll(items);
+            var currentProblems = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<ParseProblem, Boolean>());
             node.walk(new NodeVisitor() {
-                @Override public void visit(ErrorExpression error) { node.containsErrorExpression = true; }
+                @Override public void visit(ErrorExpression error) {
+                    node.containsErrorExpression = true;
+                    currentProblems.add(error.problem());
+                }
             });
+            // Only retire diagnostics whose exact recovery placeholder was removed.
+            // Terminal/unrepresented failures remain until the source file is replaced.
+            node.parseProblems = parseProblems.stream().filter(problem ->
+                    !originalExpressionProblems.contains(problem) || currentProblems.contains(problem)).toList();
             for (Node item : node.items) {
                 if (!(item instanceof Declaration) && !(item instanceof IncludeDirective)) {
                     throw new IllegalStateException("File item must be a declaration or include");

@@ -19,13 +19,17 @@ public final class Source {
         this.target = target;
     }
 
+    /** Renders a syntax fragment. A complete project additionally validates selected C++ bindings;
+     * isolated fragments have no enclosing lookup context. Use files for safe project publication. */
     public static String render(Node node, Language target) {
+        if (target == Language.CPP && node instanceof Project project) node = NameBindings.prepare(project);
         String syntax = renderFragment(node, target, false);
         return commentText(node, target) + syntax;
     }
 
     /** Validated physical C++ sources, including captured headers, keyed by absolute path. */
     public static Map<String,String> physicalSources(Project project) {
+        project = NameBindings.prepare(project);
         requireComplete(project);
         if (!PreservedSource.captured(project))
             throw new IllegalArgumentException("Physical source emission requires captured C++ translation units");
@@ -122,6 +126,7 @@ public final class Source {
 
     /** Generates named files, adapting supported program entry points when changing languages. */
     public static Map<String,String> files(Project project, Language target) {
+        if (target == Language.CPP) project = NameBindings.prepare(project);
         requireComplete(project);
         if (target == Language.CPP && PreservedSource.applicable(project)) return PreservedSource.files(project);
         requireVariantSelection(project);
