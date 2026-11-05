@@ -53,9 +53,21 @@ public final class Project extends Node {
             throw new IllegalStateException("Dynamic array type references foreign syntax");
         dynamicArrayTypes = dynamicArrayTypes.stream().filter(type -> type.references().stream().allMatch(owned::contains)).toList();
         owned.addAll(dynamicArrayTypes);
+        // Temporal handle effects may reference other owned operations, never foreign graphs.
+        owned.addAll(dynamicArraySemantics);
         if (fresh && dynamicArraySemantics.stream().anyMatch(operation -> !operation.references().stream().allMatch(owned::contains)))
             throw new IllegalStateException("Dynamic array operation references foreign syntax");
-        dynamicArraySemantics = dynamicArraySemantics.stream().filter(operation -> operation.references().stream().allMatch(owned::contains)).toList();
+        boolean removed;
+        do {
+            var retained = dynamicArraySemantics.stream()
+                    .filter(operation -> operation.references().stream().allMatch(owned::contains)).toList();
+            removed = retained.size() != dynamicArraySemantics.size();
+            if (removed) {
+                owned.removeAll(dynamicArraySemantics);
+                owned.addAll(retained);
+                dynamicArraySemantics = retained;
+            }
+        } while (removed);
     }
     private List<DynamicArrayType> dynamicArrayTypes = List.of();
     public List<DynamicArrayType> dynamicArrayTypes() { return dynamicArrayTypes; }

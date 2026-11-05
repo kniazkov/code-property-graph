@@ -152,6 +152,10 @@ public final class DotVisualizer {
                 if (expression.operatorTarget().isEmpty()) for (var candidate : expression.operatorCandidates())
                     semanticEdge(expression, candidate, "operator candidate (" + expression.operatorResolution().name().toLowerCase(java.util.Locale.ROOT) + ")");
             }
+            if (node instanceof OpaqueLibraryType type) {
+                type.iteratorContainer().ifPresent(container -> semanticEdge(type, container, "ITERATOR_CONTAINER"));
+                type.iteratorDifferenceType().ifPresent(difference -> semanticEdge(type, difference, "ITERATOR_DIFFERENCE_TYPE"));
+            }
             if (node instanceof DynamicArrayType type) {
                 if (type.concreteClass() != null) semanticEdge(type, type.concreteClass(), "DYNAMIC_ARRAY_CLASS");
                 semanticEdge(type, type.elementType(), "ELEMENT_TYPE");
@@ -164,6 +168,19 @@ public final class DotVisualizer {
                 operation.sources().forEach(source -> semanticEdge(operation, source, "SOURCE"));
                 semanticEdge(operation, operation.selectedTarget(), "CPP_TARGET");
                 operation.elementCopyConstructor().ifPresent(target -> semanticEdge(operation, target, "ELEMENT_COPY_CONSTRUCTOR"));
+                operation.elementDestructor().ifPresent(target -> semanticEdge(operation, target, "ELEMENT_DESTRUCTOR"));
+                operation.elementAssignment().ifPresent(target -> semanticEdge(operation, target, "ELEMENT_ASSIGNMENT"));
+                operation.index().ifPresent(operand -> semanticEdge(operation, operand, "INDEX"));
+                operation.mutatedObjects().forEach(target -> semanticEdge(operation, target, "MUTATES"));
+                operation.handle().ifPresent(handle -> {
+                    semanticEdge(operation, handle.sequence(), "HANDLE_SEQUENCE");
+                    handle.position().ifPresent(position -> semanticEdge(operation, position, "HANDLE_POSITION"));
+                });
+                operation.handleEffects().forEach(effect -> {
+                    semanticEdge(operation, effect.producer(), "HANDLE_" + effect.validityAfter().name());
+                    effect.sequenceAfter().ifPresent(sequence -> semanticEdge(operation, sequence, "SEQUENCE_AFTER"));
+                    effect.positionAfter().ifPresent(position -> semanticEdge(operation, position, "POSITION_AFTER"));
+                });
             }
             if (node instanceof IncludeDirective include) include.libraryHeader().ifPresent(header -> semanticEdge(include, header, "LIBRARY_HEADER"));
             if (node instanceof VariableDeclaration variable) {
@@ -464,7 +481,7 @@ public final class DotVisualizer {
         }
 
         @Override public void visit(DynamicArrayType node) { detail = "sequence of " + node.elementType().canonicalIdentity(); }
-        @Override public void visit(DynamicArrayOperation node) { detail = node.kind().name(); }
+        @Override public void visit(DynamicArrayOperation node) { detail = node.kind().name() + " / " + node.resultKind().name(); }
 
         @Override
         public void visit(StandardLibrary node) {

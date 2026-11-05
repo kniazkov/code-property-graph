@@ -15,7 +15,7 @@ class DynamicArraySemanticsTest {
     @Test void scalarConstructionAssignmentAndAppend() {
         var project = green("#include <vector>\nint main(){std::vector<int> a; std::vector<int> b(3); std::vector<int> c(3,7); int xs[2]; std::vector<int> d(xs,xs+2); std::vector<int> e=c; a=c; a.assign(2,4); a.assign(xs,xs+2); a.push_back(9);}");
         assertFalse(project.hasErrors(), project.semanticDiagnostics().toString());
-        assertEquals(EnumSet.allOf(DynamicArrayOperation.Kind.class), EnumSet.copyOf(project.dynamicArraySemantics().stream().map(DynamicArrayOperation::kind).toList()));
+        assertEquals(EnumSet.of(DynamicArrayOperation.Kind.EMPTY, DynamicArrayOperation.Kind.COUNT, DynamicArrayOperation.Kind.FILL, DynamicArrayOperation.Kind.RANGE, DynamicArrayOperation.Kind.COPY, DynamicArrayOperation.Kind.ASSIGN_COPY, DynamicArrayOperation.Kind.ASSIGN_FILL, DynamicArrayOperation.Kind.ASSIGN_RANGE, DynamicArrayOperation.Kind.APPEND), EnumSet.copyOf(project.dynamicArraySemantics().stream().map(DynamicArrayOperation::kind).toList()));
         assertEquals(1, project.dynamicArrayTypes().size());
         assertTrue(project.dynamicArraySemantics().stream().allMatch(op -> op.type() == project.dynamicArrayTypes().getFirst()));
         assertEquals(9, project.dynamicArraySemantics().size());

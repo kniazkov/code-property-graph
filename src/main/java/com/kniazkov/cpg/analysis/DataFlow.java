@@ -130,6 +130,7 @@ public final class DataFlow {
     /** A program point's possible most recent writes, indexed by declaration identity. */
     private static final class State {
         private final Map<Declaration,Set<Node>> definitions = new LinkedHashMap<>();
+        private final Map<Declaration,Set<ElementBinding>> elements = new LinkedHashMap<>();
 
         State copy() {
             State state = new State();
@@ -143,6 +144,8 @@ public final class DataFlow {
                 var values = definitions.computeIfAbsent(entry.getKey(), k -> new LinkedHashSet<>());
                 changed |= values.addAll(entry.getValue());
             }
+            for (var entry : other.elements.entrySet())
+                changed |= elements.computeIfAbsent(entry.getKey(), k -> new LinkedHashSet<>()).addAll(entry.getValue());
             return changed;
         }
 
@@ -150,6 +153,10 @@ public final class DataFlow {
             definitions.put(target, new LinkedHashSet<>(List.of(definition)));
         }
     }
+
+    /** Element storage is distinct from a reference to the container object itself. */
+    private record ElementBinding(DynamicArrayOperation producer, Declaration sequence,
+            boolean iterator, boolean writable, boolean uncertain) { }
 
     @FunctionalInterface
     private interface Sink {
@@ -162,7 +169,7 @@ public final class DataFlow {
             Expression value = expandedValues.get(consumer);
             for (DataEdge edge : expandedDependencies.get(consumer)) sink.edge(edge.from(), edge.to(), edge.kind());
             sink.edge(value, consumer, Dependency.VALUE);
-            if (consumer instanceof VariableDeclaration variable) { state.write(variable, variable); constructLibraryObject(variable, state, sink); }
+            if (consumer instanceof VariableDeclaration variable) { state.write(variable, variable); bindElement(variable, value, state); constructLibraryObject(variable, state, sink); }
             else if (consumer instanceof AssignmentExpression assignment) {
                 if (arrays.containsKey(assignment)) {
                     arrayEffect(arrays.get(assignment), state, sink);
@@ -174,9 +181,11 @@ public final class DataFlow {
         switch (vertex) {
             case VariableDeclaration v -> {
                 state.definitions.remove(v);
+                state.elements.remove(v);
                 v.initializer().ifPresent(value -> {
                     consume(value, v, state, sink);
                     state.write(v, v);
+                    bindElement(v, value, state);
                 });
                 constructLibraryObject(v, state, sink);
             }
@@ -241,18 +250,18 @@ public final class DataFlow {
     private void arrayEffect(DynamicArrayOperation operation, State state, Sink sink) {
         for (Node source : operation.sources()) sink.edge(source, operation, Dependency.VALUE);
         Set<Declaration> destinations = new LinkedHashSet<>();
-        if (operation.destination() instanceof Declaration declaration) destinations.add(declaration);
-        else if (operation.destination() instanceof Expression expression)
-            destinations.addAll(LibraryCallEffects.roots(expression));
-        if (operation.kind() == DynamicArrayOperation.Kind.APPEND)
-            for (Declaration destination : destinations)
-                for (Node definition : state.definitions.getOrDefault(alias(destination), Set.of()))
-                    sink.edge(definition, operation, Dependency.DEFINITION);
-        // Implicit record copies can invoke member/base copy constructors. Reallocation
-        // can also destroy existing elements, even with an implicit element copy.
-        // Until transitive lifetime effects are proven trivial, retain arbitrary reads
-        // and may-writes for every nonempty record operation, not just a direct copy link.
-        if (operation.kind() != DynamicArrayOperation.Kind.EMPTY
+        for (Node object : operation.mutatedObjects()) destinations.addAll(sequenceRoots(object));
+        // Queries and accessors read the actual sequence state; they never replace it.
+        // Mutations also depend on the previous size/content/lifetime of the object.
+        var reads = new LinkedHashSet<>(sequenceRoots(operation.destination()));
+        reads.addAll(destinations);
+        for (Declaration destination : reads)
+            for (Node definition : state.definitions.getOrDefault(destination, Set.of()))
+                sink.edge(definition, operation, Dependency.DEFINITION);
+        // Record lifetime/copy/assignment code can read and change accessible state.
+        // Pure accessors do not invoke such element code.
+        if (!destinations.isEmpty() && operation.kind() != DynamicArrayOperation.Kind.EMPTY
+                && operation.kind() != DynamicArrayOperation.Kind.SWAP
                 && (operation.elementCopyConstructor().isPresent()
                     || ClassSemantics.objectClass(operation.type().elementType()).isPresent())) {
             var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
@@ -260,12 +269,97 @@ public final class DataFlow {
                 exposed.addAll(LibraryCallEffects.roots(expression));
             opaqueMutation(operation, exposed, state, sink);
         }
-        for (Declaration destination : destinations) state.write(alias(destination), operation);
+        if (operation.kind() == DynamicArrayOperation.Kind.SWAP && destinations.size() == 2) {
+            var objects = new ArrayList<>(destinations);
+            state.elements.replaceAll((variable, bindings) -> {
+                var moved = new LinkedHashSet<ElementBinding>();
+                for (var binding : bindings) {
+                    Declaration sequence = binding.sequence();
+                    if (sequence == objects.get(0)) sequence = objects.get(1);
+                    else if (sequence == objects.get(1)) sequence = objects.get(0);
+                    moved.add(new ElementBinding(binding.producer(), sequence, binding.iterator(),
+                            binding.writable(), binding.uncertain()));
+                }
+                return moved;
+            });
+        } else if (!destinations.isEmpty()) {
+            // Reallocation and positional invalidation are may-effects without a
+            // proven capacity/index relation. Never promote a stale handle to valid.
+            state.elements.replaceAll((variable, bindings) -> {
+                var invalidated = new LinkedHashSet<ElementBinding>();
+                for (var binding : bindings) {
+                    if (!destinations.contains(binding.sequence())) { invalidated.add(binding); continue; }
+                    var effect = operation.handleEffects().stream().filter(e -> e.producer() == binding.producer()).findFirst();
+                    boolean uncertain = effect.map(e -> e.validityAfter() != DynamicArrayOperation.Handle.Validity.VALID).orElse(true);
+                    invalidated.add(new ElementBinding(binding.producer(), binding.sequence(), binding.iterator(), binding.writable(), uncertain));
+                }
+                return invalidated;
+            });
+        }
+        for (Declaration destination : destinations) state.write(destination, operation);
+    }
+
+    private Set<Declaration> sequenceRoots(Node object) {
+        var result = new LinkedHashSet<Declaration>();
+        if (object instanceof Declaration declaration) result.add(alias(declaration));
+        else if (object instanceof Expression expression)
+            LibraryCallEffects.roots(expression).forEach(root -> result.add(alias(root)));
+        return result;
+    }
+
+    private Set<ElementBinding> elementBindings(Expression value, State state) {
+        if (value instanceof ConversionExpression conversion) return elementBindings(conversion.operand(), state);
+        DynamicArrayOperation operation = arrays.get(value);
+        if (operation != null && operation.handle().isPresent()) {
+            var handle = operation.handle().get();
+            var result = new LinkedHashSet<ElementBinding>();
+            for (Declaration sequence : sequenceRoots(handle.sequence()))
+                result.add(new ElementBinding(operation, sequence,
+                        handle.kind() == DynamicArrayOperation.Handle.Kind.ITERATOR, handle.writable(),
+                        handle.validity() != DynamicArrayOperation.Handle.Validity.VALID));
+            return result;
+        }
+        if (value instanceof NameExpression name)
+            return name.target().map(target -> state.elements.getOrDefault(target, Set.of())).orElse(Set.of());
+        if (value instanceof DereferenceExpression || value instanceof IndexExpression) {
+            Expression iterator = value instanceof DereferenceExpression dereference ? dereference.operand() : ((IndexExpression) value).left();
+            var result = new LinkedHashSet<ElementBinding>();
+            for (var binding : elementBindings(iterator, state)) if (binding.iterator())
+                result.add(new ElementBinding(binding.producer(), binding.sequence(), false, binding.writable(), binding.uncertain()));
+            return result;
+        }
+        if (value instanceof MemberExpression member) {
+            var result = new LinkedHashSet<ElementBinding>();
+            for (var binding : elementBindings(member.receiver(), state)) if (!binding.iterator()) result.add(binding);
+            return result;
+        }
+        if (value instanceof AddExpression || value instanceof SubtractExpression) {
+            var binary = (BinaryExpression) value;
+            var result = new LinkedHashSet<ElementBinding>();
+            for (var binding : elementBindings(binary.left(), state)) if (binding.iterator()) result.add(binding);
+            if (value instanceof AddExpression)
+                for (var binding : elementBindings(binary.right(), state)) if (binding.iterator()) result.add(binding);
+            return result;
+        }
+        return Set.of();
+    }
+
+    private void bindElement(Declaration declaration, Expression value, State state) {
+        Set<ElementBinding> bindings = elementBindings(value, state);
+        boolean reference = declaration instanceof VariableDeclaration variable && variable.type()
+                .map(TypeSemantics::unqualified).filter(ReferenceType.class::isInstance).isPresent();
+        var retained = new LinkedHashSet<ElementBinding>();
+        for (var binding : bindings) if (reference || binding.iterator()) retained.add(binding);
+        if (!retained.isEmpty()) state.elements.put(declaration, retained);
     }
 
     private void opaqueMutation(Node operation, Set<Declaration> exposed, State state, Sink sink) {
+        var storage = new LinkedHashSet<Declaration>();
         for (Declaration exposedTarget : exposed) {
-            Declaration target = alias(exposedTarget);
+            storage.add(alias(exposedTarget));
+            for (var binding : state.elements.getOrDefault(exposedTarget, Set.of())) storage.add(binding.sequence());
+        }
+        for (Declaration target : storage) {
             var definitions = new LinkedHashSet<>(state.definitions.getOrDefault(target, Set.of()));
             for (Node definition : definitions) sink.edge(definition, operation, Dependency.DEFINITION);
             definitions.add(operation);
@@ -319,6 +413,11 @@ public final class DataFlow {
             }
             arguments.addAll(allocation.initializerArguments());
             arguments(arguments, allocation, state, sink);
+        } else if ((value instanceof DereferenceExpression || value instanceof IndexExpression) && !elementBindings(value, state).isEmpty()) {
+            for (Node child : value.children()) if (child instanceof Expression operand) consume(operand, value, state, sink);
+            for (var binding : elementBindings(value, state))
+                for (Node write : state.definitions.getOrDefault(binding.sequence(), Set.of()))
+                    sink.edge(write, value, Dependency.DEFINITION);
         } else if (language == Language.CPP && OperatorSemantics.mayInvokeUserCode(value)) {
             // Operator functions evaluate all arguments with unspecified relative order.
             // In particular overloaded && and || do not short circuit.
@@ -331,14 +430,22 @@ public final class DataFlow {
             use.target().ifPresent(target -> {
                 for (Node write : state.definitions.getOrDefault(alias(target), Set.of()))
                     sink.edge(write, use, Dependency.DEFINITION);
+                for (var binding : state.elements.getOrDefault(target, Set.of()))
+                    if (!binding.iterator()) for (Node write : state.definitions.getOrDefault(binding.sequence(), Set.of()))
+                        sink.edge(write, use, Dependency.DEFINITION);
             });
         } else if (value instanceof AssignmentExpression a) {
             if (language == Language.JAVA) address(a, state, sink);
             consume(a.value(), a, state, sink);
             if (language == Language.CPP) address(a, state, sink);
-            if (a.target() instanceof NameExpression name) {
-                name.target().ifPresent(target -> state.write(target, a));
-            }
+            writeTarget(a.target(), a, state);
+            if (a.target() instanceof NameExpression name) name.target().ifPresent(target -> {
+                if (state.elements.getOrDefault(target, Set.of()).stream().anyMatch(ElementBinding::iterator)
+                        || TypeSemantics.expressionType(a.target(), profile).flatMap(LibraryIteratorSemantics::info).isPresent()) {
+                    state.elements.remove(target);
+                    bindElement(target, a.value(), state);
+                }
+            });
         } else if (value instanceof CompoundAssignmentExpression assignment) {
             consume(assignment.target(), assignment, state, sink);
             consume(assignment.value(), assignment, state, sink);
@@ -369,7 +476,7 @@ public final class DataFlow {
                 State positive = state.copy(), negative = state.copy();
                 consume(conditional.thenExpression(), conditional, positive, sink);
                 consume(conditional.elseExpression(), conditional, negative, sink);
-                state.definitions.clear(); state.merge(positive); state.merge(negative);
+                state.definitions.clear(); state.elements.clear(); state.merge(positive); state.merge(negative);
             }
         } else if (value instanceof CallExpression call && language == Language.CPP) {
             consume(call.callee(), call, state, sink);
@@ -385,18 +492,22 @@ public final class DataFlow {
         }
     }
 
-    private static void possibleMutation(Expression operand, Node call, State state) {
+    private void possibleMutation(Expression operand, Node call, State state) {
         if (operand instanceof ConversionExpression conversion) possibleMutation(conversion.operand(), call, state);
         else if (operand instanceof NameExpression name) name.target().ifPresent(target -> {
             var definitions = new LinkedHashSet<>(state.definitions.getOrDefault(target, Set.of()));
             definitions.add(call); state.definitions.put(target, definitions);
+            for (var binding : state.elements.getOrDefault(target, Set.of())) if (binding.writable())
+                state.definitions.computeIfAbsent(binding.sequence(), ignored -> new LinkedHashSet<>()).add(call);
         });
         else if (operand instanceof MemberExpression member) possibleMutation(member.receiver(), call, state);
         else if (operand instanceof AssignmentExpression assignment) possibleMutation(assignment.target(), call, state);
     }
 
     private void address(AssignmentExpression assignment, State state, Sink sink) {
-        if (assignment.target() instanceof MemberExpression member) {
+        if (arrays.containsKey(assignment.target())) {
+            consume(assignment.target(), assignment, state, sink);
+        } else if (assignment.target() instanceof MemberExpression member) {
             consume(member.receiver(), assignment, state, sink);
         } else if (assignment.target() instanceof DereferenceExpression pointer) {
             consume(pointer.operand(), assignment, state, sink);
@@ -406,8 +517,18 @@ public final class DataFlow {
         }
     }
 
-    private static void writeTarget(Expression target, Node update, State state) {
-        if (target instanceof NameExpression name) name.target().ifPresent(declaration -> state.write(declaration, update));
+    private void writeTarget(Expression target, Node update, State state) {
+        if (target instanceof ConversionExpression conversion) { writeTarget(conversion.operand(), update, state); return; }
+        var bindings = elementBindings(target, state);
+        boolean indirect = !(target instanceof NameExpression) || bindings.stream().anyMatch(binding -> !binding.iterator());
+        if (indirect && !bindings.isEmpty()) {
+            for (var binding : bindings) if (binding.writable()) {
+                // An element update does not overwrite every other element. Retain
+                // prior definitions, also covering ambiguous/invalidated handles.
+                state.definitions.computeIfAbsent(binding.sequence(), ignored -> new LinkedHashSet<>()).add(update);
+            }
+        } else if (target instanceof NameExpression name)
+            name.target().ifPresent(declaration -> state.write(alias(declaration), update));
     }
 
     /** Proven target integer constants select a branch; unknown conditions retain both effects. */
@@ -433,9 +554,16 @@ public final class DataFlow {
     private void arguments(List<Expression> arguments, Node consumer, State state, Sink sink) {
         List<State> writes = new ArrayList<>();
         State possibleLast = new State();
+        var rebound = new LinkedHashSet<Declaration>();
         for (Expression arg : arguments) {
-            State effect = new State();
+            // Binding-sensitive effects need the incoming reference/iterator state.
+            State effect = state.copy();
             evaluate(arg, effect, (from, to, kind) -> {});
+            effect.definitions.entrySet().removeIf(entry -> entry.getValue().equals(state.definitions.get(entry.getKey())));
+            var bindings = new LinkedHashSet<>(state.elements.keySet()); bindings.addAll(effect.elements.keySet());
+            for (Declaration binding : bindings)
+                if (!Objects.equals(state.elements.get(binding), effect.elements.get(binding))) rebound.add(binding);
+            effect.elements.entrySet().removeIf(entry -> entry.getValue().equals(state.elements.get(entry.getKey())));
             writes.add(effect);
             possibleLast.merge(effect);
         }
@@ -446,5 +574,7 @@ public final class DataFlow {
             consume(arguments.get(i), consumer, before, sink);
         }
         possibleLast.definitions.forEach(state.definitions::put);
+        rebound.forEach(state.elements::remove);
+        possibleLast.elements.forEach(state.elements::put);
     }
 }

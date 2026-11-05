@@ -38,7 +38,16 @@ public final class ClassTemplateInstances {
                 concrete.clearDefinition(); concrete.clearPreviousDeclaration(); concrete.setTypeIdentity(request.identity());
                 request.selected().walk(new NodeVisitor() {
                     @Override public void visit(OpaqueLibraryType n) {
-                        fork.edit(n,OpaqueLibraryType.Builder.class).setIdentity(request.identity()+"::"+n.identity());
+                        var opaque=fork.edit(n,OpaqueLibraryType.Builder.class).setIdentity(request.identity()+"::"+n.identity());
+                        if(com.kniazkov.cpg.analysis.LibraryDeclarations.isLibrary(request.selected())
+                                && request.selected().name().equals("vector") && request.selected()==request.origin()
+                                && (n.name().equals("iterator") || n.name().equals("const_iterator")))
+                        {
+                            opaque.setIteratorContainer(concrete);
+                            request.selected().members().stream().filter(TypedefDeclaration.class::isInstance)
+                                    .map(TypedefDeclaration.class::cast).filter(t->t.name().equals("difference_type")).findFirst()
+                                    .ifPresent(t->opaque.setIteratorDifferenceType(fork.edge(t.type(),TypeNode.class)));
+                        }
                     }
                     @Override public void visit(Declaration n) {
                         if (com.kniazkov.cpg.analysis.LibraryDeclarations.isLibrary(request.selected()) && n != request.selected())

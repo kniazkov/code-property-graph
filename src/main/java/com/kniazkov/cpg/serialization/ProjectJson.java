@@ -59,6 +59,10 @@ public final class ProjectJson {
             for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n)
                 for (Comment comment : n.commentReferences()) edge(n, comment, "HAS_COMMENT");
             for (FlowVertex vertex : ids.keySet()) {
+                if (vertex instanceof OpaqueLibraryType type) {
+                    type.iteratorContainer().ifPresent(container -> edge(type, container, "ITERATOR_CONTAINER"));
+                    type.iteratorDifferenceType().ifPresent(difference -> edge(type, difference, "ITERATOR_DIFFERENCE_TYPE"));
+                }
                 if (vertex instanceof DynamicArrayType type) {
                     if (type.concreteClass() != null) edge(type, type.concreteClass(), "DYNAMIC_ARRAY_CLASS");
                     edge(type, type.elementType(), "ELEMENT_TYPE");
@@ -71,6 +75,19 @@ public final class ProjectJson {
                     operation.sources().forEach(source -> edge(operation, source, "SOURCE"));
                     edge(operation, operation.selectedTarget(), "CPP_TARGET");
                     operation.elementCopyConstructor().ifPresent(target -> edge(operation, target, "ELEMENT_COPY_CONSTRUCTOR"));
+                    operation.elementDestructor().ifPresent(target -> edge(operation, target, "ELEMENT_DESTRUCTOR"));
+                    operation.elementAssignment().ifPresent(target -> edge(operation, target, "ELEMENT_ASSIGNMENT"));
+                    operation.index().ifPresent(operand -> edge(operation, operand, "INDEX"));
+                    operation.mutatedObjects().forEach(target -> edge(operation, target, "MUTATES"));
+                    operation.handle().ifPresent(handle -> {
+                        edge(operation, handle.sequence(), "HANDLE_SEQUENCE");
+                        handle.position().ifPresent(position -> edge(operation, position, "HANDLE_POSITION"));
+                    });
+                    operation.handleEffects().forEach(effect -> {
+                        edge(operation, effect.producer(), "HANDLE_" + effect.validityAfter().name());
+                        effect.sequenceAfter().ifPresent(sequence -> edge(operation, sequence, "SEQUENCE_AFTER"));
+                        effect.positionAfter().ifPresent(position -> edge(operation, position, "POSITION_AFTER"));
+                    });
                 }
                 if (vertex instanceof VariableDeclaration variable) {
                     variable.constructorTarget().ifPresent(target -> edge(variable, target, "CONSTRUCTOR_TARGET"));
@@ -141,6 +158,23 @@ public final class ProjectJson {
                         .put("selectedTargetId", ids.get(operation.selectedTarget()))
                         .array("sourceIds", a -> operation.sources().forEach(source -> a.add(ids.get(source))));
                     operation.elementCopyConstructor().ifPresent(target -> obj.put("elementCopyConstructorId", ids.get(target)));
+                    operation.elementDestructor().ifPresent(target -> obj.put("elementDestructorId", ids.get(target)));
+                    operation.elementAssignment().ifPresent(target -> obj.put("elementAssignmentId", ids.get(target)));
+                    obj.put("resultKind", lower(operation.resultKind())).put("writable", operation.writable())
+                        .put("boundsChecked", operation.boundsChecked())
+                        .array("mutatedObjectIds", a -> operation.mutatedObjects().forEach(target -> a.add(ids.get(target))));
+                    operation.index().ifPresent(operand -> obj.put("indexId", ids.get(operand)));
+                    operation.handle().ifPresent(handle -> obj.object("handle", h -> {
+                        h.put("kind", lower(handle.kind())).put("sequenceId", ids.get(handle.sequence()))
+                            .put("direction", lower(handle.direction())).put("positionKind", lower(handle.positionKind()))
+                            .put("writable", handle.writable()).put("validity", lower(handle.validity()));
+                        handle.position().ifPresent(position -> h.put("positionId", ids.get(position)));
+                    }));
+                    obj.array("handleEffects", a -> operation.handleEffects().forEach(effect -> a.object(e -> {
+                        e.put("producerId", ids.get(effect.producer())).put("validityAfter", lower(effect.validityAfter()));
+                        effect.sequenceAfter().ifPresent(sequence -> e.put("sequenceAfterId", ids.get(sequence)));
+                        effect.positionAfter().ifPresent(position -> e.put("positionAfterId", ids.get(position)));
+                    })));
                 }
                 case StandardLibrary library -> obj.put("headers", nodes(library.headers()));
                 case ClassTemplateInstance instance -> {
@@ -292,7 +326,11 @@ public final class ProjectJson {
                     p.type().ifPresent(t -> obj.put("type", node(t)));
                     p.defaultValue().ifPresent(value -> obj.put("defaultValue", node(value)));
                 }
-                case OpaqueLibraryType t -> obj.put("name", t.name()).put("identity", t.identity()).put("category", t.category().name());
+                case OpaqueLibraryType t -> {
+                    obj.put("name", t.name()).put("identity", t.identity()).put("category", t.category().name());
+                    t.iteratorContainer().ifPresent(container -> obj.put("iteratorContainerId", ids.get(container)));
+                    t.iteratorDifferenceType().ifPresent(difference -> obj.put("iteratorDifferenceTypeId", ids.get(difference)));
+                }
                 case NamedType t -> {
                     obj.put("name", t.name());
                     if (t.hasTemplateArguments()) obj.put("templateArguments", nodes(t.templateArguments()));

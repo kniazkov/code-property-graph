@@ -164,6 +164,10 @@ public final class TypeSemantics {
     }
     private static Optional<TypeNode> rawExpressionType(Expression expression, PlatformProfile profile) {
         if (expression instanceof ConversionExpression conversion) return Optional.of(conversion.targetType());
+        if(expression instanceof DereferenceExpression dereference) {
+            var iterator=expressionType(dereference.operand(),profile).flatMap(LibraryIteratorSemantics::info);
+            if(iterator.isPresent())return Optional.of(iterator.get().referenceType());
+        }
         if (expression.operatorTarget().isPresent()) return expression.operatorTarget().orElseThrow().returnType();
         if (!expression.operatorCandidates().isEmpty()) return Optional.empty();
         if (expression instanceof IntegerLiteral literal)
@@ -207,7 +211,8 @@ public final class TypeSemantics {
             return expressionType(address.operand(), profile).map(type -> PointerType.create().setPointee(type.edit()).build());
         }
         if (expression instanceof DereferenceExpression dereference)
-            return expressionType(dereference.operand(), profile).map(TypeSemantics::decay).flatMap(TypeSemantics::pointee);
+            return expressionType(dereference.operand(), profile).flatMap(type -> LibraryIteratorSemantics.info(type)
+                    .map(LibraryIteratorSemantics.Info::referenceType).or(() -> pointee(decay(type))));
         if (expression instanceof LogicalNotExpression logical) return expressionType(logical.operand(), profile)
                 .map(TypeSemantics::decay).filter(type -> scalar(type, profile)).map(type -> named("bool"));
         if (expression instanceof PrefixIncrementExpression || expression instanceof PrefixDecrementExpression)
@@ -225,18 +230,27 @@ public final class TypeSemantics {
             var right = expressionType(binary.right(), profile).map(TypeSemantics::decay);
             if (left.isEmpty() || right.isEmpty()) return Optional.empty();
             TypeNode a = left.get(), b = right.get();
+            var iteratorA=LibraryIteratorSemantics.info(a);
+            var iteratorB=LibraryIteratorSemantics.info(b);
             if (binary instanceof IndexExpression) {
+                if(iteratorA.isPresent() && integerType(b,profile).isPresent())return Optional.of(iteratorA.get().referenceType());
                 if (integerType(b, profile).isPresent()) return pointee(a);
                 if (integerType(a, profile).isPresent()) return pointee(b);
                 return Optional.empty();
             }
             if (binary instanceof DotMemberPointerExpression || binary instanceof ArrowMemberPointerExpression)
                 return unqualified(b) instanceof MemberPointerType member ? Optional.of(member.pointee()) : Optional.empty();
+            if(isComparison(binary) && iteratorA.isPresent() && iteratorB.isPresent() && iteratorA.get().compatible(iteratorB.get()))
+                return Optional.of(named("bool"));
             if (binary instanceof LogicalAndExpression || binary instanceof LogicalOrExpression || isComparison(binary))
                 return scalar(a, profile) && scalar(b, profile) ? Optional.of(named("bool")) : Optional.empty();
             if (binary instanceof ShiftLeftExpression || binary instanceof ShiftRightExpression)
                 return integerType(a, profile).isPresent() && integerType(b, profile).isPresent() ? promoted(a, profile) : Optional.empty();
             if (binary instanceof AddExpression || binary instanceof SubtractExpression) {
+                if(iteratorA.isPresent() && integerType(b,profile).isPresent())return Optional.of(a);
+                if(binary instanceof AddExpression && iteratorB.isPresent() && integerType(a,profile).isPresent())return Optional.of(b);
+                if(binary instanceof SubtractExpression && iteratorA.isPresent() && iteratorB.isPresent() && iteratorA.get().compatible(iteratorB.get()))
+                    return iteratorA.get().iterator().iteratorDifferenceType();
                 if (pointee(a).isPresent() && integerType(b, profile).isPresent()) return Optional.of(a);
                 if (binary instanceof AddExpression && integerType(a, profile).isPresent() && pointee(b).isPresent()) return Optional.of(b);
                 // ptrdiff_t is not specified by the profile: do not guess its integer type.
@@ -298,7 +312,8 @@ public final class TypeSemantics {
                 || binary instanceof LessOrEqualExpression || binary instanceof GreaterExpression || binary instanceof GreaterOrEqualExpression;
     }
     static boolean scalar(TypeNode type, PlatformProfile profile) {
-        return integerType(type, profile).isPresent() || floatingRank(type) > 0 || unqualified(type) instanceof PointerType;
+        return integerType(type, profile).isPresent() || floatingRank(type) > 0 || unqualified(type) instanceof PointerType
+                || unqualified(type) instanceof OpaqueLibraryType opaque && (opaque.category()==OpaqueLibraryType.Category.INTEGER || opaque.category()==OpaqueLibraryType.Category.ARITHMETIC);
     }
     static int floatingRank(TypeNode type) {
         type = unqualified(type);

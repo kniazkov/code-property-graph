@@ -35,6 +35,18 @@ public final class NameResolver {
         // The syntax depth bounds this propagation, without assuming a fixed nesting limit.
         int depth = expressionDepth(typed);
         for (int i = 0; i <= depth; i++) typed = new Engine(typed.edit().build()).linkDeclarations();
+        // A member-template argument can itself be a selected call (e.g. vector
+        // insert(begin()+n, first,last)). Revisit deduction after nested calls bind.
+        for(int round=0;round<64;round++) {
+            int before=typed.templateInstances().stream().mapToInt(instance->instance.requests().size()).sum();
+            var pass=new Engine(typed);
+            typed=pass.instantiateTemplates(false);
+            int after=typed.templateInstances().stream().mapToInt(instance->instance.requests().size()).sum();
+            if(after==before)break;
+            typed=new Engine(ClassTemplateSemantics.analyze(typed)).bindNames();
+            for(int i=0;i<=depth;i++)typed=new Engine(typed.edit().build()).linkDeclarations();
+            if(pass.instantiationLimitReached || round==63){resourceLimit=true;break;}
+        }
         typed=new Engine(typed).instantiateTemplates(true);
         typed=ClassTemplateSemantics.diagnose(Documentation.analyze(new Engine(new Engine(StandardConversions.analyze(typed)).validateStatements()).validateTemplateBodies()));
         if(resourceLimit) {
@@ -456,8 +468,10 @@ public final class NameResolver {
         boolean integralVectorRange(CallableDeclaration candidate, List<Expression> arguments, SourceFile file) {
             if (!LibraryDeclarations.isLibrary(candidate) || candidate.templateParameters().isEmpty() || arguments.size()<2) return false;
             var owner=scopeClass(scopes.get(candidate));
-            if(owner==null || !owner.name().equals("vector") || !(candidate.name().equals("assign") || candidate.kind()==CallableDeclaration.Kind.CONSTRUCTOR))return false;
-            return arguments.subList(0,2).stream().allMatch(a->TypeSemantics.expressionType(a,TypeSemantics.profile(file))
+            if(owner==null || !owner.name().equals("vector") || !(candidate.name().equals("assign") || candidate.name().equals("insert") || candidate.kind()==CallableDeclaration.Kind.CONSTRUCTOR))return false;
+            int first=candidate.name().equals("insert")?1:0;
+            if(arguments.size()<first+2)return false;
+            return arguments.subList(first,first+2).stream().allMatch(a->TypeSemantics.expressionType(a,TypeSemantics.profile(file))
                     .map(TypeSemantics::unqualified).filter(NamedType.class::isInstance).map(NamedType.class::cast)
                     .map(t->TypeSemantics.profile(file).integerRange(t.name()).isPresent() || t.name().equals("bool")).orElse(false));
         }
@@ -672,6 +686,14 @@ public final class NameResolver {
             project.walk(new NodeVisitor() {
                 @Override public void visit(NamedType type) {
                     var matches = lookup(type.name(), scopes.get(type), positions.get(type), new HashSet<>(), type.elaboratedKeyword().isPresent());
+                    // Resolve a member type against the concrete qualifier, rather than
+                    // dropping its template arguments and searching the primary template.
+                    ClassDeclaration qualifier=type.qualifier().flatMap(ClassSemantics::objectClass).orElse(null);
+                    if(!LibraryDeclarations.isLibrary(type) && qualifier!=null && introduced.containsKey(qualifier)
+                            && project.classTemplateInstances().stream().anyMatch(instance->instance.declaration()==qualifier)) {
+                        String member=type.name().contains("::")?type.name().substring(type.name().lastIndexOf("::")+2):type.name();
+                        matches=direct(member,introduced.get(qualifier),Integer.MAX_VALUE,new HashSet<>(),type.elaboratedKeyword().isPresent(),true);
+                    }
                     Match match = unique(matches);
                     if(match==null && matches.stream().allMatch(candidate->candidate.declaration() instanceof ClassDeclaration))
                         match=matches.stream().filter(candidate->((ClassDeclaration)candidate.declaration()).templateKind()==TemplateKind.PRIMARY).findFirst().orElse(null);
@@ -1502,22 +1524,22 @@ public final class NameResolver {
                         && (variable.initializer().isPresent() || !variable.modifiers().contains("extern"));
             return declaration.isDefinition();
         }
-        List<CallExpression.DefaultArgument> applicableDefaults(CallableDeclaration declaration, int point) {
+        List<CallExpression.DefaultArgument> applicableDefaults(CallableDeclaration declaration, int point, boolean atCall) {
             var result = new LinkedHashMap<Integer, CallExpression.DefaultArgument>();
             Scope scope = scopes.get(declaration);
             for (Declaration candidate : scope.names.getOrDefault(name(declaration), List.of())) {
-                if (!(candidate instanceof CallableDeclaration callable) || positions.get(candidate) > point
+                if (!(candidate instanceof CallableDeclaration callable) || positions.get(candidate) > point && !(atCall && LibraryDeclarations.isLibrary(candidate))
                         || !parameterSignature(callable).equals(parameterSignature(declaration))) continue;
                 for (int i = 0; i < callable.parameters().size(); i++) {
                     ParameterDeclaration parameter = callable.parameters().get(i);
-                    if (parameter.defaultValue().isPresent() && parameterEnds.get(parameter) <= point)
+                    if (parameter.defaultValue().isPresent() && (parameterEnds.get(parameter) <= point || atCall && LibraryDeclarations.isLibrary(callable)))
                         result.putIfAbsent(i, new CallExpression.DefaultArgument(i, callable, parameter));
                 }
             }
             return result.values().stream().sorted(Comparator.comparingInt(CallExpression.DefaultArgument::parameterIndex)).toList();
         }
         void validateDefaults(CallableDeclaration callable) {
-            var prior = applicableDefaults(callable, positions.get(callable) - 1);
+            var prior = applicableDefaults(callable, positions.get(callable) - 1,false);
             Set<Integer> available = new HashSet<>();
             prior.forEach(argument -> available.add(argument.parameterIndex()));
             boolean defaultSeen = false;
@@ -1550,7 +1572,7 @@ public final class NameResolver {
                         checkArity(call, type.parameters().size(), type.variadic(), List.of()));
                 return;
             }
-            var defaults = applicableDefaults(declaration, positions.get(call)).stream()
+            var defaults = applicableDefaults(declaration, positions.get(call),true).stream()
                     .filter(argument -> argument.parameterIndex() >= call.arguments().size()).toList();
             editor.defaultArguments(call, defaults);
             checkArity(call, declaration.parameters().size(), declaration.variadic(), defaults);
@@ -1629,7 +1651,7 @@ public final class NameResolver {
                     var ranked = new ArrayList<OverloadResolution.Candidate>();
                     for (CallableDeclaration declaration : declarations) {
                         Set<Integer> available = new HashSet<>();
-                        applicableDefaults(declaration, positions.get(call)).forEach(argument -> available.add(argument.parameterIndex()));
+                        applicableDefaults(declaration, positions.get(call),true).forEach(argument -> available.add(argument.parameterIndex()));
                         int required = declaration.parameters().size();
                         while (required > 0 && available.contains(required - 1)) required--;
                         var candidate = OverloadResolution.candidate(declaration, call.arguments(), TypeSemantics.profile(scopes.get(call).file), required, this::argumentType);
@@ -1792,6 +1814,16 @@ public final class NameResolver {
             if (name == null) return;
             List<Expression> operands = OperatorSemantics.operands(expression);
             if (operands.isEmpty()) return;
+            // Abstract catalogue iterators may be pointers or classes. Their portable
+            // contract is not a claim that a particular implementation operator exists.
+            boolean iteratorContract=expression instanceof DereferenceExpression
+                    || expression instanceof PrefixIncrementExpression || expression instanceof PostfixIncrementExpression
+                    || expression instanceof PrefixDecrementExpression || expression instanceof PostfixDecrementExpression
+                    || expression instanceof AddExpression || expression instanceof SubtractExpression || expression instanceof IndexExpression
+                    || expression instanceof BinaryExpression binary && TypeSemantics.isComparison(binary)
+                    || expression instanceof CompoundAssignmentExpression assignment && Set.of("+=","-=").contains(assignment.operator());
+            if(iteratorContract && operands.stream().anyMatch(operand->TypeSemantics.expressionType(operand,TypeSemantics.profile(scopes.get(expression).file))
+                    .flatMap(LibraryIteratorSemantics::info).isPresent()))return;
             var associated = OverloadResolution.associatedClasses(operands, TypeSemantics.profile(scopes.get(expression).file));
             boolean enumOperand = operands.stream().anyMatch(operand -> argumentType(operand).map(TypeSemantics::unqualified)
                     .filter(NamedType.class::isInstance).map(NamedType.class::cast).flatMap(NamedType::declaration)

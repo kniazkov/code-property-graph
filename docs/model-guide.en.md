@@ -1126,3 +1126,32 @@ C++ operations when equivalent common effects are not established. Unknown
 library effects remain conservative. Element access, size/capacity, iterator
 validity, insertion/erasure and swap are separate #38 groups, not inferred from
 this initial construction/copy/append model.
+
+## Vector access, properties and handle lifetime (#38)
+
+Common operations distinguish SUBSCRIPT/FRONT/BACK/AT, SIZE/IS_EMPTY/CAPACITY/
+MAX_SIZE, RESERVE/RESIZE, POP_BACK/INSERT/INSERT_FILL/INSERT_RANGE/ERASE/ERASE_RANGE/
+CLEAR, BEGIN/END/RBEGIN/REND and SWAP. They retain the selected C++ overload and
+written operands. `resultKind()` distinguishes a value, reference or iterator;
+`index()`, `writable()` and `boundsChecked()` describe access. Checked `at` keeps
+its exceptional CFG path. Queries read the container but do not write it or invoke
+copy effects. `mutatedObjects()` lists actual destination objects, including both
+swap operands. Element writes and container aliases are distinct DFG relationships.
+
+`handle()` records the produced reference/iterator's sequence, position kind,
+optional written index, direction, writability and conservative validity. A valid
+end iterator is still not dereferenceable. Creation descriptors never silently
+change when later code mutates the vector. Each mutation instead exposes
+`handleEffects()` with the earlier producer, validity after the mutation and,
+when known, storage association after swap. JSON includes these records and typed
+edges; copying a Project rebinds every reference to the new snapshot.
+
+Straight-line known counts and reserved capacity can prove that an earlier
+reference survives insertion. Exact capacity growth is never assumed. Control
+flow or unmodeled calls remove unsupported proofs; unknown reallocation is marked
+UNKNOWN, not safe. Swap preserves references to elements while exchanging their
+sequence association; references to container objects keep their identity.
+Abstract catalogue iterators carry trusted container/difference-type links rather
+than pretending to be machine pointers. Their physical representation stays opaque.
+Nontrivial user effects remain conservative and unresolved common equivalence stays
+as the original C++ operation. This is not a complete path-sensitive STL verifier.
