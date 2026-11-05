@@ -66,6 +66,10 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("diagnostic-provenance".equals(settings.getProperty("mode"))) {
+            DiagnosticProvenanceAcceptance.verify(fixture, work);
+            return;
+        }
         if ("parser-recovery".equals(settings.getProperty("mode"))) {
             ParserRecoveryAcceptance.verify(fixture, work);
             return;

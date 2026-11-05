@@ -7,15 +7,35 @@ import com.kniazkov.cpg.model.*;
 final class ExpressionParser {
     private final TokenCursor tokens;
     private final Language language;
+    private final ParseRecovery recovery;
+    private boolean statementBoundary;
+    private int nestedDelimiters;
 
     ExpressionParser(TokenCursor tokens, Language language) {
+        this(tokens, language, null);
+    }
+    ExpressionParser(TokenCursor tokens, Language language, ParseRecovery recovery) {
         this.tokens = tokens;
         this.language = language;
+        this.recovery = recovery;
     }
 
     /** Starts at assignment precedence, leaving the enclosing rule's delimiter on the cursor. */
     NodeBuilder<? extends Expression> parse() {
         return expression(0);
+    }
+
+    /** Only a complete expression statement owns its terminating semicolon. */
+    NodeBuilder<? extends Expression> parseStatement() {
+        statementBoundary = true;
+        try { return expression(0); }
+        finally { statementBoundary = false; }
+    }
+
+    private NodeBuilder<? extends Expression> nestedExpression() {
+        nestedDelimiters++;
+        try { return expression(0); }
+        finally { nestedDelimiters--; }
     }
 
     /** Binding power of an infix token. A negative value terminates the expression. */
@@ -44,7 +64,15 @@ final class ExpressionParser {
             if (operator.equals("=") && !(left instanceof NameExpression.Builder)
                     && !(left instanceof MemberExpression.Builder<?, ?>)) throw tokens.error("Assignment requires a writable target");
             tokens.advance();
-            var right = expression(operator.equals("=") ? priority : priority + 1);
+            var rightStart = tokens.start();
+            NodeBuilder<? extends Expression> right;
+            try { right = expression(operator.equals("=") ? priority : priority + 1); }
+            catch (ParseException error) {
+                if (recovery == null || !operator.equals("=") || !statementBoundary || nestedDelimiters != 0) throw error;
+                var skipped = tokens.recoverInitializer(rightStart);
+                if (skipped == null) throw error;
+                right = ErrorExpression.create().setProblem(recovery.recovered(error, skipped));
+            }
             left = switch (operator) {
                 case "=" -> AssignmentExpression.create().setTarget(left).setValue(right);
                 case "+" -> AddExpression.create().setLeft(left).setRight(right);
@@ -68,8 +96,9 @@ final class ExpressionParser {
     /** Reads a prefix or atom followed by any member accesses and calls bound to it. */
     private NodeBuilder<? extends Expression> primary() {
         var start = tokens.start();
+        if (java.util.Set.of(";", ")", "}", ",", "<eof>").contains(tokens.peek())) throw tokens.missingExpression();
         NodeBuilder<? extends Expression> value;
-        if (tokens.take("(")) { value = expression(0); tokens.expect(")"); }
+        if (tokens.take("(")) { value = nestedExpression(); tokens.expect(")"); }
         else if (tokens.take("-")) {
             if (tokens.take("2147483648")) return tokens.span(start, IntegerLiteral.create().setValue(Integer.MIN_VALUE));
             return tokens.span(start, NegateExpression.create().setOperand(primary()));
@@ -87,7 +116,7 @@ final class ExpressionParser {
             else if (language == Language.CPP && tokens.take("::")) value = ScopeMemberExpression.create().setReceiver(value).setMember(tokens.identifier());
             else if (tokens.take("(")) {
                 var call = CallExpression.create().setCallee(value);
-                if (!tokens.take(")")) { do { call.addArgument(expression(0)); } while (tokens.take(",")); tokens.expect(")"); }
+                if (!tokens.take(")")) { do { call.addArgument(nestedExpression()); } while (tokens.take(",")); tokens.expect(")"); }
                 value = call;
             } else return value;
             tokens.span(start, value);

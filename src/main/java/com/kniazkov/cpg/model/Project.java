@@ -10,6 +10,45 @@ public final class Project extends Node {
     private List<SourceFile> files = List.of();
     /** True when any translation unit contains a persistent parser error. */
     public boolean hasErrors() { return files.stream().anyMatch(SourceFile::hasErrors); }
+    /** Every persistent parse-failure occurrence in stable physical/context order. */
+    public List<ParseProblem> parseProblems() {
+        var result = new ArrayList<ParseProblem>();
+        for (SourceFile file : files) {
+            var problems = new ArrayList<>(file.parseProblems());
+            var known = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<ParseProblem, Boolean>());
+            known.addAll(problems);
+            file.walk(new NodeVisitor() {
+                @Override public void visit(ErrorExpression error) {
+                    if (known.add(error.problem())) problems.add(error.problem());
+                }
+            });
+            String translationUnit = file.provenance().map(p -> p.unit().translationUnit())
+                    .orElseGet(() -> file.range().map(SourceRange::file).orElse(file.path()));
+            var fallback = new DiagnosticContext(translationUnit, file.variantId().orElse(null), List.of(), List.of());
+            for (ParseProblem problem : problems)
+                result.add(problem.context() == null ? problem.withContext(fallback) : problem);
+        }
+        result.sort(DiagnosticGroup.OCCURRENCE_ORDER);
+        return List.copyOf(result);
+    }
+
+    /**
+     * Stable root-cause groups, keyed only by code, physical primary range and semantic reason.
+     * Logical locations, recovery spans and invocation/include context cannot split a root cause.
+     */
+    public List<DiagnosticGroup> diagnosticGroups() {
+        record Cause(String code, SourceRange range, String reason) {}
+        var groups = new java.util.LinkedHashMap<Cause, List<ParseProblem>>();
+        for (ParseProblem problem : parseProblems())
+            groups.computeIfAbsent(new Cause(problem.code(), problem.primaryRange(), problem.reason()),
+                    ignored -> new ArrayList<>()).add(problem);
+        return groups.entrySet().stream().map(entry -> {
+            Cause cause = entry.getKey();
+            return new DiagnosticGroup(cause.code(), cause.range(), cause.reason(),
+                    entry.getValue().getFirst().message(), entry.getValue());
+        }).toList();
+    }
+
     private List<ExternalInput> externalInputs = List.of();
     public List<ExternalInput> externalInputs() { return externalInputs; }
     /** Resolves provenance to the actual owned node in this snapshot, also after edits. */

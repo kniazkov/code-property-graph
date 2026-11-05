@@ -1,0 +1,12 @@
+[
+  {
+    "directory": "sources",
+    "file": "main.cpp",
+    "arguments": [
+      "g++",
+      "-std=c++03",
+      "-c",
+      "main.cpp"
+    ]
+  }
+]

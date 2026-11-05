@@ -13,3 +13,4 @@ conditional-catalog
 shared-headers
 parser-recovery
 inactive-extension
+diagnostic-provenance

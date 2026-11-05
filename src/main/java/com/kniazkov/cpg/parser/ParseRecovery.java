@@ -6,14 +6,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/** Only safe initializer boundaries recover; all other failures stop this unit. */
+/** Only safe expression boundaries recover; all other failures stop this unit. */
 final class ParseRecovery {
     private final Language language;
     private final Map<String, String> sources;
     private final List<ParseProblem> problems = new ArrayList<>();
     private SourceRange stoppedAt;
+    private final DiagnosticContext context;
 
     ParseRecovery(Language language, Map<String, String> sources) {
+        this(language, sources, new DiagnosticContext(sources.keySet().iterator().next(), null, List.of(), List.of()));
+    }
+    ParseRecovery(Language language, Map<String, String> sources, DiagnosticContext context) {
+        this.context = context;
         this.language = language;
         this.sources = sources;
     }
@@ -42,7 +47,8 @@ final class ParseRecovery {
                 || error.file().equals(java.nio.file.Path.of(physical.file()).getFileName().toString());
         if (!sameFile || error.line() != physical.start().line() || error.column() != physical.start().column())
             message += " (logical location: " + error.file() + ":" + error.line() + ":" + error.column() + ")";
-        return new ParseProblem(recovered ? "parse-recovery" : "parse-error", message, range, skipped, recovered);
+        return new ParseProblem(error.code(), message, range, skipped, recovered, physical,
+                error.causeReason(), error.relatedRanges(), error.context() == null ? context : error.context());
     }
     void attach(SourceFile.Builder result) {
         result.setParseProblems(problems);

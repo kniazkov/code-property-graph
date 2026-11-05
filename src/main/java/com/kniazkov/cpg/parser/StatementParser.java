@@ -68,7 +68,7 @@ final class StatementParser {
             tokens.expect(";");
             return tokens.span(start, result);
         }
-        var result = ExpressionStatement.create().setExpression(expressions.parse());
+        var result = ExpressionStatement.create().setExpression(expressions.parseStatement());
         tokens.expect(";");
         return tokens.span(start, result);
     }

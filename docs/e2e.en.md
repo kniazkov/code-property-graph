@@ -62,3 +62,26 @@ python3 scripts/check-cpp03-reports.py
 ```
 
 Run the report guard only after a complete, unfiltered corpus run. CI installs Graphviz before Maven so SVG checks execute as part of acceptance.
+
+## Diagnostic provenance and grouped summaries (#22)
+
+[diagnostic-provenance](../src/test/resources/cpp03/diagnostic-provenance/README.md) is the sixteenth mandatory scenario. `DiagnosticProvenanceIT` and the corpus invoke the same acceptance helper on four ordinary compilation databases:
+
+- `assignment`: `ASSIGN(total);` retains the missing-expression position before `;`, a call-site note and the exact `=` token in the header. An independent missing initializer after recovery remains a second error and its declaration survives.
+- `paste`: `JOIN(+, *)` produces one primary CLI error on the invocation. API/JSON must contain all three labeled ranges: the left and right arguments in `.cpp` and `##` in the header. Assertions check role, absolute physical file, start/end offsets, lines and columns, plus the failed expansion context.
+- `shared`: the same error in one physical header from `a.cpp` and `b.cpp` yields one group, two translation units and two retained contexts. A separate API check uses two variants of one physical `.cpp`: one translation unit, two variants.
+- `causes`: two commands define `BAD` differently, producing `+*` and `+/` at the same physical macro invocation. The distinct reasons must yield two groups rather than collapse by line/range.
+
+Every case compares full API/CLI JSON, counts primary `error [code]` lines against groups, checks build-variant/include/expansion context, and checks unchanged groups after `edit().build()` and `NameResolver.resolve`. The shared-header and different-reason cases reverse translation-unit order and require equal group records and root `diagnosticGroups` JSON. This tests deterministic summaries; it does not demand identical AST IDs or file ordering after reversing the project inputs. These are invalid-source diagnostic oracles, not native execution oracles. They keep exit status 1 and source output blocked, and do not claim semantic-analysis grouping or automatic error repair.
+
+Additional `DiagnosticProvenanceIT` regressions cover two independent missing expressions inside one macro, unsafe assignment recovery inside parentheses/conditions/calls, and distinct expanded operands (`40000`/`50000`) for invalid `#line`/`#include` directives. The directive cases compare API/CLI JSON, macro ancestry and reversed summaries; unsafe recovery must stop with one original error, not create a cascade. `DiagnosticProvenanceTest` also covers conditional operands, incompatible redefinition signatures and labeled previous/new definitions, repeated-include occurrence IDs, strict exception provenance, and the same safe assignment boundary in the lower-level Java recovering parser.
+
+```sh
+mvn -Dit.test=DiagnosticProvenanceIT verify
+mvn -Dit.test=Cpp03CorpusIT -Dcpg.cpp03.scenario=diagnostic-provenance verify
+# Full regression and mandatory corpus inventory, without a scenario filter:
+mvn verify
+python3 scripts/check-cpp03-reports.py
+```
+
+Run the report check only after the full corpus. With sixteen scenarios, it expects eighteen corpus results, including the two infrastructure checks. Existing Java/C++ tests and strict GCC/Clang checks for valid corpus programs remain mandatory. The fixture README gives manual packaged-CLI commands and the exact physical coordinate oracle; the [model guide](model-guide.en.md#diagnostic-provenance-and-grouping-22) defines the API and JSON fields.

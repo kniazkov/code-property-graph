@@ -25,12 +25,12 @@ public final class Parser {
         this.file = java.nio.file.Path.of(file).toAbsolutePath().normalize().toString();
         this.language = language;
         tokens = new TokenCursor(this.file, input, language, preprocessing);
-        statements = new StatementParser(tokens, new ExpressionParser(tokens, language), recovery);
+        statements = new StatementParser(tokens, new ExpressionParser(tokens, language, recovery), recovery);
     }
 
-    private static java.util.List<Token> parserTokens(CppPreprocessor.Result result) { return parserTokens(result, false, null); }
+    private static java.util.List<Token> parserTokens(CppPreprocessor.Result result, Preprocessing provenance) { return parserTokens(result, provenance, false, null); }
 
-    private static java.util.List<Token> parserTokens(CppPreprocessor.Result result, boolean recovering, ParseException terminalProblem) {
+    private static java.util.List<Token> parserTokens(CppPreprocessor.Result result, Preprocessing provenance, boolean recovering, ParseException terminalProblem) {
         var tokens = new java.util.ArrayList<Token>();
         for (int index = 0; index < result.tokens().size(); index++) {
             var expanded = result.tokens().get(index);
@@ -39,6 +39,8 @@ public final class Parser {
             var range = expanded.expansionRange();
             String violation = CppDialect.violation(result.tokens(), index);
             ParseException problem = violation == null ? null : new ParseException(range.file(), range.start().line(), range.start().column(), violation, range);
+            if (problem != null) problem = problem.withDiagnostic("cpp03-unsupported", violation + " [token: " + token.spelling() + "]", range,
+                    DiagnosticProvenance.related(provenance, index), DiagnosticProvenance.context(provenance, index));
             if (token.kind() == PreprocessingToken.Kind.EOF && terminalProblem != null) problem = terminalProblem;
             if (problem != null && !recovering) throw problem;
             String spelling = switch (token.kind()) {
@@ -78,7 +80,7 @@ public final class Parser {
         }
         try { return new Parser(file, language, new Lexer(java.nio.file.Path.of(file).getFileName().toString(), source).scan(), null).parse(); }
         catch (ParseException e) {
-            if (language == Language.CPP) throw new ParseException(e.file(), e.line(), e.column(), e.reason().contains("C++03") ? e.reason() : e.reason() + " (C++03)", e.range().orElse(null));
+            if (language == Language.CPP) throw e.withReason(e.reason().contains("C++03") ? e.reason() : e.reason() + " (C++03)");
             throw e;
         }
     }
@@ -103,11 +105,11 @@ public final class Parser {
             var preprocessed = translationTime != null ? CppPreprocessor.preprocess(unit, source, sources, translationTime)
                     : sources == null ? CppPreprocessor.preprocess(unit, source) : CppPreprocessor.preprocess(unit, source, sources);
             var provenance = preprocessing(file, preprocessed, unit);
-            var parsed = new Parser(file, Language.CPP, parserTokens(preprocessed), provenance).parse();
+            var parsed = new Parser(file, Language.CPP, parserTokens(preprocessed, provenance), provenance).parse();
             parsed.setProvenance(new TokenProvenance(provenance, 0, provenance.tokens().size()));
             return parsed;
         } catch (ParseException e) {
-            throw new ParseException(e.file(), e.line(), e.column(), e.reason().contains("C++03") ? e.reason() : e.reason() + " (C++03)", e.range().orElse(null));
+            throw e.withReason(e.reason().contains("C++03") ? e.reason() : e.reason() + " (C++03)");
         }
     }
 
@@ -150,8 +152,8 @@ public final class Parser {
         com.kniazkov.cpg.build.CppStandard.require(unit.standard(), file);
         var prepared = CppPreprocessor.preprocessRecovering(unit, source, sources, translationTime);
         var provenance = preprocessing(file, prepared.result(), unit);
-        var recovery = new ParseRecovery(Language.CPP, provenance.sources());
-        var parsed = new Parser(file, Language.CPP, parserTokens(prepared.result(), true, prepared.problem()), provenance, recovery).parse();
+        var recovery = new ParseRecovery(Language.CPP, provenance.sources(), new DiagnosticContext(file, unit.variantId(), java.util.List.of(), java.util.List.of()));
+        var parsed = new Parser(file, Language.CPP, parserTokens(prepared.result(), provenance, true, prepared.problem()), provenance, recovery).parse();
         parsed.setProvenance(new TokenProvenance(provenance, 0, provenance.tokens().size()));
         parsed.setRange(new SourceRange(file, new SourcePosition(1, 1, 0), ParseRecovery.position(source, source.length())));
         return parsed;
