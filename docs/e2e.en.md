@@ -458,3 +458,14 @@ strict GCC and Clang C++03. API/CLI JSON, copied graphs, DOT and SVG retain
 call-site identity on body-to-caller dependencies and return-value edges.
 Declaration-only external effects and adversarial alias boundaries are checked
 separately by focused API/JSON regression tests.
+
+### Safe edited snapshots
+
+`safe-editing` checks CLI/JSON/SVG for the original graph, declaration and virtual
+family renaming, a namespace-import conflict resolved with `::shop::OrderId`,
+reparse target identity, collision graphs and blocked source directories. A
+repaired parse error permits generation while an independent warning and the
+original erroneous snapshot survive. Every successful original/edited source set
+is compiled and run with strict GCC and Clang. Run the focused native scenario
+with `-Dcpg.cpp03.scenario=safe-editing`; the full corpus still discovers it from
+the checked-in manifest.

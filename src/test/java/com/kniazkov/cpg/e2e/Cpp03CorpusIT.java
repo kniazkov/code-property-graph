@@ -66,6 +66,10 @@ class Cpp03CorpusIT {
                             Integer.parseInt(settings.getProperty("exit")), "-D" + variant.macro());
             return;
         }
+        if ("safe-editing".equals(settings.getProperty("mode"))) {
+            for (Path source : SafeEditingAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
+            return;
+        }
         if ("interprocedural-dfg".equals(settings.getProperty("mode"))) {
             for (Path source : InterproceduralDataFlowAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
             return;
