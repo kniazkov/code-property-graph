@@ -2,6 +2,7 @@
 package com.kniazkov.cpg.analysis;
 
 import com.kniazkov.cpg.model.*;
+import com.kniazkov.cpg.build.PlatformProfile;
 import com.kniazkov.cpg.model.FunctionFlow.*;
 import java.util.*;
 
@@ -13,20 +14,23 @@ import java.util.*;
  */
 public final class DataFlow {
     private final Language language;
+    private final PlatformProfile profile;
 
-    private DataFlow(Language language) {
+    private DataFlow(Language language, PlatformProfile profile) {
         this.language = language;
+        this.profile = profile;
     }
 
     /** Uses the CFG for this snapshot (building it if necessary) and attaches deduplicated data edges. */
     public static Project analyze(Project project) {
         var cfg = project.flows().isEmpty() ? ControlFlow.analyze(project) : project;
         Map<CallableDeclaration, Language> languages = new IdentityHashMap<>();
+        Map<CallableDeclaration, PlatformProfile> profiles = new IdentityHashMap<>();
         for (SourceFile file : cfg.files()) file.walk(new NodeVisitor() {
-            @Override public void visit(CallableDeclaration fn) { languages.put(fn, file.language()); }
+            @Override public void visit(CallableDeclaration fn) { languages.put(fn, file.language()); profiles.put(fn, TypeSemantics.profile(file)); }
         });
         return cfg.withFlows(cfg.flows().stream()
-                .map(flow -> new DataFlow(languages.get(flow.entry())).analyzeFunction(flow)).toList());
+                .map(flow -> new DataFlow(languages.get(flow.entry()), profiles.get(flow.entry())).analyzeFunction(flow)).toList());
     }
 
     private FunctionFlow analyzeFunction(FunctionFlow flow) {
@@ -117,6 +121,22 @@ public final class DataFlow {
         if (value instanceof SizeofExpression) {
             // C++03 sizeof does not read or execute any expression in its operand.
             return;
+        } else if (value instanceof TypeidExpression typeid) {
+            if (!TypeSemantics.typeidOperandUnevaluated(typeid, profile)) typeid.operand().ifPresent(operand -> {
+                // Until polymorphism is proven, either execution is possible.
+                State evaluated = state.copy();
+                consume(operand, typeid, evaluated, sink);
+                state.merge(evaluated);
+            });
+        } else if (value instanceof NewExpression allocation) {
+            var arguments = new ArrayList<Expression>(allocation.placementArguments());
+            TypeNode type = allocation.type();
+            while (type instanceof ArrayType array) {
+                array.bound().ifPresent(arguments::add);
+                type = array.elementType();
+            }
+            arguments.addAll(allocation.initializerArguments());
+            arguments(arguments, allocation, state, sink);
         } else if (value instanceof NameExpression use) {
             use.target().ifPresent(target -> {
                 for (Node write : state.definitions.getOrDefault(target, Set.of()))
@@ -185,25 +205,29 @@ public final class DataFlow {
         if (target instanceof NameExpression name) name.target().ifPresent(declaration -> state.write(declaration, update));
     }
 
-    /** Only literal truth is exact here; unknown branches retain both possible effects. */
-    private static Optional<Boolean> knownTruth(Expression expression) {
-        if (expression instanceof ConversionExpression conversion && !conversion.isExplicit())
-            return knownTruth(conversion.operand());
+    /** Proven target integer constants select a branch; unknown conditions retain both effects. */
+    private Optional<Boolean> knownTruth(Expression expression) {
+        if (language == Language.CPP) return ConstantEvaluator.evaluate(expression, profile)
+                .map(value -> value.number().signum() != 0);
         if (expression instanceof BooleanLiteral literal) return Optional.of(literal.value());
         if (expression instanceof IntegerLiteral literal) return Optional.of(literal.bigValue().signum() != 0);
         return Optional.empty();
     }
 
     /**
-     * C++17 sequences each argument as a unit but leaves their order unspecified.
-     * A read in one argument can see the incoming value or the final write of any
-     * sibling argument. After the call any argument writing a local can be its last writer.
+     * Conservatively joins argument effects without asserting an evaluation order.
+     * A read in one argument may see an incoming or sibling definition. This is
+     * not a proof that conflicting C++03 argument accesses are well-defined.
      */
     private void arguments(CallExpression call, State state, Sink sink) {
-        List<State> writes = new ArrayList<>();
-        State possibleLast = new State();
         var arguments = new ArrayList<Expression>(call.arguments());
         call.defaultArguments().forEach(argument -> arguments.add(argument.expression()));
+        arguments(arguments, call, state, sink);
+    }
+
+    private void arguments(List<Expression> arguments, Node consumer, State state, Sink sink) {
+        List<State> writes = new ArrayList<>();
+        State possibleLast = new State();
         for (Expression arg : arguments) {
             State effect = new State();
             evaluate(arg, effect, (from, to, kind) -> {});
@@ -214,7 +238,7 @@ public final class DataFlow {
             State before = state.copy();
             for (int j = 0; j < writes.size(); j++)
                 if (j != i) before.merge(writes.get(j));
-            consume(arguments.get(i), call, before, sink);
+            consume(arguments.get(i), consumer, before, sink);
         }
         possibleLast.definitions.forEach(state.definitions::put);
     }

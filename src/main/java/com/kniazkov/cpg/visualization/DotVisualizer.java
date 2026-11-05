@@ -315,6 +315,13 @@ public final class DotVisualizer {
         @Override public void visit(CharacterLiteral node) { detail = node.spelling() + " : " + node.cppType(); }
         @Override public void visit(StringLiteral node) { detail = node.spelling() + " : " + node.cppType(); }
         @Override public void visit(CompoundAssignmentExpression node) { detail = node.operator(); }
+        @Override public void visit(TypeidExpression node) { detail = node.type().isPresent() ? "type operand" : "expression operand"; }
+        @Override public void visit(NewExpression node) {
+            detail = (node.isGlobal() ? "::" : "") + "new " + node.type().canonicalIdentity()
+                    + (node.placementArguments().isEmpty() ? "" : " (placement)")
+                    + (node.hasInitializer() ? " (initialized)" : "");
+        }
+        @Override public void visit(DeleteExpression node) { detail = (node.isGlobal() ? "::" : "") + (node.isArray() ? "delete[]" : "delete"); }
         @Override public void visit(ConversionExpression node) {
             detail = (node.isExplicit() ? "explicit " : "implicit ") + node.kind().name().toLowerCase(java.util.Locale.ROOT)
                     + " to " + node.targetType().canonicalIdentity();

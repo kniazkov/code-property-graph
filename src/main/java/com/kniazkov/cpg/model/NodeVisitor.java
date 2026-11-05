@@ -300,4 +300,7 @@ public interface NodeVisitor {
     default void visit(WhileStatement node) {
         visit((Statement) node);
     }
+    default void visit(TypeidExpression node) { visit((Expression) node); }
+    default void visit(NewExpression node) { visit((Expression) node); }
+    default void visit(DeleteExpression node) { visit((Expression) node); }
 }

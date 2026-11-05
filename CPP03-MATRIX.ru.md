@@ -229,3 +229,29 @@
   необязательное copy elision и межпроцедурные эффекты не заявлены.
   Контракт: [RU](docs/model-guide.ru.md#классы-инициализация-и-время-жизни-27) /
   [EN](docs/model-guide.en.md#classes-initialization-and-lifetime-27).
+
+## Размеры объектов, приведения и выделение памяти (#28)
+
+- [expr.sizeof]/[expr.const]: профильные политики `fieldAlignment`,
+  `aggregateAlignment`, `tailPadding` определяют размещение поддержанных полных
+  агрегатов. char/int даёт 8 байт при естественном выравнивании и 5 при packed1;
+  неизвестная политика сохраняет символический sizeof. Граница sizeof(S)+1
+  остаётся дочерним выражением со ссылкой на S; повторный анализ может получить
+  9 без изменения исходного снимка. long 64/32 меняет размер 8/4, не идентичность
+  перегрузок. Базы, union, битовые/ссылочные поля и неагрегаты не получают
+  выдуманного ABI-размещения.
+- [expr.typeid]/[expr.new]/[expr.delete]/[expr.cast]/[expr.type.conv]: отдельные
+  узлы typeid/new/delete, C-style и четыре именованных приведения, функциональная
+  форма инициализации; аргументы placement и инициализации имеют разное владение.
+  Сохраняются массивность, глобальная форма и скобки типа. C++/JSON/DOT и копия
+  сохраняют форму, Java отвергается. Поиск allocation functions, RTTI execution,
+  exception cleanup и полная проверка допустимости приведений не заявлены.
+- Контракт: [RU](docs/model-guide.ru.md#размеры-объектов-приведения-и-выделение-памяти-28) /
+  [EN](docs/model-guide.en.md#object-sizes-casts-and-allocation-28);
+  [экспортные проверки](src/test/java/com/kniazkov/cpg/ObjectMemoryExportTest.java).
+- Приёмка: `AggregateLayoutSemanticsTest`, `TypedConstantFoldingTest`,
+  `CppObjectExpressionTest`, `ObjectMemoryValidationTest`, `ObjectMemoryExportTest`
+  и обязательный `casts-memory`: API/CLI/JSON/SVG/копирование/повторный разбор,
+  исходный/сгенерированный/свёрнутый C++03 в GCC/Clang. Неизвестный размер не
+  подменяется ошибкой константной границы; заведомо динамическая внутренняя
+  граница new, недопустимые sizeof/new/delete диагностируются консервативно.
