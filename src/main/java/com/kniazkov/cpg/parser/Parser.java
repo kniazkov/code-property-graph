@@ -307,8 +307,13 @@ public final class Parser {
                     result.add(tokens.span(start, declaration));
                     return result;
                 }
+                if (tokens.take("=")) {
+                    if (!member || specs.modifiers().contains("static")) throw tokens.error("Pure-specifier requires a non-static class member function");
+                    tokens.expect("0"); declaration.setPureVirtual(true);
+                }
                 result.add(tokens.span(start, declaration));
             } else {
+                if (specs.modifiers().contains("virtual")) throw tokens.error("virtual applies only to member functions");
                 if (specs.modifiers().contains("inline")) throw tokens.error("inline applies only to functions in C++03");
                 var declaration = VariableDeclaration.create().setName(declarator.name()).setType(type).setModifiers(specs.modifiers());
                 declaration.setLanguageLinkage(member || local ? "C++" : languageLinkage);
@@ -355,7 +360,7 @@ public final class Parser {
 
     private boolean specialMemberAhead(boolean member) {
         int offset = 0;
-        while (java.util.Set.of("inline", "explicit").contains(tokens.peek(offset))) offset++;
+        while (java.util.Set.of("inline", "explicit", "virtual").contains(tokens.peek(offset))) offset++;
         if (member && !classNames.isEmpty())
             return tokens.peek(offset).equals("~") || tokens.peek(offset).equals(classNames.peek()) && tokens.peek(offset + 1).equals("(");
         if (tokens.peek(offset).equals("::")) offset++;
@@ -373,12 +378,15 @@ public final class Parser {
     private MethodDeclaration.Builder specialMember() {
         var start = tokens.start();
         var modifiers = new java.util.ArrayList<String>();
-        while (java.util.Set.of("inline", "explicit").contains(tokens.peek())) { modifiers.add(tokens.peek()); tokens.advance(); }
+        while (java.util.Set.of("inline", "explicit", "virtual").contains(tokens.peek())) { modifiers.add(tokens.peek()); tokens.advance(); }
+        if (new java.util.HashSet<>(modifiers).size() != modifiers.size()) throw tokens.error("Duplicate function specifier");
         var declarator = types.declarator(false);
+        if (modifiers.contains("virtual") && declarator.name().contains("::")) throw tokens.error("virtual is permitted only in a class declaration");
         var function = types.functionType(declarator.apply().apply(NamedType.create().setName("void")));
         if (function == null) throw tokens.error("Expected constructor or destructor parameter clause");
         boolean destructor = declarator.name().contains("~");
         if (function.isConst() || function.isVolatile() || destructor && (!function.parameters().isEmpty() || function.variadic())) throw tokens.error("Invalid special member signature");
+        if (!destructor && modifiers.contains("virtual")) throw tokens.error("Constructor cannot be virtual");
         if (destructor && modifiers.contains("explicit")) throw tokens.error("explicit applies only to constructors");
         var result = MethodDeclaration.create().setName(declarator.name()).setKind(destructor ? CallableDeclaration.Kind.DESTRUCTOR : CallableDeclaration.Kind.CONSTRUCTOR)
                 .setParameters(function.parameters()).setVariadic(function.variadic()).setModifiers(modifiers);
@@ -401,7 +409,13 @@ public final class Parser {
                     try { functionBody(result, function.parameters()); } finally { tokens.restore(resume); }
                 }));
             } else functionBody(result, function.parameters());
-        } else tokens.expect(";");
+        } else {
+            if (tokens.take("=")) {
+                if (!destructor || classNames.isEmpty() || declarator.name().contains("::")) throw tokens.error("Pure-specifier requires an in-class virtual destructor declaration");
+                tokens.expect("0"); result.setPureVirtual(true);
+            }
+            tokens.expect(";");
+        }
         return tokens.span(start, result);
     }
 
@@ -417,9 +431,10 @@ public final class Parser {
     }
 
     private void validateStorage(java.util.List<String> modifiers, boolean member, boolean local) {
-        var storage = modifiers.stream().filter(m -> !m.equals("inline")).toList();
+        var storage = modifiers.stream().filter(m -> !m.equals("inline") && !m.equals("virtual")).toList();
         if (new java.util.HashSet<>(modifiers).size() != modifiers.size() || storage.size() > 1)
             throw tokens.error("Conflicting or duplicate storage-class specifiers");
+        if (modifiers.contains("virtual") && (!member || modifiers.contains("static"))) throw tokens.error("virtual requires a non-static class member function");
         if (modifiers.contains("mutable") && !member) throw tokens.error("mutable requires a class member");
         if ((modifiers.contains("auto") || modifiers.contains("register")) && !local)
             throw tokens.error("auto and register require block scope");

@@ -8,7 +8,7 @@ import java.util.function.*;
 /** Reads the C++ declarator grammar, composing from the name outward, not by token order. */
 final class TypeParser {
     private static final Set<String> FUNDAMENTAL = Set.of("void", "bool", "char", "signed", "unsigned", "short", "long", "int", "wchar_t", "float", "double");
-    private static final Set<String> STORAGE = Set.of("static", "extern", "inline", "register", "mutable", "auto");
+    private static final Set<String> STORAGE = Set.of("static", "extern", "inline", "register", "mutable", "auto", "virtual");
     private final TokenCursor tokens;
     private final ExpressionParser expressions;
     /** Parser-only lookup: enough information to distinguish declarations from expressions. */

@@ -32,7 +32,9 @@ public final class NameResolver {
             if (!name.isEmpty()) names.computeIfAbsent(name, ignored -> new ArrayList<>()).add(declaration);
         }
     }
-    private record Match(Declaration declaration, List<TypeResolutionStep> steps) {}
+    private record Match(Declaration declaration, List<TypeResolutionStep> steps, boolean ambiguous) {
+        Match(Declaration declaration, List<TypeResolutionStep> steps) { this(declaration, steps, false); }
+    }
 
     private static final class Engine {
         final Project project;
@@ -43,6 +45,7 @@ public final class NameResolver {
         final Map<ClassDeclaration, Integer> classEnds = new IdentityHashMap<>();
         final Map<EnumDeclaration, Integer> enumEnds = new IdentityHashMap<>();
         final Map<ParameterDeclaration, Integer> parameterEnds = new IdentityHashMap<>();
+        final Map<Scope, CallableDeclaration> callableScopes = new IdentityHashMap<>();
         final Set<Scope> functionScopes = Collections.newSetFromMap(new IdentityHashMap<>());
         final Map<Declaration, Scope> introduced = new IdentityHashMap<>();
         final Map<SourceFile, Scope> roots = new IdentityHashMap<>();
@@ -104,7 +107,7 @@ public final class NameResolver {
                 classEnds.put(owner, position);
             } else if (node instanceof CallableDeclaration callable) {
                 Scope nested = new Scope(scope, scope.file, qualify(scope.qualified, callable.name()), true, scope.anonymous, false);
-                functionScopes.add(nested);
+                functionScopes.add(nested); callableScopes.put(nested, callable);
                 callable.writtenType().ifPresent(type -> index(type, scope));
                 callable.returnType().ifPresent(type -> index(type, scope));
                 callable.parameters().forEach(parameter -> index(parameter, nested));
@@ -205,7 +208,8 @@ public final class NameResolver {
                 @Override public void visit(MemberExpression member) {
                     String written = expressionName(member);
                     Match match = member instanceof ScopeMemberExpression
-                            ? written == null ? null : unique(lookup(written, scopes.get(member), positions.get(member), new HashSet<>()))
+                            ? isObjectQualified(member) ? unique(qualifiedObjectMatches(member))
+                                    : written == null ? null : unique(lookup(written, scopes.get(member), positions.get(member), new HashSet<>()))
                             : memberMatch(member);
                     editor.bind(member, match == null ? null : match.declaration());
                 }
@@ -283,7 +287,7 @@ public final class NameResolver {
                             NamespaceDeclaration destination = namespace(alias.targetName(), scopes.get(alias), positions.get(alias) - 1, active);
                             if (destination != null) steps.add(new TypeResolutionStep("namespace-alias", alias, destination));
                         }
-                        steps.addAll(target.steps()); result.add(new Match(target.declaration(), List.copyOf(steps)));
+                        steps.addAll(target.steps()); result.add(new Match(target.declaration(), List.copyOf(steps), target.ambiguous()));
                     }
                 }
             }
@@ -302,7 +306,7 @@ public final class NameResolver {
                             NamespaceDeclaration destination = namespace(alias.targetName(), scopes.get(alias), positions.get(alias) - 1, active);
                             if (destination != null) steps.add(new TypeResolutionStep("namespace-alias", alias, destination));
                         }
-                        steps.addAll(target.steps()); result.add(new Match(target.declaration(), List.copyOf(steps)));
+                        steps.addAll(target.steps()); result.add(new Match(target.declaration(), List.copyOf(steps), target.ambiguous()));
                     }
                 }
             }
@@ -328,7 +332,82 @@ public final class NameResolver {
             }
             return List.of();
         }
+        ClassDeclaration scopeClass(Scope scope) {
+            for (var entry : introduced.entrySet())
+                if (entry.getValue() == scope && entry.getKey() instanceof ClassDeclaration cls && cls.isDefinition()) return cls;
+            return null;
+        }
+        ClassDeclaration resolvedBase(BaseSpecifier base) {
+            TypeNode type = TypeSemantics.unqualified(base.type());
+            if (type instanceof NamedType named) {
+                Match binding = typeBindings.get(named);
+                Declaration target = binding == null ? named.declaration().orElse(null) : binding.declaration();
+                if (target instanceof ClassDeclaration cls) {
+                    ClassDeclaration definition = scopeClass(introduced.get(cls));
+                    return definition == null ? cls : definition;
+                }
+            }
+            return null;
+        }
+        private record InheritedMatch(Match match, String subobject) {}
         List<Match> direct(String name, Scope scope, int point, Set<Declaration> active, boolean tagsOnly, boolean completeClassContext) {
+            List<Match> own = ownDirect(name, scope, point, active, tagsOnly, completeClassContext);
+            ClassDeclaration cls = scopeClass(scope);
+            if (!own.isEmpty() || cls == null) return own;
+            var inherited = new ArrayList<InheritedMatch>();
+            inherited(name, cls, point, active, tagsOnly, completeClassContext, "root", new HashSet<>(), inherited);
+            // A declaration in a more-derived subobject dominates a declaration
+            // reached through its shared virtual base (C++03 member lookup).
+            List<InheritedMatch> all = List.copyOf(inherited);
+            inherited.removeIf(candidate -> all.stream().anyMatch(other -> {
+                ClassDeclaration more = scopeClass(scopes.get(other.match().declaration()));
+                return more != null && !other.subobject().equals(candidate.subobject())
+                        && containsSubobject(more, other.subobject(), candidate.subobject(), new HashSet<>());
+            }));
+            Set<String> subobjects = new HashSet<>();
+            for (InheritedMatch match : inherited) {
+                Declaration declaration = match.match().declaration();
+                // Static members and types do not require a unique object subobject.
+                if (!modifiers(declaration).contains("static") && !isType(declaration)) subobjects.add(match.subobject());
+            }
+            boolean ambiguous = subobjects.size() > 1 || inherited.stream()
+                    .map(m -> scopes.get(m.match().declaration())).distinct().count() > 1;
+            return distinct(inherited.stream().map(m -> new Match(m.match().declaration(), m.match().steps(), ambiguous)).toList());
+        }
+        // Compare actual subobject paths, not just class ancestry. A nonvirtual base
+        // nested inside a shared virtual base is also shared; an identically typed
+        // nonvirtual base on another branch is a different object.
+        boolean containsSubobject(ClassDeclaration cls, String path, String target, Set<ClassDeclaration> visiting) {
+            if (path.equals(target)) return true;
+            if (!visiting.add(cls)) return false;
+            int index = 0;
+            for (BaseSpecifier base : cls.bases()) {
+                ClassDeclaration parent = resolvedBase(base);
+                String next = base.isVirtual() ? "virtual:" + System.identityHashCode(parent) : path + "/" + index;
+                index++;
+                if (parent != null && containsSubobject(parent, next, target, visiting)) {
+                    visiting.remove(cls); return true;
+                }
+            }
+            visiting.remove(cls);
+            return false;
+        }
+        void inherited(String name, ClassDeclaration cls, int point, Set<Declaration> active, boolean tagsOnly,
+                boolean completeContext, String path, Set<ClassDeclaration> visiting, List<InheritedMatch> result) {
+            if (!visiting.add(cls)) return;
+            int index = 0;
+            for (BaseSpecifier base : cls.bases()) {
+                ClassDeclaration parent = resolvedBase(base);
+                String next = base.isVirtual() ? "virtual:" + System.identityHashCode(parent) : path + "/" + index;
+                index++;
+                if (parent == null || introduced.get(parent) == null) continue;
+                List<Match> own = ownDirect(name, introduced.get(parent), point, active, tagsOnly, completeContext);
+                if (own.isEmpty()) inherited(name, parent, point, active, tagsOnly, completeContext, next, visiting, result);
+                else for (Match match : own) result.add(new InheritedMatch(match, next));
+            }
+            visiting.remove(cls);
+        }
+        List<Match> ownDirect(String name, Scope scope, int point, Set<Declaration> active, boolean tagsOnly, boolean completeClassContext) {
             var direct = new ArrayList<Match>();
             for (Declaration declaration : scope.names.getOrDefault(name, List.of())) {
                 if (positions.get(declaration) > point && !(scope.classScope && completeClassContext)) continue;
@@ -458,6 +537,7 @@ public final class NameResolver {
             return matches.stream().filter(match -> seen.add(match.declaration())).toList();
         }
         Match unique(List<Match> matches) {
+            if (matches.stream().anyMatch(Match::ambiguous)) return null;
             if (matches.size() == 1) return matches.getFirst();
             if (matches.size() > 1 && matches.stream().allMatch(m -> m.declaration() instanceof CallableDeclaration)
                     && matches.stream().map(m -> signature((CallableDeclaration)m.declaration())).distinct().count() == 1
@@ -466,7 +546,20 @@ public final class NameResolver {
             return null;
         }
 
-        Match memberMatch(MemberExpression member) { return unique(memberMatches(member)); }
+        boolean isObjectQualified(MemberExpression member) {
+            return member instanceof ScopeMemberExpression && member.receiver() instanceof MemberExpression qualifier
+                    && !(qualifier instanceof ScopeMemberExpression);
+        }
+        List<Match> qualifiedObjectMatches(MemberExpression member) {
+            MemberExpression qualifier = (MemberExpression)member.receiver();
+            ClassDeclaration receiver = receiverClass(qualifier.receiver(), qualifier instanceof PointerMemberExpression);
+            Match match = unique(lookup(qualifier.member(), scopes.get(member), positions.get(member), new HashSet<>()));
+            if (receiver == null || match == null || !(match.declaration() instanceof ClassDeclaration owner)
+                    || receiver != owner && !inheritanceCycle(receiver, owner, new HashSet<>())) return List.of();
+            Scope scope = introduced.get(owner);
+            return scope == null ? List.of() : direct(member.member(), scope, Integer.MAX_VALUE, new HashSet<>(), false, true);
+        }
+        Match memberMatch(MemberExpression member) { return unique(isObjectQualified(member) ? qualifiedObjectMatches(member) : memberMatches(member)); }
         List<Match> memberMatches(MemberExpression member) {
             ClassDeclaration owner = receiverClass(member.receiver(), member instanceof PointerMemberExpression);
             if (owner == null) return List.of();
@@ -541,6 +634,7 @@ public final class NameResolver {
             }
             for (List<Declaration> group : groups.values()) connect(group);
             validateClasses();
+            validateInheritance();
             for (Declaration declaration : declarations)
                 if (declaration instanceof CallableDeclaration callable && scopes.get(callable).file.language() == Language.CPP)
                     validateDefaults(callable);
@@ -548,7 +642,7 @@ public final class NameResolver {
                 @Override public void visit(CallExpression call) { resolveCall(call); }
                 @Override public void visit(NameExpression name) { diagnoseAmbiguity(name, name.name(), false); }
                 @Override public void visit(MemberExpression member) {
-                    String name = expressionName(member); if (name != null) diagnoseAmbiguity(member, name, false);
+                    String name = expressionName(member); diagnoseAmbiguity(member, name == null ? member.member() : name, false);
                 }
                 @Override public void visit(NamedType type) { diagnoseAmbiguity(type, type.name(), type.elaboratedKeyword().isPresent()); }
                 @Override public void visit(NewExpression expression) { validateNew(expression); }
@@ -697,7 +791,14 @@ public final class NameResolver {
                         ClassDeclaration baseClass = ClassSemantics.initializedBase(initializer).orElse(null);
                         boolean valid = ClassSemantics.fields(owner).contains(target)
                                 || owner.bases().stream().anyMatch(base -> ClassSemantics.objectClass(base.type()).filter(baseType -> ClassSemantics.sameClass(baseType, baseClass)).isPresent());
-                        if (!valid && ClassSemantics.hasCompleteNonvirtualHierarchy(owner)) error(initializer, "invalid-member-initializer", "Initializer must name a non-static field or direct base: " + initializer.name());
+                        if (ClassSemantics.hasCompleteHierarchy(owner)) {
+                            boolean virtualBase = ClassSemantics.virtualBases(owner).stream().anyMatch(base ->
+                                    ClassSemantics.objectClass(base.type()).filter(baseType -> ClassSemantics.sameClass(baseType, baseClass)).isPresent());
+                            boolean directNonvirtualBase = owner.bases().stream().filter(base -> !base.isVirtual()).anyMatch(base ->
+                                    ClassSemantics.objectClass(base.type()).filter(baseType -> ClassSemantics.sameClass(baseType, baseClass)).isPresent());
+                            if (!valid && !virtualBase || virtualBase && directNonvirtualBase)
+                                error(initializer, "invalid-member-initializer", "Initializer must name an unambiguous non-static field, direct base or virtual base: " + initializer.name());
+                        }
                         Object identity = baseClass != null ? baseClass.typeIdentity().orElse(baseClass.name()) : target != null ? target : initializer.name();
                         if (!seen.add(identity)) error(initializer, "duplicate-member-initializer", "Subobject initialized more than once: " + initializer.name());
                     }
@@ -706,9 +807,40 @@ public final class NameResolver {
                 }
             }
         }
+        boolean inheritanceCycle(ClassDeclaration current, ClassDeclaration target, Set<ClassDeclaration> seen) {
+            if (current == target) return true;
+            if (!seen.add(current)) return false;
+            for (BaseSpecifier base : current.bases()) {
+                ClassDeclaration next = resolvedBase(base);
+                if (next != null && inheritanceCycle(next, target, seen)) return true;
+            }
+            return false;
+        }
+        void validateInheritance() {
+            for (Declaration declaration : declarations) {
+                if (declaration instanceof CallableDeclaration method && method.isPureVirtual()
+                        && (!InheritanceSemantics.isVirtual(project, method) || method.modifiers().contains("static")))
+                    error(method, "invalid-pure-virtual", "A pure specifier requires a virtual non-static member function");
+                if (!(declaration instanceof ClassDeclaration cls)) continue;
+                if (!VirtualInheritanceValidation.conflictingMethods(project, cls).isEmpty())
+                    error(cls, "multiple-final-overriders", "A virtual function has multiple final overriders in " + cls.name());
+                for (BaseSpecifier base : cls.bases()) {
+                    ClassDeclaration parent = resolvedBase(base);
+                    if (parent == null) {
+                        TypeNode type = TypeSemantics.unqualified(base.type());
+                        if (type instanceof NamedType named && (named.fundamentalKind().isPresent() || named.declaration().isPresent()))
+                            error(base, "invalid-base", "A base specifier must name a class");
+                    } else if (inheritanceCycle(parent, cls, new HashSet<>()))
+                        error(base, "inheritance-cycle", "Inheritance must not contain a cycle");
+                    else if (parent.keyword().equals("union") || cls.keyword().equals("union"))
+                        error(base, "invalid-base", "A union cannot participate in inheritance");
+                }
+            }
+        }
         void diagnoseAmbiguity(Node node, String name, boolean tagsOnly) {
-            var matches = lookup(name, scopes.get(node), positions.get(node), new HashSet<>(), tagsOnly);
-            if (matches.size() > 1 && !matches.stream().allMatch(match -> match.declaration() instanceof CallableDeclaration))
+            var matches = node instanceof MemberExpression member && !(member instanceof ScopeMemberExpression)
+                    ? memberMatches(member) : lookup(name, scopes.get(node), positions.get(node), new HashSet<>(), tagsOnly);
+            if (matches.stream().anyMatch(Match::ambiguous) || matches.size() > 1 && !matches.stream().allMatch(match -> match.declaration() instanceof CallableDeclaration))
                 error(node, "ambiguous-name", "Ambiguous name at this source position: " + name);
         }
         Declaration.Linkage linkage(Declaration declaration) {
@@ -820,7 +952,7 @@ public final class NameResolver {
         List<CallExpression.DefaultArgument> applicableDefaults(CallableDeclaration declaration, int point) {
             var result = new LinkedHashMap<Integer, CallExpression.DefaultArgument>();
             Scope scope = scopes.get(declaration);
-            for (Declaration candidate : scope.names.getOrDefault(declaration.name(), List.of())) {
+            for (Declaration candidate : scope.names.getOrDefault(name(declaration), List.of())) {
                 if (!(candidate instanceof CallableDeclaration callable) || positions.get(candidate) > point
                         || !parameterSignature(callable).equals(parameterSignature(declaration))) continue;
                 for (int i = 0; i < callable.parameters().size(); i++) {
@@ -881,20 +1013,36 @@ public final class NameResolver {
         }
         void resolveCall(CallExpression call) {
             String written = expressionName(call.callee());
-            List<Match> visible = call.callee() instanceof MemberExpression member && !(member instanceof ScopeMemberExpression)
-                    && receiverClass(member.receiver(), member instanceof PointerMemberExpression) != null
+            List<Match> visible = call.callee() instanceof MemberExpression qualified && isObjectQualified(qualified)
+                    ? qualifiedObjectMatches(qualified)
+                    : call.callee() instanceof MemberExpression member && !(member instanceof ScopeMemberExpression)
                     ? memberMatches(member)
                     : written == null ? List.of() : lookup(written, scopes.get(call), positions.get(call), new HashSet<>());
             List<CallableDeclaration> declarations = visible.stream().map(Match::declaration)
                     .filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast).toList();
             // Historical Java/class-qualified examples omit a class declaration in the
             // caller file. Preserve that limited fallback, never for unqualified names.
-            if (declarations.isEmpty() && visible.isEmpty() && written != null && written.contains("::")) {
+            if (declarations.isEmpty() && visible.isEmpty() && written != null && written.contains("::")
+                    && (!(call.callee() instanceof MemberExpression) || call.callee() instanceof ScopeMemberExpression)) {
                 String owner = written.substring(0, written.indexOf("::"));
                 if (lookup(owner, scopes.get(call), positions.get(call), new HashSet<>()).isEmpty())
                     declarations = this.declarations.stream().filter(MethodDeclaration.class::isInstance)
                             .map(CallableDeclaration.class::cast).filter(candidate -> qualify(scopes.get(candidate).qualified, candidate.name()).equals(written))
                             .filter(candidate -> differentPhysicalFile(scopes.get(call).file, scopes.get(candidate).file)).toList();
+            }
+            if (declarations.size() > 1 && visible.stream().noneMatch(Match::ambiguous)) {
+                List<CallableDeclaration> viable = declarations.stream().filter(declaration -> {
+                    int count = call.arguments().size();
+                    if (!declaration.variadic() && count > declaration.parameters().size()) return false;
+                    Set<Integer> defaults = new HashSet<>();
+                    applicableDefaults(declaration, positions.get(call)).forEach(argument -> defaults.add(argument.parameterIndex()));
+                    for (int i = count; i < declaration.parameters().size(); i++) if (!defaults.contains(i)) return false;
+                    return true;
+                }).toList();
+                if (!viable.isEmpty()) {
+                    declarations = viable;
+                    visible = visible.stream().filter(match -> viable.contains(match.declaration())).toList();
+                }
             }
             var candidates = new ArrayList<CallableDeclaration>();
             Set<String> seen = new LinkedHashSet<>();
@@ -912,9 +1060,43 @@ public final class NameResolver {
             candidates = new ArrayList<>(new LinkedHashSet<>(candidates));
             CallExpression.Resolution status = candidates.isEmpty() ? CallExpression.Resolution.UNRESOLVED
                     : odr ? CallExpression.Resolution.ODR_CONFLICT
+                    : visible.stream().anyMatch(Match::ambiguous) ? CallExpression.Resolution.AMBIGUOUS
                     : candidates.size() == 1 ? CallExpression.Resolution.RESOLVED : CallExpression.Resolution.AMBIGUOUS;
             editor.resolve(call, candidates, status);
             resolveDefaults(call, visible);
+            Match staticMatch = unique(visible);
+            if (status == CallExpression.Resolution.RESOLVED && staticMatch != null
+                    && staticMatch.declaration() instanceof CallableDeclaration selected
+                    && !(call.callee() instanceof ScopeMemberExpression)
+                    && InheritanceSemantics.isVirtual(project, selected)) {
+                ClassDeclaration receiver = call.callee() instanceof MemberExpression member
+                        ? receiverClass(member.receiver(), member instanceof PointerMemberExpression) : scopeClass(scopes.get(selected));
+                List<CallableDeclaration> virtualCandidates = InheritanceSemantics.possibleTargets(project, selected, receiver);
+                CallableDeclaration enclosing = null;
+                for (Scope current = scopes.get(call); current != null && enclosing == null; current = current.parent)
+                    enclosing = callableScopes.get(current);
+                boolean thisReceiver = call.callee() instanceof NameExpression
+                        || call.callee() instanceof MemberExpression member && member.receiver() instanceof NameExpression name && name.name().equals("this");
+                if (thisReceiver && enclosing != null && enclosing.kind() != CallableDeclaration.Kind.FUNCTION) {
+                    ClassDeclaration constructing = scopeClass(scopes.get(enclosing));
+                    if (constructing != null) {
+                        List<CallableDeclaration> allowed = virtualCandidates.stream().filter(candidate -> {
+                            ClassDeclaration owner = InheritanceSemantics.owningClass(project, candidate).orElse(null);
+                            return owner != null && (owner == constructing || InheritanceSemantics.derivesFrom(constructing, owner));
+                        }).toList();
+                        virtualCandidates = allowed.stream().filter(candidate -> allowed.stream().noneMatch(other -> other != candidate
+                                && InheritanceSemantics.overrides(project, other).contains(candidate))).toList();
+                    }
+                }
+                var implementations = new LinkedHashSet<CallableDeclaration>();
+                for (CallableDeclaration candidate : virtualCandidates) {
+                    List<CallableDeclaration> definitions = callableGroup(candidate, scopes.get(call).file).stream()
+                            .filter(implementation -> implementation.body().isPresent()).toList();
+                    implementations.addAll(definitions.isEmpty() ? List.of(candidate) : definitions);
+                }
+                editor.virtualTargets(call, List.copyOf(implementations), false);
+            }
+
             if (odr) error(call, "odr-conflict", "Multiple definitions in one translation unit or selected build composition");
         }
         List<CallableDeclaration> callableGroup(CallableDeclaration declaration, SourceFile caller) {
