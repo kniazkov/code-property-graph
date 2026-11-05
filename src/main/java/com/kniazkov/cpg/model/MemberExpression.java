@@ -55,8 +55,8 @@ public abstract class MemberExpression extends Expression {
         private String member;
         private NodeBuilder<? extends Declaration> target;
         public Optional<NodeBuilder<? extends Declaration>> target() { return Optional.ofNullable(target); }
-        public B setTarget(NodeBuilder<? extends Declaration> value) { target = Objects.requireNonNull(value); return self(); }
-        public B clearTarget() { target = null; return self(); }
+        public B setTarget(NodeBuilder<? extends Declaration> value) { clearExpressionInfo(); target = Objects.requireNonNull(value); return self(); }
+        public B clearTarget() { clearExpressionInfo(); target = null; return self(); }
 
         /** Binds this builder to the snapshot class used for identity lookups. */
         Builder(Class<T> type) {
@@ -74,13 +74,13 @@ public abstract class MemberExpression extends Expression {
         }
 
         /** Replaces the receiver in the mutable state and returns the concrete builder. */
-        public final B setReceiver(NodeBuilder<? extends Expression> receiver) {
+        public final B setReceiver(NodeBuilder<? extends Expression> receiver) { clearExpressionInfo();
             this.receiver = Objects.requireNonNull(receiver);
             return self();
         }
 
         /** Replaces the member in the mutable state and returns the concrete builder. */
-        public final B setMember(String member) {
+        public final B setMember(String member) { clearExpressionInfo();
             this.member = Objects.requireNonNull(member);
             return self();
         }

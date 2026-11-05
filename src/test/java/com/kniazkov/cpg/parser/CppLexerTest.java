@@ -157,7 +157,7 @@ class CppLexerTest {
         assertDoesNotThrow(() -> Parser.parse("test.cpp", "#/**/include /*a\nb*/<iostream>\nint ma??/\nin() <% int café = 2; return caf\\u00e9 not_eq 2; %>", Language.CPP));
         assertThrows(ParseException.class, () -> Parser.parse("Test.java", "class Test ??< public static void main() {} ??>", Language.JAVA));
         assertDoesNotThrow(() -> Parser.parse("Test.java", "class Test { public static void main(String[] args) { int $a = 1; } }", Language.JAVA));
-        assertThrows(ParseException.class, () -> Parser.parse("test.cpp", "int main() { return 1e+2; }", Language.CPP));
-        assertThrows(ParseException.class, () -> Parser.parse("test.cpp", "int main() { return \"a\"; }", Language.CPP));
+        assertDoesNotThrow(() -> Parser.parse("test.cpp", "int main() { return 1e+2; }", Language.CPP));
+        assertDoesNotThrow(() -> Parser.parse("test.cpp", "int main() { return \"a\"; }", Language.CPP));
     }
 }

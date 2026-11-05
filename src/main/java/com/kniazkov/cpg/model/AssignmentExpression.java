@@ -72,11 +72,13 @@ public final class AssignmentExpression extends Expression {
 
         public Builder setTarget(NodeBuilder<? extends Expression> target) {
             this.target = Objects.requireNonNull(target);
+            clearExpressionInfo();
             return this;
         }
 
         public Builder setValue(NodeBuilder<? extends Expression> value) {
             this.value = Objects.requireNonNull(value);
+            clearExpressionInfo();
             return this;
         }
 
@@ -91,6 +93,17 @@ public final class AssignmentExpression extends Expression {
             node.value = context.copy(value);
             if (!(node.target instanceof NameExpression)
                     && !(node.target instanceof MemberExpression)
+                    && !(node.target instanceof AssignmentExpression)
+                    && !(node.target instanceof CompoundAssignmentExpression)
+                    && !(node.target instanceof ConditionalExpression)
+                    && !(node.target instanceof CommaExpression)
+                    && !(node.target instanceof PrefixIncrementExpression)
+                    && !(node.target instanceof PrefixDecrementExpression)
+                    && !(node.target instanceof CallExpression)
+                    && !(node.target instanceof ConversionExpression)
+                    && !(node.target instanceof IndexExpression)
+                    && !(node.target instanceof DotMemberPointerExpression)
+                    && !(node.target instanceof ArrowMemberPointerExpression)
                     && !(node.target instanceof DereferenceExpression)) {
                 throw new IllegalStateException("Unsupported assignment target");
             }

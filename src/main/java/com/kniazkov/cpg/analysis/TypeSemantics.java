@@ -112,54 +112,180 @@ public final class TypeSemantics {
         return type;
     }
 
-    /** Restricted expression typing needed for unevaluated sizeof, with no array-to-pointer decay
-     * on the direct operand. Unsupported expressions deliberately remain unknown. */
+    /** Semantic result type before context-dependent decay. References denote the referred object. */
     public static Optional<TypeNode> expressionType(Expression expression, PlatformProfile profile) {
+        return rawExpressionType(expression, profile).map(TypeSemantics::withoutReference);
+    }
+    static TypeNode withoutReference(TypeNode type) {
+        var plain = unqualified(type);
+        return plain instanceof ReferenceType reference ? reference.referredType() : type;
+    }
+    private static Optional<TypeNode> rawExpressionType(Expression expression, PlatformProfile profile) {
         if (expression instanceof IntegerLiteral literal)
             return ConstantEvaluator.literal(literal, profile).map(value -> named(value.type().spelling()));
+        if (expression instanceof BooleanLiteral) return Optional.of(named("bool"));
+        if (expression instanceof CharacterLiteral literal) return Optional.of(named(literal.cppType()));
+        if (expression instanceof FloatingLiteral literal) return Optional.of(named(literal.cppType()));
+        if (expression instanceof StringLiteral literal) return Optional.of(ArrayType.create()
+                .setElementType(QualifiedType.create().setBaseType(NamedType.create().setName(literal.wide() ? "wchar_t" : "char")).setConst(true))
+                .setBound(IntegerLiteral.create().setValue(literal.codeUnits().size() + 1)).build());
+        if (expression instanceof ConversionExpression conversion) return Optional.of(conversion.targetType());
         if (expression instanceof SizeofExpression) return sizeType(profile).map(TypeSemantics::named);
         if (expression instanceof NameExpression name) return declarationType(name.target());
         if (expression instanceof MemberExpression member) return declarationType(member.target());
         if (expression instanceof CallExpression call) return call.target().flatMap(CallableDeclaration::returnType);
         if (expression instanceof AssignmentExpression assignment) return expressionType(assignment.target(), profile);
-        if (expression instanceof AddressOfExpression address)
-            return expressionType(address.operand(), profile).map(type -> PointerType.create().setPointee(type.edit()).build());
-        if (expression instanceof DereferenceExpression dereference)
-            return expressionType(dereference.operand(), profile).flatMap(type -> {
-                type = unqualified(type);
-                return type instanceof PointerType pointer ? Optional.of(pointer.pointee()) : Optional.empty();
-            });
-        if (expression instanceof UnaryPlusExpression || expression instanceof NegateExpression) {
-            var operand = ((UnaryExpression)expression).operand();
-            return expressionType(operand, profile).flatMap(type -> integerType(type, profile))
-                    .flatMap(type -> ConstantEvaluator.promote(type, profile)).map(type -> named(type.spelling()));
+        if (expression instanceof CompoundAssignmentExpression assignment) return expressionType(assignment.target(), profile);
+        if (expression instanceof ConditionalExpression conditional) {
+            var a = expressionType(conditional.thenExpression(), profile);
+            var b = expressionType(conditional.elseExpression(), profile);
+            if (a.isEmpty() || b.isEmpty()) return Optional.empty();
+            if (a.get().canonicalIdentity().equals(b.get().canonicalIdentity())) return a;
+            return commonArithmeticType(a.get(), b.get(), profile);
         }
+        if (expression instanceof AddressOfExpression address) {
+            // A qualified non-static class member forms a member pointer. Owner/class ABI
+            // resolution is deliberately not inferred from an unqualified field type.
+            if (address.operand() instanceof ScopeMemberExpression member
+                    && member.target().filter(target -> target instanceof VariableDeclaration variable
+                            && !variable.modifiers().contains("static") || target instanceof MethodDeclaration method
+                            && !method.modifiers().contains("static")).isPresent()) return Optional.empty();
+            return expressionType(address.operand(), profile).map(type -> PointerType.create().setPointee(type.edit()).build());
+        }
+        if (expression instanceof DereferenceExpression dereference)
+            return expressionType(dereference.operand(), profile).map(TypeSemantics::decay).flatMap(TypeSemantics::pointee);
+        if (expression instanceof LogicalNotExpression logical) return expressionType(logical.operand(), profile)
+                .map(TypeSemantics::decay).filter(type -> scalar(type, profile)).map(type -> named("bool"));
+        if (expression instanceof PrefixIncrementExpression || expression instanceof PrefixDecrementExpression)
+            return expressionType(((UnaryExpression) expression).operand(), profile);
+        if (expression instanceof PostfixIncrementExpression || expression instanceof PostfixDecrementExpression)
+            return expressionType(((UnaryExpression) expression).operand(), profile).map(TypeSemantics::unqualified);
+        if (expression instanceof BitwiseNotExpression bitwise)
+            return expressionType(bitwise.operand(), profile).filter(type -> integerType(type, profile).isPresent())
+                    .flatMap(type -> promoted(type, profile));
+        if (expression instanceof UnaryPlusExpression || expression instanceof NegateExpression)
+            return expressionType(((UnaryExpression) expression).operand(), profile).flatMap(type -> promoted(type, profile));
         if (expression instanceof BinaryExpression binary) {
-            var left = expressionType(binary.left(), profile).flatMap(type -> integerType(type, profile));
-            var right = expressionType(binary.right(), profile).flatMap(type -> integerType(type, profile));
-            if (left.isPresent() && right.isPresent()) {
-                if (binary instanceof EqualExpression || binary instanceof NotEqualExpression || binary instanceof LessExpression
-                        || binary instanceof LessOrEqualExpression || binary instanceof GreaterExpression || binary instanceof GreaterOrEqualExpression)
-                    return Optional.of(named("bool"));
-                if (binary instanceof AddExpression || binary instanceof SubtractExpression || binary instanceof MultiplyExpression
-                        || binary instanceof DivideExpression || binary instanceof RemainderExpression)
-                    return ConstantEvaluator.commonType(left.orElseThrow(), right.orElseThrow(), profile)
-                            .map(type -> named(type.spelling()));
+            if (binary instanceof CommaExpression) return expressionType(binary.right(), profile);
+            var left = expressionType(binary.left(), profile).map(TypeSemantics::decay);
+            var right = expressionType(binary.right(), profile).map(TypeSemantics::decay);
+            if (left.isEmpty() || right.isEmpty()) return Optional.empty();
+            TypeNode a = left.get(), b = right.get();
+            if (binary instanceof IndexExpression) {
+                if (integerType(b, profile).isPresent()) return pointee(a);
+                if (integerType(a, profile).isPresent()) return pointee(b);
+                return Optional.empty();
             }
+            if (binary instanceof DotMemberPointerExpression || binary instanceof ArrowMemberPointerExpression)
+                return unqualified(b) instanceof MemberPointerType member ? Optional.of(member.pointee()) : Optional.empty();
+            if (binary instanceof LogicalAndExpression || binary instanceof LogicalOrExpression || isComparison(binary))
+                return scalar(a, profile) && scalar(b, profile) ? Optional.of(named("bool")) : Optional.empty();
+            if (binary instanceof ShiftLeftExpression || binary instanceof ShiftRightExpression)
+                return integerType(a, profile).isPresent() && integerType(b, profile).isPresent() ? promoted(a, profile) : Optional.empty();
+            if (binary instanceof AddExpression || binary instanceof SubtractExpression) {
+                if (pointee(a).isPresent() && integerType(b, profile).isPresent()) return Optional.of(a);
+                if (binary instanceof AddExpression && integerType(a, profile).isPresent() && pointee(b).isPresent()) return Optional.of(b);
+                // ptrdiff_t is not specified by the profile: do not guess its integer type.
+            }
+            if (binary instanceof RemainderExpression || binary instanceof BitwiseAndExpression
+                    || binary instanceof BitwiseOrExpression || binary instanceof BitwiseXorExpression) {
+                if (integerType(a, profile).isEmpty() || integerType(b, profile).isEmpty()) return Optional.empty();
+            }
+            return commonArithmeticType(a, b, profile);
         }
         return Optional.empty();
     }
-
+    public static ValueCategory valueCategory(Expression expression, PlatformProfile profile) {
+        if (expression instanceof StringLiteral || expression instanceof DereferenceExpression || expression instanceof IndexExpression
+                || expression instanceof AssignmentExpression || expression instanceof CompoundAssignmentExpression
+                || expression instanceof PrefixIncrementExpression || expression instanceof PrefixDecrementExpression) return ValueCategory.LVALUE;
+        if (expression instanceof NameExpression name)
+            return name.target().map(target -> target instanceof EnumeratorDeclaration ? ValueCategory.RVALUE
+                    : target instanceof VariableDeclaration || target instanceof ParameterDeclaration || target instanceof CallableDeclaration
+                    ? ValueCategory.LVALUE : ValueCategory.UNKNOWN).orElse(ValueCategory.UNKNOWN);
+        if (expression instanceof MemberExpression member) {
+            if (member.target().isEmpty()) return ValueCategory.UNKNOWN;
+            if (member instanceof PointerMemberExpression || member instanceof ScopeMemberExpression) return ValueCategory.LVALUE;
+            return valueCategory(member.receiver(), profile);
+        }
+        if (expression instanceof CallExpression call) return call.target().flatMap(CallableDeclaration::returnType)
+                .map(type -> unqualified(type) instanceof ReferenceType ? ValueCategory.LVALUE : ValueCategory.RVALUE).orElse(ValueCategory.UNKNOWN);
+        if (expression instanceof ConversionExpression conversion)
+            return unqualified(conversion.targetType()) instanceof ReferenceType ? ValueCategory.LVALUE : ValueCategory.RVALUE;
+        if (expression instanceof CommaExpression comma) return valueCategory(comma.right(), profile);
+        if (expression instanceof ConditionalExpression conditional) {
+            var a = expressionType(conditional.thenExpression(), profile); var b = expressionType(conditional.elseExpression(), profile);
+            if (a.isPresent() && b.isPresent() && a.get().canonicalIdentity().equals(b.get().canonicalIdentity())
+                    && valueCategory(conditional.thenExpression(), profile) == ValueCategory.LVALUE
+                    && valueCategory(conditional.elseExpression(), profile) == ValueCategory.LVALUE) return ValueCategory.LVALUE;
+        }
+        if (expression instanceof DotMemberPointerExpression member) return valueCategory(member.left(), profile);
+        if (expression instanceof ArrowMemberPointerExpression) return ValueCategory.LVALUE;
+        return expressionType(expression, profile).isPresent() ? ValueCategory.RVALUE : ValueCategory.UNKNOWN;
+    }
+    static boolean isComparison(BinaryExpression binary) {
+        return binary instanceof EqualExpression || binary instanceof NotEqualExpression || binary instanceof LessExpression
+                || binary instanceof LessOrEqualExpression || binary instanceof GreaterExpression || binary instanceof GreaterOrEqualExpression;
+    }
+    static boolean scalar(TypeNode type, PlatformProfile profile) {
+        return integerType(type, profile).isPresent() || floatingRank(type) > 0 || unqualified(type) instanceof PointerType;
+    }
+    static int floatingRank(TypeNode type) {
+        type = unqualified(type);
+        return type instanceof NamedType name ? switch (name.fundamentalKind().map(FundamentalKind::spelling).orElse("")) {
+            case "float" -> 1; case "double" -> 2; case "long double" -> 3; default -> 0;
+        } : 0;
+    }
+    public static Optional<TypeNode> promoted(TypeNode type, PlatformProfile profile) {
+        if (floatingRank(type) > 0) return Optional.of(unqualified(type));
+        return integerType(type, profile).flatMap(value -> ConstantEvaluator.promote(value, profile)).map(value -> named(value.spelling()));
+    }
+    public static Optional<TypeNode> commonArithmeticType(TypeNode a, TypeNode b, PlatformProfile profile) {
+        int floating = Math.max(floatingRank(a), floatingRank(b));
+        if (floating > 0 && (floatingRank(a) > 0 || integerType(a, profile).isPresent())
+                && (floatingRank(b) > 0 || integerType(b, profile).isPresent()))
+            return Optional.of(named(List.of("", "float", "double", "long double").get(floating)));
+        var ia = integerType(a, profile); var ib = integerType(b, profile);
+        return ia.isPresent() && ib.isPresent() ? ConstantEvaluator.commonType(ia.get(), ib.get(), profile)
+                .map(value -> named(value.spelling())) : Optional.empty();
+    }
+    static Optional<TypeNode> pointee(TypeNode type) {
+        return unqualified(type) instanceof PointerType pointer ? Optional.of(pointer.pointee()) : Optional.empty();
+    }
+    static int qualifiers(TypeNode type) {
+        int cv = 0;
+        Set<TypeNode> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        while (seen.add(type)) {
+            type = type.canonicalType();
+            if (!(type instanceof QualifiedType q)) break;
+            if (q.isConst()) cv |= 1;
+            if (q.isVolatile()) cv |= 2;
+            type = q.baseType();
+        }
+        return cv;
+    }
+    static TypeNode decay(TypeNode type) {
+        var plain = unqualified(type);
+        if (plain instanceof ArrayType array) {
+            TypeNode element = array.elementType();
+            int cv = qualifiers(type);
+            if (cv != 0) element = QualifiedType.create().setBaseType(element.edit())
+                    .setConst((cv & 1) != 0).setVolatile((cv & 2) != 0).build();
+            return PointerType.create().setPointee(element.edit()).build();
+        }
+        if (plain instanceof FunctionType) return PointerType.create().setPointee(type.edit()).build();
+        return type;
+    }
     private static Optional<TypeNode> declarationType(Optional<Declaration> declaration) {
         return declaration.flatMap(target -> {
             if (target instanceof VariableDeclaration variable) return variable.type();
-            if (target instanceof ParameterDeclaration parameter) {
-                return parameter.type().map(type -> {
-                    var plain = unqualified(type);
-                    if (plain instanceof ArrayType array) return PointerType.create().setPointee(array.elementType().edit()).build();
-                    if (plain instanceof FunctionType) return PointerType.create().setPointee(type.edit()).build();
-                    return type;
-                });
+            if (target instanceof ParameterDeclaration parameter) return parameter.type().map(TypeSemantics::decay);
+            if (target instanceof CallableDeclaration callable) {
+                if (callable.writtenType().isPresent()) return callable.writtenType();
+                if (callable.returnType().isEmpty()) return Optional.empty();
+                var function = FunctionType.create().setReturnType(callable.returnType().get().edit()).setVariadic(callable.variadic());
+                for (var parameter : callable.parameters()) function.addParameter(parameter.edit());
+                return Optional.of(function.build());
             }
             return Optional.empty();
         });

@@ -16,22 +16,41 @@ final class EditContext {
     private final Map<Node, Node> replacements;
     private final java.util.Set<Node> removed;
 
+    private final Map<Expression, List<ProjectEditor.ConversionStep>> conversions;
+
     EditContext() {
         this(Map.of(), java.util.Set.of());
     }
 
     EditContext(Map<Node, Node> replacements, java.util.Set<Node> removed) {
+        this(replacements, removed, Map.of());
+    }
+
+    EditContext(Map<Node, Node> replacements, java.util.Set<Node> removed, Map<Expression, List<ProjectEditor.ConversionStep>> conversions) {
+        this.conversions = conversions;
         this.replacements = replacements;
         this.removed = removed;
     }
 
     /** Applies scheduled replacements at an edge and verifies the destination slot type. */
+    @SuppressWarnings("unchecked")
     <T extends Node> NodeBuilder<? extends T> edge(Node node, Class<T> type) {
         Node replacement = replacements.getOrDefault(node, node);
         NodeBuilder<? extends T> result = copy(type.cast(replacement));
         if (replacement != node) {
             if (result.origin == null) result.origin = node.origin;
             if (result.provenance == null) result.provenance = node.provenance;
+        }
+        if (node instanceof Expression expression && conversions.containsKey(expression)) {
+            NodeBuilder<? extends Expression> operand = (NodeBuilder<? extends Expression>) result;
+            for (var step : conversions.get(expression)) {
+                var wrapper = ConversionExpression.create().setOperand(operand).setTargetType(step.targetType().edit())
+                        .setSourceType(step.sourceType()).setKind(step.kind()).setExplicit(false);
+                if (node.origin != null) wrapper.setRange(node.origin);
+                if (node.provenance != null) wrapper.setProvenance(node.provenance);
+                operand = wrapper;
+            }
+            return (NodeBuilder<? extends T>) operand;
         }
         return result;
     }
@@ -62,6 +81,7 @@ final class EditContext {
         builder.origin = node.origin;
         builder.provenance = node.provenance;
         if (node instanceof TypeNode type) builder.typeRepresentation = type.semanticType().orElse(null);
+        if (node instanceof Expression expression) builder.expressionInfo = expression.semanticInfo().orElse(null);
         if (builders.putIfAbsent(node, builder) != null) {
             throw new IllegalStateException("Node already registered");
         }

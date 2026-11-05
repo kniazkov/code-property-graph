@@ -53,7 +53,7 @@ public abstract class UnaryExpression extends Expression {
         }
 
         /** Replaces the operand in the mutable state and returns the concrete builder. */
-        public final B setOperand(NodeBuilder<? extends Expression> operand) {
+        public final B setOperand(NodeBuilder<? extends Expression> operand) { clearExpressionInfo();
             this.operand = Objects.requireNonNull(operand);
             return self();
         }

@@ -293,7 +293,17 @@ public final class DotVisualizer {
 
         @Override
         public void visit(IntegerLiteral node) {
-            detail = Integer.toString(node.value());
+            detail = node.bigValue().toString();
+        }
+
+        @Override public void visit(BooleanLiteral node) { detail = node.spelling(); }
+        @Override public void visit(FloatingLiteral node) { detail = node.spelling() + " : " + node.cppType(); }
+        @Override public void visit(CharacterLiteral node) { detail = node.spelling() + " : " + node.cppType(); }
+        @Override public void visit(StringLiteral node) { detail = node.spelling() + " : " + node.cppType(); }
+        @Override public void visit(CompoundAssignmentExpression node) { detail = node.operator(); }
+        @Override public void visit(ConversionExpression node) {
+            detail = (node.isExplicit() ? "explicit " : "implicit ") + node.kind().name().toLowerCase(java.util.Locale.ROOT)
+                    + " to " + node.targetType().canonicalIdentity();
         }
 
         @Override

@@ -43,9 +43,14 @@ public final class Source {
                         || n instanceof ScopeMemberExpression || n instanceof PointerMemberExpression
                         || n instanceof NameExpression name && name.name().contains("::")
                         || n instanceof AddressOfExpression || n instanceof DereferenceExpression
+                        || n instanceof FloatingLiteral || n instanceof CharacterLiteral || n instanceof StringLiteral
+                        || n instanceof CommaExpression || n instanceof DotMemberPointerExpression || n instanceof ArrowMemberPointerExpression
+                        || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion) || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression
+                        || n instanceof ConditionalExpression
+                        || n instanceof IntegerLiteral literal && literal.bigValue().bitLength() > 31
                         || n instanceof TypeNode && !(n instanceof NamedType)
                         || n instanceof TypedefDeclaration || n instanceof SizeofExpression
-                        || n instanceof IntegerLiteral literal && literal.cppType().isPresent()
+                        || n instanceof IntegerLiteral literal && literal.cppType().filter(type -> !type.equals("int")).isPresent()
                         || n instanceof Declaration declaration && cppOnlyDeclaration(declaration))
                     targets.remove(Language.JAVA);
                 if (n instanceof NamedType type) {
@@ -172,6 +177,13 @@ public final class Source {
         return node.diagnostics().stream().anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR);
     }
 
+    /** Identity value reads of the shared int subset do not require Java syntax changes. */
+    private static boolean cppOnlyConversion(ConversionExpression conversion) {
+        return conversion.isExplicit() || conversion.kind() != ConversionExpression.Kind.LVALUE_TO_RVALUE
+                || !conversion.targetType().canonicalIdentity().equals("int")
+                || !conversion.sourceType().orElse("").equals("int");
+    }
+
     /** These source constructs have no supported Java translation. */
     private static boolean cppOnlyDeclaration(Declaration declaration) {
         return declaration instanceof NamespaceDeclaration || declaration instanceof NamespaceAliasDeclaration
@@ -210,6 +222,13 @@ public final class Source {
         if (target == Language.JAVA && file.items().stream().anyMatch(item -> item instanceof VariableDeclaration || item instanceof TypedefDeclaration))
             throw new IllegalArgumentException("Cannot translate C++ global variable or typedef declarations to Java");
         file.walk(new NodeVisitor() {
+            @Override public void visit(Node n) {
+                if (target == Language.JAVA && (n instanceof FloatingLiteral || n instanceof CharacterLiteral
+                        || n instanceof StringLiteral || n instanceof CommaExpression || n instanceof DotMemberPointerExpression
+                        || n instanceof ArrowMemberPointerExpression || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion)
+                        || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression || n instanceof ConditionalExpression
+                        || n instanceof IntegerLiteral literal && literal.bigValue().bitLength() > 31)) throw unsupported(n);
+            }
             @Override public void visit(Declaration n) {
                 if (target == Language.JAVA && cppOnlyDeclaration(n)) throw unsupported(n);
             }
@@ -223,7 +242,7 @@ public final class Source {
                             && profile.orElseThrow().sizeBits("int").orElse(0) != 32) throw unsupported(n);
                 }
             }
-            @Override public void visit(IntegerLiteral n) { if (target == Language.JAVA && n.cppType().isPresent()) throw unsupported(n); }
+            @Override public void visit(IntegerLiteral n) { if (target == Language.JAVA && (n.cppType().filter(type -> !type.equals("int")).isPresent() || n.bigValue().bitLength() > 31)) throw unsupported(n); }
             @Override public void visit(TypedefDeclaration n) { if (target == Language.JAVA) throw unsupported(n); }
             @Override public void visit(SizeofExpression n) { if (target == Language.JAVA) throw unsupported(n); }
             @Override public void visit(AddressOfExpression n) { if (target == Language.JAVA) throw unsupported(n); }
@@ -307,10 +326,26 @@ public final class Source {
             case AssignmentExpression a -> "(" + assignment(a) + ")";
             case Exit ignored -> "";
             case IntegerLiteral i -> integerLiteral(i);
+            case BooleanLiteral b -> Boolean.toString(b.value());
+            case FloatingLiteral f -> f.spelling();
+            case CharacterLiteral c -> c.spelling();
+            case StringLiteral s -> s.spelling();
+            case ConversionExpression c -> c.isExplicit()
+                    ? "static_cast<" + declaration(c.targetType(), "") + ">(" + emit(c.operand(), 0) + ")"
+                    : emit(c.operand(), 0);
+            case CompoundAssignmentExpression a -> "(" + emit(a.target(), 0) + " " + a.operator() + " " + emit(a.value(), 0) + ")";
+            case ConditionalExpression c -> "(" + emit(c.condition(), 0) + " ? " + emit(c.thenExpression(), 0)
+                    + " : " + emit(c.elseExpression(), 0) + ")";
+            case IndexExpression i -> "(" + emit(i.left(), 0) + ")[" + emit(i.right(), 0) + "]";
+            case PostfixIncrementExpression u -> "((" + emit(u.operand(), 0) + ")++)";
+            case PostfixDecrementExpression u -> "((" + emit(u.operand(), 0) + ")--)";
             case SizeofExpression size -> "sizeof(" + size.type().map(t -> declaration(t, "")).orElseGet(() -> emit(size.operand().orElseThrow(), 0)) + ")";
             case NameExpression name -> name.name();
             case MemberExpression m -> emit(m.receiver(), 0) + separator(m) + m.member();
             case CallExpression c -> emit(c.callee(), 0) + "(" + c.arguments().stream().map(e -> emit(e, 0)).collect(Collectors.joining(", ")) + ")";
+            // Parenthesizing a qualified member operand changes &C::m into an invalid object access.
+            case AddressOfExpression u when u.operand() instanceof ScopeMemberExpression
+                    || u.operand() instanceof NameExpression name && name.name().contains("::") -> "(&" + emit(u.operand(), 0) + ")";
             case UnaryExpression u -> "(" + symbol(u) + "(" + emit(u.operand(), 0) + "))";
             case BinaryExpression b -> "(" + emit(b.left(), 0) + " " + symbol(b) + " " + emit(b.right(), 0) + ")";
             default -> throw unsupported(n);
@@ -336,17 +371,20 @@ public final class Source {
         if (target != Language.CPP) return Integer.toString(literal.value());
         var profile = literal.provenance().map(p -> p.unit().configuration()).map(c -> c.platform())
                 .orElseGet(com.kniazkov.cpg.build.PlatformProfile::defaults);
-        var number = java.math.BigInteger.valueOf(literal.value());
+        if (literal.spelling().isPresent()) return literal.spelling().orElseThrow();
+        var number = literal.bigValue();
         String type = literal.cppType().orElseGet(() -> List.of("int", "long", "unsigned long").stream()
                 .filter(name -> profile.integerRange(name).map(range -> number.compareTo(range.min()) >= 0 && number.compareTo(range.max()) <= 0).orElse(false))
-                .findFirst().orElse("int"));
+                .findFirst().orElseThrow(() -> new IllegalArgumentException("Integer literal is outside the C++03 target ranges: " + number)));
         String suffix = switch (type) { case "unsigned int" -> "U"; case "long" -> "L"; case "unsigned long" -> "UL"; default -> ""; };
         var range = profile.integerRange(type);
+        if (range.isEmpty() || number.compareTo(range.orElseThrow().min()) < 0 || number.compareTo(range.orElseThrow().max()) > 0)
+            throw new IllegalArgumentException("Integer literal is outside " + type + " on the C++03 target: " + number);
         // The positive token in -MIN may require a wider (or unsigned) type.
         // Express signed minima using two representable operands of the intended type.
         if (number.signum() < 0 && range.isPresent() && number.equals(range.orElseThrow().min()))
             return "((-(" + range.orElseThrow().max() + suffix + ")) - 1" + suffix + ")";
-        return literal.value() + (literal.cppType().isPresent() ? suffix : "");
+        return number + suffix;
     }
 
     /** Prints the declarator around its name; grouping follows the type tree's binding. */
@@ -395,6 +433,12 @@ public final class Source {
             case LessExpression a -> "<"; case GreaterExpression a -> ">"; case LessOrEqualExpression a -> "<=";
             case GreaterOrEqualExpression a -> ">="; case LogicalNotExpression a -> "!";
             case UnaryPlusExpression a -> "+"; case NegateExpression a -> "-";
+            case BitwiseAndExpression a -> "&"; case BitwiseOrExpression a -> "|"; case BitwiseXorExpression a -> "^";
+            case LogicalAndExpression a -> "&&"; case LogicalOrExpression a -> "||"; case BitwiseNotExpression a -> "~";
+            case PrefixIncrementExpression a -> "++"; case PrefixDecrementExpression a -> "--";
+            case CommaExpression a when target == Language.CPP -> ",";
+            case DotMemberPointerExpression a when target == Language.CPP -> ".*";
+            case ArrowMemberPointerExpression a when target == Language.CPP -> "->*";
             case AddressOfExpression a when target == Language.CPP -> "&";
             case DereferenceExpression a when target == Language.CPP -> "*";
             default -> throw unsupported(e);

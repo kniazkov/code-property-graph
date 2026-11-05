@@ -17,6 +17,24 @@ public final class ProjectEditor {
         typeRepresentations.put(type, Objects.requireNonNull(representation));
     }
 
+    private final Map<ConversionExpression, String> conversionSources = new IdentityHashMap<>();
+    public void describeSource(ConversionExpression expression, String type) {
+        requireMember(expression); conversionSources.put(expression, Objects.requireNonNull(type));
+    }
+    private final Map<Expression, ExpressionInfo> expressions = new IdentityHashMap<>();
+    public void describe(Expression expression, ExpressionInfo info) {
+        requireMember(expression); expressions.put(expression, Objects.requireNonNull(info));
+    }
+
+    /** Adds semantic wrappers without independently cloning the operand's declaration links. */
+    public record ConversionStep(String sourceType, TypeNode targetType, ConversionExpression.Kind kind) {
+        public ConversionStep { Objects.requireNonNull(sourceType); Objects.requireNonNull(targetType); Objects.requireNonNull(kind); }
+    }
+    private final Map<Expression, List<ConversionStep>> conversions = new IdentityHashMap<>();
+    public void convert(Expression expression, List<ConversionStep> steps) {
+        requireMember(expression); if (!steps.isEmpty()) conversions.put(expression, List.copyOf(steps));
+    }
+
     private record DeclarationFacts(Declaration.Linkage linkage, boolean definitionOccurrence,
             Declaration previous, Declaration definition) {}
     private final Map<Declaration, DeclarationFacts> declarations = new IdentityHashMap<>();
@@ -128,6 +146,13 @@ public final class ProjectEditor {
         requireMember(call); requireMember(target); calls.put(call, target);
     }
 
+    private boolean invalidateAffected(Node node, EditContext context) {
+        boolean changed = replacements.containsKey(node) || removed.contains(node) || conversions.containsKey(node);
+        for (Node child : node.children()) changed |= invalidateAffected(child, context);
+        if (changed && node instanceof Expression && !removed.contains(node)) context.copy(node).clearExpressionInfo();
+        return changed;
+    }
+
     /** Copies all owned nodes and redirects links in the same identity context before validation. */
     public Project build() {
         var adjusted = new IdentityHashMap<Node, Node>(replacements);
@@ -169,7 +194,7 @@ public final class ProjectEditor {
                     adjusted.putIfAbsent(reference, adjusted.getOrDefault(original, original));
             }
         }
-        var context = new EditContext(adjusted, removed);
+        var context = new EditContext(adjusted, removed, conversions);
         var root = context.edit(source, Project.Builder.class);
         names.forEach((use, target) -> {
             var builder = context.edit(use, NameExpression.Builder.class).clearTarget();
@@ -214,6 +239,9 @@ public final class ProjectEditor {
         resolutions.forEach((use, value) -> context.edit(use, CallExpression.Builder.class)
                 .setCandidates(context.copyAll(value.candidates(), CallableDeclaration.class), value.status()));
         typeRepresentations.forEach((type, representation) -> context.copy(type).setTypeRepresentation(representation));
+        invalidateAffected(source, context);
+        conversionSources.forEach((expression, type) -> context.edit(expression, ConversionExpression.Builder.class).setSourceType(type));
+        expressions.forEach((expression, info) -> context.copy(expression).setExpressionInfo(info));
         var build = new BuildContext();
         Project result = build.build(root);
         diagnostics.forEach((node, findings) -> build.copy(context.copy(node)).findings = List.copyOf(findings));

@@ -32,7 +32,7 @@ final class ConstantEvaluator {
     }
 
     static Optional<Value> literal(IntegerLiteral literal, PlatformProfile profile) {
-        BigInteger number = BigInteger.valueOf(literal.value());
+        BigInteger number = literal.bigValue();
         if (literal.cppType().isPresent()) return integerType(literal.cppType().orElseThrow(), profile)
                 .filter(type -> type.contains(number)).map(type -> new Value(number, type));
         // Decimal literal candidate types are target-dependent, not host Java int types.
@@ -72,6 +72,16 @@ final class ConstantEvaluator {
         if (!active.add(expression)) return Optional.empty();
         try {
             if (expression instanceof IntegerLiteral literal) return literal(literal, profile);
+            if (expression instanceof ConversionExpression conversion && !conversion.isExplicit()
+                    && conversion.kind() != ConversionExpression.Kind.REFERENCE_BINDING) {
+                var type = TypeSemantics.integerType(conversion.targetType(), profile);
+                if (type.isEmpty()) return Optional.empty();
+                return evaluate(conversion.operand(), profile, active).flatMap(value -> {
+                    BigInteger number = type.get().spelling().equals("bool")
+                            ? (value.number().signum() == 0 ? BigInteger.ZERO : BigInteger.ONE) : value.number();
+                    return result(number, type.get());
+                });
+            }
             if (expression instanceof SizeofExpression sizeof) {
                 var type = TypeSemantics.sizeType(profile).flatMap(name -> integerType(name, profile));
                 return type.flatMap(t -> TypeSemantics.sizeof(sizeof, profile).filter(t::contains).map(value -> new Value(value, t)));

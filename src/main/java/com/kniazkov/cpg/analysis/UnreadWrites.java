@@ -48,7 +48,9 @@ public final class UnreadWrites {
                 if (!unevaluated.contains(call) && call.target().isEmpty()) call.arguments().forEach(this::escape);
             }
             private void escape(Expression expr) {
+                if (expr instanceof ConversionExpression conversion) escape(conversion.operand());
                 if (expr instanceof AssignmentExpression a) escape(a.target());
+                if (expr instanceof CompoundAssignmentExpression a) escape(a.target());
                 if (expr instanceof NameExpression n) n.target().ifPresent(escaped::add);
             }
         });
@@ -58,9 +60,16 @@ public final class UnreadWrites {
                 read.add(edge.from());
             } else if (edge.to() instanceof VariableDeclaration v && !escaped.contains(v)) {
                 candidates.put(v, v.name());
-            } else if (edge.to() instanceof AssignmentExpression a && a.target() instanceof NameExpression name) {
-                name.target().filter(d -> d instanceof VariableDeclaration || d instanceof ParameterDeclaration)
-                        .filter(d -> !escaped.contains(d)).ifPresent(d -> candidates.put(a, name.name()));
+            } else {
+                Node write = edge.to();
+                Expression target = write instanceof AssignmentExpression assignment ? assignment.target()
+                        : write instanceof CompoundAssignmentExpression assignment ? assignment.target()
+                        : write instanceof PrefixIncrementExpression || write instanceof PrefixDecrementExpression
+                            || write instanceof PostfixIncrementExpression || write instanceof PostfixDecrementExpression
+                                ? ((UnaryExpression) write).operand() : null;
+                if (target instanceof NameExpression name)
+                    name.target().filter(d -> d instanceof VariableDeclaration || d instanceof ParameterDeclaration)
+                            .filter(d -> !escaped.contains(d)).ifPresent(d -> candidates.put(write, name.name()));
             }
         }
         candidates.forEach((write, name) -> {

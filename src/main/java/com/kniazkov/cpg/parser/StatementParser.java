@@ -123,7 +123,7 @@ final class StatementParser {
         if (tokens.take("while")) return tokens.span(start, WhileStatement.create().setCondition(condition()).setBody(statement()));
         if (tokens.take("return")) {
             var result = ReturnStatement.create();
-            if (!tokens.peek().equals(";")) result.setValue(expressions.parse());
+            if (!tokens.peek().equals(";")) result.setValue(expressions.parseFull());
             tokens.expect(";");
             return tokens.span(start, result);
         }
@@ -134,7 +134,7 @@ final class StatementParser {
 
     private NodeBuilder<? extends Expression> condition() {
         tokens.expect("(");
-        var condition = expressions.parse();
+        var condition = expressions.parseFull();
         tokens.expect(")");
         return condition;
     }

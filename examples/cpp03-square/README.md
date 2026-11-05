@@ -24,7 +24,11 @@ cmp src/test/resources/cpp03/square/sources/second.cpp target/square-edited/sour
 
 Choose a fresh output directory on repeated runs. The demo uses the public
 ProjectEditor API, replacing only the first multiplication's right NameExpression
-with a fresh `b` node. The generated expression is `a * b` with required
+with a fresh `b` node. At the resolved stage, implicit lvalue-to-rvalue
+ConversionExpression nodes wrap the reads. The demo unwraps only implicit
+conversions to find and replace the written operand, retaining its surrounding
+semantic wrapper and provenance. Explicit casts are not unwrapped.
+The generated expression is `a * b` with required
 parentheses. The shared header and second call remain byte-for-byte unchanged.
 The original snapshot still generates the original program. Reparsed JSON has
 MultiplyExpression(a,b) and MultiplyExpression(c,c). `edited.json` retains the
@@ -35,4 +39,7 @@ original expansion provenance on the replaced node.
 правое чтение первого раскрытия на b; результат меняется с 58 на 64.
 Заголовок и второй файл совпадают побайтно. JSON после повторного разбора
 содержит a*b и c*c, а JSON редактированного снимка сохраняет происхождение.
+Для поиска и замены написанного операнда пример проходит через неявные
+ConversionExpression, сохраняя эти семантические узлы; явные приведения
+типов не разворачиваются.
 Тот же пример запускается в полном CI из scripts/demo.sh, без ручного оракула.

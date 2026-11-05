@@ -67,13 +67,13 @@ public abstract class BinaryExpression extends Expression {
         }
 
         /** Replaces the left in the mutable state and returns the concrete builder. */
-        public final B setLeft(NodeBuilder<? extends Expression> left) {
+        public final B setLeft(NodeBuilder<? extends Expression> left) { clearExpressionInfo();
             this.left = Objects.requireNonNull(left);
             return self();
         }
 
         /** Replaces the right in the mutable state and returns the concrete builder. */
-        public final B setRight(NodeBuilder<? extends Expression> right) {
+        public final B setRight(NodeBuilder<? extends Expression> right) { clearExpressionInfo();
             this.right = Objects.requireNonNull(right);
             return self();
         }

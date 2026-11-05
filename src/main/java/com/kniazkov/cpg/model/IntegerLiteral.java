@@ -3,10 +3,11 @@ package com.kniazkov.cpg.model;
 
 import java.util.List;
 
-/** An integer literal with the prototype's signed 32-bit payload.
- * Optional C++ type spelling preserves the type of synthesized sizeof results. */
+/** Arbitrary precision integer payload with optional original spelling and C++ target type.
+ * The legacy value() accessor requires a signed 32-bit representable value. */
 public final class IntegerLiteral extends Expression {
-    private int value;
+    private java.math.BigInteger value;
+    private String spelling;
     private String cppType;
 
     /** Explicit C++ type of a folded or suffixed literal; absent for an ordinary decimal literal. */
@@ -15,8 +16,11 @@ public final class IntegerLiteral extends Expression {
     private IntegerLiteral() {
     }
 
+    public java.math.BigInteger bigValue() { return value; }
+    public java.util.Optional<String> spelling() { return java.util.Optional.ofNullable(spelling); }
+
     public int value() {
-        return value;
+        return value.intValueExact();
     }
 
     @Override
@@ -44,31 +48,40 @@ public final class IntegerLiteral extends Expression {
         context.register(this, builder);
         builder.value = value;
         builder.cppType = cppType;
+        builder.spelling = spelling;
         return builder;
     }
 
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<IntegerLiteral> {
-        private int value = 0;
+        private java.math.BigInteger value = java.math.BigInteger.ZERO;
+        private String spelling;
         private String cppType;
         public java.util.Optional<String> cppType() { return java.util.Optional.ofNullable(cppType); }
-        public Builder setCppType(String type) {
+        public Builder setCppType(String type) { clearExpressionInfo();
             if (!java.util.Set.of("int", "unsigned int", "long", "unsigned long").contains(type))
                 throw new IllegalArgumentException("Unsupported integer literal type: " + type);
-            cppType = type; return this;
+            cppType = type; spelling = null; return this;
         }
-        public Builder clearCppType() { cppType = null; return this; }
+        public Builder clearCppType() { clearExpressionInfo(); cppType = null; spelling = null; return this; }
 
         private Builder() {
             super(IntegerLiteral.class);
         }
 
+        public java.math.BigInteger bigValue() { return value; }
+        public java.util.Optional<String> spelling() { return java.util.Optional.ofNullable(spelling); }
+        public Builder setSpelling(String value) { spelling = java.util.Objects.requireNonNull(value); return this; }
+        public Builder clearSpelling() { spelling = null; return this; }
+        public Builder setValue(java.math.BigInteger value) { clearExpressionInfo(); this.value = java.util.Objects.requireNonNull(value); spelling = null; return this; }
+
         public int value() {
-            return value;
+            return value.intValueExact();
         }
 
-        public Builder setValue(int value) {
-            this.value = value;
+        public Builder setValue(int value) { clearExpressionInfo();
+            this.value = java.math.BigInteger.valueOf(value);
+            spelling = null;
             return this;
         }
 
@@ -81,6 +94,7 @@ public final class IntegerLiteral extends Expression {
         void fillNode(IntegerLiteral node, BuildContext context) {
             node.value = value;
             node.cppType = cppType;
+            node.spelling = spelling;
         }
     }
 }
