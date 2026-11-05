@@ -69,8 +69,14 @@ public final class Main {
         project.walk(new NodeVisitor() {
             @Override public void visit(Node node) {
                 for (Diagnostic d : node.diagnostics()) {
-                    String position = node.range().map(r -> r.file() + ":" + r.start().line() + ":" + r.start().column() + ": ").orElse("");
+                    SourceRange primary = d.primaryRange() != null ? d.primaryRange() : node.range().orElse(null);
+                    String position = primary == null ? "" : primary.file() + ":" + primary.start().line() + ":" + primary.start().column() + ": ";
                     System.err.println(position + d.severity().name().toLowerCase(Locale.ROOT) + " [" + d.code() + "]: " + d.message());
+                    for (DiagnosticRelatedRange related : d.relatedRanges()) {
+                        SourceRange range = related.range();
+                        System.err.println(range.file() + ":" + range.start().line() + ":" + range.start().column()
+                                + ": note [" + related.role() + "]: " + related.label());
+                    }
                 }
             }
         });

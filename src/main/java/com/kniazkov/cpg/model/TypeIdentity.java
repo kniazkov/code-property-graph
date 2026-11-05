@@ -85,6 +85,10 @@ public final class TypeIdentity {
         if (type.qualifier().filter(qualifier -> contextualQualifier(qualifier, dependentNames)).isPresent()) {
             name = identity(type.qualifier().orElseThrow(), seen, dependentNames) + "::" + type.name().substring(type.name().lastIndexOf("::") + 2);
         }
+        // A concrete class-instance declaration already carries normalized actual arguments,
+        // including defaults; the written template-id must not append a second identity.
+        if (type.declaration().orElse(null) instanceof ClassDeclaration owner
+                && owner.templateKind() == TemplateKind.NONE && owner.hasTemplateArguments()) return "named(" + name + ")";
         return "named(" + name + arguments(type.templateArguments(), type.hasTemplateArguments(), seen, dependentNames) + ")";
     }
     private static boolean contextualQualifier(NamedType type, Map<? extends Declaration, String> dependentNames) {

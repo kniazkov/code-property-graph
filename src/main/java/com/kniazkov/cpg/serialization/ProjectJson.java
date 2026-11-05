@@ -49,12 +49,23 @@ public final class ProjectJson {
             project.files().forEach(file -> file.walk(index));
             project.librarySources().forEach(file -> file.walk(index));
             project.templateInstances().forEach(instance -> instance.walk(index));
+            project.classTemplateInstances().forEach(instance -> instance.walk(index));
             for (var flow : project.flows()) for (var vertex : flow.auxiliaryVertices()) ids.put(vertex, ids.size());
             project.externalInputs().forEach(input -> input.walk(index));
             for (SourceFile file : java.util.stream.Stream.concat(project.files().stream(), project.librarySources().stream()).toList()) file.provenance().ifPresent(p -> units.put(p.unit(), ids.get(file)));
             for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n) for (Node target : n.references()) edge(n, target, "ref");
             for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n)
                 for (Comment comment : n.commentReferences()) edge(n, comment, "HAS_COMMENT");
+            for (FlowVertex vertex : ids.keySet()) if (vertex instanceof CallExpression call)
+                call.target().ifPresent(target -> edge(call, target, "CALL_TARGET"));
+            for (TemplateInstance instance : project.templateInstances()) for (Node request : instance.requests()) {
+                edge(request, instance, "INSTANTIATION_CAUSE");
+                edge(instance, request, "INSTANTIATION_REQUEST");
+            }
+            for (ClassTemplateInstance instance : project.classTemplateInstances()) for (Node request : instance.requests()) {
+                edge(request, instance, "INSTANTIATION_CAUSE");
+                edge(instance, request, "INSTANTIATION_REQUEST");
+            }
             for (var flow : project.flows()) {
                 for (var e : flow.control()) edge(e.from(), e.to(), "cfg." + lower(e.kind()));
                 for (var e : flow.data()) edge(e.from(), e.to(), "dfg." + lower(e.kind()));
@@ -81,6 +92,7 @@ public final class ProjectJson {
                     obj.put("files", nodes(p.files()));
                     if (!p.librarySources().isEmpty()) obj.put("librarySources", nodes(p.librarySources()));
                     if (!p.templateInstances().isEmpty()) obj.put("templateInstances", nodes(p.templateInstances()));
+                    if (!p.classTemplateInstances().isEmpty()) obj.put("classTemplateInstances", nodes(p.classTemplateInstances()));
                     if (p.hasErrors()) {
                         obj.put("hasErrors", true);
                         obj.array("diagnosticGroups", a -> p.diagnosticGroups().forEach(g -> a.add(diagnosticGroup(g))));
@@ -92,10 +104,22 @@ public final class ProjectJson {
                                 .array("variantIds", a -> a.addAll(c.variantIds()))));
                     }));
                 }
-                case TemplateInstance instance -> {
-                    obj.put("originId", ids.get(instance.origin())).put("causeId", ids.get(instance.cause()))
-                        .put("sourceId", ids.get(instance.source())).put("status", instance.status()).put("complete", instance.complete())
+                case ClassTemplateInstance instance -> {
+                    obj.put("originId", ids.get(instance.origin())).put("selectedId", ids.get(instance.selected()))
+                        .put("sourceId", ids.get(instance.source())).put("identity", instance.identity())
+                        .array("requestIds", a -> instance.requests().forEach(request -> a.add(ids.get(request))))
                         .put("arguments", nodes(instance.arguments())).put("declaration", node(instance.declaration()));
+                }
+                case TemplateInstance instance -> {
+                    obj.put("originId", ids.get(instance.origin()))
+                        .array("requestIds", a -> instance.requests().forEach(request -> a.add(ids.get(request))))
+                        .array("causeIds", a -> instance.causes().forEach(cause -> a.add(ids.get(cause))))
+                        .put("sourceId", ids.get(instance.source())).put("status", instance.status()).put("complete", instance.complete())
+                        .put("structuredArguments", nodes(instance.structuredArguments()))
+                        .array("structuredArgumentIds", a -> instance.structuredArguments().forEach(argument -> a.add(ids.get(argument))))
+                        .array("argumentIds", a -> instance.arguments().forEach(argument -> a.add(ids.get(argument))))
+                        .put("declaration", node(instance.declaration()));
+                    if (instance.cause() != null) obj.put("causeId", ids.get(instance.cause()));
                 }
                 case ExternalInput input -> obj.put("key", input.key()).put("role", input.role())
                         .put("text", input.text()).put("inputs", nodes(input.inputs()));
@@ -159,6 +183,9 @@ public final class ProjectJson {
                     value.value().ifPresent(expression -> obj.put("value", node(expression)));
                 }
                 case ClassDeclaration c -> {
+                    if (c.templateKind() != TemplateKind.NONE) obj.put("templateKind", c.templateKind().name());
+                    if (c.exportedTemplate()) obj.put("exportedTemplate", true);
+                    if (c.hasTemplateArguments()) obj.put("templateArguments", nodes(c.templateArguments()));
                     if (!c.templateParameters().isEmpty()) obj.put("templateParameters", nodes(c.templateParameters()));
                     if (c.isDefinition() && c.members().stream().anyMatch(member -> member.access().isPresent())) {
                         obj.put("aggregate", ClassSemantics.aggregate(c));
@@ -173,6 +200,9 @@ public final class ProjectJson {
                     if (!c.memberAccess().equals("public")) obj.put("memberAccess", c.memberAccess());
                 }
                 case CallableDeclaration c -> {
+                    if (c.templateKind() != TemplateKind.NONE) obj.put("templateKind", c.templateKind().name());
+                    if (c.exportedTemplate()) obj.put("exportedTemplate", true);
+                    if (c.hasTemplateArguments()) obj.put("templateArguments", nodes(c.templateArguments()));
                     project.flows().stream().filter(flow -> flow.entry() == c).findFirst().ifPresent(flow -> {
                         if (!flow.complete()) obj.put("flowComplete", false);
                         if (!flow.auxiliaryVertices().isEmpty()) obj.array("flowVertices", a -> flow.auxiliaryVertices().forEach(v -> a.add(auxiliary(v))));
@@ -374,8 +404,14 @@ public final class ProjectJson {
                 if (n instanceof SourceFile) obj.put("preprocessing", preprocessing(p.unit()));
             });
             if (!n.diagnostics().isEmpty()) {
-                obj.array("diagnostics", a -> n.diagnostics().forEach(d -> a.object(o ->
-                        o.put("code", d.code()).put("severity", lower(d.severity())))));
+                obj.array("diagnostics", a -> n.diagnostics().forEach(d -> a.object(o -> {
+                    o.put("code", d.code()).put("severity", lower(d.severity())).put("message", d.message());
+                    if (d.primaryRange() != null) o.put("primaryRange", range(d.primaryRange()));
+                    else n.range().ifPresent(r -> o.put("primaryRange", range(r)));
+                    if (!d.relatedRanges().isEmpty()) o.array("relatedRanges", ranges -> d.relatedRanges().forEach(r ->
+                            ranges.object(v -> v.put("role", r.role()).put("label", r.label()).put("range", range(r.range())))));
+                })));
+
             }
             var links = outgoing.get(n);
             if (links != null) {

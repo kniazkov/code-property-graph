@@ -42,7 +42,8 @@ final class FunctionsDefaultsAcceptance {
         var folded = cli.run("cpp", "--stage", "folded", "--cpp-standard", "c++03").expectStatus(0);
         var bad = new CliSandbox(Files.createDirectory(work.resolve("invalid"))).directory(fixture.resolve("invalid"));
         Project invalid = Cpg.read(bad.input, OPTIONS);
-        assertFalse(invalid.hasErrors(), "The missing argument is a semantic error, not a parse failure");
+        assertTrue(invalid.parseProblems().isEmpty(), "The missing argument is a semantic error, not a parse failure");
+        assertTrue(invalid.hasErrors());
         assertTrue(nodes(invalid, Node.class).stream().flatMap(n -> n.diagnostics().stream()).anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR));
         assertThrows(IllegalArgumentException.class, () -> Cpg.sources(invalid, Language.CPP));
         var failed = bad.run("cpp", "--stage", "resolved", "--svg", "snapshot.svg").expectStatus(1);

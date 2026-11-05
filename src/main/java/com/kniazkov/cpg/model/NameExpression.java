@@ -8,6 +8,8 @@ import java.util.Optional;
 
 /** A name with an optional resolved declaration reference. */
 public final class NameExpression extends Expression {
+    void invalidateTemplateTargets(java.util.Set<Node> discarded) { if(discarded.contains(target)) target=null; }
+
     private List<TemplateArgument> templateArguments = List.of();
     private boolean hasTemplateArguments, templateKeyword;
     public List<TemplateArgument> templateArguments() { return templateArguments; }

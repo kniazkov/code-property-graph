@@ -8,6 +8,13 @@ import java.util.Optional;
 
 /** A named class with ordered declarations. */
 public final class ClassDeclaration extends Declaration {
+    private TemplateKind templateKind = TemplateKind.NONE;
+    private boolean exportedTemplate, hasTemplateArguments;
+    private List<TemplateArgument> templateArguments = List.of();
+    public TemplateKind templateKind() { return templateKind; }
+    public boolean exportedTemplate() { return exportedTemplate; }
+    public boolean hasTemplateArguments() { return hasTemplateArguments; }
+    public List<TemplateArgument> templateArguments() { return templateArguments; }
     private List<TemplateParameterDeclaration> templateParameters = List.of();
     public List<TemplateParameterDeclaration> templateParameters() { return templateParameters; }
     private String name;
@@ -42,6 +49,7 @@ public final class ClassDeclaration extends Declaration {
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         children.addAll(templateParameters);
+        children.addAll(templateArguments);
         children.addAll(bases);
         children.addAll(members);
         return List.copyOf(children);
@@ -65,6 +73,10 @@ public final class ClassDeclaration extends Declaration {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
+        builder.templateKind = templateKind;
+        builder.exportedTemplate = exportedTemplate;
+        builder.hasTemplateArguments = hasTemplateArguments;
+        builder.templateArguments = context.copyAll(templateArguments, TemplateArgument.class);
         builder.templateParameters = context.copyAll(templateParameters, TemplateParameterDeclaration.class);
         builder.name = name;
         builder.bases = context.copyAll(bases, BaseSpecifier.class);
@@ -81,6 +93,16 @@ public final class ClassDeclaration extends Declaration {
         public List<NodeBuilder<? extends BaseSpecifier>> bases() { return List.copyOf(bases); }
         public Builder setBases(List<? extends NodeBuilder<? extends BaseSpecifier>> values) { bases = new ArrayList<>(List.copyOf(values)); return this; }
         public Builder addBase(NodeBuilder<? extends BaseSpecifier> value) { bases.add(Objects.requireNonNull(value)); return this; }
+        private TemplateKind templateKind = TemplateKind.NONE;
+        private boolean exportedTemplate, hasTemplateArguments;
+        private List<NodeBuilder<? extends TemplateArgument>> templateArguments = new ArrayList<>();
+        public TemplateKind templateKind() { return templateKind; }
+        public boolean exportedTemplate() { return exportedTemplate; }
+        public boolean hasTemplateArguments() { return hasTemplateArguments; }
+        public List<NodeBuilder<? extends TemplateArgument>> templateArguments() { return List.copyOf(templateArguments); }
+        public Builder setTemplateKind(TemplateKind value) { syntaxEdited = true; templateKind = Objects.requireNonNull(value); return this; }
+        public Builder setExportedTemplate(boolean value) { syntaxEdited = true; exportedTemplate = value; return this; }
+        public Builder setTemplateArguments(List<? extends NodeBuilder<? extends TemplateArgument>> values) { syntaxEdited = true; hasTemplateArguments = true; templateArguments = new ArrayList<>(List.copyOf(values)); return this; }
         private List<NodeBuilder<? extends TemplateParameterDeclaration>> templateParameters = new ArrayList<>();
         public List<NodeBuilder<? extends TemplateParameterDeclaration>> templateParameters() { return List.copyOf(templateParameters); }
         public Builder setTemplateParameters(List<? extends NodeBuilder<? extends TemplateParameterDeclaration>> values) { syntaxEdited = true; templateParameters = new ArrayList<>(values); return this; }
@@ -144,6 +166,10 @@ public final class ClassDeclaration extends Declaration {
 
         @Override
         void fillNode(ClassDeclaration node, BuildContext context) {
+            node.templateKind = templateKind;
+            node.exportedTemplate = exportedTemplate;
+            node.hasTemplateArguments = hasTemplateArguments;
+            node.templateArguments = context.copyAll(templateArguments);
             node.templateParameters = context.copyAll(templateParameters);
             node.bases = context.copyAll(bases);
             node.name = requiredText(name, "ClassDeclaration.name");

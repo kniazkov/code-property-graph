@@ -222,7 +222,7 @@ final class TypeParser {
         if (FUNDAMENTAL.contains(tokens.peek())) return tokens.peek(1).equals("(");
         if (!className(nameAhead(0))) return false;
         int checkpoint = tokens.checkpoint();
-        try { writtenNamedType(); return tokens.peek().equals("("); }
+        try { var type = writtenNamedType(); return className(type.name().orElseThrow()) && tokens.peek().equals("("); }
         catch (ParseException ignored) { return false; }
         finally { tokens.restore(checkpoint); }
     }
@@ -357,7 +357,10 @@ final class TypeParser {
         while (tokens.peek().equals("::") && !tokens.peek(1).equals("*")) { tokens.advance(); name.append("::").append(tokens.identifier()); }
         return name.toString();
     }
-    record Declarator(String name, Function<NodeBuilder<? extends TypeNode>, NodeBuilder<? extends TypeNode>> apply) {}
+    record Declarator(String name, Function<NodeBuilder<? extends TypeNode>, NodeBuilder<? extends TypeNode>> apply,
+            List<NodeBuilder<? extends TemplateArgument>> templateArguments) {
+        Declarator(String name, Function<NodeBuilder<? extends TypeNode>, NodeBuilder<? extends TypeNode>> apply) { this(name, apply, null); }
+    }
     Declarator declarator(boolean abstractAllowed) { return declarator(abstractAllowed, false); }
     private Declarator declarator(boolean abstractAllowed, boolean newType) {
         var start = tokens.start();
@@ -382,9 +385,10 @@ final class TypeParser {
             } else break;
         }
         String name = "";
+        List<NodeBuilder<? extends TemplateArgument>> arguments = null;
         Function<NodeBuilder<? extends TypeNode>, NodeBuilder<? extends TypeNode>> direct = Function.identity();
         if (!newType && tokens.peek().equals("(") && groupingAhead()) {
-            tokens.advance(); var nested = declarator(abstractAllowed); tokens.expect(")"); name = nested.name(); direct = nested.apply();
+            tokens.advance(); var nested = declarator(abstractAllowed); tokens.expect(")"); name = nested.name(); direct = nested.apply(); arguments = nested.templateArguments();
         } else if (tokens.take("~")) name = "~" + tokens.identifier();
         else if (tokens.take("operator")) name = operatorName();
         else if (tokens.isIdentifier()) {
@@ -397,6 +401,7 @@ final class TypeParser {
             }
         }
         else if (!abstractAllowed) throw tokens.error("Expected declarator name");
+        if (!name.isEmpty() && tokens.peek().equals("<")) arguments = templateArguments();
         Scope declarationScope = scope;
         int qualification = name.lastIndexOf("::");
         if (qualification >= 0) { Scope owner = namespace(name.substring(0, qualification)); if (owner != null) scope = owner; }
@@ -444,7 +449,7 @@ final class TypeParser {
         return new Declarator(name, base -> {
             for (var prefix : prefixes) base = prefix.apply(base);
             return result.apply(base);
-        });
+        }, arguments);
         } finally { scope = declarationScope; }
     }
     /** Defaults are written only in a function declaration, not in a function type-id. */

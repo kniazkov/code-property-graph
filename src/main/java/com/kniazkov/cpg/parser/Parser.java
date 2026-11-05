@@ -296,6 +296,7 @@ public final class Parser {
             } else if (function != null) {
                 CallableDeclaration.Builder<?, ?> declaration = member || declarator.name().contains("::") ? MethodDeclaration.create() : FunctionDeclaration.create();
                 if (!(type instanceof FunctionType.Builder)) declaration.setWrittenType(type);
+                if (declarator.templateArguments() != null) declaration.setTemplateArguments(declarator.templateArguments());
                 declaration.setName(declarator.name()).setReturnType(function.returnType().orElseThrow())
                         .setParameters(function.parameters()).setModifiers(specs.modifiers()).setVariadic(function.variadic())
                         .setConst(function.isConst()).setVolatile(function.isVolatile())
@@ -319,6 +320,7 @@ public final class Parser {
                 }
                 result.add(tokens.span(start, declaration));
             } else {
+                if (declarator.templateArguments() != null) throw tokens.error("A template-id declarator must declare a function");
                 if (specs.modifiers().contains("virtual")) throw tokens.error("virtual applies only to member functions");
                 if (specs.modifiers().contains("inline")) throw tokens.error("inline applies only to functions in C++03");
                 var declaration = VariableDeclaration.create().setName(declarator.name()).setType(type).setModifiers(specs.modifiers());
@@ -525,8 +527,26 @@ public final class Parser {
     /** Namespace and class bodies use the same declaration dispatch as the translation unit. */
     private java.util.List<NodeBuilder<? extends Declaration>> cppDeclarations(boolean member, boolean local) {
         var start = tokens.start();
+        boolean exported = tokens.take("export");
+        if (exported && !tokens.peek().equals("template")) throw tokens.error("export requires a template declaration");
         if (tokens.take("template")) {
             if (local || !languageLinkage.equals("C++")) throw tokens.error("Templates require C++ namespace or class scope");
+            if (!tokens.peek().equals("<")) {
+                if (member || exported) throw tokens.error("Explicit instantiation requires namespace scope and cannot be exported");
+                var instantiated = cppDeclarations(false, false);
+                if (instantiated.size() != 1) throw tokens.error("Explicit instantiation declares one class or function");
+                var declaration = instantiated.getFirst();
+                if (declaration instanceof ClassDeclaration.Builder klass) {
+                    if (!klass.hasTemplateArguments() || klass.build().isDefinition())
+                        throw tokens.error("Explicit class instantiation requires a template-id and no definition");
+                    klass.setTemplateKind(TemplateKind.EXPLICIT_INSTANTIATION);
+                } else if (declaration instanceof CallableDeclaration.Builder<?, ?> function) {
+                    if (function.body().isPresent()) throw tokens.error("Explicit function instantiation cannot have a body");
+                    function.setTemplateKind(TemplateKind.EXPLICIT_INSTANTIATION);
+                } else throw tokens.error("Explicit instantiation requires a class or function");
+                tokens.span(start, declaration);
+                return instantiated;
+            }
             types.pushScope();
             java.util.List<NodeBuilder<? extends Declaration>> result;
             java.util.List<TemplateParameterDeclaration.Builder> parameters;
@@ -537,14 +557,29 @@ public final class Parser {
                 if (result.getFirst() instanceof CallableDeclaration.Builder<?, ?> function) {
                     if (parameters.stream().anyMatch(parameter -> parameter.defaultArgument().isPresent()))
                         throw tokens.error("C++03 function template parameters cannot have defaults");
-                    function.setTemplateParameters(parameters);
+                    if (parameters.isEmpty() && !types.templateName(function.name().orElseThrow()))
+                        throw tokens.error("Explicit specialization requires a previously declared function template");
+                    if (!parameters.isEmpty() && function.hasTemplateArguments())
+                        throw tokens.error("Partial specialization of function templates is not permitted");
+                    if (exported && parameters.isEmpty()) throw tokens.error("An explicit specialization cannot be exported");
+                    function.setTemplateParameters(parameters).setTemplateKind(parameters.isEmpty()
+                            ? TemplateKind.FULL_SPECIALIZATION : TemplateKind.PRIMARY).setExportedTemplate(exported);
                 } else if (result.getFirst() instanceof ClassDeclaration.Builder klass) {
                     boolean defaultSeen = false;
                     for (var parameter : parameters) {
                         if (parameter.defaultArgument().isPresent()) defaultSeen = true;
                         else if (defaultSeen) throw tokens.error("A class template parameter after a default must also have a default");
                     }
-                    klass.setTemplateParameters(parameters);
+                    if (klass.hasTemplateArguments() && !types.templateName(klass.name().orElseThrow()))
+                        throw tokens.error("Class specialization requires a previously declared class template");
+                    if (parameters.isEmpty() && !klass.hasTemplateArguments())
+                        throw tokens.error("An explicit class specialization requires a template-id");
+                    if (klass.hasTemplateArguments() && parameters.stream().anyMatch(parameter -> parameter.defaultArgument().isPresent()))
+                        throw tokens.error("Specialization template parameters cannot have defaults");
+                    if (exported && klass.hasTemplateArguments()) throw tokens.error("A specialization cannot be exported");
+                    klass.setTemplateParameters(parameters).setTemplateKind(parameters.isEmpty()
+                            ? TemplateKind.FULL_SPECIALIZATION : klass.hasTemplateArguments()
+                            ? TemplateKind.PARTIAL_SPECIALIZATION : TemplateKind.PRIMARY).setExportedTemplate(exported);
                 } else throw tokens.error("A template must declare a class or function");
                 tokens.span(start, result.getFirst());
             } finally { types.popScope(); }
@@ -598,7 +633,7 @@ public final class Parser {
             } finally { languageLinkage = previous; }
         }
         if (java.util.Set.of("class", "struct", "union").contains(tokens.peek())
-                && java.util.Set.of("{", ";", ":").contains(tokens.peek(2))) {
+                && classDeclarationAhead()) {
             var declaration = cppClass();
             var result = new java.util.ArrayList<NodeBuilder<? extends Declaration>>(types.takeImplicitDeclarations());
             result.add(declaration); return result;
@@ -665,7 +700,7 @@ public final class Parser {
 
     private java.util.List<TemplateParameterDeclaration.Builder> templateParameters() {
         tokens.expect("<");
-        if (tokens.peek().equals(">")) throw tokens.error("Explicit specialization is not supported here");
+        if (tokens.take(">")) return java.util.List.of();
         var parameters = new java.util.ArrayList<TemplateParameterDeclaration.Builder>();
         var names = new java.util.HashSet<String>();
         do {
@@ -676,6 +711,7 @@ public final class Parser {
                 types.pushScope();
                 try {
                     var nestedParameters = templateParameters();
+                    if (nestedParameters.isEmpty()) throw tokens.error("A template-template parameter requires parameters");
                     boolean defaultSeen = false;
                     for (var nestedParameter : nestedParameters) {
                         if (nestedParameter.defaultArgument().isPresent()) defaultSeen = true;
@@ -716,11 +752,30 @@ public final class Parser {
         return parameters;
     }
 
+    /** Distinguishes class heads (including template-ids) from elaborated variable types. */
+    private boolean classDeclarationAhead() {
+        int at = 2;
+        while (tokens.peek(at).equals("::")) at += 2;
+        if (tokens.peek(at).equals("<")) {
+            int depth = 0, grouping = 0;
+            do {
+                String token = tokens.peek(at++);
+                if (token.equals("(") || token.equals("[")) grouping++;
+                else if (token.equals(")") || token.equals("]")) grouping--;
+                else if (grouping == 0 && token.equals("<")) depth++;
+                else if (grouping == 0 && token.equals(">")) depth--;
+                else if (token.equals("<eof>") || token.equals(";")) return false;
+            } while (depth > 0);
+        }
+        return java.util.Set.of("{", ";", ":").contains(tokens.peek(at));
+    }
+
     private ClassDeclaration.Builder cppClass() {
         var start = tokens.start(); String keyword = tokens.peek(); tokens.advance();
-        String name = tokens.identifier(); types.registerClass(name);
+        String name = types.qualifiedName(); types.registerClass(name);
         String access = keyword.equals("class") ? "private" : "public";
         var result = ClassDeclaration.create().setName(name).setKeyword(keyword).setMemberAccess(access);
+        if (tokens.peek().equals("<")) result.setTemplateArguments(types.templateArguments());
         if (tokens.take(";")) {
             result.setDeclarationDefinition(false);
             return tokens.span(start, result);

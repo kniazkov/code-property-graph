@@ -14,6 +14,7 @@ final class SourceContexts {
         project.files().forEach(file -> roots.add(new Root(file, file)));
         project.librarySources().forEach(file -> roots.add(new Root(file, file)));
         project.templateInstances().forEach(instance -> roots.add(new Root(instance, instance.source())));
+        project.classTemplateInstances().forEach(instance -> roots.add(new Root(instance, instance.source())));
         return List.copyOf(roots);
     }
     static Map<Node, SourceFile> index(Project project) {

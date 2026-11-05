@@ -198,7 +198,11 @@ messages = (work / "warn.txt").read_text().splitlines()
 assert len(messages) == 1 and "Demo.java:5:9: warning [unread-write]" in messages[0], messages
 method = json.loads((work / "warn.json").read_text())["files"][0]["items"][0]["members"][0]
 decl, assign, output = method["body"]["items"]
-assert decl["diagnostics"] == [{"code": "unread-write", "severity": "warning"}]
+assert len(decl["diagnostics"]) == 1
+finding = decl["diagnostics"][0]
+assert finding["code"] == "unread-write" and finding["severity"] == "warning"
+assert finding["message"] == "Value written to 'score' is never read"
+assert finding["primaryRange"] == decl["range"]
 assert "diagnostics" not in assign["expression"]
 ns = {"s": "http://www.w3.org/2000/svg"}
 root = ET.parse(work / "warn.svg").getroot()

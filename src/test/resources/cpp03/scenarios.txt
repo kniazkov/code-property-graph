@@ -36,3 +36,6 @@ doxygen-parameters
 
 # Template declarations, dependent names and a real vector instance
 templates-dependent
+
+# Template substitution, cross-unit identity and nested diagnostics
+template-instantiation

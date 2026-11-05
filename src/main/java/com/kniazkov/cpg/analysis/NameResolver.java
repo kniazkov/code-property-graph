@@ -12,13 +12,38 @@ public final class NameResolver {
         // Type bindings must be published before signatures are compared. Both passes copy
         // through one identity context, including forward and cross-file reference cycles.
         Project typed = new Engine(StandardConversions.written(LibraryDeclarations.install(project))).bindNames();
-        typed = new Engine(typed).instantiateTemplates();
-        typed = new Engine(typed).bindNames();
+        typed = new Engine(ClassTemplateSemantics.analyze(typed)).bindNames();
+        boolean resourceLimit=false;
+        for (int round = 0; round < 64; round++) {
+            int before = typed.templateInstances().stream().mapToInt(instance -> instance.requests().size()).sum()
+                    + typed.classTemplateInstances().stream().mapToInt(instance -> instance.requests().size()).sum();
+            typed = new Engine(ClassTemplateSemantics.analyze(typed)).bindNames();
+            var instantiationPass=new Engine(typed);
+            typed = instantiationPass.instantiateTemplates(false);
+            typed = new Engine(typed).bindNames();
+            int after = typed.templateInstances().stream().mapToInt(instance -> instance.requests().size()).sum()
+                    + typed.classTemplateInstances().stream().mapToInt(instance -> instance.requests().size()).sum();
+            int[] count={0};
+            NodeVisitor countDerived=new NodeVisitor(){@Override public void visit(Node node){count[0]++;}};
+            typed.templateInstances().forEach(instance->instance.walk(countDerived));
+            typed.classTemplateInstances().forEach(instance->instance.walk(countDerived));
+            if(instantiationPass.instantiationLimitReached || count[0]>20000) {resourceLimit=true;break;}
+            if (after == before) break;
+            if(round==63) {resourceLimit=true;break;}
+        }
         // Each publication makes nested call/operator result types available to its parent.
         // The syntax depth bounds this propagation, without assuming a fixed nesting limit.
         int depth = expressionDepth(typed);
         for (int i = 0; i <= depth; i++) typed = new Engine(typed.edit().build()).linkDeclarations();
-        return Documentation.analyze(new Engine(StandardConversions.analyze(typed)).validateStatements());
+        typed=new Engine(typed).instantiateTemplates(true);
+        typed=ClassTemplateSemantics.diagnose(Documentation.analyze(new Engine(new Engine(StandardConversions.analyze(typed)).validateStatements()).validateTemplateBodies()));
+        if(resourceLimit) {
+            var limited=new ProjectEditor(typed).retainDiagnostics();
+            limited.diagnose(typed,new Diagnostic("template-instantiation-resource-limit",Diagnostic.Severity.ERROR,
+                    "Template instantiation resource limit reached (64 rounds, 256 instances or 20000 nodes)"));
+            typed=limited.build();
+        }
+        return typed;
     }
 
     private static int expressionDepth(Node node) {
@@ -68,8 +93,9 @@ public final class NameResolver {
         final Map<String, List<Declaration>> groups = new LinkedHashMap<>();
         final Set<Declaration> conflicting = Collections.newSetFromMap(new IdentityHashMap<>());
         int position;
+        boolean instantiationLimitReached;
         Engine(Project project) {
-            this.project = project; editor = new ProjectEditor(project);
+            this.project = project; editor = new ProjectEditor(project).retainDiagnostics();
             for (SourceFile file : java.util.stream.Stream.concat(project.librarySources().stream(), project.files().stream()).toList()) {
                 Scope root = new Scope(null, file, "", false, false, false);
                 roots.put(file, root);
@@ -81,11 +107,19 @@ public final class NameResolver {
                     }
                 index(file, root);
             }
+            for (ClassTemplateInstance instance : project.classTemplateInstances()) {
+                Scope root = roots.get(instance.source());
+                Scope isolated = new Scope(root, instance.source(), instance.identity(), false, false, false);
+                scopes.put(instance, isolated); positions.put(instance, position++);
+                instance.arguments().forEach(argument -> index(argument, isolated));
+                index(instance.declaration(),isolated);
+            }
             for (TemplateInstance instance : project.templateInstances()) {
                 Scope root = roots.get(instance.source());
-                Scope isolated = new Scope(root, instance.source(), root.qualified + "#instance" + position, true, false, false);
+                Scope lexical=scopes.getOrDefault(instance.origin(),root);
+                Scope isolated = new Scope(lexical, instance.source(), lexical.qualified + "#instance" + position, true, false, false);
                 scopes.put(instance, isolated); positions.put(instance, position++);
-                instance.arguments().forEach(type -> index(type, isolated));
+                instance.structuredArguments().forEach(argument -> index(argument,isolated));
                 index(instance.declaration(), isolated);
             }
         }
@@ -133,10 +167,12 @@ public final class NameResolver {
                 if (namespace.anonymous()) scope.anonymousNamespaces.add(namespace);
                 namespace.members().forEach(member -> index(member, nested));
             } else if (node instanceof ClassDeclaration owner) {
-                Scope nested = scope.nested.computeIfAbsent(owner.name(), ignored -> new Scope(scope, scope.file,
-                        qualify(scope.qualified, owner.name()), scope.local, scope.anonymous, true));
+                String scopeName=owner.name()+specializationKey(owner);
+                Scope nested = scope.nested.computeIfAbsent(scopeName, ignored -> new Scope(scope, scope.file,
+                        qualify(scope.qualified, scopeName), scope.local, scope.anonymous, true));
                 introduced.put(owner, nested);
                 owner.templateParameters().forEach(parameter -> index(parameter, nested));
+                owner.templateArguments().forEach(argument -> index(argument,nested));
                 owner.bases().forEach(base -> index(base, nested));
                 owner.members().forEach(member -> index(member, nested));
                 classEnds.put(owner, position);
@@ -144,6 +180,7 @@ public final class NameResolver {
                 Scope nested = new Scope(scope, scope.file, qualify(scope.qualified, callable.name()), true, scope.anonymous, false);
                 functionScopes.add(nested); callableScopes.put(nested, callable);
                 callable.templateParameters().forEach(parameter -> index(parameter, nested));
+                callable.templateArguments().forEach(argument -> index(argument,nested));
                 Scope signatureScope = callable.templateParameters().isEmpty() ? scope : nested;
                 callable.writtenType().ifPresent(type -> index(type, signatureScope));
                 callable.returnType().ifPresent(type -> index(type, signatureScope));
@@ -317,47 +354,196 @@ public final class NameResolver {
             if (isSwitch) switches.pop();
         }
 
-        Project instantiateTemplates() {
-            Set<CallExpression> done = Collections.newSetFromMap(new IdentityHashMap<>());
-            project.templateInstances().forEach(instance -> done.add(instance.cause()));
-            project.files().forEach(file -> file.walk(new NodeVisitor() {
+        Project validateTemplateBodies() {
+            for (TemplateInstance instance : project.templateInstances()) instance.declaration().walk(new NodeVisitor() {
+                @Override public void visit(NamedType type) {
+                    if(type.declaration().isEmpty() && type.alias().isEmpty() && type.fundamentalKind().isEmpty()
+                            && !declarations.stream().anyMatch(d -> d instanceof NamespaceDeclaration ns && ns.name().equals(type.name())))
+                        bodyError(instance,type,"template-body-type","Invalid type '"+type.name()+"' in selected template body");
+                }
                 @Override public void visit(CallExpression call) {
-                    if (done.contains(call) || !(call.callee() instanceof NameExpression name)) return;
-                    if (!(name.target().orElse(null) instanceof CallableDeclaration generic)
-                            || generic.templateParameters().isEmpty() || generic.templateParameters().stream().anyMatch(p -> p.kind() != TemplateParameterDeclaration.Kind.TYPE) || generic.body().isEmpty()
-                            || generic.parameters().size() != call.arguments().size()) return;
-                    var unsupported = new boolean[1];
-                    generic.walk(new NodeVisitor() { @Override public void visit(NamedType type) {
-                        if (type.dependent() && type.declaration().isEmpty() && !type.hasTemplateArguments()) unsupported[0] = true;
-                    }});
-                    if (unsupported[0]) return;
-                    // Deliberately no overload ordering, non-type deduction or specialization here.
-                    var values = new LinkedHashMap<TemplateParameterDeclaration, TypeNode>();
-                    Set<TemplateParameterDeclaration> explicit = new HashSet<>();
-                    if (name.hasTemplateArguments()) {
-                        if (name.templateArguments().size() > generic.templateParameters().size()) return;
-                        for (int i = 0; i < name.templateArguments().size(); i++) {
-                            TypeNode type = name.templateArguments().get(i).type().orElse(null);
-                            if (type == null || TypeSemantics.dependent(type)) return;
-                            values.put(generic.templateParameters().get(i), type); explicit.add(generic.templateParameters().get(i));
+                    if(call.target().isEmpty() && call.callee() instanceof NameExpression name && !name.name().equals(instance.origin().name()))
+                        bodyError(instance,call,"template-body-call","No viable call to '"+name.name()+"' in selected template body");
+                }
+                @Override public void visit(MemberExpression member) {
+                    if (member instanceof ScopeMemberExpression || TypeSemantics.dependent(member)) return;
+                    TypeNode receiver = TypeSemantics.expressionType(member.receiver(), TypeSemantics.profile(instance.source())).orElse(null);
+                    if (receiver == null) return;
+                    receiver = TypeSemantics.unqualified(TypeSemantics.withoutReference(receiver));
+                    if (member instanceof PointerMemberExpression && receiver instanceof PointerType pointer) receiver=pointer.pointee();
+                    if (member.target().isEmpty()) {
+                        var trace = new ArrayList<DiagnosticRelatedRange>();
+                        requestTrace(instance,trace,Collections.newSetFromMap(new IdentityHashMap<>()));
+                        editor.diagnose(member,new Diagnostic("template-body-member",Diagnostic.Severity.ERROR,
+                                "Cannot access member '"+member.member()+"' on type '"+receiver.canonicalIdentity()+"' in selected template body",
+                                member.range().orElse(null),trace));
+                    }
+                }
+            });
+            for (Declaration declaration: declarations) if (declaration instanceof CallableDeclaration callable && callable.exportedTemplate())
+                editor.diagnose(callable,new Diagnostic("unsupported-export-template",Diagnostic.Severity.ERROR,
+                        "Separate exported template definitions are unsupported by this C++03 implementation"));
+            for(Declaration declaration:declarations) if(declaration instanceof CallableDeclaration callable
+                    && callable.templateKind()==TemplateKind.EXPLICIT_INSTANTIATION
+                    && project.templateInstances().stream().noneMatch(instance->instance.requests().contains(callable)))
+                editor.diagnose(callable,new Diagnostic("invalid-explicit-instantiation",Diagnostic.Severity.ERROR,
+                        "Explicit instantiation requires a matching template definition",callable.range().orElse(null),List.of()));
+            return editor.build();
+        }
+        void bodyError(TemplateInstance instance,Node node,String code,String message) {
+            var trace=new ArrayList<DiagnosticRelatedRange>();requestTrace(instance,trace,Collections.newSetFromMap(new IdentityHashMap<>()));
+            String arguments=instance.structuredArguments().stream().map(argument -> argument.type().map(TypeNode::canonicalIdentity)
+                    .orElseGet(()->argument.expression().map(value->value.source(Language.CPP)).orElse("?"))).collect(java.util.stream.Collectors.joining(", "));
+            editor.diagnose(node,new Diagnostic(code,Diagnostic.Severity.ERROR,message+" while instantiating "+instance.origin().name()+"<"+arguments+">",node.range().orElse(null),trace));
+        }
+        void requestTrace(TemplateInstance instance,List<DiagnosticRelatedRange> trace,Set<TemplateInstance> seen) {
+            if(!seen.add(instance))return;
+            for(Node request:instance.requests()) {
+                request.range().ifPresent(range -> trace.add(new DiagnosticRelatedRange("instantiation-request",
+                        "Instantiation of "+instance.origin().name()+" requested here",range)));
+                CallableDeclaration enclosing=null;
+                for(Scope scope=scopes.get(request);scope!=null && enclosing==null;scope=scope.parent)enclosing=callableScopes.get(scope);
+                if(enclosing!=null) for(Node demand:ClassTemplateSemantics.demandedMethods(project).getOrDefault(enclosing,List.of()))
+                    demand.range().ifPresent(range->trace.add(new DiagnosticRelatedRange("instantiation-request","Member definition requested here",range)));
+                for(TemplateInstance parent:project.templateInstances()) {
+                    var contains=new boolean[1]; parent.declaration().walk(new NodeVisitor(){ @Override public void visit(Node node){if(node==request)contains[0]=true;}});
+                    if(contains[0])requestTrace(parent,trace,seen);
+                }
+            }
+        }
+
+        Project instantiateTemplates(boolean diagnosticsOnly) {
+            Set<Node> done = Collections.newSetFromMap(new IdentityHashMap<>());
+            project.templateInstances().forEach(instance -> done.addAll(instance.requests()));
+            var pending = new HashSet<String>();
+            var classOrigins=new IdentityHashMap<ClassDeclaration,ClassDeclaration>();
+            project.classTemplateInstances().forEach(instance->classOrigins.put(instance.declaration(),instance.origin()));
+            var demandedMethods=ClassTemplateSemantics.demandedMethods(project);
+            var classMethods=Collections.newSetFromMap(new IdentityHashMap<CallableDeclaration,Boolean>());
+            project.classTemplateInstances().forEach(instance->instance.declaration().walk(new NodeVisitor(){@Override public void visit(CallableDeclaration method){classMethods.add(method);}}));
+            project.walk(new NodeVisitor() {
+                @Override public void visit(CallExpression call) {
+                    if (done.contains(call) || !(call.callee() instanceof NameExpression || call.callee() instanceof ScopeMemberExpression)
+                            || call.arguments().stream().anyMatch(TypeSemantics::dependent)) return;
+                    CallableDeclaration enclosing=null;
+                    for(Scope scope=scopes.get(call);scope!=null && enclosing==null;scope=scope.parent)enclosing=callableScopes.get(scope);
+                    if(enclosing!=null && (!enclosing.templateParameters().isEmpty() || classMethods.contains(enclosing)&&!demandedMethods.containsKey(enclosing)))return;
+                    String calledName=expressionName(call.callee());
+                    if(calledName==null)return;
+                    List<TemplateArgument> explicitArguments=call.callee() instanceof NameExpression name ? name.templateArguments():((MemberExpression)call.callee()).templateArguments();
+                    boolean hasExplicitArguments=call.callee() instanceof NameExpression name ? name.hasTemplateArguments():((MemberExpression)call.callee()).hasTemplateArguments();
+                    SourceFile file = scopes.get(call).file;
+                    var candidates = lookup(calledName, scopes.get(call), positions.get(call), new HashSet<>()).stream()
+                            .map(Match::declaration).filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast).toList();
+                    var ranks = new ArrayList<OverloadResolution.Candidate>();
+                    var deductions = new IdentityHashMap<CallableDeclaration, TemplateDeduction.Result>();
+                    var origins = new IdentityHashMap<CallableDeclaration, CallableDeclaration>();
+                    var seen = new HashSet<String>();
+                    for (CallableDeclaration writtenCandidate : candidates) {
+                        CallableDeclaration candidate=writtenCandidate;
+                        for(TemplateInstance instance:project.templateInstances()) if(instance.declaration()==candidate){candidate=instance.origin();break;}
+                        if (candidate.templateKind() == TemplateKind.EXPLICIT_INSTANTIATION
+                                || candidate.templateKind() == TemplateKind.FULL_SPECIALIZATION) continue;
+                        if (!seen.add(candidate.name() + ":" + signature(candidate))) continue;
+                        if (candidate.templateParameters().isEmpty()) {
+                            if (!hasExplicitArguments) OverloadResolution.candidate(candidate, call.arguments(), TypeSemantics.profile(file),
+                                    OverloadResolution.requiredArguments(candidate)).ifPresent(ranks::add);
+                        } else {
+                            var result = TemplateDeduction.deduce(candidate, explicitArguments, call.arguments(), TypeSemantics.profile(file),classOrigins);
+                            if (result.isEmpty()) continue;
+                            var deduction = result.get();
+                            var probe = deduction.signature();
+                            deductions.put(probe, deduction); origins.put(probe, candidate);
+                            OverloadResolution.candidate(probe, call.arguments(), TypeSemantics.profile(file),OverloadResolution.requiredArguments(candidate)).ifPresent(ranks::add);
                         }
                     }
-                    for (int i = 0; i < call.arguments().size(); i++) {
-                        TypeNode formal = generic.parameters().get(i).type().orElse(null);
-                        TypeNode actual = TypeSemantics.expressionType(call.arguments().get(i), TypeSemantics.profile(file)).orElse(null);
-                        if (formal == null || actual == null || TypeSemantics.dependent(actual)) return;
-                        formal = TypeSemantics.unqualified(TypeSemantics.withoutReference(formal));
-                        actual = TypeSemantics.unqualified(TypeSemantics.withoutReference(actual));
-                        if (formal instanceof NamedType named && named.declaration().orElse(null) instanceof TemplateParameterDeclaration parameter) {
-                            TypeNode previous = values.putIfAbsent(parameter, actual);
-                            if (previous != null && !explicit.contains(parameter) && !previous.canonicalIdentity().equals(actual.canonicalIdentity())) return;
-                        } else if (TypeSemantics.dependent(formal) || OverloadResolution.conversion(call.arguments().get(i), generic.parameters().get(i).type().get(), TypeSemantics.profile(file), true).isEmpty()) return;
+                    // Equal conversion sequences prefer non-template functions, then a more structured pattern.
+                    var retained = new ArrayList<>(ranks);
+                    retained.removeIf(a -> ranks.stream().anyMatch(b -> a != b && sameConversions(a,b)
+                            && preference(origins.get(b.declaration()), origins.get(a.declaration()),call.arguments().size()) > 0));
+                    var selection=OverloadResolution.selectCandidates(retained);
+                    var selected = selection.selected().orElse(null);
+                    if (selected == null) {
+                        if(diagnosticsOnly && candidates.stream().anyMatch(candidate->!candidate.templateParameters().isEmpty()))
+                            editor.diagnose(call,new Diagnostic(selection.status()==CallExpression.Resolution.AMBIGUOUS?"ambiguous-template-call":"no-viable-template",
+                                    Diagnostic.Severity.ERROR,selection.status()==CallExpression.Resolution.AMBIGUOUS?"Ambiguous function-template specializations":"No viable function-template specialization",call.range().orElse(null),List.of()));
+                        return;
                     }
-                    if (generic.templateParameters().stream().anyMatch(parameter -> !values.containsKey(parameter))) return;
-                    editor.instantiate(generic, call, file, generic.templateParameters().stream().map(values::get).toList());
+                    if (diagnosticsOnly || !deductions.containsKey(selected)) return;
+                    var deduction = deductions.get(selected); CallableDeclaration generic = origins.get(selected);
+                    CallableDeclaration definition = generic;
+                    if(definition.body().isEmpty())for(Declaration later:declarations)
+                        if(later instanceof CallableDeclaration candidate && candidate.body().isPresent()
+                                && scopes.get(candidate).file==scopes.get(generic).file && entityName(candidate).equals(entityName(generic))
+                                && signature(candidate).equals(signature(generic))) {definition=candidate;break;}
+                    for(CallableDeclaration candidate:candidates) if(candidate.templateKind()==TemplateKind.FULL_SPECIALIZATION
+                            && matchesArguments(candidate.templateArguments(),deduction.arguments())
+                            && parameterSignature(candidate).equals(parameterSignature(deduction.signature()))) { definition=candidate; break; }
+                    String identity = instanceIdentity(generic, deduction.structuredArguments(), file);
+                    for (TemplateInstance instance : project.templateInstances())
+                        if (instanceIdentity(instance.origin(), instance.structuredArguments(), instance.source()).equals(identity)) {
+                            editor.requestInstantiation(instance, call); return;
+                        }
+                    if(pending.contains(identity))return;
+                    if (project.templateInstances().size()+project.classTemplateInstances().size()+pending.size()>=256) {instantiationLimitReached=true;return;}
+                    if (pending.add(identity)) {
+                        Map<Node,Node> substitutions=deduction.substitutions();
+                        if(definition!=generic && !definition.templateParameters().isEmpty()) {
+                            var concrete=TemplateDeduction.deduce(definition,explicitArguments,call.arguments(),TypeSemantics.profile(file),classOrigins);
+                            if(concrete.isEmpty())return;substitutions=concrete.get().substitutions();
+                        }
+                        editor.instantiateArguments(generic, call, file, deduction.structuredArguments(), substitutions, definition);
+                    }
                 }
-            }));
+            });
+            if(!diagnosticsOnly) for (Declaration declaration:declarations) if(declaration instanceof CallableDeclaration request
+                    && request.templateKind()==TemplateKind.EXPLICIT_INSTANTIATION && !done.contains(request)) {
+                SourceFile file=scopes.get(request).file;
+                for(Match match:lookup(request.name(),scopes.get(request),positions.get(request)-1,new HashSet<>()))
+                    if(match.declaration() instanceof CallableDeclaration generic && !generic.templateParameters().isEmpty()) {
+                        var result=TemplateDeduction.explicit(generic,request,TypeSemantics.profile(file),classOrigins);
+                        if(result.isEmpty() || !parameterSignature(result.get().signature()).equals(parameterSignature(request)))continue;
+                        var deduction=result.get();
+                        String identity=instanceIdentity(generic,deduction.structuredArguments(),file);
+                        TemplateInstance existing=project.templateInstances().stream().filter(instance ->
+                                instanceIdentity(instance.origin(),instance.structuredArguments(),instance.source()).equals(identity)).findFirst().orElse(null);
+                        if(existing!=null)editor.requestInstantiation(existing,request);
+                        else if(!pending.contains(identity) && project.templateInstances().size()+project.classTemplateInstances().size()+pending.size()>=256)instantiationLimitReached=true;
+                        else if(pending.add(identity)) {
+                            CallableDeclaration definition=generic;
+                            for(Match possible:lookup(request.name(),scopes.get(request),positions.get(request)-1,new HashSet<>()))
+                                if(possible.declaration() instanceof CallableDeclaration specialized && specialized.templateKind()==TemplateKind.FULL_SPECIALIZATION
+                                        && matchesArguments(specialized.templateArguments(),deduction.arguments())
+                                        && parameterSignature(specialized).equals(parameterSignature(request))) {definition=specialized;break;}
+                            if(definition.body().isPresent())editor.instantiateArguments(generic,request,file,deduction.structuredArguments(),deduction.substitutions(),definition);
+                        }
+                        break;
+                    }
+            }
             return editor.build();
+        }
+        boolean matchesArguments(List<TemplateArgument> written,List<TypeNode> arguments) {
+            if(written.size()!=arguments.size())return false;
+            for(int i=0;i<arguments.size();i++) if(written.get(i).type().isEmpty()
+                    || !written.get(i).type().get().canonicalIdentity().equals(arguments.get(i).canonicalIdentity())) return false;
+            return true;
+        }
+        boolean sameConversions(OverloadResolution.Candidate a, OverloadResolution.Candidate b) {
+            return a.sequences().equals(b.sequences());
+        }
+        int preference(CallableDeclaration a, CallableDeclaration b,int argumentCount) {
+            if (a == null) return b == null ? 0 : 1;
+            if (b == null) return -1;
+            return TemplateOrdering.moreSpecialized(a,b,argumentCount)?1:TemplateOrdering.moreSpecialized(b,a,argumentCount)?-1:0;
+        }
+
+        String instanceIdentity(CallableDeclaration generic, List<TemplateArgument> arguments, SourceFile file) {
+            Scope scope = scopes.get(generic);
+            String owner = scope == null ? "" : scope.qualified;
+            boolean internal = generic.modifiers().contains("static") || scope != null && scope.anonymous;
+            return (internal ? file.path() + ":" : "") + owner + ":" + generic.name() + ":" + signature(generic)
+                    + ":" + arguments.stream().map(argument -> argument.type().map(TypeNode::canonicalIdentity).orElseGet(() -> ConstantEvaluator.evaluate(argument.expression().orElseThrow(),TypeSemantics.profile(file)).map(v->v.number().toString()).orElse("unsupported-value"))).toList()
+                    + ":" + generic.source(Language.CPP) + ":" + file.language() + ":" + TypeSemantics.profile(file).stableIdentity();
         }
 
         Project bindNames() {
@@ -367,6 +553,7 @@ public final class NameResolver {
                     String identity = qualify(scope.qualified, name(declaration));
                     if (name(declaration).isEmpty()) identity += "(unnamed@" + positions.get(declaration) + ")";
                     if (scope.local || scope.anonymous || name(declaration).isEmpty()) identity = scope.file.variantId().orElse(scope.file.path()) + ":" + identity;
+                    for(ClassTemplateInstance instance:project.classTemplateInstances()) if(instance.declaration()==declaration) identity=instance.identity();
                     editor.identifyType(declaration, identity);
                 }
                 if (declaration instanceof CallableDeclaration || declaration instanceof VariableDeclaration) {
@@ -394,6 +581,9 @@ public final class NameResolver {
                 @Override public void visit(NamedType type) {
                     var matches = lookup(type.name(), scopes.get(type), positions.get(type), new HashSet<>(), type.elaboratedKeyword().isPresent());
                     Match match = unique(matches);
+                    if(match==null && matches.stream().allMatch(candidate->candidate.declaration() instanceof ClassDeclaration))
+                        match=matches.stream().filter(candidate->((ClassDeclaration)candidate.declaration()).templateKind()==TemplateKind.PRIMARY).findFirst().orElse(null);
+                    for(ClassTemplateInstance instance:project.classTemplateInstances()) if(instance.requests().contains(type)) match=new Match(instance.declaration(),List.of());
                     // Derived function-typedef signatures retain the typedef's original
                     // scope rather than rebinding its aliases at the new declarator.
                     if (type.range().isEmpty() && type.provenance().isEmpty() && type.alias().isPresent())
@@ -415,6 +605,7 @@ public final class NameResolver {
                 }
                 @Override public void visit(NameExpression name) {
                     Match match = unique(lookup(name.name(), scopes.get(name), positions.get(name), new HashSet<>()));
+                    for(ClassTemplateInstance instance:project.classTemplateInstances()) if(instance.requests().contains(name)) match=new Match(instance.declaration(),List.of());
                     if (match == null) editor.unbind(name); else editor.bind(name, match.declaration());
                 }
                 @Override public void visit(MemberInitializer initializer) {
@@ -431,6 +622,9 @@ public final class NameResolver {
                             ? isObjectQualified(member) ? unique(qualifiedObjectMatches(member))
                                     : written == null ? null : unique(lookup(written, scopes.get(member), positions.get(member), new HashSet<>()))
                             : memberMatch(member);
+                    if(member instanceof ScopeMemberExpression && member.receiver() instanceof NameExpression name
+                            && name.target().orElse(null) instanceof ClassDeclaration owner
+                            && project.classTemplateInstances().stream().anyMatch(instance -> instance.declaration()==owner)) match=memberMatch(member);
                     editor.bind(member, match == null ? null : match.declaration());
                 }
             });
@@ -455,6 +649,9 @@ public final class NameResolver {
         boolean complete(Declaration declaration, int point, Set<Declaration> seen) {
             if (!seen.add(declaration)) return false;
             if (declaration instanceof ClassDeclaration owner) {
+                for(ClassTemplateInstance instance:project.classTemplateInstances()) if(instance.declaration()==owner)
+                    return instance.selected().isDefinition() && (classEnds.getOrDefault(instance.selected(),0)<=point
+                            || completeClassContext(introduced.get(instance.selected()),point));
                 Scope scope = scopes.get(owner);
                 return scope.names.getOrDefault(owner.name(), List.of()).stream()
                         .anyMatch(candidate -> candidate instanceof ClassDeclaration && candidate.isDefinition()
@@ -801,6 +998,8 @@ public final class NameResolver {
                 return null;
             }
             Declaration target = null;
+            if (receiver instanceof NameExpression name && name.target().orElse(null) instanceof ClassDeclaration owner
+                    && project.classTemplateInstances().stream().anyMatch(instance -> instance.declaration()==owner)) return owner;
             if (receiver instanceof NameExpression name) {
                 Match match = unique(lookup(name.name(), scopes.get(name), positions.get(name), new HashSet<>()));
                 if (match != null) target = match.declaration();
@@ -1106,13 +1305,24 @@ public final class NameResolver {
                 return Declaration.Linkage.INTERNAL;
             return Declaration.Linkage.EXTERNAL;
         }
+        String specializationKey(ClassDeclaration owner) {
+            if(owner.templateKind()!=TemplateKind.FULL_SPECIALIZATION && owner.templateKind()!=TemplateKind.PARTIAL_SPECIALIZATION
+                    && owner.templateKind()!=TemplateKind.EXPLICIT_INSTANTIATION)return "";
+            var identities=new IdentityHashMap<Declaration,String>();
+            for(int i=0;i<owner.templateParameters().size();i++)identities.put(owner.templateParameters().get(i),"parameter#"+i);
+            return "<"+owner.templateArguments().stream().map(argument -> argument.type().map(type->TypeIdentity.canonicalIdentity(type,identities))
+                    .orElseGet(()->argument.expression().map(value->value.source(Language.CPP)).orElse("?"))).toList()+">";
+        }
         String entityKey(Declaration declaration, Declaration.Linkage linkage) {
             Scope scope = scopes.get(declaration);
+            if(declaration instanceof CallableDeclaration callable && callable.templateKind()==TemplateKind.EXPLICIT_INSTANTIATION)return null;
             if ((declaration instanceof EnumDeclaration || declaration instanceof VariableDeclaration) && name(declaration).isEmpty()) return null;
             String category;
-            if (declaration instanceof CallableDeclaration callable) category = (callable.templateParameters().isEmpty() ? "function:" : "function-template:") + signature(callable);
+            if (declaration instanceof CallableDeclaration callable) category = (callable.templateKind()==TemplateKind.FULL_SPECIALIZATION
+                    ? "function-specialization:"+callable.templateArguments().stream().map(argument->argument.source(Language.CPP)).toList()+":"
+                    : callable.templateParameters().isEmpty() ? "function:" : "function-template:") + signature(callable);
             else if (declaration instanceof VariableDeclaration) category = "variable";
-            else if (declaration instanceof ClassDeclaration) category = "class";
+            else if (declaration instanceof ClassDeclaration owner) category = "class"+specializationKey(owner);
             else if (declaration instanceof NamespaceDeclaration) category = "namespace";
             else if (declaration instanceof TypedefDeclaration) category = "typedef";
             else if (declaration instanceof EnumDeclaration) category = "enum";
@@ -1245,14 +1455,24 @@ public final class NameResolver {
                 editor.dependent(call, true); editor.resolve(call, List.of(), CallExpression.Resolution.UNRESOLVED); return;
             }
             editor.dependent(call, false);
-            for (TemplateInstance instance : project.templateInstances()) if (instance.cause() == call) {
-                if (OverloadResolution.candidate(instance.declaration(), call.arguments(), TypeSemantics.profile(instance.source()), instance.declaration().parameters().size()).isPresent())
+            for (TemplateInstance instance : project.templateInstances()) if (instance.requests().contains(call)) {
+                if (OverloadResolution.candidate(instance.declaration(), call.arguments(), TypeSemantics.profile(instance.source()), OverloadResolution.requiredArguments(instance.declaration())).isPresent()) {
                     editor.bind(call, instance.declaration());
-                else editor.resolve(call, List.of(), CallExpression.Resolution.UNRESOLVED);
+                    var defaults=new ArrayList<CallExpression.DefaultArgument>();
+                    for(int i=call.arguments().size();i<instance.declaration().parameters().size();i++) {
+                        var parameter=instance.declaration().parameters().get(i);
+                        if(parameter.defaultValue().isPresent())defaults.add(new CallExpression.DefaultArgument(i,instance.declaration(),parameter));
+                    }
+                    editor.defaultArguments(call,defaults);
+                    checkArity(call,instance.declaration().parameters().size(),instance.declaration().variadic(),defaults);
+                } else editor.resolve(call, List.of(), CallExpression.Resolution.UNRESOLVED);
                 return;
             }
             String written = expressionName(call.callee());
-            List<Match> visible = call.callee() instanceof MemberExpression qualified && isObjectQualified(qualified)
+            List<Match> visible = call.callee() instanceof ScopeMemberExpression concrete && concrete.receiver() instanceof NameExpression name
+                    && name.target().orElse(null) instanceof ClassDeclaration owner
+                    && project.classTemplateInstances().stream().anyMatch(instance -> instance.declaration()==owner) ? memberMatches(concrete)
+                    : call.callee() instanceof MemberExpression qualified && isObjectQualified(qualified)
                     ? qualifiedObjectMatches(qualified)
                     : call.callee() instanceof MemberExpression member && !(member instanceof ScopeMemberExpression)
                     ? memberMatches(member)
@@ -1283,10 +1503,9 @@ public final class NameResolver {
                 }
                 // Template deduction/instantiation is deliberately deferred. Even a nondependent
                 // signature is not an ordinary callable candidate, nor can its presence be ignored.
-                if (declarations.stream().anyMatch(candidate -> !candidate.templateParameters().isEmpty())) {
-                    editor.resolve(call, List.of(), CallExpression.Resolution.UNRESOLVED);
-                    return;
-                }
+                declarations = declarations.stream().filter(candidate -> candidate.templateParameters().isEmpty()
+                        && candidate.templateKind() != TemplateKind.EXPLICIT_INSTANTIATION
+                        && candidate.templateKind() != TemplateKind.FULL_SPECIALIZATION).toList();
                 // Redeclarations represent one candidate, but retain the latest source declaration
                 // so defaults are collected from the statically selected declaration scope.
                 var entities = new LinkedHashMap<String, CallableDeclaration>();
@@ -1602,6 +1821,7 @@ public final class NameResolver {
         }
         String entityName(Declaration declaration) {
             Scope scope = scopes.get(declaration);
+            if (scope.qualified.contains("#instance"))return qualify(scope.qualified,name(declaration));
             if (scope.local && (declaration instanceof FunctionDeclaration
                     || declaration instanceof VariableDeclaration variable && variable.modifiers().contains("extern")))
                 while (scope.parent != null && (scope.local || scope.classScope)) scope = scope.parent;
@@ -1632,7 +1852,7 @@ public final class NameResolver {
             parameters = written.parameters(); variadic = written.variadic(); constant = written.isConst(); vol = written.isVolatile();
         }
         Map<Declaration, String> dependentNames = templateIdentities(declaration);
-        String head = dependentNames.isEmpty() ? "" : "template[" + dependentNames.size() + "]:";
+        String head = dependentNames.isEmpty() ? "" : "template" + declaration.templateParameters().stream().map(p->p.kind()+":"+p.templateParameters().size()).toList() + ":";
         String result = dependentNames.isEmpty() ? "void" : declaration.returnType()
                 .map(type -> TypeIdentity.canonicalIdentity(type, dependentNames)).orElse("void");
         return head + "function(" + parameters.stream().map(parameter -> parameter.type().map(type -> TypeIdentity.parameterIdentity(type, dependentNames)).orElse("named(<unknown>)"))

@@ -3,39 +3,50 @@ package com.kniazkov.cpg.model;
 
 import java.util.*;
 
-/** An instantiated callable, separate from the written template and its arguments.
- * Currently represents basic type substitution only; completeness is explicit. */
+/** An instantiated callable, separate from the written template and all requests for it. */
 public final class TemplateInstance extends Node {
     private CallableDeclaration origin, declaration;
-    private CallExpression cause;
+    private List<Node> requests = List.of();
     private SourceFile source;
-    private List<TypeNode> arguments = List.of();
+    private List<TemplateArgument> structuredArguments = List.of();
+    public List<TemplateArgument> structuredArguments() { return structuredArguments; }
     public CallableDeclaration origin() { return origin; }
     public CallableDeclaration declaration() { return declaration; }
-    public CallExpression cause() { return cause; }
+    /** First call request, retained for compatibility; explicit-only instances have no call. */
+    public CallExpression cause() { return requests.stream().filter(CallExpression.class::isInstance).map(CallExpression.class::cast).findFirst().orElse(null); }
+    public List<Node> requests() { return requests; }
+    public List<CallExpression> causes() { return requests.stream().filter(CallExpression.class::isInstance).map(CallExpression.class::cast).toList(); }
     public SourceFile source() { return source; }
-    public List<TypeNode> arguments() { return arguments; }
-    public boolean complete() { return false; } // Full instantiation diagnostics await the specialization pass.
-    public String status() { return "basic-type-substitution"; }
-    @Override public List<Node> children() { var nodes = new ArrayList<Node>(arguments); nodes.add(declaration); return List.copyOf(nodes); }
-    @Override public List<Node> references() { return List.of(origin, cause, source); }
+    public List<TypeNode> arguments() { return structuredArguments.stream().flatMap(argument -> argument.type().stream()).toList(); }
+    public boolean complete() {
+        boolean[] result={declaration.bodyComplete() && declaration.body().isPresent()};
+        declaration.walk(new NodeVisitor(){
+            @Override public void visit(Node node){if(node.diagnostics().stream().anyMatch(d->d.severity()==Diagnostic.Severity.ERROR))result[0]=false;}
+            @Override public void visit(Expression expression){if(expression.dependent())result[0]=false;}
+            @Override public void visit(CallExpression call){if(call.target().isEmpty())result[0]=false;}
+        });
+        return result[0];
+    }
+    public String status() { return complete() ? "instantiated" : "incomplete-instantiation"; }
+    @Override public List<Node> children() { var nodes = new ArrayList<Node>(structuredArguments); nodes.add(declaration); return List.copyOf(nodes); }
+    @Override public List<Node> references() { var result = new ArrayList<Node>(requests); result.add(origin); result.add(source); return List.copyOf(result); }
     @Override public void accept(NodeVisitor visitor) { visitor.visit(this); }
     @Override public Builder edit() { return new EditContext().edit(this, Builder.class); }
     @Override Builder copyBuilder(EditContext context) {
         var b = new Builder(); context.register(this, b);
         b.origin = context.edge(origin, CallableDeclaration.class); b.declaration = context.edge(declaration, CallableDeclaration.class);
-        b.cause = context.copy(cause); b.source = context.edge(source, SourceFile.class);
-        b.arguments = context.copyAll(arguments, TypeNode.class); return b;
+        b.requests = new ArrayList<>(); requests.forEach(request -> b.requests.add(context.copy(request))); b.source = context.edge(source, SourceFile.class);
+        b.structuredArguments=context.copyAll(structuredArguments,TemplateArgument.class); return b;
     }
     public static final class Builder extends NodeBuilder<TemplateInstance> {
         NodeBuilder<? extends CallableDeclaration> origin, declaration;
-        NodeBuilder<? extends CallExpression> cause;
+        List<NodeBuilder<? extends Node>> requests = new ArrayList<>();
         NodeBuilder<? extends SourceFile> source;
-        List<NodeBuilder<? extends TypeNode>> arguments = List.of();
+        List<NodeBuilder<? extends TemplateArgument>> structuredArguments=List.of();
         Builder() { super(TemplateInstance.class); }
         @Override TemplateInstance newNode() { return new TemplateInstance(); }
         @Override void fillNode(TemplateInstance n, BuildContext c) {
-            n.origin = c.copy(origin); n.declaration = c.copy(declaration); n.cause = c.copy(cause); n.source = c.copy(source); n.arguments = c.copyAll(arguments);
+            n.origin = c.copy(origin); n.declaration = c.copy(declaration); n.requests = c.copyAll(requests); n.source = c.copy(source); n.structuredArguments=c.copyAll(structuredArguments);
         }
     }
 }

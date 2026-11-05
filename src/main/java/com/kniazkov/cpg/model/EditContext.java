@@ -12,11 +12,12 @@ import java.util.Map;
  * Independent edit calls allocate independent maps. */
 final class EditContext {
     private EditContext referenceContext;
+    private boolean independentLineage;
     private java.util.Set<Node> localDeclarations = java.util.Set.of();
     /** Independent owned syntax copy with shared external declaration references. */
     EditContext fork(Node owned, Map<Node, Node> substitutions) {
         var result = new EditContext(substitutions, java.util.Set.of());
-        result.referenceContext = this;
+        result.referenceContext = this; result.independentLineage=true;
         result.localDeclarations = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
         owned.walk(new NodeVisitor() { @Override public void visit(Declaration node) { result.localDeclarations.add(node); } });
         return result;
@@ -48,7 +49,7 @@ final class EditContext {
         if (referenceContext != null && node instanceof Declaration && !localDeclarations.contains(node)) return referenceContext.edge(node, type);
         Node replacement = replacements.getOrDefault(node, node);
         NodeBuilder<? extends T> result;
-        if (replacement != node && replacement instanceof TypeNode && referenceContext != null) {
+        if (replacement != node && (replacement instanceof TypeNode || replacement instanceof Expression) && referenceContext != null) {
             var occurrence = new EditContext(); occurrence.referenceContext = referenceContext;
             result = occurrence.copy(type.cast(replacement));
         } else result = copy(type.cast(replacement));
@@ -101,7 +102,7 @@ final class EditContext {
         if (builder.nodeType() != node.getClass()) {
             throw new IllegalStateException("Builder does not match node type");
         }
-        builder.editIdentity = node.editIdentity;
+        builder.editIdentity = independentLineage ? new Object() : node.editIdentity;
         builder.origin = node.origin;
         builder.provenance = node.provenance;
         if (node instanceof TypeNode type) builder.typeRepresentation = type.semanticType().orElse(null);

@@ -133,8 +133,8 @@ final class BuildContext {
             Set<Node> owned = Collections.newSetFromMap(new IdentityHashMap<>());
             collect(root, owned);
             for (Node node : owned) {
-                if (java.util.stream.Stream.concat(node.references().stream(), node.commentReferences().stream()).anyMatch(reference -> !owned.contains(reference)))
-                    throw new IllegalStateException("Project reference points outside its syntax tree");
+                for(Node reference:java.util.stream.Stream.concat(node.references().stream(),node.commentReferences().stream()).toList())if(!owned.contains(reference))
+                    throw new IllegalStateException("Project reference points outside its syntax tree: "+node.getClass().getSimpleName()+" -> "+reference.getClass().getSimpleName()+" "+(node instanceof NamedType t?t.name():""));
             }
             if (owned.size() != nodes.size()) {
                 throw new IllegalStateException("Project reference points outside its syntax tree");

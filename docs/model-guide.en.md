@@ -962,9 +962,9 @@ A dependent member call such as `x.size()` in
 written generic body. Basic type substitution creates a separate owned
 `Project.templateInstances()` entry with its copied callable and argument types;
 `origin()`, `cause()` and `source()` are non-owning links. The generic body is not
-mutated. Instances explicitly report `status = basic-type-substitution` and
-`complete = false`: this is not full two-phase lookup, specialization selection,
-SFINAE, template overload ordering or comprehensive instantiation diagnostics.
+mutated. The initial #34 contract reported `basic-type-substitution` and
+`complete = false`; the #35 instantiation and diagnostic contract below supersedes
+that initial status without claiming full C++03 conformance.
 
 A deliberately small `<vector>` declaration catalogue enables the prerequisite
 `count(std::vector<int>)` example. `Project.librarySources()` owns that catalogue
@@ -987,3 +987,85 @@ are checked by `TemplateExportTest` and the template corpus scenario.
 Instance analyses use the language and platform profile of their requesting
 translation unit. CFG/DFG, conversions, type normalization and constant folding
 visit the separate concrete body without modifying the generic template.
+
+## Specialization syntax and instantiation exports (#35)
+
+`templateKind()` distinguishes primary templates, full specializations, class
+partial specializations and explicit instantiations from ordinary declarations.
+`templateArguments()` owns the written specialization arguments;
+`hasTemplateArguments()` also preserves an empty `<>`. `exportedTemplate()` records
+written C++03 `export`. Canonical source emits these declarations, including
+`template <>` and `template struct Box<int >;`, while physical source never adds
+synthetic instance bodies or library catalogue declarations.
+
+`TemplateInstance.requests()` records all direct demands, including explicit
+instantiation declarations. `causes()` filters call requests; the legacy `cause()`
+returns the first call or null for an explicit-only instance. JSON includes
+`requestIds` and `causeIds` (and legacy `causeId` when present). A call's
+`CALL_TARGET` edge points to its callable target, whereas `INSTANTIATION_CAUSE`
+points from the requesting syntax node to the instance wrapper.
+`INSTANTIATION_REQUEST` is the reverse edge, allowing traversal to every request.
+The two relationships are deliberately not interchangeable. Nested requests belong
+to the concrete outer body, not the untouched generic template. Class instances
+are separately owned by `Project.classTemplateInstances()`: `origin()` is the
+primary, `selected()` the chosen declaration, and `declaration()` the concrete
+owned class. Their argument and request IDs are exported in the same snapshot.
+All reference IDs must name project-owned nodes; export rejects dangling edges.
+
+Node diagnostics export `code`, `severity`, `message`, `primaryRange` and ordered
+`relatedRanges` when available. An instantiation failure's primary position is the
+failing expression, not its caller; the substituted type is in the message.
+Request ranges follow from the immediate enclosing instantiation to its caller.
+These are semantic diagnostics, separate from parser `parseProblems` and their
+preprocessing occurrence groups. Inspect diagnostics even without CFG/DFG.
+
+The written `export` marker is not proof of separate-template compilation support.
+`scripts/probe-cpp03-export.sh` reproduces a header declaration, separate exported
+definition and client translation unit. GCC 14.2 and Clang 19.1.7 warn that exported
+templates are unsupported/ignored, then fail linking the requested specialization.
+Adding an explicit-instantiation definition links and runs on both, but is only a
+control, not an implementation of `export`. Cross-TU sharing of a definition
+visible in a shared header is a different test. General C++03 exported-template
+lookup and instantiation must not be inferred from either result.
+
+The implemented callable deduction path handles type parameters, explicit integral
+value arguments, deduction from array bounds, and template-template arguments
+from structured template-ids. It checks immediate-context signature substitution
+before selecting a candidate;
+a missing dependent nested typedef can remove that candidate (SFINAE), while an
+invalid member access in the selected concrete body remains an error. This is not
+a claim of every non-type/template-template deduction context, all expression
+SFINAE forms, or complete two-phase lookup. Class specialization selection matches
+structured argument patterns and compares partials by deduction in both
+directions; incomparable viable partials are diagnosed rather than selected by
+source order. Full specializations and explicit instantiations are distinct
+written declarations, not silently rewritten primaries. Function partial
+specializations are rejected. Class instance construction has a separate
+`template-instantiation-limit` resource diagnostic; nested callable construction
+has `template-instantiation-depth`. An exhausted budget must not be presented as
+a successfully complete analysis. `unsupported-export-template` reports the
+semantic boundary even though the written export marker round-trips.
+
+Callable `TemplateInstance.structuredArguments()` owns ordered `TemplateArgument`
+nodes of kind TYPE, VALUE or TEMPLATE. The compatibility `arguments()` view returns
+their existing type payloads, not separately owned copies, and omits value
+arguments. JSON nests each node once under `structuredArguments`; it exposes
+`structuredArgumentIds` for those wrappers and `argumentIds` for the compatibility
+type view. There is no second nested callable-instance `arguments` array. Class
+instances retain their own structured `arguments` array. DOT follows the same
+single-ownership children and labels every argument kind. Copies preserve the
+wrapper/payload relationships while reconnecting all references in the new
+snapshot; `TemplateInstantiationExportTest` verifies unique JSON IDs for all
+three callable argument kinds and confirms source does not emit extra bodies.
+
+A callable instance now reports `status = instantiated` only when its body is
+present and complete, contains no ERROR finding, dependent expression or
+unresolved call; otherwise it reports `incomplete-instantiation`. `complete()`
+exposes the same per-instance condition. This is a local analysis result, not a
+claim that every C++03 deduction or instantiation rule is implemented.
+
+`Project.hasErrors()` now includes semantic ERROR findings as well as parser
+failures. Use `parseProblems().isEmpty()` to distinguish successfully parsed but
+semantically invalid source. `semanticDiagnostics()` returns the immutable
+findings independently of flow generation, including ordered instantiation
+request ranges. Root-level resource-limit findings survive CFG/DFG passes.
