@@ -10,6 +10,19 @@ class TemplateSyntaxTest {
     private <T> List<T> nodes(Node root, Class<T> type) {
         var result = new ArrayList<T>(); root.walk(new NodeVisitor() { public void visit(Node n) { if (type.isInstance(n)) result.add(type.cast(n)); } }); return result;
     }
+    @Test void qualifiedTemplateCallsRetainTheirScopeAndArguments() {
+        var unit=parse("#include <memory>\ntemplate<class T> struct CountingAllocator : std::allocator<T> { T* allocate(std::size_t count, const void* hint=0) { return std::allocator<T>::allocate(count,hint); } };");
+        var call=nodes(unit,CallExpression.class).getFirst();
+        var allocate=assertInstanceOf(ScopeMemberExpression.class,call.callee());
+        var allocator=assertInstanceOf(ScopeMemberExpression.class,allocate.receiver());
+        assertEquals("allocator",allocator.member());
+        assertEquals(1,allocator.templateArguments().size());
+        String generated=com.kniazkov.cpg.generation.Source.render(unit,Language.CPP);
+        assertTrue(generated.replace(" ", "").contains("std::allocator<T>::allocate"),generated);
+        var reparsed=parse(generated);
+        assertEquals(1,nodes(reparsed,CallExpression.class).size());
+        assertTrue(nodes(reparsed,LessExpression.class).isEmpty());
+    }
     @Test void parameterKindsDefaultsAndCopiesAreOwned() {
         var unit = parse("template<class T = int, int N = 4, template<class> class C = Box> struct Holder { T data[N]; }; ");
         var klass = (ClassDeclaration)unit.items().getFirst();

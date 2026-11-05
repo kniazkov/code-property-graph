@@ -7,6 +7,60 @@ import java.util.Objects;
 
 /** Root containing source files. */
 public final class Project extends Node {
+    private List<Object> dynamicArrayBindings;
+    private List<Object> dynamicArrayBindings() {
+        var facts = new ArrayList<Object>();
+        var roots = new ArrayList<Node>(files); roots.addAll(librarySources);
+        roots.addAll(classTemplateInstances); roots.addAll(templateInstances);
+        for (Node root : roots) {
+            if (root instanceof SourceFile file) facts.add(com.kniazkov.cpg.analysis.TypeSemantics.profile(file).stableIdentity());
+            Node syntax = root instanceof ClassTemplateInstance instance ? instance.declaration()
+                    : root instanceof TemplateInstance instance ? instance.declaration() : root;
+            try { facts.add(com.kniazkov.cpg.generation.Source.render(syntax,
+                    root instanceof SourceFile file ? file.language() : Language.CPP)); }
+            catch (IllegalArgumentException unsupported) { facts.add("unrenderable"); }
+            root.walk(new NodeVisitor() { @Override public void visit(Node node) {
+                facts.add(node.editIdentity); facts.add(node.provenance());
+                facts.add(node.references().stream().map(target -> target.editIdentity).toList());
+                if (node instanceof TypeNode type) {
+                    facts.add(type.canonicalIdentity()); facts.add(type.semanticType());
+                }
+            } });
+        }
+        return List.copyOf(facts);
+    }
+    private List<String> dynamicArraySyntax;
+    /** Discard derived semantics if their written operands were detached by an edit. */
+    void validateDynamicArraySemantics() {
+        if (dynamicArrayTypes.isEmpty() && dynamicArraySemantics.isEmpty()) return;
+        List<String> syntax;
+        try { syntax = files.stream().map(file -> com.kniazkov.cpg.generation.Source.render(file, file.language())).toList(); }
+        catch (IllegalArgumentException exception) { syntax = null; }
+        var bindings = dynamicArrayBindings();
+        if (syntax == null || dynamicArraySyntax != null && !dynamicArraySyntax.equals(syntax)
+                || dynamicArrayBindings != null && !dynamicArrayBindings.equals(bindings)) {
+            dynamicArrayTypes = List.of(); dynamicArraySemantics = List.of(); dynamicArraySyntax = null; return;
+        }
+        boolean fresh = dynamicArraySyntax == null;
+        dynamicArrayBindings = bindings;
+        dynamicArraySyntax = syntax;
+        var owned = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
+        files.forEach(file -> file.walk(new NodeVisitor() { @Override public void visit(Node n) { owned.add(n); } }));
+        librarySources.forEach(file -> file.walk(new NodeVisitor() { @Override public void visit(Node n) { owned.add(n); } }));
+        classTemplateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node n) { owned.add(n); } }));
+        templateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node n) { owned.add(n); } }));
+        if (fresh && dynamicArrayTypes.stream().anyMatch(type -> !type.references().stream().allMatch(owned::contains)))
+            throw new IllegalStateException("Dynamic array type references foreign syntax");
+        dynamicArrayTypes = dynamicArrayTypes.stream().filter(type -> type.references().stream().allMatch(owned::contains)).toList();
+        owned.addAll(dynamicArrayTypes);
+        if (fresh && dynamicArraySemantics.stream().anyMatch(operation -> !operation.references().stream().allMatch(owned::contains)))
+            throw new IllegalStateException("Dynamic array operation references foreign syntax");
+        dynamicArraySemantics = dynamicArraySemantics.stream().filter(operation -> operation.references().stream().allMatch(owned::contains)).toList();
+    }
+    private List<DynamicArrayType> dynamicArrayTypes = List.of();
+    public List<DynamicArrayType> dynamicArrayTypes() { return dynamicArrayTypes; }
+    private List<DynamicArrayOperation> dynamicArraySemantics = List.of();
+    public List<DynamicArrayOperation> dynamicArraySemantics() { return dynamicArraySemantics; }
     private List<SourceFile> files = List.of();
     private List<SourceFile> librarySources = List.of();
     private StandardLibrary standardLibrary;
@@ -28,7 +82,7 @@ public final class Project extends Node {
         templateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { allOwned.add(node); } }));
         classTemplateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { allOwned.add(node); } }));
         boolean owned = templateInstances.stream().allMatch(instance -> written.contains(instance.source())
-                && written.contains(instance.origin()) && instance.requests().stream().allMatch(allOwned::contains))
+                && allOwned.contains(instance.origin()) && instance.requests().stream().allMatch(allOwned::contains))
                 && classTemplateInstances.stream().allMatch(instance -> written.contains(instance.source()) && written.contains(instance.origin())
                 && instance.requests().stream().allMatch(allOwned::contains));
         if (syntax != null && instanceSyntax != null && instanceSyntax.equals(syntax) && owned) return java.util.Set.of();
@@ -163,6 +217,7 @@ public final class Project extends Node {
         copy.editIdentity = editIdentity;
         copy.files = files;
         copy.classTemplateInstances = classTemplateInstances;
+        copy.dynamicArrayBindings = dynamicArrayBindings; copy.dynamicArraySyntax = dynamicArraySyntax; copy.dynamicArraySemantics = dynamicArraySemantics; copy.dynamicArrayTypes = dynamicArrayTypes;
         copy.standardLibrary = standardLibrary; copy.librarySources = librarySources; copy.templateInstances = templateInstances; copy.instanceSyntax = instanceSyntax;
         copy.externalInputs = externalInputs;
         copy.build = build;
@@ -176,6 +231,9 @@ public final class Project extends Node {
         var nodes = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
         walk(new NodeVisitor() { @Override public void visit(Node node) { nodes.add(node); } });
         for (FunctionFlow flow : copy.flows) {
+            for (var edge : flow.data()) for (Node endpoint : List.of(edge.from(), edge.to()))
+                if (endpoint instanceof DynamicArrayOperation && !nodes.contains(endpoint))
+                    throw new IllegalArgumentException("Foreign dynamic-array flow operation");
             for (var auxiliary : flow.auxiliaryVertices()) {
                 if (auxiliary.object().filter(n -> !nodes.contains(n)).isPresent()
                         || auxiliary.destructor().or(auxiliary::constructor).filter(n -> !nodes.contains(n)).isPresent())
@@ -246,7 +304,7 @@ public final class Project extends Node {
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         children.addAll(files);
-        if (standardLibrary != null) children.add(standardLibrary); children.addAll(templateInstances); children.addAll(classTemplateInstances);
+        if (standardLibrary != null) children.add(standardLibrary); children.addAll(templateInstances); children.addAll(classTemplateInstances); children.addAll(dynamicArraySemantics); children.addAll(dynamicArrayTypes);
         children.addAll(externalInputs);
         return List.copyOf(children);
     }
@@ -274,6 +332,9 @@ public final class Project extends Node {
         builder.libraryCollection = standardLibrary == null ? null : context.edit(standardLibrary, StandardLibrary.Builder.class);
         builder.templateInstances = context.copyAll(templateInstances, TemplateInstance.class);
         builder.classTemplateInstances = context.copyAll(classTemplateInstances, ClassTemplateInstance.class);
+        builder.dynamicArrayBindings = dynamicArrayBindings; builder.dynamicArraySyntax = dynamicArraySyntax;
+        builder.dynamicArrayTypes = context.copyAll(dynamicArrayTypes, DynamicArrayType.class);
+        builder.dynamicArraySemantics = context.copyAll(dynamicArraySemantics, DynamicArrayOperation.class);
         builder.instanceSyntax = instanceSyntax;
         builder.build = build;
         builder.externalInputs = context.copyAll(externalInputs, ExternalInput.class);
@@ -286,6 +347,12 @@ public final class Project extends Node {
         private List<NodeBuilder<? extends SourceFile>> librarySources = new ArrayList<>();
         private StandardLibrary.Builder libraryCollection;
         private List<NodeBuilder<? extends TemplateInstance>> templateInstances = new ArrayList<>();
+        private List<Object> dynamicArrayBindings;
+        private List<String> dynamicArraySyntax;
+        private List<NodeBuilder<? extends DynamicArrayType>> dynamicArrayTypes = new ArrayList<>();
+        public Builder setDynamicArrayTypes(List<NodeBuilder<? extends DynamicArrayType>> value) { dynamicArrayTypes = new ArrayList<>(value); return this; }
+        private List<NodeBuilder<? extends DynamicArrayOperation>> dynamicArraySemantics = new ArrayList<>();
+        public Builder setDynamicArraySemantics(List<NodeBuilder<? extends DynamicArrayOperation>> value) { dynamicArraySemantics = new ArrayList<>(value); dynamicArraySyntax = null; dynamicArrayBindings = null; return this; }
         private List<NodeBuilder<? extends ClassTemplateInstance>> classTemplateInstances = new ArrayList<>();
         Builder addClassTemplateInstance(ClassTemplateInstance.Builder value) { classTemplateInstances.add(value); return this; }
         private List<String> instanceSyntax;
@@ -330,6 +397,9 @@ public final class Project extends Node {
                 node.librarySources = node.standardLibrary.headers();
             }
             node.classTemplateInstances = context.copyAll(classTemplateInstances);
+            node.dynamicArrayBindings = dynamicArrayBindings; node.dynamicArraySyntax = dynamicArraySyntax;
+            node.dynamicArrayTypes = context.copyAll(dynamicArrayTypes);
+            node.dynamicArraySemantics = context.copyAll(dynamicArraySemantics);
             node.templateInstances = context.copyAll(templateInstances); node.instanceSyntax = instanceSyntax;
             node.build = build;
             var inputs = new java.util.LinkedHashMap<String, ExternalInput.Builder>();

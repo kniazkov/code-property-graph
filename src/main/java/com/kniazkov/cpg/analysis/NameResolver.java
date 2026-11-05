@@ -453,6 +453,14 @@ public final class NameResolver {
             }
         }
 
+        boolean integralVectorRange(CallableDeclaration candidate, List<Expression> arguments, SourceFile file) {
+            if (!LibraryDeclarations.isLibrary(candidate) || candidate.templateParameters().isEmpty() || arguments.size()<2) return false;
+            var owner=scopeClass(scopes.get(candidate));
+            if(owner==null || !owner.name().equals("vector") || !(candidate.name().equals("assign") || candidate.kind()==CallableDeclaration.Kind.CONSTRUCTOR))return false;
+            return arguments.subList(0,2).stream().allMatch(a->TypeSemantics.expressionType(a,TypeSemantics.profile(file))
+                    .map(TypeSemantics::unqualified).filter(NamedType.class::isInstance).map(NamedType.class::cast)
+                    .map(t->TypeSemantics.profile(file).integerRange(t.name()).isPresent() || t.name().equals("bool")).orElse(false));
+        }
         Project instantiateTemplates(boolean diagnosticsOnly) {
             Set<Node> done = Collections.newSetFromMap(new IdentityHashMap<>());
             project.templateInstances().forEach(instance -> done.addAll(instance.requests()));
@@ -463,18 +471,48 @@ public final class NameResolver {
             var classMethods=Collections.newSetFromMap(new IdentityHashMap<CallableDeclaration,Boolean>());
             project.classTemplateInstances().forEach(instance->instance.declaration().walk(new NodeVisitor(){@Override public void visit(CallableDeclaration method){classMethods.add(method);}}));
             project.walk(new NodeVisitor() {
+                @Override public void visit(VariableDeclaration variable) {
+                    if(diagnosticsOnly || done.contains(variable) || variable.type().isEmpty() || !variable.isDefinition())return;
+                    // This pass only supplies catalogue constructor targets; user construction remains with class semantics.
+                    if(variable.type().flatMap(ClassSemantics::objectClass).filter(LibraryDeclarations::isLibrary).isEmpty())return;
+                    SourceFile file=scopes.get(variable).file;
+                    var initialization=ClassSemantics.initialization(project,variable);
+                    var candidates=ClassSemantics.constructorCandidates(initialization);
+                    Expression value=variable.initializer().orElse(null);
+                    List<Expression> arguments=value==null?List.of():value instanceof InitializationExpression i && i.form()==InitializationExpression.Form.DIRECT?i.arguments():List.of(value);
+                    if(arguments.stream().anyMatch(TypeSemantics::dependent))return;
+                    var ranks=new ArrayList<OverloadResolution.Candidate>();
+                    var deductions=new IdentityHashMap<CallableDeclaration,TemplateDeduction.Result>();
+                    var origins=new IdentityHashMap<CallableDeclaration,CallableDeclaration>();
+                    for(var candidate:candidates) {
+                        if(integralVectorRange(candidate,arguments,file))continue;
+                        if(candidate.templateParameters().isEmpty())OverloadResolution.candidate(candidate,arguments,TypeSemantics.profile(file),OverloadResolution.requiredArguments(candidate)).ifPresent(ranks::add);
+                        else TemplateDeduction.deduce(candidate,List.of(),arguments,TypeSemantics.profile(file),classOrigins).ifPresent(d->{
+                            deductions.put(d.signature(),d);origins.put(d.signature(),candidate);
+                            OverloadResolution.candidate(d.signature(),arguments,TypeSemantics.profile(file),OverloadResolution.requiredArguments(candidate)).ifPresent(ranks::add);
+                        });
+                    }
+                    var selected=OverloadResolution.selectCandidates(ranks).selected().orElse(null);
+                    if(selected==null || !deductions.containsKey(selected))return;
+                    var d=deductions.get(selected); var generic=origins.get(selected);
+                    String identity=instanceIdentity(generic,d.structuredArguments(),file);
+                    for(var instance:project.templateInstances())if(instanceIdentity(instance.origin(),instance.structuredArguments(),instance.source()).equals(identity)){editor.requestInstantiation(instance,variable);return;}
+                    if(project.templateInstances().size()+project.classTemplateInstances().size()+pending.size()>=256){instantiationLimitReached=true;return;}
+                    if(pending.add(identity))editor.instantiateArguments(generic,variable,file,d.structuredArguments(),d.substitutions(),generic);
+                }
                 @Override public void visit(CallExpression call) {
-                    if (done.contains(call) || !(call.callee() instanceof NameExpression || call.callee() instanceof ScopeMemberExpression)
+                    if (done.contains(call) || !(call.callee() instanceof NameExpression || call.callee() instanceof MemberExpression)
                             || call.arguments().stream().anyMatch(TypeSemantics::dependent)) return;
                     CallableDeclaration enclosing=null;
                     for(Scope scope=scopes.get(call);scope!=null && enclosing==null;scope=scope.parent)enclosing=callableScopes.get(scope);
                     if(enclosing!=null && (!enclosing.templateParameters().isEmpty() || classMethods.contains(enclosing)&&!demandedMethods.containsKey(enclosing)))return;
-                    String calledName=expressionName(call.callee());
+                    String calledName=call.callee() instanceof MemberExpression member && !(member instanceof ScopeMemberExpression) ? member.member() : expressionName(call.callee());
                     if(calledName==null)return;
                     List<TemplateArgument> explicitArguments=call.callee() instanceof NameExpression name ? name.templateArguments():((MemberExpression)call.callee()).templateArguments();
                     boolean hasExplicitArguments=call.callee() instanceof NameExpression name ? name.hasTemplateArguments():((MemberExpression)call.callee()).hasTemplateArguments();
                     SourceFile file = scopes.get(call).file;
-                    var candidates = lookup(calledName, scopes.get(call), positions.get(call), new HashSet<>()).stream()
+                    var candidates = (call.callee() instanceof MemberExpression member && !(member instanceof ScopeMemberExpression)
+                            ? memberMatches(member) : lookup(calledName, scopes.get(call), positions.get(call), new HashSet<>())).stream()
                             .map(Match::declaration).filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast).toList();
                     var ranks = new ArrayList<OverloadResolution.Candidate>();
                     var deductions = new IdentityHashMap<CallableDeclaration, TemplateDeduction.Result>();
@@ -482,6 +520,13 @@ public final class NameResolver {
                     var seen = new HashSet<String>();
                     for (CallableDeclaration writtenCandidate : candidates) {
                         CallableDeclaration candidate=writtenCandidate;
+                        if(call.callee() instanceof MemberExpression member && !(member instanceof ScopeMemberExpression) && !candidate.modifiers().contains("static")) {
+                            TypeNode object=TypeSemantics.expressionType(member.receiver(),TypeSemantics.profile(file)).orElse(null);
+                            if(object!=null && member instanceof PointerMemberExpression && TypeSemantics.unqualified(object) instanceof PointerType pointer)object=pointer.pointee();
+                            int cv=object==null?0:TypeSemantics.qualifiers(object), targetCv=(candidate.isConst()?1:0)|(candidate.isVolatile()?2:0);
+                            if((cv & targetCv)!=cv)continue;
+                        }
+                        if (integralVectorRange(candidate,call.arguments(),file)) continue;
                         for(TemplateInstance instance:project.templateInstances()) if(instance.declaration()==candidate){candidate=instance.origin();break;}
                         if (candidate.templateKind() == TemplateKind.EXPLICIT_INSTANTIATION
                                 || candidate.templateKind() == TemplateKind.FULL_SPECIALIZATION) continue;
@@ -1768,6 +1813,7 @@ public final class NameResolver {
             if (result.status() == CallExpression.Resolution.AMBIGUOUS) error(expression, "ambiguous-overload", "No unique best operator overload");
         }
         void validateInitialization(VariableDeclaration variable) {
+            if(project.templateInstances().stream().anyMatch(i->i.requests().contains(variable) && i.origin().kind()==CallableDeclaration.Kind.CONSTRUCTOR))return;
             if (scopes.get(variable).file.language() != Language.CPP || variable.type().isEmpty() || variable.initializer().isEmpty()) return;
             ClassDeclaration owner = ClassSemantics.objectClass(variable.type().get()).orElse(null);
             if (owner == null || ClassSemantics.aggregate(owner)) return;

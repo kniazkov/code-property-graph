@@ -1091,3 +1091,38 @@ failures. Use `parseProblems().isEmpty()` to distinguish successfully parsed but
 semantically invalid source. `semanticDiagnostics()` returns the immutable
 findings independently of flow generation, including ordered instantiation
 request ranges. Root-level resource-limit findings survive CFG/DFG passes.
+
+## Common vector semantics (#37)
+
+GREEN/FOLDED snapshots own `dynamicArrayTypes()` and `dynamicArraySemantics()`.
+These are shared semantic nodes, not replacement C++ syntax. A type references its
+concrete trusted library class, element type and written type sites. An operation
+references its original syntax, destination object, ordered sources, common type
+and selected C++ target. JSON exports those references and DOT displays typed
+`COMMON_TYPE`, `COMMON_OPERATION`, `SOURCE`, `DESTINATION`, `CPP_TARGET` and
+`ELEMENT_COPY_CONSTRUCTOR` edges. Physical source generation retains the original
+vector spelling and calls; these nodes do not promise Java container lowering.
+
+For ordinary `std::vector<T, std::allocator<T> >`, kinds distinguish EMPTY, COUNT,
+FILL, RANGE, COPY, ASSIGN_COPY, ASSIGN_FILL, ASSIGN_RANGE and APPEND. Recognition
+uses resolved library identities and overloads, not method names. Scalar elements
+support these operations; ranges currently require pointers. Record append, fill
+and copying select an accessible explicit copy constructor from
+`const T&` when present and retain that callable as an effect link. Implicit
+record copies have no invented callable; their subobject/destructor effects
+remain conservative. No exact internal copy
+count, allocation strategy, capacity growth or deep pointee copy is implied.
+
+DFG edges read ordered inputs into the common operation and use it as the new
+container definition. Assignment updates the existing object, including references
+to it; copying creates a distinct container. Pointer elements preserve source
+identity and may still share pointees. Available element-copy effects remain
+conservative. Edits to syntax, selected target bindings, signatures or provenance
+invalidate derived facts; reanalysis reconstructs them for the new snapshot.
+
+`vector<bool>` proxies, custom allocators, explicit allocator arguments, custom
+iterator ranges, Record count construction and Record assignment retain resolved
+C++ operations when equivalent common effects are not established. Unknown
+library effects remain conservative. Element access, size/capacity, iterator
+validity, insertion/erasure and swap are separate #38 groups, not inferred from
+this initial construction/copy/append model.

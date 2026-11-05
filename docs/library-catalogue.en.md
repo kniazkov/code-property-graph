@@ -52,7 +52,7 @@ normalization is a separate pass, not an effect summary inferred from declaratio
 
 | Headers | Declaration interfaces | Semantic/behavior follow-up |
 |---|---|---|
-| `vector` | Primary and bool specialization; constructors, assign/access/capacity/iteration/modifiers; comparisons and swap | #37–38; proxy and allocator effects remain distinct |
+| `vector` | Primary and bool specialization; constructors, assign/access/capacity/iteration/modifiers; comparisons and swap | #37 common construction/copy/append; access/capacity/iterators #38; proxy and allocator operations remain resolved C++ |
 | `deque`, `list` | Constructors/assignment/allocator, forward/reverse iteration, access/capacity/modifiers, comparisons/swap; list splice/remove/unique/merge/sort/reverse | #39 |
 | `map`, `set` | Both unique and multi variants, value/key/allocator/comparator types, construction, insertion/erasure, lookup/bounds/equal_range, observers and nonmembers | #39; unique/multi insertion results differ |
 | `queue`, `stack` | queue, priority_queue, stack; typedefs/defaults, protected adapters, constructors, access/push/pop; queue/stack comparisons | #39; no priority_queue equality or C++11 adapter swap |
