@@ -51,6 +51,8 @@ public final class ProjectJson {
             project.externalInputs().forEach(input -> input.walk(index));
             for (SourceFile file : project.files()) file.provenance().ifPresent(p -> units.put(p.unit(), ids.get(file)));
             for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n) for (Node target : n.references()) edge(n, target, "ref");
+            for (FlowVertex vertex : ids.keySet()) if (vertex instanceof Node n)
+                for (Comment comment : n.commentReferences()) edge(n, comment, "HAS_COMMENT");
             for (var flow : project.flows()) {
                 for (var e : flow.control()) edge(e.from(), e.to(), "cfg." + lower(e.kind()));
                 for (var e : flow.data()) edge(e.from(), e.to(), "dfg." + lower(e.kind()));
@@ -88,10 +90,12 @@ public final class ProjectJson {
                 }
                 case ExternalInput input -> obj.put("key", input.key()).put("role", input.role())
                         .put("text", input.text()).put("inputs", nodes(input.inputs()));
+                case Comment comment -> obj.put("commentKind", comment.kind().name()).put("text", comment.text());
                 case SourceFile f -> {
                     obj.put("path", f.range().map(SourceRange::file)
                                 .orElseGet(() -> Path.of(f.path()).toAbsolutePath().normalize().toString()))
                         .put("language", f.language().name()).put("items", nodes(f.items()));
+                    if (!f.comments().isEmpty()) obj.put("comments", nodes(f.comments()));
                     if (f.hasErrors()) obj.put("hasErrors", true);
                     if (!f.parseProblems().isEmpty()) obj.array("parseProblems", a ->
                             f.parseProblems().forEach(problem -> a.add(problem(problem))));

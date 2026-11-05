@@ -8,6 +8,9 @@ import java.util.Optional;
 
 /** A source file and its ordered top-level items. */
 public final class SourceFile extends Node {
+    private List<Comment> comments = List.of();
+    /** Physical comments, including included files and inactive preprocessor text. */
+    public List<Comment> comments() { return comments; }
     private String path;
     private Language language;
     private List<Node> items = List.of();
@@ -46,6 +49,7 @@ public final class SourceFile extends Node {
     public List<Node> children() {
         List<Node> children = new ArrayList<>();
         children.addAll(items);
+        children.addAll(comments);
         return List.copyOf(children);
     }
 
@@ -67,6 +71,7 @@ public final class SourceFile extends Node {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
+        builder.comments = context.copyAll(comments, Comment.class);
         builder.path = path;
         builder.language = language;
         builder.parseProblems = new ArrayList<>(parseProblems);
@@ -77,6 +82,10 @@ public final class SourceFile extends Node {
 
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<SourceFile> {
+        private List<NodeBuilder<? extends Comment>> comments = new ArrayList<>();
+        public List<NodeBuilder<? extends Comment>> comments() { return List.copyOf(comments); }
+        public Builder setComments(List<? extends NodeBuilder<? extends Comment>> values) { comments = new ArrayList<>(List.copyOf(values)); return this; }
+        public Builder addComment(NodeBuilder<? extends Comment> value) { comments.add(Objects.requireNonNull(value)); return this; }
         private String path;
         private Language language = Language.JAVA;
         private List<ParseProblem> parseProblems = new ArrayList<>();
@@ -92,6 +101,9 @@ public final class SourceFile extends Node {
             return this;
         }
         private List<NodeBuilder<? extends Node>> items = new ArrayList<>();
+
+        /** Conservatively associates physical comments with their explanatory syntax targets. */
+        public Builder bindComments() { return CommentBinding.bind(this); }
 
         private Builder() {
             super(SourceFile.class);
@@ -136,6 +148,7 @@ public final class SourceFile extends Node {
 
         @Override
         void fillNode(SourceFile node, BuildContext context) {
+            node.comments = context.copyAll(comments);
             node.path = requiredText(path, "SourceFile.path");
             node.language = language;
             node.parseProblems = List.copyOf(parseProblems);

@@ -158,7 +158,7 @@ public final class ProjectEditor {
             @Override public void visit(Node child) { subtree.add(child); }
         });
         for (Node member : members) {
-            if (!subtree.contains(member) && member.references().stream().anyMatch(subtree::contains))
+            if (!subtree.contains(member) && java.util.stream.Stream.concat(member.references().stream(), member.commentReferences().stream()).anyMatch(subtree::contains))
                 throw new IllegalStateException("Node has incoming references");
         }
         boolean listItem = members.stream().anyMatch(parent ->
@@ -236,7 +236,7 @@ public final class ProjectEditor {
         // A standalone node.edit().build() also copies its non-owning targets. Reconnect
         // those external copies by exact edit lineage, never by possibly equal locations.
         for (Set<Node> owned : ownedReplacements.values()) {
-            for (Node node : owned) for (Node reference : node.references()) {
+            for (Node node : owned) for (Node reference : java.util.stream.Stream.concat(node.references().stream(), node.commentReferences().stream()).toList()) {
                 if (owned.contains(reference) || ambiguousOrigins.contains(reference.editIdentity)) continue;
                 Node original = origins.get(reference.editIdentity);
                 if (original != null && reference != original)

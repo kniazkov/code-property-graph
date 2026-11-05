@@ -116,7 +116,7 @@ public final class Parser {
             var provenance = preprocessing(file, preprocessed, unit);
             var parsed = new Parser(file, Language.CPP, parserTokens(preprocessed, provenance), provenance).parse();
             parsed.setProvenance(new TokenProvenance(provenance, 0, provenance.tokens().size()));
-            return parsed;
+            return comments(parsed, provenance);
         } catch (ParseException e) {
             throw e.withReason(e.reason().contains("C++03") ? e.reason() : e.reason() + " (C++03)");
         }
@@ -165,7 +165,17 @@ public final class Parser {
         var parsed = new Parser(file, Language.CPP, parserTokens(prepared.result(), provenance, true, prepared.problem()), provenance, recovery).parse();
         parsed.setProvenance(new TokenProvenance(provenance, 0, provenance.tokens().size()));
         parsed.setRange(new SourceRange(file, new SourcePosition(1, 1, 0), ParseRecovery.position(source, source.length())));
-        return parsed;
+        return comments(parsed, provenance);
+    }
+
+    private static SourceFile.Builder comments(SourceFile.Builder file, Preprocessing provenance) {
+        for (var source : provenance.sources().entrySet()) {
+            for (var lexical : CppLexer.scanRecovering(source.getKey(), source.getValue()).result().comments()) {
+                var comment = Comment.create().setKind(lexical.kind()).setText(lexical.text());
+                comment.setRange(lexical.range()); file.addComment(comment);
+            }
+        }
+        return file.bindComments();
     }
 
     private static Preprocessing.Fragment fragment(CppPreprocessor.Fragment fragment) {
