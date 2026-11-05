@@ -78,7 +78,7 @@ public final class CallExpression extends Expression {
         private NodeBuilder<? extends CallableDeclaration> target;
         private List<NodeBuilder<? extends CallableDeclaration>> candidates = new ArrayList<>();
         private Resolution resolution = Resolution.UNRESOLVED;
-        public Builder setCandidates(List<? extends NodeBuilder<? extends CallableDeclaration>> values, Resolution status) {
+        public Builder setCandidates(List<? extends NodeBuilder<? extends CallableDeclaration>> values, Resolution status) { clearExpressionInfo();
             candidates = new ArrayList<>(values);
             resolution = Objects.requireNonNull(status);
             if (status == Resolution.RESOLVED && candidates.size() != 1
@@ -105,29 +105,29 @@ public final class CallExpression extends Expression {
             return Optional.ofNullable(target);
         }
 
-        public Builder setCallee(NodeBuilder<? extends Expression> callee) {
+        public Builder setCallee(NodeBuilder<? extends Expression> callee) { clearExpressionInfo();
             this.callee = Objects.requireNonNull(callee);
             return this;
         }
 
-        public Builder setArguments(List<? extends NodeBuilder<? extends Expression>> arguments) {
+        public Builder setArguments(List<? extends NodeBuilder<? extends Expression>> arguments) { clearExpressionInfo();
             this.arguments = new ArrayList<>(List.copyOf(arguments));
             return this;
         }
 
-        public Builder addArgument(NodeBuilder<? extends Expression> value) {
+        public Builder addArgument(NodeBuilder<? extends Expression> value) { clearExpressionInfo();
             arguments.add(Objects.requireNonNull(value));
             return this;
         }
 
-        public Builder setTarget(NodeBuilder<? extends CallableDeclaration> target) {
+        public Builder setTarget(NodeBuilder<? extends CallableDeclaration> target) { clearExpressionInfo();
             this.target = Objects.requireNonNull(target);
             candidates = new ArrayList<>(List.of(target));
             resolution = Resolution.RESOLVED;
             return this;
         }
 
-        public Builder clearTarget() {
+        public Builder clearTarget() { clearExpressionInfo();
             this.target = null;
             candidates.clear();
             resolution = Resolution.UNRESOLVED;

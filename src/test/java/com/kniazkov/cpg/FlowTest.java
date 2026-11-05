@@ -30,6 +30,7 @@ class FlowTest {
     }
 
     static Set<Node> writes(FunctionFlow flow, Node read) {
+        while (read instanceof ConversionExpression conversion && !conversion.isExplicit()) read = conversion.operand();
         Set<Node> writes = new HashSet<>();
         for (var edge : flow.data()) if (edge.kind() == Dependency.DEFINITION && edge.to() == read) writes.add(edge.from());
         return writes;
@@ -128,4 +129,25 @@ class FlowTest {
         assertTrue(DotVisualizer.toDot(p).contains("DFG def"));
         assertTrue(p.edit().build().flows().isEmpty());
     }
+    @Test void cppShortCircuitAndConditionalEffectsPreservePossibleDefinitions() throws Exception {
+        var skipped = read(Language.CPP, "int x=1; false && (x=2); true || (x=3); int y=x;");
+        var variables = nodes(skipped, VariableDeclaration.class);
+        assertEquals(Set.of(variables.getFirst()), writes(skipped.flows().getFirst(), variables.getLast().initializer().orElseThrow()));
+        var branches = read(Language.CPP, "int flag=1; int x=0; flag ? (x=2) : (x=3); int y=x;");
+        var assignments = nodes(branches, AssignmentExpression.class);
+        var vars = nodes(branches, VariableDeclaration.class);
+        assertEquals(Set.copyOf(assignments), writes(branches.flows().getFirst(), vars.getLast().initializer().orElseThrow()));
+    }
+
+    @Test void cppCompoundAndIncrementReadThenReplaceTheLocalDefinition() throws Exception {
+        var project = read(Language.CPP, "int x=1; x+=2; ++x; int y=x;");
+        var flow = project.flows().getFirst();
+        var compound = nodes(project, CompoundAssignmentExpression.class).getFirst();
+        var increment = nodes(project, PrefixIncrementExpression.class).getFirst();
+        var variables = nodes(project, VariableDeclaration.class);
+        assertEquals(Set.of(variables.getFirst()), writes(flow, compound.target()));
+        assertEquals(Set.of(compound), writes(flow, increment.operand()));
+        assertEquals(Set.of(increment), writes(flow, variables.getLast().initializer().orElseThrow()));
+    }
+
 }

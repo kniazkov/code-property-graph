@@ -130,7 +130,8 @@ class DeclaratorTest {
         file.walk(new NodeVisitor() { @Override public void visit(IntegerLiteral n) { literals.add(n); } });
         assertEquals("unsigned int", literals.get(0).cppType().orElseThrow());
         assertEquals("unsigned long", literals.get(1).cppType().orElseThrow());
-        assertEquals("long", assertInstanceOf(IntegerLiteral.class, ((ReturnStatement) ((FunctionDeclaration) parse("int f(){return -2147483648;}").items().getFirst()).body().orElseThrow().items().getFirst()).value().orElseThrow()).cppType().orElseThrow());
+        var negative = assertInstanceOf(NegateExpression.class, ((ReturnStatement) ((FunctionDeclaration) parse("int f(){return -2147483648;}").items().getFirst()).body().orElseThrow().items().getFirst()).value().orElseThrow());
+        assertEquals("long", assertInstanceOf(IntegerLiteral.class, negative.operand()).cppType().orElseThrow());
     }
 
     @Test void parameterArrayAdjustmentPreservesTypedefAppliedElementQualifiers() {

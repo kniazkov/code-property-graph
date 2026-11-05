@@ -29,10 +29,10 @@ public final class SizeofExpression extends Expression {
         private Builder() { super(SizeofExpression.class); }
         public Optional<NodeBuilder<? extends TypeNode>> type() { return Optional.ofNullable(type); }
         public Optional<NodeBuilder<? extends Expression>> operand() { return Optional.ofNullable(operand); }
-        public Builder setType(NodeBuilder<? extends TypeNode> value) {
+        public Builder setType(NodeBuilder<? extends TypeNode> value) { clearExpressionInfo();
             type = Objects.requireNonNull(value); operand = null; return this;
         }
-        public Builder setOperand(NodeBuilder<? extends Expression> value) {
+        public Builder setOperand(NodeBuilder<? extends Expression> value) { clearExpressionInfo();
             operand = Objects.requireNonNull(value); type = null; return this;
         }
         @Override SizeofExpression newNode() { return new SizeofExpression(); }

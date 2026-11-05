@@ -8,6 +8,12 @@ import java.util.Objects;
  * Reusing a builder as a reference target preserves object identity in the snapshot.
  * @param <T> exact snapshot class allocated by this builder */
 public abstract class NodeBuilder<T extends Node> {
+    ExpressionInfo expressionInfo;
+    public final void clearExpressionInfo() { expressionInfo = null; }
+    public final void setExpressionInfo(ExpressionInfo value) {
+        if (!Expression.class.isAssignableFrom(nodeType)) throw new IllegalStateException("Not an expression builder");
+        expressionInfo = Objects.requireNonNull(value);
+    }
     String declarationTypeIdentity;
     public final void setTypeIdentity(String value) { declarationTypeIdentity = Objects.requireNonNull(value); }
     public final void clearTypeIdentity() { declarationTypeIdentity = null; }

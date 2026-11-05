@@ -159,7 +159,22 @@ public final class ProjectJson {
                     e.operand().ifPresent(operand -> obj.put("operand", node(operand)));
                 }
                 case NameExpression e -> obj.put("name", e.name());
-                case IntegerLiteral i -> { obj.put("value", i.value()); i.cppType().ifPresent(t -> obj.put("cppType", t)); }
+                case IntegerLiteral i -> { obj.put("value", i.bigValue()); i.cppType().ifPresent(t -> obj.put("cppType", t));
+                    i.spelling().ifPresent(spelling -> obj.put("spelling", spelling)); }
+                case BooleanLiteral i -> obj.put("value", i.value()).put("spelling", i.spelling());
+                case FloatingLiteral i -> obj.put("value", i.value()).put("cppType", i.cppType()).put("spelling", i.spelling());
+                case CharacterLiteral i -> obj.put("value", i.value()).put("wide", i.wide()).put("cppType", i.cppType()).put("spelling", i.spelling())
+                        .put("codeUnitBits", i.codeUnitBits()).put("valueBits", i.valueBits());
+                case StringLiteral i -> obj.array("codeUnits", a -> i.codeUnits().forEach(a::add))
+                        .put("wide", i.wide()).put("cppType", i.cppType()).put("spelling", i.spelling());
+                case ConversionExpression c -> {
+                    obj.put("operand", node(c.operand())).put("targetType", node(c.targetType()))
+                            .put("explicit", c.isExplicit()).put("conversionKind", lower(c.kind()));
+                    c.sourceType().ifPresent(type -> obj.put("sourceType", type));
+                }
+                case CompoundAssignmentExpression a -> obj.put("target", node(a.target())).put("value", node(a.value())).put("operator", a.operator());
+                case ConditionalExpression c -> obj.put("condition", node(c.condition())).put("thenExpression", node(c.thenExpression()))
+                        .put("elseExpression", node(c.elseExpression()));
                 case ErrorExpression e -> obj.put("problem", problem(e.problem()));
                 case IncludeDirective i -> obj.put("header", i.header()).put("system", i.system());
                 case IfStatement i -> {
@@ -183,6 +198,10 @@ public final class ProjectJson {
                 case Exit ignored -> { }
                 default -> throw new IllegalStateException("Missing JSON schema for " + n.getClass().getName());
             }
+            if (n instanceof Expression expression) expression.semanticInfo().ifPresent(info -> obj.object("semanticInfo", value -> {
+                info.resultType().ifPresent(type -> value.put("resultType", type));
+                value.put("category", lower(info.category()));
+            }));
             if (n instanceof Declaration declaration) {
                 declaration.typeIdentity().ifPresent(identity -> obj.put("typeIdentity", identity));
                 if (declaration.linkage() != Declaration.Linkage.NONE) obj.put("linkage", lower(declaration.linkage()));

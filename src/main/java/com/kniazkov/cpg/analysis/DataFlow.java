@@ -127,6 +127,38 @@ public final class DataFlow {
             if (a.target() instanceof NameExpression name) {
                 name.target().ifPresent(target -> state.write(target, a));
             }
+        } else if (value instanceof CompoundAssignmentExpression assignment) {
+            consume(assignment.target(), assignment, state, sink);
+            consume(assignment.value(), assignment, state, sink);
+            writeTarget(assignment.target(), assignment, state);
+        } else if (value instanceof PrefixIncrementExpression || value instanceof PrefixDecrementExpression
+                || value instanceof PostfixIncrementExpression || value instanceof PostfixDecrementExpression) {
+            var update = (UnaryExpression) value;
+            consume(update.operand(), update, state, sink);
+            writeTarget(update.operand(), update, state);
+        } else if (value instanceof LogicalAndExpression || value instanceof LogicalOrExpression) {
+            var logical = (BinaryExpression) value;
+            consume(logical.left(), logical, state, sink);
+            var truth = knownTruth(logical.left());
+            boolean and = logical instanceof LogicalAndExpression;
+            if (truth.isPresent()) {
+                if (truth.get() == and) consume(logical.right(), logical, state, sink);
+            } else {
+                State evaluated = state.copy();
+                consume(logical.right(), logical, evaluated, sink);
+                state.merge(evaluated);
+            }
+        } else if (value instanceof ConditionalExpression conditional) {
+            consume(conditional.condition(), conditional, state, sink);
+            var truth = knownTruth(conditional.condition());
+            if (truth.isPresent()) consume(truth.get() ? conditional.thenExpression()
+                    : conditional.elseExpression(), conditional, state, sink);
+            else {
+                State positive = state.copy(), negative = state.copy();
+                consume(conditional.thenExpression(), conditional, positive, sink);
+                consume(conditional.elseExpression(), conditional, negative, sink);
+                state.definitions.clear(); state.merge(positive); state.merge(negative);
+            }
         } else if (value instanceof CallExpression call && language == Language.CPP && call.arguments().size() > 1) {
             consume(call.callee(), call, state, sink);
             arguments(call, state, sink);
@@ -141,7 +173,23 @@ public final class DataFlow {
             consume(member.receiver(), assignment, state, sink);
         } else if (assignment.target() instanceof DereferenceExpression pointer) {
             consume(pointer.operand(), assignment, state, sink);
+        } else if (assignment.target() instanceof IndexExpression index) {
+            consume(index.left(), assignment, state, sink);
+            consume(index.right(), assignment, state, sink);
         }
+    }
+
+    private static void writeTarget(Expression target, Node update, State state) {
+        if (target instanceof NameExpression name) name.target().ifPresent(declaration -> state.write(declaration, update));
+    }
+
+    /** Only literal truth is exact here; unknown branches retain both possible effects. */
+    private static Optional<Boolean> knownTruth(Expression expression) {
+        if (expression instanceof ConversionExpression conversion && !conversion.isExplicit())
+            return knownTruth(conversion.operand());
+        if (expression instanceof BooleanLiteral literal) return Optional.of(literal.value());
+        if (expression instanceof IntegerLiteral literal) return Optional.of(literal.bigValue().signum() != 0);
+        return Optional.empty();
     }
 
     /**

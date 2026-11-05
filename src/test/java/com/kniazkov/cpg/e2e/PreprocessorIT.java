@@ -31,8 +31,13 @@ class PreprocessorIT {
         assertEquals(2, multiplies[0]);
         assertEquals(3, Cpg.sources(project, Language.CPP).size());
         var graph = run.snapshot();
-        graph.containsNode("{\"kind\":\"MultiplyExpression\",\"left\":{\"name\":\"a\"},\"right\":{\"name\":\"a\"}}");
-        graph.containsNode("{\"kind\":\"MultiplyExpression\",\"left\":{\"name\":\"c\"},\"right\":{\"name\":\"c\"}}");
+        var corpus = new java.util.Properties();
+        try (var reader = Files.newBufferedReader(Path.of("src/test/resources/cpp03/square/scenario.properties"))) {
+            corpus.load(reader);
+        }
+        graph.containsNode(corpus.getProperty("node"));
+        graph.containsNode("{\"kind\":\"MultiplyExpression\",\"left\":{\"kind\":\"ConversionExpression\",\"explicit\":false,\"operand\":{\"name\":\"a\"}},\"right\":{\"kind\":\"ConversionExpression\",\"explicit\":false,\"operand\":{\"name\":\"a\"}}}");
+        graph.containsNode("{\"kind\":\"MultiplyExpression\",\"left\":{\"kind\":\"ConversionExpression\",\"explicit\":false,\"operand\":{\"name\":\"c\"}},\"right\":{\"kind\":\"ConversionExpression\",\"explicit\":false,\"operand\":{\"name\":\"c\"}}}");
         assertTrue(Cpg.sources(project, Language.CPP).get("include/square.h").contains("int second();"));
     }
 

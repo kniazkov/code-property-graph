@@ -10,6 +10,27 @@ package com.kniazkov.cpg.model;
  * <p>One call to Node.accept dispatches once. Use Node.walk for a whole subtree.
  */
 public interface NodeVisitor {
+    default void visit(BitwiseAndExpression node) { visit((BinaryExpression) node); }
+    default void visit(BitwiseOrExpression node) { visit((BinaryExpression) node); }
+    default void visit(BitwiseXorExpression node) { visit((BinaryExpression) node); }
+    default void visit(LogicalAndExpression node) { visit((BinaryExpression) node); }
+    default void visit(LogicalOrExpression node) { visit((BinaryExpression) node); }
+    default void visit(CommaExpression node) { visit((BinaryExpression) node); }
+    default void visit(IndexExpression node) { visit((BinaryExpression) node); }
+    default void visit(DotMemberPointerExpression node) { visit((BinaryExpression) node); }
+    default void visit(ArrowMemberPointerExpression node) { visit((BinaryExpression) node); }
+    default void visit(BitwiseNotExpression node) { visit((UnaryExpression) node); }
+    default void visit(PrefixIncrementExpression node) { visit((UnaryExpression) node); }
+    default void visit(PrefixDecrementExpression node) { visit((UnaryExpression) node); }
+    default void visit(PostfixIncrementExpression node) { visit((UnaryExpression) node); }
+    default void visit(PostfixDecrementExpression node) { visit((UnaryExpression) node); }
+    default void visit(ConditionalExpression node) { visit((Expression) node); }
+    default void visit(CompoundAssignmentExpression node) { visit((Expression) node); }
+    default void visit(BooleanLiteral node) { visit((Expression) node); }
+    default void visit(FloatingLiteral node) { visit((Expression) node); }
+    default void visit(CharacterLiteral node) { visit((Expression) node); }
+    default void visit(StringLiteral node) { visit((Expression) node); }
+    default void visit(ConversionExpression node) { visit((Expression) node); }
     default void visit(NamespaceDeclaration node) { visit((Declaration) node); }
     default void visit(NamespaceAliasDeclaration node) { visit((Declaration) node); }
     default void visit(UsingDirective node) { visit((Declaration) node); }

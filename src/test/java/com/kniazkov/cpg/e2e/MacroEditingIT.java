@@ -3,6 +3,7 @@ package com.kniazkov.cpg.e2e;
 
 import com.kniazkov.cpg.Cpg;
 import com.kniazkov.cpg.model.*;
+import static com.kniazkov.cpg.e2e.ExpressionSyntax.written;
 import java.nio.file.*;
 import java.util.*;
 import org.junit.jupiter.api.Test;
@@ -34,8 +35,8 @@ class MacroEditingIT {
         Files.copy(FIXTURE.resolve("compile_commands.json"), output.resolve("compile_commands.json"));
         var cli = new CliSandbox(Files.createDirectory(temp.resolve("cli"))).directory(output);
         var run = cli.runDatabase(cli.input.resolve("compile_commands.json"), "--stage", "resolved").expectStatus(0);
-        run.snapshot().containsNode("{\"kind\":\"MultiplyExpression\",\"left\":{\"kind\":\"NameExpression\",\"name\":\"a\"},\"right\":{\"kind\":\"NameExpression\",\"name\":\"b\"}}");
-        run.snapshot().containsNode("{\"kind\":\"MultiplyExpression\",\"left\":{\"name\":\"c\"},\"right\":{\"name\":\"c\"}}");
+        run.snapshot().containsNode("{\"kind\":\"MultiplyExpression\",\"left\":{\"kind\":\"ConversionExpression\",\"explicit\":false,\"operand\":{\"kind\":\"NameExpression\",\"name\":\"a\"}},\"right\":{\"kind\":\"ConversionExpression\",\"explicit\":false,\"operand\":{\"kind\":\"NameExpression\",\"name\":\"b\"}}}");
+        run.snapshot().containsNode("{\"kind\":\"MultiplyExpression\",\"left\":{\"kind\":\"ConversionExpression\",\"explicit\":false,\"operand\":{\"name\":\"c\"}},\"right\":{\"kind\":\"ConversionExpression\",\"explicit\":false,\"operand\":{\"name\":\"c\"}}}");
         assertEquals(files.get("include/square.h"), Files.readString(run.work().resolve("generated/include/square.h")));
     }
 
@@ -56,11 +57,11 @@ class MacroEditingIT {
         var project = Cpg.read(input, OPTIONS);
         var matches = new ArrayList<MultiplyExpression>();
         project.walk(new NodeVisitor() { @Override public void visit(MultiplyExpression n) {
-            if (n.left() instanceof NameExpression name && name.name().equals("a")) matches.add(n);
+            if (written(n.left()) instanceof NameExpression name && name.name().equals("a")) matches.add(n);
         }});
         assertEquals(1, matches.size());
         var editor = new ProjectEditor(project);
-        editor.replace(matches.getFirst().right(), AddExpression.create()
+        editor.replace(written(matches.getFirst().right()), AddExpression.create()
                 .setLeft(NameExpression.create().setName("b")).setRight(IntegerLiteral.create().setValue(1)).build());
         var files = Cpg.sources(editor.build(), Language.CPP);
         assertEquals(header, files.get("macros.h"));
@@ -71,11 +72,11 @@ class MacroEditingIT {
         var reparsed = Cpg.read(output, OPTIONS);
         var found = new ArrayList<AddExpression>();
         reparsed.walk(new NodeVisitor() { @Override public void visit(AddExpression n) {
-            if (n.left() instanceof MultiplyExpression m && m.left() instanceof NameExpression left
-                    && left.name().equals("a") && m.right() instanceof AddExpression right
-                    && right.left() instanceof NameExpression name && name.name().equals("b")
-                    && right.right() instanceof IntegerLiteral one && one.value() == 1
-                    && n.right() instanceof IntegerLiteral after && after.value() == 1) found.add(n);
+            if (written(n.left()) instanceof MultiplyExpression m && written(m.left()) instanceof NameExpression left
+                    && left.name().equals("a") && written(m.right()) instanceof AddExpression right
+                    && written(right.left()) instanceof NameExpression name && name.name().equals("b")
+                    && written(right.right()) instanceof IntegerLiteral one && one.value() == 1
+                    && written(n.right()) instanceof IntegerLiteral after && after.value() == 1) found.add(n);
         }});
         assertEquals(1, found.size(), "a * (b + 1) must remain inside the original + 1");
     }
