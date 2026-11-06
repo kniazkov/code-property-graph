@@ -5,6 +5,7 @@ import com.kniazkov.cpg.build.PlatformProfile;
 import com.kniazkov.cpg.model.*;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.function.Function;
 
 /** Conservative scalar, pointer and array layout. No host ABI is consulted.
  * Function, void, incomplete, member-pointer and unmodelled class layouts remain unknown. */
@@ -155,14 +156,19 @@ public final class TypeSemantics {
 
     /** Semantic result type before context-dependent decay. References denote the referred object. */
     public static Optional<TypeNode> expressionType(Expression expression, PlatformProfile profile) {
+        return expressionType(expression, profile, ignored -> Optional.empty());
+    }
+    static Optional<TypeNode> expressionType(Expression expression, PlatformProfile profile,
+            Function<Declaration, Optional<ConstantEvaluator.Value>> constants) {
         if (expression instanceof InitializationExpression initialization) return initialization.type();
-        return rawExpressionType(expression, profile).map(TypeSemantics::withoutReference);
+        return rawExpressionType(expression, profile, constants).map(TypeSemantics::withoutReference);
     }
     static TypeNode withoutReference(TypeNode type) {
         var plain = unqualified(type);
         return plain instanceof ReferenceType reference ? reference.referredType() : type;
     }
-    private static Optional<TypeNode> rawExpressionType(Expression expression, PlatformProfile profile) {
+    private static Optional<TypeNode> rawExpressionType(Expression expression, PlatformProfile profile,
+            Function<Declaration, Optional<ConstantEvaluator.Value>> constants) {
         if (expression instanceof ConversionExpression conversion) return Optional.of(conversion.targetType());
         if(expression instanceof DereferenceExpression dereference) {
             var iterator=expressionType(dereference.operand(),profile).flatMap(LibraryIteratorSemantics::info);
@@ -202,7 +208,7 @@ public final class TypeSemantics {
         }
         if (expression instanceof CallExpression call) return call.target().flatMap(CallableDeclaration::returnType)
                 .or(() -> callType(call, profile).map(FunctionType::returnType));
-        if (expression instanceof AssignmentExpression assignment) return expressionType(assignment.target(), profile);
+        if (expression instanceof AssignmentExpression assignment) return expressionType(assignment.target(), profile, constants);
         if (expression instanceof CompoundAssignmentExpression assignment) {
             var type=expressionType(assignment.target(),profile);
             var iterator=type.flatMap(LibraryIteratorSemantics::info);
@@ -211,11 +217,13 @@ public final class TypeSemantics {
             return type;
         }
         if (expression instanceof ConditionalExpression conditional) {
-            var a = expressionType(conditional.thenExpression(), profile);
-            var b = expressionType(conditional.elseExpression(), profile);
+            var a = expressionType(conditional.thenExpression(), profile, constants);
+            var b = expressionType(conditional.elseExpression(), profile, constants);
             if (a.isEmpty() || b.isEmpty()) return Optional.empty();
             if (a.get().canonicalIdentity().equals(b.get().canonicalIdentity())) return a;
-            return commonArithmeticType(a.get(), b.get(), profile);
+            var left = integralOrEnum(a.get(), profile) ? promoted(conditional.thenExpression(), profile, constants) : a;
+            var right = integralOrEnum(b.get(), profile) ? promoted(conditional.elseExpression(), profile, constants) : b;
+            return left.isPresent() && right.isPresent() ? commonArithmeticType(left.get(), right.get(), profile) : Optional.empty();
         }
         if (expression instanceof AddressOfExpression address) {
             // A directly declared qualified non-static member has a member-pointer type.
@@ -231,26 +239,25 @@ public final class TypeSemantics {
                         .setOwnerType(NamedType.create().setName(klass.name()).setDeclaration(klass.edit()))
                         .setPointee(signatureType(type)).build());
             }
-            return expressionType(address.operand(), profile).map(type -> PointerType.create().setPointee(type.edit()).build());
+            return expressionType(address.operand(), profile, constants).map(type -> PointerType.create().setPointee(type.edit()).build());
         }
         if (expression instanceof DereferenceExpression dereference)
-            return expressionType(dereference.operand(), profile).flatMap(type -> LibraryIteratorSemantics.info(type)
+            return expressionType(dereference.operand(), profile, constants).flatMap(type -> LibraryIteratorSemantics.info(type)
                     .map(LibraryIteratorSemantics.Info::referenceType).or(() -> pointee(decay(type))));
-        if (expression instanceof LogicalNotExpression logical) return expressionType(logical.operand(), profile)
+        if (expression instanceof LogicalNotExpression logical) return expressionType(logical.operand(), profile, constants)
                 .map(TypeSemantics::decay).filter(type -> scalar(type, profile)).map(type -> named("bool"));
         if (expression instanceof PrefixIncrementExpression || expression instanceof PrefixDecrementExpression)
-            return expressionType(((UnaryExpression) expression).operand(), profile);
+            return expressionType(((UnaryExpression) expression).operand(), profile, constants);
         if (expression instanceof PostfixIncrementExpression || expression instanceof PostfixDecrementExpression)
-            return expressionType(((UnaryExpression) expression).operand(), profile).map(TypeSemantics::unqualified);
+            return expressionType(((UnaryExpression) expression).operand(), profile, constants).map(TypeSemantics::unqualified);
         if (expression instanceof BitwiseNotExpression bitwise)
-            return expressionType(bitwise.operand(), profile).filter(type -> integerType(type, profile).isPresent())
-                    .flatMap(type -> promoted(type, profile));
+            return promoted(bitwise.operand(), profile, constants).filter(type -> integerType(type, profile).isPresent());
         if (expression instanceof UnaryPlusExpression || expression instanceof NegateExpression)
-            return expressionType(((UnaryExpression) expression).operand(), profile).flatMap(type -> promoted(type, profile));
+            return promoted(((UnaryExpression) expression).operand(), profile, constants);
         if (expression instanceof BinaryExpression binary) {
-            if (binary instanceof CommaExpression) return expressionType(binary.right(), profile);
-            var left = expressionType(binary.left(), profile).map(TypeSemantics::decay);
-            var right = expressionType(binary.right(), profile).map(TypeSemantics::decay);
+            if (binary instanceof CommaExpression) return expressionType(binary.right(), profile, constants);
+            var left = expressionType(binary.left(), profile, constants).map(TypeSemantics::decay);
+            var right = expressionType(binary.right(), profile, constants).map(TypeSemantics::decay);
             if (left.isEmpty() || right.isEmpty()) return Optional.empty();
             TypeNode a = left.get(), b = right.get();
             var iteratorA=LibraryIteratorSemantics.info(a);
@@ -268,7 +275,7 @@ public final class TypeSemantics {
             if (binary instanceof LogicalAndExpression || binary instanceof LogicalOrExpression || isComparison(binary))
                 return scalar(a, profile) && scalar(b, profile) ? Optional.of(named("bool")) : Optional.empty();
             if (binary instanceof ShiftLeftExpression || binary instanceof ShiftRightExpression)
-                return integerType(a, profile).isPresent() && integerType(b, profile).isPresent() ? promoted(a, profile) : Optional.empty();
+                return integralOrEnum(a, profile) && integralOrEnum(b, profile) ? promoted(binary.left(), profile, constants) : Optional.empty();
             if (binary instanceof AddExpression || binary instanceof SubtractExpression) {
                 if(iteratorA.isPresent() && iteratorA.get().randomAccess() && integerType(b,profile).isPresent())return Optional.of(a);
                 if(binary instanceof AddExpression && iteratorB.isPresent() && iteratorB.get().randomAccess() && integerType(a,profile).isPresent())return Optional.of(b);
@@ -280,9 +287,12 @@ public final class TypeSemantics {
             }
             if (binary instanceof RemainderExpression || binary instanceof BitwiseAndExpression
                     || binary instanceof BitwiseOrExpression || binary instanceof BitwiseXorExpression) {
-                if (integerType(a, profile).isEmpty() || integerType(b, profile).isEmpty()) return Optional.empty();
+                if (!integralOrEnum(a, profile) || !integralOrEnum(b, profile)) return Optional.empty();
             }
-            return commonArithmeticType(a, b, profile);
+            var promotedLeft = integralOrEnum(a, profile) ? promoted(binary.left(), profile, constants) : Optional.of(a);
+            var promotedRight = integralOrEnum(b, profile) ? promoted(binary.right(), profile, constants) : Optional.of(b);
+            return promotedLeft.isPresent() && promotedRight.isPresent()
+                    ? commonArithmeticType(promotedLeft.get(), promotedRight.get(), profile) : Optional.empty();
         }
         return Optional.empty();
     }
@@ -335,7 +345,7 @@ public final class TypeSemantics {
                 || binary instanceof LessOrEqualExpression || binary instanceof GreaterExpression || binary instanceof GreaterOrEqualExpression;
     }
     static boolean scalar(TypeNode type, PlatformProfile profile) {
-        return integerType(type, profile).isPresent() || floatingRank(type) > 0 || unqualified(type) instanceof PointerType
+        return integralOrEnum(type, profile) || floatingRank(type) > 0 || unqualified(type) instanceof PointerType
                 || unqualified(type) instanceof OpaqueLibraryType opaque && (opaque.category()==OpaqueLibraryType.Category.INTEGER || opaque.category()==OpaqueLibraryType.Category.ARITHMETIC);
     }
     static int floatingRank(TypeNode type) {
@@ -344,7 +354,34 @@ public final class TypeSemantics {
             case "float" -> 1; case "double" -> 2; case "long double" -> 3; default -> 0;
         } : 0;
     }
+    static boolean integralOrEnum(TypeNode type, PlatformProfile profile) {
+        return integerType(type, profile).isPresent() || EnumSemantics.declaration(type).isPresent();
+    }
+    /** Expression-aware promotions preserve direct bit-field ranges without importing later DRs. */
+    public static Optional<TypeNode> promoted(Expression expression, PlatformProfile profile) {
+        return promoted(expression, profile, ignored -> Optional.empty());
+    }
+    static Optional<TypeNode> promoted(Expression expression, PlatformProfile profile,
+            Function<Declaration, Optional<ConstantEvaluator.Value>> constants) {
+        if (BitFieldSemantics.uncertainResult(expression)) return Optional.empty();
+        var field = BitFieldSemantics.field(expression);
+        if (field.isPresent()) {
+            var enumeration = field.get().type().flatMap(EnumSemantics::declaration);
+            if (enumeration.isPresent()) return EnumSemantics.underlying(enumeration.get(), profile, constants)
+                    .flatMap(type -> EnumSemantics.promoteUnderlying(type, profile)).map(value -> named(value.spelling()));
+            return BitFieldSemantics.promoted(field.get(), profile,
+                    value -> ConstantEvaluator.integralConstant(value, profile, constants)).map(value -> named(value.spelling()));
+        }
+        return expressionType(expression, profile, constants).flatMap(type -> promoted(type, profile, constants));
+    }
     public static Optional<TypeNode> promoted(TypeNode type, PlatformProfile profile) {
+        return promoted(type, profile, ignored -> Optional.empty());
+    }
+    static Optional<TypeNode> promoted(TypeNode type, PlatformProfile profile,
+            Function<Declaration, Optional<ConstantEvaluator.Value>> constants) {
+        var enumeration = EnumSemantics.declaration(type);
+        if (enumeration.isPresent()) return EnumSemantics.underlying(enumeration.get(), profile, constants)
+                .flatMap(value -> EnumSemantics.promoteUnderlying(value, profile)).map(value -> named(value.spelling()));
         if (floatingRank(type) > 0) return Optional.of(unqualified(type));
         return integerType(type, profile).flatMap(value -> ConstantEvaluator.promote(value, profile)).map(value -> named(value.spelling()));
     }

@@ -41,6 +41,76 @@ class PlatformProfileTest {
         assertTrue(profile.integerRange("double").isEmpty());
         assertEquals(profile, PlatformProfile.fromSettings(profile.toSettings()));
     }
+    @Test void integerPoliciesRoundTripAndDistinguishSemanticIdentity() throws Exception {
+        var baseline = PlatformProfile.defaults();
+        assertEquals("int-first", baseline.enumUnderlyingType());
+        assertEquals("signed", baseline.bitFieldSignedness());
+        assertEquals("unknown", baseline.signedIntegerConversion());
+        for (String enumeration : List.of("int-first", "unsigned-first", "unknown")) {
+            for (String conversion : List.of("unknown", "twos-complement")) {
+                var profile = baseline.toBuilder().enumUnderlyingType(enumeration)
+                        .signedIntegerConversion(conversion).build();
+                assertEquals(profile, profile.toBuilder().build());
+                var restored = PlatformProfile.fromSettings(profile.toSettings());
+                assertEquals(profile, restored);
+                assertEquals(profile.hashCode(), restored.hashCode());
+                assertEquals(profile.stableIdentity(), restored.stableIdentity());
+                assertEquals(enumeration, restored.enumUnderlyingType());
+                assertEquals(conversion, restored.signedIntegerConversion());
+                if (!profile.equals(baseline)) {
+                    assertNotEquals(baseline.stableIdentity(), profile.stableIdentity());
+                    assertNotEquals(baseline.identityHash(), profile.identityHash());
+                    assertNotEquals(unit(baseline).variantId(), unit(profile).variantId());
+                }
+            }
+        }
+        var legacy = new LinkedHashMap<>(baseline.toSettings());
+        legacy.remove("bitFieldSignedness");
+        legacy.remove("enumUnderlyingType");
+        legacy.remove("signedIntegerConversion");
+        assertEquals(baseline, PlatformProfile.fromSettings(legacy));
+        Path settings = temp.resolve("integer-policies.json");
+        Files.writeString(settings, """
+                {"inherits":"default","enumUnderlyingType":"unsigned-first","signedIntegerConversion":"twos-complement"}
+                """);
+        assertEquals(baseline.toBuilder().enumUnderlyingType("unsigned-first")
+                .signedIntegerConversion("twos-complement").build(), PlatformProfile.read(settings));
+    }
+    @Test void bitFieldSignednessRoundTripsAndChangesIdentity() throws Exception {
+        var baseline = PlatformProfile.defaults();
+        for (String policy : List.of("signed", "unsigned", "unknown")) {
+            var profile = baseline.toBuilder().bitFieldSignedness(policy).build();
+            assertEquals(policy, profile.bitFieldSignedness());
+            assertEquals(profile, profile.toBuilder().build());
+            var restored = PlatformProfile.fromSettings(profile.toSettings());
+            assertEquals(profile, restored);
+            assertEquals(profile.hashCode(), restored.hashCode());
+            assertEquals(profile.stableIdentity(), restored.stableIdentity());
+            if (!policy.equals("signed")) {
+                assertNotEquals(baseline.identityHash(), profile.identityHash());
+                assertNotEquals(unit(baseline).variantId(), unit(profile).variantId());
+            }
+            Path settings = temp.resolve("bit-field-" + policy + ".json");
+            Files.writeString(settings, "{\"inherits\":\"default\",\"bitFieldSignedness\":\"" + policy + "\"}");
+            assertEquals(profile, PlatformProfile.read(settings));
+        }
+    }
+    @Test void validatesIntegerPolicies() {
+        for (String field : List.of("enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness")) {
+            for (Object bad : List.of("guess", "", "INT-FIRST", 1, true)) {
+                assertThrows(IllegalArgumentException.class, () ->
+                        PlatformProfile.fromSettings(Map.of("inherits", "default", field, bad)));
+            }
+            var nullSetting = new LinkedHashMap<String, Object>();
+            nullSetting.put("inherits", "default"); nullSetting.put(field, null);
+            assertThrows(IllegalArgumentException.class, () -> PlatformProfile.fromSettings(nullSetting));
+        }
+        for (String bad : Arrays.asList(null, "", "guess")) {
+            assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder().bitFieldSignedness(bad).build());
+            assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder().enumUnderlyingType(bad).build());
+            assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder().signedIntegerConversion(bad).build());
+        }
+    }
     @Test void validatesSettingsAndDistinguishesNullFromInheritedAlignment() {
         var inherited = PlatformProfile.fromSettings(Map.of("inherits", "default"));
         var unknown = new LinkedHashMap<String, Object>();

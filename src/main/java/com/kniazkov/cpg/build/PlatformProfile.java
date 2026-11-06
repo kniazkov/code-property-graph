@@ -19,7 +19,7 @@ public final class PlatformProfile {
     private static final List<String> SCALARS = List.of("bool", "char", "short", "int", "long",
             "long long", "wchar_t", "float", "double", "long double", "pointer");
     private static final Set<String> SETTINGS = Set.of("inherits", "name", "bitsPerByte", "sizes", "alignments",
-            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding");
+            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness");
     private static final PlatformProfile DEFAULT = new Builder(true).build();
     private final String name;
     private final int bitsPerByte;
@@ -27,6 +27,7 @@ public final class PlatformProfile {
     private final boolean charSigned;
     private final String wcharType, sizeType, sourceEncoding, executionEncoding, wideExecutionEncoding, aggregateLayout;
     private final String fieldAlignment, aggregateAlignment, tailPadding;
+    private final String enumUnderlyingType, signedIntegerConversion, bitFieldSignedness;
 
     private PlatformProfile(Builder b) {
         name = nonempty(b.name, "name"); bitsPerByte = b.bitsPerByte;
@@ -77,6 +78,11 @@ public final class PlatformProfile {
         fieldAlignment = policy(b.fieldAlignment, "fieldAlignment", Set.of("natural", "packed1", "unknown"));
         aggregateAlignment = policy(b.aggregateAlignment, "aggregateAlignment", Set.of("maximum-field", "unknown"));
         tailPadding = policy(b.tailPadding, "tailPadding", Set.of("alignment", "unknown"));
+        bitFieldSignedness = policy(b.bitFieldSignedness, "bitFieldSignedness", Set.of("signed", "unsigned", "unknown"));
+        enumUnderlyingType = policy(b.enumUnderlyingType, "enumUnderlyingType",
+                Set.of("int-first", "unsigned-first", "unknown"));
+        signedIntegerConversion = policy(b.signedIntegerConversion, "signedIntegerConversion",
+                Set.of("unknown", "twos-complement"));
     }
 
     public static PlatformProfile defaults() { return DEFAULT; }
@@ -96,6 +102,20 @@ public final class PlatformProfile {
     public String fieldAlignment() { return fieldAlignment; }
     public String aggregateAlignment() { return aggregateAlignment; }
     public String tailPadding() { return tailPadding; }
+    /**
+     * Modeled enum underlying-type selection, not a host compiler fact.
+     * int-first tries int, unsigned int, long, unsigned long; unsigned-first tries
+     * unsigned int, int, unsigned long, long. Semantic selection also enforces
+     * the standard's size restriction; unknown makes no implementation choice.
+     */
+    public String enumUnderlyingType() { return enumUnderlyingType; }
+    /** Out-of-range signed conversion: unknown, or opt-in two's-complement wrapping. */
+    public String signedIntegerConversion() { return signedIntegerConversion; }
+    /**
+     * Explicit model for plain char/short/int/long bit-field signedness, not an ABI fact.
+     * Explicitly signed or unsigned bit-fields are unaffected.
+     */
+    public String bitFieldSignedness() { return bitFieldSignedness; }
     public Map<String, Integer> sizes() { return sizes; }
     public Map<String, Integer> alignments() { return alignments; }
     public OptionalInt sizeBits(String type) { return optional(sizes.get(storageType(type))); }
@@ -151,6 +171,8 @@ public final class PlatformProfile {
         map.put("sourceEncoding", sourceEncoding); map.put("executionEncoding", executionEncoding);
         map.put("wideExecutionEncoding", wideExecutionEncoding); map.put("aggregateLayout", aggregateLayout);
         map.put("fieldAlignment", fieldAlignment); map.put("aggregateAlignment", aggregateAlignment); map.put("tailPadding", tailPadding);
+        map.put("bitFieldSignedness", bitFieldSignedness);
+        map.put("enumUnderlyingType", enumUnderlyingType); map.put("signedIntegerConversion", signedIntegerConversion);
         return Collections.unmodifiableMap(map);
     }
     /** Stable, semantic identity; a display-name change alone does not create a new variant. */
@@ -210,6 +232,9 @@ public final class PlatformProfile {
         if (settings.containsKey("fieldAlignment")) b.fieldAlignment(string(settings.get("fieldAlignment"), "fieldAlignment"));
         if (settings.containsKey("aggregateAlignment")) b.aggregateAlignment(string(settings.get("aggregateAlignment"), "aggregateAlignment"));
         if (settings.containsKey("tailPadding")) b.tailPadding(string(settings.get("tailPadding"), "tailPadding"));
+        if (settings.containsKey("bitFieldSignedness")) b.bitFieldSignedness(string(settings.get("bitFieldSignedness"), "bitFieldSignedness"));
+        if (settings.containsKey("enumUnderlyingType")) b.enumUnderlyingType(string(settings.get("enumUnderlyingType"), "enumUnderlyingType"));
+        if (settings.containsKey("signedIntegerConversion")) b.signedIntegerConversion(string(settings.get("signedIntegerConversion"), "signedIntegerConversion"));
         return b.build();
     }
     private static String policy(String value, String field, Set<String> allowed) {
@@ -260,6 +285,8 @@ public final class PlatformProfile {
         private boolean charSigned = true;
         private String wcharType = "int", sizeType = "unsigned long", sourceEncoding = "UTF-8", executionEncoding = "UTF-8", wideExecutionEncoding = "UTF-32";
         private String aggregateLayout = "unknown";
+        // Also apply to older complete profiles that predate these optional settings.
+        private String enumUnderlyingType = "int-first", signedIntegerConversion = "unknown", bitFieldSignedness = "signed";
         private String fieldAlignment = "unknown", aggregateAlignment = "unknown", tailPadding = "unknown";
         private Builder(boolean defaults) {
             if (defaults) {
@@ -273,6 +300,8 @@ public final class PlatformProfile {
             name = p.name; bitsPerByte = p.bitsPerByte; sizes.putAll(p.sizes); alignments.putAll(p.alignments);
             charSigned = p.charSigned; wcharType = p.wcharType; sizeType = p.sizeType; sourceEncoding = p.sourceEncoding;
             executionEncoding = p.executionEncoding; wideExecutionEncoding = p.wideExecutionEncoding; aggregateLayout = p.aggregateLayout;
+            bitFieldSignedness = p.bitFieldSignedness;
+            enumUnderlyingType = p.enumUnderlyingType; signedIntegerConversion = p.signedIntegerConversion;
             fieldAlignment = p.fieldAlignment; aggregateAlignment = p.aggregateAlignment; tailPadding = p.tailPadding;
         }
         public Builder name(String value) { name = value; return this; }
@@ -294,6 +323,9 @@ public final class PlatformProfile {
         public Builder fieldAlignment(String value) { fieldAlignment = value; return this; }
         public Builder aggregateAlignment(String value) { aggregateAlignment = value; return this; }
         public Builder tailPadding(String value) { tailPadding = value; return this; }
+        public Builder bitFieldSignedness(String value) { bitFieldSignedness = value; return this; }
+        public Builder enumUnderlyingType(String value) { enumUnderlyingType = value; return this; }
+        public Builder signedIntegerConversion(String value) { signedIntegerConversion = value; return this; }
         public PlatformProfile build() { return new PlatformProfile(this); }
         private static String key(String type) {
             String key = storageType(type); if (!SCALARS.contains(key)) throw invalid("unknown scalar type " + type); return key;
