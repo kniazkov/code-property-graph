@@ -505,3 +505,13 @@ producer history, custom-domain interface JSON, and absent versus bottom/top
 products. Original and generated/reparsed C++03 sources execute with both required
 compilers. See `examples/cpp03-integer-ranges` and the model guide for the precise
 conservative subset; this scenario is not proof of complete numeric semantics.
+
+### Combined C++03 final scenario (#48)
+
+`final-acceptance` uses two translation units plus a shared macro/template/class
+header. It composes vector mutations, cross-unit calls, virtual dispatch and a
+caught exception. API and independent JSON checks validate exact semantic targets,
+provenance and CFG/DFG/effect links, followed by original/generated/reparsed strict
+GCC and Clang runs (`10 3 2\n`). See the fixture README and
+[acceptance status](cpp03-acceptance.en.md). This scenario does not close the open
+exact-edition paragraph audit.

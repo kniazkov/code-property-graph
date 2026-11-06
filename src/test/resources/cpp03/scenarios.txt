@@ -71,3 +71,6 @@ custom-passes
 
 # External lattices, opt-in integer intervals and dependency-prepared checks.
 integer-ranges
+
+# Integrated multifile header, macros, template, vector, virtual dispatch and exception.
+final-acceptance

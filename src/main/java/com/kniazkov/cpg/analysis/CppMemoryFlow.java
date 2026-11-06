@@ -492,10 +492,19 @@ final class CppMemoryFlow {
             }
             void read(Expression expression, State state) {
                 if (!modeled(expression)) return;
+                if (expression instanceof NameExpression name) readBinding(name,state);
                 Set<Loc> locations = locations(expression,state);
                 if (locations.isEmpty()) return;
                 reads.add(expression);
                 for (Loc location : locations) for (Source source : definitions(location,state))definition(source,expression);
+            }
+            /** Using a local reference observes its immutable binding, even when only
+             * computing an address. Parameter roots instead represent incoming objects. */
+            void readBinding(NameExpression name, State state) {
+                Declaration declaration = name.target().orElse(null);
+                if (!(declaration instanceof VariableDeclaration) || fields.contains(declaration)
+                        || !(type(declaration) instanceof ReferenceType) || !state.refs.containsKey(declaration)) return;
+                for (Source source : state.defs.getOrDefault(root(declaration),Set.of())) definition(source,name);
             }
             void write(Expression target, Node source, State state) {
                 if (!modeled(target)) return;
@@ -602,7 +611,8 @@ final class CppMemoryFlow {
             }
             void address(Expression target, State state) {
                 target = unwrap(target);
-                if (target instanceof DereferenceExpression pointer) evaluate(pointer.operand(),state);
+                if (target instanceof NameExpression name) readBinding(name,state);
+                else if (target instanceof DereferenceExpression pointer) evaluate(pointer.operand(),state);
                 else if(target instanceof DotMemberPointerExpression || target instanceof ArrowMemberPointerExpression) {
                     var member=(BinaryExpression)target;
                     if(target instanceof ArrowMemberPointerExpression)evaluate(member.left(),state);else address(member.left(),state);

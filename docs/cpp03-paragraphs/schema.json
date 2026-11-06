@@ -1,0 +1,222 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cpp03-paragraph-record.schema.json",
+  "title": "C++03 source-reviewed paragraph evidence record",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string"
+    },
+    "edition": {
+      "type": "string"
+    },
+    "section": {
+      "type": "string"
+    },
+    "rule_summary_en": {
+      "type": "string"
+    },
+    "normative_kind": {
+      "type": "string",
+      "enum": [
+        "normative",
+        "informative",
+        "mixed",
+        "unclassified"
+      ]
+    },
+    "diagnostic": {
+      "type": "string",
+      "enum": [
+        "required",
+        "ifndr",
+        "ub",
+        "unspecified",
+        "implementation_defined",
+        "not_applicable",
+        "unclassified",
+        "mixed"
+      ]
+    },
+    "example": {
+      "type": "string"
+    },
+    "expected": {
+      "type": "string"
+    },
+    "evidence_status": {
+      "type": "string",
+      "enum": [
+        "verified",
+        "partial",
+        "gap",
+        "not_applicable"
+      ]
+    },
+    "gap": {
+      "type": "string"
+    },
+    "edition_delta": {
+      "type": "string"
+    },
+    "source_hash": {
+      "type": "string"
+    },
+    "validation": {
+      "type": "string",
+      "enum": [
+        "source_inspected",
+        "executed"
+      ]
+    },
+    "rule_summary_ru": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tag": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "paragraph": {
+      "type": [
+        "integer",
+        "string",
+        "null"
+      ]
+    },
+    "printed_page": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "pdf_page": {
+      "type": "integer",
+      "minimum": 29
+    },
+    "paragraph_hash": {
+      "type": "string"
+    },
+    "parser": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "model": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "resolution": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "analysis": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "generator": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stage_status": {
+      "type": "object",
+      "properties": {
+        "parser": {
+          "enum": [
+            "verified",
+            "partial",
+            "gap",
+            "not_applicable"
+          ]
+        },
+        "model": {
+          "enum": [
+            "verified",
+            "partial",
+            "gap",
+            "not_applicable"
+          ]
+        },
+        "resolution": {
+          "enum": [
+            "verified",
+            "partial",
+            "gap",
+            "not_applicable"
+          ]
+        },
+        "analysis": {
+          "enum": [
+            "verified",
+            "partial",
+            "gap",
+            "not_applicable"
+          ]
+        },
+        "generator": {
+          "enum": [
+            "verified",
+            "partial",
+            "gap",
+            "not_applicable"
+          ]
+        }
+      },
+      "required": [
+        "parser",
+        "model",
+        "resolution",
+        "analysis",
+        "generator"
+      ]
+    },
+    "source_reviewed": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "id",
+    "edition",
+    "section",
+    "rule_summary_en",
+    "normative_kind",
+    "diagnostic",
+    "example",
+    "expected",
+    "evidence_status",
+    "gap",
+    "edition_delta",
+    "source_hash",
+    "validation",
+    "tag",
+    "paragraph",
+    "printed_page",
+    "pdf_page",
+    "parser",
+    "model",
+    "resolution",
+    "analysis",
+    "generator",
+    "tests",
+    "stage_status",
+    "source_reviewed"
+  ],
+  "additionalProperties": true
+}
