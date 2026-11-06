@@ -5,10 +5,13 @@
 ## Verdict and scope
 
 This is an evidence audit for issue #48, not a claim of full ISO C++03 conformance.
-The inspected baseline is `9420887` (`cpp03-base48`). The 50 mandatory C++03 header
-names and 18 deprecated C-header spellings are recognized. That count establishes
-**header inventory**, not complete overload resolution, macro support, library
-behavior, or coverage of every normative requirement.
+The initial inspected baseline is `9420887` (`cpp03-base48`). The subsequently
+supplied original 2003 text corrects the initial catalogue-based count: Table 11
+requires **33 C++ headers**, including deprecated `<strstream>`, and Table 12 adds
+18 C-prefixed headers, for **51 required headers**. The catalogue recognizes only
+50 of those plus 18 deprecated C-header spellings (68 of 69 spellings). `<strstream>`
+is missing. Header recognition alone would not prove complete overload resolution,
+macros, behavior, or normative compliance even after this omission is fixed.
 
 The catalogue is substantially broader than the behavior model. Every callable in
 it is a declaration without a body. Selected vector/container/string/iterator/
@@ -20,7 +23,7 @@ In particular, `FunctionFlow.complete()` does not mean complete STL semantics.
 **Known gaps:** mandatory target macro definitions are not supplied; many declared
 overloads have no independent CPG call test; most library families have no behavior
 summary; file-stream and stream-buffer operations lack dedicated CPG acceptance;
-there is no paragraph-by-paragraph comparison with the published 2003 text.
+source inspection does not fill the implementation and regression gaps recorded below.
 Unknown ABI representations and conservative effects are intentional safeguards,
 not proof that a missing facility is implemented. These gaps prevent a claim of
 full library support but do not prevent completion of this audit.
@@ -28,10 +31,37 @@ full library support but do not prevent completion of this audit.
 ## Edition and source discipline
 
 The normative target is [ISO/IEC 14882:2003, second edition](https://www.iso.org/standard/38110.html).
-The ISO catalogue verifies the edition, not its normative text. The accessible
-2003 preview contains front matter only; no complete published-2003 body was
-available to this audit. Consequently the number of individually verified 2003
-paragraphs is **zero**, and no conformance percentage is calculated.
+The user subsequently supplied the actual 2003 PDF. Its cover identifies the
+second edition, 2003-10-15, with ANSI adoption dated 2003-12-29. The PDF has 786
+pages, including the printed body/index through page 757. Independently checked
+SHA-256: `6314a2a25dad5a7ed43559261767ac51226113a0954aade3d8f24b35b9ff981a`.
+The earlier source-unavailable/zero-reviewed-paragraph finding is superseded.
+Only independently written paraphrases, locators and evidence are published;
+the supplied PDF and extracted text are not repository artifacts.
+
+The [paragraph ledger](cpp03-paragraphs/clauses-17-22.jsonl) contains source-inspected
+records for all **1,382 currently inventoried locators in clauses 17–22**:
+1,067 numbered paragraphs (including four letter-suffixed paragraphs), 158
+unnumbered definitions/declaration blocks, 53 tables, 103 footnotes and one
+detached-number anomaly. Twelve false grammar candidates were rejected as prose.
+Footnotes use global identifiers and explicit call-site metadata, rather than
+assuming that the last heading on their page owns the note.
+
+The implementation-evidence outcomes are **1,226 gaps, 29 partial and 127 not
+applicable**. There are no fully verified implementation rows. Each record has a
+rule paraphrase, a proposed example or justified non-executable case, expected
+behavior, stage states and scoped evidence or a gap. Proposed examples were not
+run merely by recording them. Broad family-test references establish only the
+limited declaration/resolution evidence stated in the gap, not every associated
+paragraph. The 127 non-applicable outcomes cover explanatory/organizational
+material, including footnotes and the detached number, not missing semantics.
+
+A source-inspected row with a documented gap is a completed source review, not an
+implemented requirement. Large tables and paragraphs can contain several
+obligations, so locator coverage is not an exhaustive normative-rule denominator.
+Inventory counts, source review, exact test evidence and implementation coverage
+remain separate. No full-conformance percentage is inferred from these counts.
+Other clause ledgers are coordinated separately in the [language audit](cpp03-language-audit.en.md).
 
 [WG21 N1638, 11 April 2004](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2004/n1638.pdf)
 is a later working draft. The repository's [reference note](standards/cpp/cpp03/README.ru.md)
@@ -44,6 +74,22 @@ document changes after the 2003 edition. In particular N1639 discusses LWG 44
 (character/EOF comparison), 389 (declaration correction), and 395 (a note made
 normative). They must not be silently counted as original-2003 requirements.
 There is no complete declaration-to-defect-report provenance map in this audit.
+A confirmed deliberate difference is `list::splice`: printed §23.2.2.4 paragraphs
+4, 7 and 12 invalidate moved-element iterators/references, whereas the implemented
+model preserves them and transfers ownership under the corrected
+[LWG 250](https://cplusplus.github.io/LWG/issue250) equal-allocator contract.
+The tested corrected profile is retained; it is not literal printed-2003 behavior.
+Likewise, vector erase invalidates at-or-after the erased point in
+[DynamicArraySemantics](../src/main/java/com/kniazkov/cpg/analysis/DynamicArraySemantics.java),
+whereas printed §23.2.4.3/3 says after the point. This follows the correction in
+[LWG 414](https://cplusplus.github.io/LWG/issue414), not the literal original boundary.
+
+The ledger also retains original-source inconsistencies rather than silently
+repairing them. For example, §21.3.5.6/12 visibly prints `begin()-i1` as the prefix
+length (printed page 402), and several string bounds have both a Requires clause
+and an opposing Throws clause. These are recorded as source/profile issues, not
+fabricated mandatory compiler diagnostics. The locale synopses contain additional
+signature inconsistencies, explicitly identified in their ledger entries.
 
 Clause numbers below organize library families, including C facilities used in
 more than one clause. They are not a verified list of every normative paragraph.
@@ -90,9 +136,9 @@ with the named V/K/Q evidence. Other cases fall back to ordinary C++.
 Generation retains source calls/includes rather than synthesizing an STL
 implementation; E checks only its selected programs.
 
-## The 32 C++-specific headers
+## The 33 required C++-specific headers (32 catalogued)
 
-Every row also has D's fragment-parse evidence. A D-only entry explicitly lacks a
+Every catalogued row has D's fragment-parse evidence; the missing strstream row does not. A D-only entry explicitly lacks a
 header-specific resolution/behavior test. Template parameter names are abbreviated;
 `C`/`T` mean character/value type, not a claim that arbitrary user types work.
 
@@ -125,9 +171,10 @@ header-specific resolution/behavior test. Template parameter names are abbreviat
 | `stack`; 23 | stack<T,Container>, top const/nonconst, push/pop/size/empty, comparisons. | K adaptor resolution/order/reference tests; E `container-families`. Common selected LIFO access/mutation. | No every underlying-container/constructor/comparison/exception instantiation proof. |
 | `stdexcept`; 19 | Nine exception classes; string constructors, logic_error/runtime_error hierarchy and what overrides. | O; R.`standardExceptionHierarchy` (9 calls); N `exceptions`. Opaque. | No dedicated generated throw/catch/message/lifetime runtime test for all nine, nor exact what contents. |
 | `streambuf`; 27 | basic_streambuf public get/put/seek/locale entry points and protected virtual hooks. | D interface parsing; S I/O iterators depend on streambuf types but do not verify every hook. Opaque. | No dedicated CPG public/protected hook selection, custom buffer override or generated buffering/position runtime acceptance. |
+| `strstream`; 17 Table 11 / Annex D.7 | Required deprecated header with strstreambuf/istrstream/ostrstream/strstream interfaces. | **Absent from StandardLibraryCatalogue**. The existing test asserts only 50 canonical names and therefore does not establish the original Table 11 inventory. | Entire required declaration family missing; no parser/resolution/effect/generator acceptance for this header. |
 | `string`; 21 | char_traits specializations; basic_string/ string/wstring; counted/NUL/fill constructors, append/assign/find/substr/access/iteration; full broader member declaration families. | Q.`stringAliasesDemandConcreteMembersAndIteratorTypes`, `explicitCharacterTraitsUseTheSelectedCharacterSpecialization`, counted-NUL/substring/callback/storage tests; E `strings-algorithms`. Common selected strings. | Custom traits/allocators/specializations, many insert/erase/replace/search/comparison overloads and nontrivial temporary lifetimes lack blanket behavior proof. |
 | `typeinfo`; 18 | type_info equality/inequality/before/name with inaccessible copy; bad_cast/bad_typeid. | O; R exception/type-info input tests `before/name`; N `exceptions` checks equality/inequality too. Opaque. | Native type_info name strings/order/identity/RTTI failure behavior not simulated; no dedicated CPG resolution assertion for every operator/copy-access failure. |
-| `utility`; 20 | pair constructors/types/fields, make_pair(T1,T2), six relational operators. | O; R.`utilityTemplates` (1 call), `pairComparisonTargets` (6); K unique insertion pair flow; N `utilities`. Opaque except separately proved container result structure. | No generic pair-field/relational runtime model or every conversion/constructor instantiation proof; generic swap is not declared here. |
+| `utility`; 20 | pair constructors/types/fields, make_pair(T1,T2), six relational operators. | O; R.`utilityTemplates` (1 call), `pairComparisonTargets` (6); K unique insertion pair flow; N `utilities`. Opaque except separately proved container result structure. | Confirmed declaration gap: original §20.2/1 and §20.2.1 require four generic operators in std::rel_ops, absent from the catalogue. Pair runtime/constructor coverage is also partial; generic swap is not declared here. |
 | `valarray`; 26 | valarray, slice/gslice and four proxy families; 10 index groups, 6 assignments, apply by-value/by-const-reference, arithmetic/comparison/math. | O; R.`valarrayApplyAndReductions` (10 calls), `valarrayOperatorTargets` (54), `valarrayMathOverloads` (20); N `arrays`, `array_math`. Opaque. | No numeric/proxy-alias/shape/bounds/lifetime/exception behavior summary or generated runtime proof; implementation expression templates are not layout facts. |
 | `vector`; 23 | Primary plus bool specialization; concrete constructors/assign/push/access/capacity/iteration/modifiers, bool reference proxy. | L demand closure; V selected ranges, capacity/invalidation, const elements and bool proxy identities; E `lazy-library`, `vector-semantics`, `vector-access`. Common supported default-allocator cases. | V.`boolRemainsRaw`, `nontrivialAssignmentShiftsRemainRaw`, conditional capacity and user specialization boundaries: no false bool&, shift-lifetime, growth-factor or universal allocator guarantee. |
 
@@ -223,6 +270,7 @@ Recommended repository commands:
 ```sh
 mvn -Dtest=StandardLibraryCatalogueTest,RemainingLibraryOverloadsTest,RemainingLibraryResolutionTest,CCompatibilityFamiliesTest,StreamLibraryResolutionTest,LibraryUnknownEffectsTest,LibraryCatalogueFamiliesTest,LazyLibraryGraphTest,LibraryConsoleTest,VectorResolutionTest,VectorIteratorResolutionTest,VectorAccessNormalizationTest,ContainerIteratorResolutionTest,ContainerNormalizationTest,ContainerFamilyFlowTest,StringAlgorithmResolutionTest,SequenceNormalizationTest,SequenceFlowTest,SequenceModelTest test
 bash scripts/probe-cpp03-library-catalogue.sh
+python3 scripts/check-cpp03-paragraphs.py
 mvn verify
 ```
 
@@ -236,8 +284,8 @@ all E scenarios. The final aggregate acceptance report owns the full-suite resul
 
 ## Follow-up required before any full-library claim
 
-1. Obtain the actual 2003 text and enumerate normative requirements and adopted
-   corrections separately; resolve edition-sensitive declaration differences.
+1. Resolve the documented source/profile differences and identify adopted corrections
+   explicitly; keep source-locator review separate from implementation acceptance.
 2. Implement/profile required macros and add positive, negative and boundary CPG
    tests; do not count host-header macro presence as built-in support.
 3. Expand exact per-overload CPG resolution tests beyond the selected R/O/V/K/Q/S

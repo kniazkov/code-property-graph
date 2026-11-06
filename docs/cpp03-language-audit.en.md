@@ -1,40 +1,79 @@
 <!-- CPG C++03 source and language audit. MIT License. -->
-# C++03 language audit: sources, evidence and open gaps (#48)
+# C++03 language audit: source, paragraph records and open gaps (#48)
 
-[Русский](cpp03-language-audit.ru.md) · [Main matrix](../CPP03-MATRIX.ru.md)
+[Русский](cpp03-language-audit.ru.md) · [Main matrix](../CPP03-MATRIX.ru.md) · [Dataset and field semantics](cpp03-paragraphs/README.md)
 
-**Result: partial audit, not full ISO/IEC 14882:2003 acceptance.**
-On 2026-11-06, implementation source and existing test assertions were inspected
-against baseline `9420887d09afeab438f85b4984b1c65080a07407` (`cpp03-base48`).
-The complete 2003 normative text was not obtained. Its normative paragraph count
-is unknown; this document individually verifies **0** paragraphs against that text.
-No normative coverage percentage is computed. This does not mean that no features
-are implemented: repository evidence is reported separately below.
+**Result: original-edition source review is available; full implementation acceptance remains open.**
+On 2026-11-06 the user supplied a readable ISO/IEC 14882:2003 PDF. Its edition and
+continuous printed pagination were checked independently by two readers. This
+removes the earlier source-access blocker. It does not remove implementation gaps.
 
-Rows below are **rule groups**, not standard paragraphs. Clause numbers and labels
-are navigation aids; every row's exact-2003-paragraph field remains **UNVERIFIED**.
-A test name or passing run does not close that field.
+The tables below remain **rule groups**, not paragraph rows. Individual source
+locators, own-word rule summaries, diagnostic categories, examples, stage status,
+test citations or explicit gaps are in the [JSONL dataset](cpp03-paragraphs/README.md).
+The data is in English; this report and the Russian companion explain the same
+facts. `source_reviewed=true` means the source was read, not that CPG implements
+or has executed a test for the requirement.
 
 ## 1. Source and edition
 
-| Source | Result on 2026-11-06 | What it establishes |
-|---|---|---|
-| [ISO catalogue](https://www.iso.org/standard/38110.html) | Accessible; edition 2, 2003-10, 757 pages | Edition identity, not every normative paragraph |
-| [2003 preview](https://cdn.standards.iteh.ai/samples/38110/2a6a554bd4ab43aca352dd5de166956a/ISO-IEC-14882-2003.pdf) | Only 5 cover/CD-ROM-information pages | Not the normative body |
-| [CiteseerX, existing matrix link](https://citeseerx.ist.psu.edu/document?doi=99ef5807a860d1ae879c40fbb6fb58e892808a8f&repid=rep1&type=pdf) | HTTP 403 on direct read | Text unverified; search snippets cannot replace reading |
-| [USPTO, existing matrix link](https://ptacts.uspto.gov/ptacts/public-informations/petitions/1558958/download-documents?artifactId=SRz9QsFyV54Nrszv6SwHEwmXBh6qAERkm3gtrRJ1kfXt1j79o7ohzcQ) | HTTP 403 on direct read | Even a presumed clause-23 extract would not establish clauses 1–16 |
-| [WG21 N1638](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2004/n1638.pdf) | Accessible online, 772 pages, 2004-04-11 | Later working draft, not a replacement for 2003 |
-| [Local source description](standards/cpp/cpp03/README.ru.md) | Read; PDF absent from worktree and marked skip-worktree | PDF left unchanged; its hash was not rechecked here |
+- Verified document: **ISO/IEC 14882:2003(E), second edition, 2003-10-15**,
+  with the INCITS adoption cover recording ANSI approval on 2003-12-29.
+- File size: **2,461,934 bytes**; **786 PDF pages**. Printed pages **1–757** are
+  continuous at PDF pages **29–785**; use `pdf_page = printed_page + 28`.
+- SHA-256: `6314a2a25dad5a7ed43559261767ac51226113a0954aade3d8f24b35b9ff981a`.
+- The supplied PDF and extracted normative text are kept outside the repository.
+  They are not published, attached to the audit or uploaded to another service.
+  The existing N1638 PDF entry was not changed.
+- [ISO catalogue](https://www.iso.org/standard/38110.html) corroborates edition 2
+  and 757 printed pages. Earlier third-party full-copy URLs returned 403 and the
+  accessible preview had only cover material. Those historical failures are no
+  longer the source blocker because the user supplied the complete document.
 
-[N1578](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2004/n1578.html)
-reports Oxford/Kona amendments relative to its stated 2003 baseline. Concrete
-editorial interventions include Core 160 at 3.7.3.1/3 and 15.5.1/1.
-[N1639](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2004/n1639.html)
-records further Sydney changes, the rename from `[basic.lookup.koenig]` to
-`[basic.lookup.argdep]`, and a separate paragraph for Core 424. Matching a topic
-therefore does not establish matching paragraph numbers or wording. This document
-does not contain a complete 2003-to-N1638 diff. Library differences are audited
-separately; later defect resolutions must not silently replace the 2003 baseline.
+The [safe inventory](cpp03-paragraphs/inventory.json) currently contains **5,250
+source locators**: **3,923 numbered paragraphs**, 500 unnumbered section blocks,
+403 grammar productions, 105 tables, 318 globally numbered footnotes, and one
+numbering anomaly. These sets overlap. They are **not 5,250 atomic normative
+requirements**: individual bullets, table cells and signatures inside paragraphs
+are not separately counted. The manifest also records 33 rejected extraction
+artifacts instead of counting prose fragments as grammar.
+
+This audit owns these source-reviewed shards:
+
+| Shard | Numbered paragraphs | Other locators | Implementation evidence |
+|---|---:|---:|---|
+| [Clauses 1–4](cpp03-paragraphs/clauses-01-04.jsonl) | 329 | 126 | 59 partial, 293 gaps, 103 not applicable |
+| [Annexes A–E](cpp03-paragraphs/annexes-A-E.jsonl) | 98 | 259 | 2 partial, 93 gaps, 262 not applicable |
+
+All **812** records above were source-reviewed. None claims complete implementation
+verification; the cited unit tests were inspected, not newly run by this audit.
+Other chapter shards and aggregate execution results are tracked separately.
+
+### Edition and extraction cautions
+
+- [N1638](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2004/n1638.pdf)
+  is a **2004-04-11 working draft**, not the authoritative source used here.
+  [N1578](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2004/n1578.html)
+  and [N1639](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2004/n1639.html)
+  document later editorial/defect changes; no complete edition-wide diff is claimed.
+- Original 2003 clause 1.2/1 lists ISO/IEC 9899:1999 and ISO 10646-1:2000,
+  whereas N1638 lists earlier 1990/1993 references. The original 1.2/2 separately
+  defines the C Standard Library through 1990 plus the 1995 amendment. Preserve
+  that distinction rather than silently importing later library facilities.
+- Original ADL tag `[basic.lookup.koenig]` becomes `[basic.lookup.argdep]` later.
+  Alphabetic labels such as 3.4.2/2a and 3.4.3.1/1a are genuine source locators.
+- The 1.3 introduction is **unnumbered**, followed by numbered paragraph 2.
+  No invented 1.3/1 appears in the manifest. Original paragraph 27.7.1.3/9 is an
+  overprinted/standalone label without an inferred second body. The detached
+  number at 22.2.1.4 is recorded as an anomaly, not an invented requirement.
+- Footnotes have global IDs and separate `call_sites`. Notes 246 (intentionally
+  empty) and 272 have no uniquely recovered call-site marker; their note number
+  and printed/PDF page remain reliable. A page's last heading is not used as a
+  false normative owner.
+- The implementation's Annex E comment cites N1638 transcription. A direct
+  comparison now proves **all 173 original-2003 intervals match in order**.
+  Provenance is preserved; table identity is verified, not inferred. This does
+  not prove every lexer context or boundary combination.
 
 ## 2. Reading the evidence
 
@@ -70,8 +109,9 @@ separately; later defect resolutions must not silently replace the 2003 baseline
 
 ## 3. Inspected groups in clauses 1–16
 
-Every group: **PARTIAL**, exact 2003 paragraph: **UNVERIFIED**. P/M/R/A/G
-references expand via the IDs above. No row claims an entire clause is complete.
+Every group remains **PARTIAL** implementation evidence. Exact source-review
+status belongs to individual JSONL records, not these grouped rows. P/M/R/A/G
+references expand via the IDs above; no row claims a complete clause.
 
 | ID / clause | Rule and example | Expected property / diagnostic | P/M/R/A/G | Test / fixture | Open boundary |
 |---|---|---|---|---|---|
@@ -80,7 +120,7 @@ references expand via the IDs above. No row claims an entire clause is complete.
 | 03 / 2 [lex.phases] | Track physical locations through trigraphs and line splicing.<br>`??=define N 1` and a continued `//` comment | Tokens and original physical ranges agree; inactive text is preserved. | L,PP | [CppLexerTest] / `replacesAllTrigraphsBeforeSplicingAndPreservesPhysicalRanges`; [lexical-phases] | Phase coverage is case-based, not a paragraph census. |
 | 04 / 2 [lex.pptoken], [lex.digraph] | Maximal tokenization and original alternative spelling.<br>`a+++b`, stringization of alternative tokens | Token boundaries and raw spelling, not Java lexer conventions. | L,PP | [CppLexerTest] / `maximalMunchUsesCpp03PreprocessingNumberAndOperatorGrammar`, `alternativesKeepSpellingForStringization` | All lexical productions and negative combinations are not enumerated. |
 | 05 / 2 [lex.literal] | Separate written literals, exact values and target types.<br>`10UL`, `"a\0b"`, adjacent strings | Profile-aware integer type; embedded NUL retained. | L,T,X | [CppLiteralsTest]; [literals-expressions] | Decimal lexical values do not establish target floating rounding. |
-| 06 / 2 [lex.name], E [extendid] | Use historical identifier tables.<br>UCN / non-ASCII identifier boundaries | Boundary tests in lexer; table source explicitly N1638. | L | [CppLexerTest] / `unicodeAndUcnIdentifiersUseCpp03AnnexEInsteadOfJavaOrModernUnicodeRules`; [CppIdentifierCharacters] | 2003 table equality is unverified; do not relabel N1638 transcription. |
+| 06 / 2 [lex.name], E [extendid] | Use historical identifier tables.<br>UCN / non-ASCII identifier boundaries | Boundary tests in lexer; table source explicitly N1638. | L | [CppLexerTest] / `unicodeAndUcnIdentifiersUseCpp03AnnexEInsteadOfJavaOrModernUnicodeRules`; [CppIdentifierCharacters] | All 173 original-2003 intervals match; full lexer-context coverage remains open. |
 | 07 / 3 [basic.scope] | Bind at the declaration point and preserve shadowing.<br>`int x=1; { int x=x; }` | Inner initializer refers to inner declaration; no invented outer binding. | N | [ScopedResolutionTest] / `lexicalScopesHonorDeclarationPointsAndInitializerShadowing`; [scopes-linkage] | Every class/local/template scope interaction remains unenumerated. |
 | 08 / 3 [basic.link], [basic.def.odr] | Keep internal identities and link compatible declarations.<br>Two TUs each with `static int n`; shared inline function | Separate internal targets; shared inline definitions do not alone trigger an error. | N | [ScopedResolutionTest] / `internalFunctionsAndObjectsRemainDistinctInSelectedComposition`, `sharedInlineFunctionDefinitionsAreNotOdrConflicts` | No complete cross-TU token/lookup ODR proof; NDR is separate below. |
 | 09 / 3 [basic.life], [basic.stc] | Distinguish storage, construction and lifetime boundaries.<br>Placement `new`, local static, bound temporary | Preserve allocation/initialization and lifetime events. | C,M,S | [ClassInitializationSemanticsTest] / `storageAndTemporaryBoundariesAreExplicit`; [casts-memory] | Arbitrary alias reuse, ABI and all lifetime-dependent optimizations are not proven. |
@@ -96,7 +136,7 @@ references expand via the IDs above. No row claims an entire clause is complete.
 | 19 / 7 [dcl.typedef], [namespace.def], [namespace.udir] | Preserve aliases, reopened namespaces and using lookup.<br>`typedef int I; namespace n {...} namespace n {...}` | Nominal target links survive copies and source generation. | N,T | [ScopeDeclarationParserTest]; [ScopedResolutionTest] / `usingDirectivesMeetAtTheirCommonEnclosingNamespace` | asm and all declaration grammar alternatives have no complete acceptance ledger. |
 | 20 / 7 [dcl.link], [dcl.stc] | Retain language linkage and storage identity.<br>`extern "C" int f(int);` and incompatible redeclaration | Existing tests diagnose conflicts and preserve C linkage without infecting unrelated overloads. | N | [ScopedResolutionTest] / `externalCLanguageLinkageIsInheritedAndCannotOverload`, `conflictingStorageLinkageIsDiagnosed` | Foreign ABI execution and every storage combination are not verified. |
 | 21 / 8 [dcl.meaning], [dcl.ptr], [dcl.ref] | Represent binding structure rather than a flattened type spelling.<br>`int *a[3]` versus `int (*p)[3]` | Distinct owned array/pointer types survive generation/reparse. | T | [DeclaratorTest] / `arraysPointersFunctionsReferencesAndMemberPointersBindFromTheName`; [platform-declarators] | No exhaustive declarator-production or ABI matrix. |
-| 22 / 8 [dcl.fct.default] | Bind defaults at declaration, evaluate at call.<br>`void log(int=next()); log(); log(2); log();` | Two omitted-argument references share one source expression; late default gives `missing-call-argument`. | F,N | [FunctionDefaultsSemanticsTest]; [functions-defaults] | Baseline-specific restrictions have tests but exact 2003 paragraph provenance is pending. |
+| 22 / 8 [dcl.fct.default] | Bind defaults at declaration, evaluate at call.<br>`void log(int=next()); log(); log(2); log();` | Two omitted-argument references share one source expression; late default gives `missing-call-argument`. | F,N | [FunctionDefaultsSemanticsTest]; [functions-defaults] | Baseline-specific restrictions have tests; full per-paragraph behavior coverage remains open. |
 | 23 / 8 [dcl.init], [dcl.init.aggr] | Distinguish direct/copy/value/aggregate initialization.<br>`int a[3]={7};` | Corpus observes zero tail; C++11 direct-list case is rejected. | C,T | [ClassInitializationSemanticsTest]; [classes-initialization] | A finite aggregate fixture is not the entire initialization algorithm. |
 | 24 / 9 [class.mem], [class.union], [class.bit] | Keep fields, static members, bit-fields and union state distinct.<br>Unnamed bit-fields; union first-member initializer | Identity and initialization tests; sizeof bit-field gives `invalid-sizeof`. | C,T,M | [ClassInitializationSemanticsTest] / `namespacesAndMultipleUnnamedBitFieldsRemainDistinct`, `unionConstructionInitializesOnlyTheSelectedMember`; [ObjectMemoryValidationTest] | No full union active-member validity or target ABI proof. |
 | 25 / 10 [class.mi], [class.virtual] | Separate repeated base subobjects from shared virtual bases.<br>Ordinary and virtual diamonds | Ambiguous ordinary base; shared virtual base; unique final-overrider validation. | V,O | [InheritanceSemanticsTest]; [VirtualInheritanceValidationTest]; [inheritance-virtual] | Incomplete/cyclic hierarchies remain conservative; no general layout inference. |
@@ -105,7 +145,7 @@ references expand via the IDs above. No row claims an entire clause is complete.
 | 28 / 12 [class.copy], [class.temporary] | Track implicit special members and temporary boundaries.<br>`T b=a; b=a; const T& r=T();` | Different initialization/assignment effects; no fixed optional-elision count. | C,S | [ClassInitializationSemanticsTest] / `implicitMembersAndAggregateRemainDerivedNotDuplicateSourceDeclarations`, `storageAndTemporaryBoundariesAreExplicit` | Every copy-elision context, accessibility rule and implicit-body effect is not covered. |
 | 29 / 13 [over.match], [over.ics.rank] | Rank conversion vectors and leave ambiguities unresolved.<br>`f(int,long); f(long,int); f(1,1);` | ERR `ambiguous-overload`, no selected target. | O,T | [OverloadResolutionTest] / `pairwiseVectorsRemainAmbiguousAndNoViableIsNotBound`; [overloads-adl] | No exhaustive standard candidate set/ranking denominator. |
 | 30 / 13 [over.oper], 3 [basic.lookup.koenig] | Retain operator calls and argument-dependent lookup.<br>Hidden friend with class argument; overloaded `+` | Selected declaration/effects retained; hidden friend not found for unrelated int. | O,N | [OverloadResolutionTest] / `adlFindsAssociatedNamespaceAndHiddenFriendOnlyForClassArgument`; [OperatorSemanticsTest] | N1638 changed the ADL section label; use edition-aware mapping. |
-| 31 / 14 [temp.param], [temp.names] | Own template syntax, defaults and dependent forms.<br>`Box<Box<int> >`, `typename T::value_type`, `x.template get<int>()` | Round-trip supported forms; C++03-invalid nested `>>` and function-template defaults rejected. | TM,T,N | [TemplateSyntaxTest]; [templates-dependent] | Full dependent-name grammar and baseline paragraph identity remain open. |
+| 31 / 14 [temp.param], [temp.names] | Own template syntax, defaults and dependent forms.<br>`Box<Box<int> >`, `typename T::value_type`, `x.template get<int>()` | Round-trip supported forms; C++03-invalid nested `>>` and function-template defaults rejected. | TM,T,N | [TemplateSyntaxTest]; [templates-dependent] | Full dependent-name grammar and semantic test coverage remain open. |
 | 32 / 14 [temp.res], [temp.deduct] | Separate immediate substitution failure from selected-body failure.<br>Missing `T::type` candidate; selected `x.size()` for int | Fallback remains viable; selected body yields `template-body-member` with ordered request ranges. | TM,N | [TemplateInstantiationSemanticsTest]; [TemplateInstantiationExportTest] / `nestedBodyFailureExportsPrimaryTypeAndOrderedRequestRanges` | All SFINAE and two-phase lookup contexts are not enumerated. |
 | 33 / 14 [temp.class.spec], [temp.spec] | Select class specializations and retain explicit requests.<br>`Box<T*>`, full `Box<int>`, explicit instantiation | Selected concrete identity and request links survive copies/export. | TM | [ClassTemplateSemanticsTest]; [template-instantiation] | Budget failures are implementation limits, not proof that the source is ill-formed. |
 | 34 / 14 [temp] export | Do not conflate export syntax support with separate translation.<br>Exported template declaration in one TU, definition in another | LIMIT at resolved stage; syntax/JSON round-trip only is tested. | TM,N | [TemplateSpecializationSyntaxTest]; [TemplateInstantiationExportTest]; [NameResolver] | Required implementation work remains; GCC/Clang cannot be used to erase the requirement. |
@@ -143,71 +183,86 @@ tests. There is no positive cross-TU export acceptance scenario here.
 
 ## 4. Annexes A–E
 
-This is likewise a group navigation table, not a paragraph inventory. The library
-portion of D belongs to the separate library audit.
+This is likewise a group navigation table. Individual annex locators are in
+[annexes-A-E.jsonl](cpp03-paragraphs/annexes-A-E.jsonl), including D.7 library contracts.
 
 | Annex | Subject | P/M/R/A/G | Evidence | Limit |
 |---|---|---|---|---|
-| A | Syntax summary | L,PP,N,T,X,S,C,V,O,TM | [Parser], [TypeParser], [ExpressionParser], [StatementParser] | No production-by-production inventory. |
+| A | Syntax summary | L,PP,N,T,X,S,C,V,O,TM | [Parser], [TypeParser], [ExpressionParser], [StatementParser] | 204 informative grammar-production locators; syntax alone does not establish semantic validity. |
 | B | Implementation quantities | TM | [TemplateInstantiationSemanticsTest] / `recursiveInstantiationHasAnExplicitResourceLimit`, `breadthBudgetStopsBeforePublishingTooManyInstances` | Only template budgets checked; no complete recommended-limit ledger. |
 | C | Compatibility | T,N | [DeclaratorTest], [ScopedResolutionTest] | Not a complete C/C++ difference audit. |
-| D | Compatibility features | N,X; library audit | [ScopedResolutionTest]; [library-catalogue.en.md](library-catalogue.en.md) | No complete language-deprecation ledger; bool++ and string-literal conversion not established here. |
-| E | Universal-character names | L | [CppIdentifierCharacters], [CppLexerTest] | Table is explicitly transcribed from N1638, not verified against 2003. |
+| D | Compatibility features | N,X; library audit | [ScopedResolutionTest]; [library-catalogue.en.md](library-catalogue.en.md) | D is normative: <strstream> is a confirmed catalogue gap; deprecated does not mean optional. Optional D.6 overloads are marked separately. |
+| E | Universal-character names | L | [CppIdentifierCharacters], [CppLexerTest] | Transcription cites N1638; all 173 original-2003 intervals were independently matched in order. |
 
-## 5. No diagnostic required: a separate status
+## 5. No diagnostic required: separate categories
 
-Do not turn every undesirable behavior into a mandatory compiler error. Track
-diagnosable violations, IFNDR, undefined behavior, unspecified behavior and
-documented profile choices separately. `UNVERIFIED` cannot automatically be
-assigned any of these classifications.
+Diagnostic requirements are taken from the original source, not inferred from
+whether GCC/Clang emits a message. IFNDR, undefined behavior, unspecified choices
+and documented implementation choices remain distinct in the dataset.
 
-The accessible **N1638**, not a verified 2003 text, provides these explicit
-no-required-diagnostic starting points:
+Examples directly checked in the original clauses 1–4:
 
-| N1638 locator | Subject to revisit against the baseline |
+| 2003 locator | Classification and scope |
 |---|---|
-| 2.10/2 `[lex.name]` | Reserved identifiers |
-| 3.2/3 `[basic.def.odr]` | Definition requirements for used entities |
-| 3.3.6/1 `[basic.scope.class]` | Lookup repeated in completed class scope |
-| 7.1.2/4 `[dcl.fct.spec]` | Cross-TU inline consistency |
-| 14/7–9 `[temp]` | Cross-TU template/export requirements |
-| 14.6/7 `[temp.res]` | Uninstantiated template without a valid specialization |
+| 2.7/1 | IFNDR for the specified vertical-tab/form-feed line-comment condition; not every comment violation |
+| 2.10/2 | IFNDR for use of reserved identifiers |
+| 3.2/3 | IFNDR for the stated definition requirements of used entities |
+| 3.3.6/1 | Mixed: the stated completed-class lookup consistency condition is IFNDR |
+| 3.5/10 | IFNDR for inconsistent adjusted types of declarations denoting one entity |
+| 3.2/5 | The stated cross-TU multiple-definition failure is **undefined behavior**, not silently relabeled IFNDR |
+| 3.8/5–6 | Lifetime-related pointer/lvalue misuse is **undefined behavior**; no fixed runtime oracle |
+| 4.7/3 | Out-of-range conversion to a signed integer is **implementation-defined**, not unspecified |
 
-This is **neither an exhaustive NDR list nor verified 2003 numbering**. Recheck
-every locator when the original edition is available. GCC/Clang emitting a
-message does not establish that a diagnostic is mandatory. Additional CPG static
-warnings are permissible but must be described as implementation analysis.
-UB runtime examples must not have a fixed output or exit-value oracle.
-[TypedConstantFoldingTest] checks conservatism for selected hazardous expressions;
-it does not prove the absence of all UB in an input program.
+This is not an exhaustive NDR list. The paragraph shards retain more detailed
+conditions and the other chapters. Extra CPG warnings may be useful, but must not
+be presented as mandatory standard diagnostics. A UB probe must not be given a
+portable expected output or exit code. Existing conservative-folding tests prove
+only their actual assertions, not the absence of all UB in arbitrary programs.
 
 ## 6. Explicit gaps and closure conditions
 
-1. **Source:** obtain an authorized readable full ISO/IEC 14882:2003 text, verify
-   title/edition/completeness and record a stable link and hash. Current blocker:
-   direct reads of the cited full-copy URLs returned 403; the accessible preview
-   contains no normative clauses. No access restriction was bypassed.
-2. **Denominator:** enumerate each normative paragraph, sub-bullet, table and
-   grammar production in clauses 1–16 and applicable annexes. Identify informative
-   notes/examples separately; do not automatically turn them into requirements.
-3. **Per-row record:** edition; clause/label/paragraph; source/page; original brief
-   rule description; positive/negative input; diagnostic classification; P/M/R/A/G;
-   exact test/assertion; command/result; N1638/DR difference; implemented/partial/
-   absent/not-applicable status and reason.
-4. **Concrete limits:** separate exported-template translation is unsupported;
-   the UCN table comes from N1638; asm, volatile effects, all implementation
-   quantities and compatibility lack complete ledgers. “No evidence here” is not
-   the same as “implementation demonstrably absent.”
-5. **Analysis:** full arithmetic, layout/ABI, arbitrary alias/lifetime reasoning,
-   partial array construction, all implicit calls and full two-phase semantics
-   do not become exact merely because source is preserved. Unknown and unsupported
-   cases must remain visible.
-6. **Acceptance:** after closing gaps, rerun normal API/CLI, JSON/SVG, copy,
-   edit/reanalysis, generation/reparse and strict GCC/Clang checks. Modern
-   `-std=c++03` is useful compatibility evidence, not an independent proof of the
-   2003 text, particularly for retroactive defect resolutions and export.
+1. **Source access is closed:** the original edition, hash and continuous pagination
+   are verified. The PDF remains private and is not part of the repository.
+2. **Inventory is bounded:** the accepted locator census includes numbered and
+   unnumbered text, productions, tables and footnotes. It is not an atomized count
+   of every sub-bullet, table cell or embedded signature. Extraction replay is not
+   independent proof that no normative unit was missed.
+3. **Source review and implementation coverage are separate:** every owned record
+   has its own paraphrase, example, expected classification, stage status and
+   evidence or specific gap. A manually proposed example is not an executed test.
+   Chapters with incomplete negative/boundary coverage remain open.
+4. **Concrete implementation gaps:** exported-template separate translation is
+   unsupported, and required deprecated `<strstream>` is missing from the catalogue.
+   Original Table 11 contains 33 C++ headers, not 32; with 18 c-prefixed headers
+   the core list is 51, before the 18 `.h` compatibility headers. The Annex E range
+   table now matches 2003 exactly, but full lexical context coverage is not closed.
+5. **Semantic limits:** full arithmetic, ABI/layout, arbitrary alias/lifetime
+   reasoning, partial array construction, all implicit calls, volatile execution
+   and two-phase semantics require stronger evidence. A source-preserving graph
+   is not a conforming executing implementation. Missing audit evidence is not
+   automatically proof that the feature is absent.
+6. **Acceptance:** complete the remaining behavior tests and fixes, then rerun API/CLI,
+   JSON/SVG, copy, edit/reanalysis, generation/reparse and strict compiler checks.
+   Modern `-std=c++03` remains supporting evidence, especially where compilers apply
+   retroactive defect resolutions or do not implement export.
 
 ## 7. Reproduction
+
+The extractor requires a separately supplied PDF with the exact hash above and
+Poppler `pdftotext`. It keeps extracted text in memory and emits only safe metadata.
+The replay was executed on 2026-11-06 and its JSON content exactly matched the
+published inventory. Nine synthetic extraction regression tests passed. These are
+source-tool checks, not CPG language-conformance executions.
+
+```sh
+python3 scripts/test-inventory-cpp03-source.py
+python3 scripts/inventory-cpp03-source.py --pdf "$CPP03_ORIGINAL_PDF" --output /tmp/cpp03-inventory.json \
+  --annex-e-java src/main/java/com/kniazkov/cpg/parser/CppIdentifierCharacters.java
+python3 scripts/check-cpp03-paragraphs.py
+# Require every inventoried locator to have a source-reviewed record:
+python3 scripts/check-cpp03-paragraphs.py --require-source-complete
+```
+
 
 Test source is the primary evidence for these rows. Key methods are named in the
 table and can be found by their exact names. The [manifest] and [Cpp03CorpusIT]
