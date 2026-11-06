@@ -1,0 +1,305 @@
+# Приёмочный аудит библиотеки C++03: главы 17–27
+
+[English version](cpp03-library-audit.en.md)
+
+## Вывод и границы
+
+Это аудит доказательств для задачи #48, а не заявление о полном соответствии ISO
+C++03. Исходная проверенная версия: `9420887` (`cpp03-base48`). Позднее полученный
+оригинал 2003 года исправляет первоначальный подсчёт по каталогу: таблица 11
+требует **33 C++-заголовка**, включая устаревший `<strstream>`, а таблица 12
+добавляет 18 c-заголовков, всего **51 обязательный заголовок**. Каталог распознаёт
+только 50 из них и 18 старых C-написаний (68 из 69 написаний). `<strstream>`
+отсутствует. Даже полный список не доказывал бы все перегрузки, макросы и поведение.
+
+Каталог существенно шире поведенческой модели. Все его вызываемые сущности
+являются объявлениями без тел. Некоторые операции vector/контейнеров/строк/
+итераторов/алгоритмов получают общую семантику графа; остальные разрешённые
+библиотечные вызовы сохраняют консервативные эффекты. Разобранное объявление,
+разрешённый вызов, полный CFG/DFG и правильный результат нативной программы
+доказывают разные вещи. В частности, `FunctionFlow.complete()` не означает
+полноту семантики STL.
+
+**Известные пробелы:** обязательные целевые макросы не предоставляются; у многих
+объявленных перегрузок нет независимого теста вызова в CPG; большинство семейств
+не имеет поведенческих сводок; операции файловых потоков и streambuf не имеют
+отдельной приёмки CPG; чтение источника не устраняет перечисленные ниже пробелы
+реализации и регрессионных тестов. Неизвестное ABI и консервативные эффекты являются защитными границами,
+но не подтверждают реализацию отсутствующего средства. Пробелы запрещают
+заявление о полной поддержке библиотеки, но не завершение самого аудита.
+
+## Редакция и источники
+
+Нормативная цель: [ISO/IEC 14882:2003, второе издание](https://www.iso.org/standard/38110.html).
+Пользователь затем предоставил подлинный PDF редакции 2003 года. Обложка указывает
+второе издание от 2003-10-15 и принятие ANSI от 2003-12-29. В PDF 786 страниц,
+включая основной текст/указатели с печатной нумерацией до 757. Независимо проверена
+SHA-256: `6314a2a25dad5a7ed43559261767ac51226113a0954aade3d8f24b35b9ff981a`.
+Прежний вывод о недоступном источнике и нуле просмотренных параграфов устарел.
+Публикуются только самостоятельно сформулированные пересказы, координаты и
+доказательства; PDF и извлечённый текст не добавляются в репозиторий.
+
+[Реестр параграфов](cpp03-paragraphs/clauses-17-22.jsonl) содержит проверенные по
+источнику записи для всех **1 382 текущих координат инвентаря глав 17–22**:
+1 067 нумерованных параграфов (включая четыре с буквенным суффиксом), 158
+ненумерованных определений/блоков объявлений, 53 таблицы, 103 сноски и одну
+аномалию отдельной метки номера. Двенадцать ложных грамматических кандидатов
+отклонены как обычный текст. Сноски имеют глобальные идентификаторы и явные
+ссылки на места вызова, а не приписываются последнему заголовку страницы.
+
+Итоги доказательств реализации: **1 226 пробелов, 29 частичных и 127 неприменимых
+пунктов**. Полностью подтверждённых строк реализации нет. Каждая запись имеет
+пересказ правила, предложенный пример либо обоснование неисполнимого случая,
+ожидаемое поведение, состояния этапов и ограниченные доказательства либо пробел.
+Запись предложенного примера не означает его запуск. Ссылки на тесты семейства
+доказывают только указанную в пробеле часть объявлений/разрешения, а не каждый
+связанный параграф. Неприменимость относится к пояснениям и организации текста,
+включая сноски и отдельный номер, а не к отсутствующей семантике.
+
+Проверенная по источнику строка с пробелом означает завершённое чтение правила,
+а не его реализацию. Большая таблица или параграф может содержать несколько
+обязанностей, поэтому покрытие координат не является полным знаменателем
+нормативных правил. Инвентарь, чтение источника, точные тесты и реализация
+учитываются раздельно. Процент полного соответствия из этих чисел не вычисляется.
+Другие реестры координируются отдельно в [языковом аудите](cpp03-language-audit.ru.md).
+
+[WG21 N1638 от 11 апреля 2004 года](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2004/n1638.pdf)
+является более поздним рабочим проектом. [Справка репозитория](standards/cpp/cpp03/README.ru.md)
+ссылается на отслеживаемый PDF, **не материализованный в рабочей копии**
+(`git ls-files -v` отмечает skip-worktree). Это граница восстановления рабочей
+копии, не отсутствие файла в репозитории. Записанная контрольная сумма здесь
+не подтверждена локальными байтами.
+[N1578](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2004/n1578.html) и
+[N1639](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2004/n1639.html)
+описывают изменения после редакции 2003 года. В частности, N1639 рассматривает
+LWG 44 (сравнение символа/EOF), 389 (исправление объявления) и 395 (превращение
+примечания в нормативный текст). Нельзя автоматически считать их требованиями
+исходного издания 2003 года. Полной карты «объявление — исправление дефекта» нет.
+Подтверждённое сознательное отличие: печатные §23.2.2.4/4, /7 и /12 инвалидируют
+итераторы/ссылки перемещённых элементов `list::splice`, а реализованная модель
+сохраняет их и переносит владельца согласно исправленному контракту равных
+аллокаторов [LWG 250](https://cplusplus.github.io/LWG/issue250).
+Проверенный исправленный профиль сохраняется; это не буквальное поведение
+напечатанной редакции 2003 года.
+Аналогично, стирание vector в
+[DynamicArraySemantics](../src/main/java/com/kniazkov/cpg/analysis/DynamicArraySemantics.java)
+инвалидирует начиная с удаляемой позиции, тогда как печатный §23.2.4.3/3 говорит
+о позициях после неё. Это исправление [LWG 414](https://cplusplus.github.io/LWG/issue414),
+а не буквальная исходная граница.
+
+Реестр сохраняет противоречия оригинала, а не исправляет их молча. Например,
+§21.3.5.6/12 действительно печатает `begin()-i1` как длину префикса (страница 402),
+а некоторые строковые границы одновременно имеют Requires и противоположный
+Throws. Это вопросы источника/профиля, не выдуманная обязательная диагностика
+компилятора. Дополнительные несогласованности сигнатур locale отмечены в
+соответствующих записях реестра.
+
+Номера глав ниже группируют семейства, включая средства C, используемые в
+нескольких главах. Это не проверенный список всех нормативных параграфов.
+Современные GCC/Clang с `-std=c++03 -pedantic-errors` полезны как независимая
+проверка реализации, но включают исправления дефектов и не заменяют исходное
+издание. TR1, средства только C99 и добавления C++11 не входят в требования
+приёмки. Доказательства языковых правил приведены в отдельном языковом аудите;
+этот файл не выдаёт поддержку языка за покрытие библиотеки.
+
+## Обозначения доказательств
+
+Все ссылки на Java-тесты ведут в `src/test/java/com/kniazkov/cpg/`.
+Имя метода после обозначения указывает конкретный тест, а не только включение
+заголовка.
+
+| Обозначение | Источник и предел доказательства |
+|---|---|
+| D | [StandardLibraryCatalogueTest](../src/test/java/com/kniazkov/cpg/StandardLibraryCatalogueTest.java): `catalogueRecognizesExactlyCpp03HeadersAndCompatibilityNames`, `everyFragmentParsesWithoutHostHeadersOnBothSizeTypePolicies`, `parserNameIndexExactlyMatchesDeclaredNamespaceTypes`. Разбор 68 фрагментов с зависимостями; тела отсутствуют. Не доказано разрешение всех выражений. |
+| O | [RemainingLibraryOverloadsTest](../src/test/java/com/kniazkov/cpg/RemainingLibraryOverloadsTest.java) и [явный список количества перегрузок](../src/test/resources/library-catalogue/cpp03-remaining-overloads.tsv). Проверяет выбранные группы владелец/имя, не каждую сигнатуру и подстановку. |
+| R | [RemainingLibraryResolutionTest](../src/test/java/com/kniazkov/cpg/RemainingLibraryResolutionTest.java) и [входы CPG](../src/test/resources/library-catalogue/resolved-remaining/). Выбранные объявления, параметры и операторы; тела не создаются. |
+| C | [CCompatibilityFamiliesTest](../src/test/java/com/kniazkov/cpg/CCompatibilityFamiliesTest.java). Оба пространства имён, точные математические перегрузки, выбранные вызовы, непрозрачные типы, отсутствующие макросы и исключение поздних API. |
+| F | [LibraryCatalogueFamiliesTest](../src/test/java/com/kniazkov/cpg/LibraryCatalogueFamiliesTest.java). Выбранные семейства объявлений, непрозрачные маски; stdio.h не создаёт вымышленный std::printf. |
+| S | [StreamLibraryResolutionTest](../src/test/java/com/kniazkov/cpg/StreamLibraryResolutionTest.java). Наследуемые члены узких/широких строковых потоков, итераторы ввода-вывода, манипуляторы, операторы и границы вывода параметров. |
+| U | [LibraryUnknownEffectsTest](../src/test/java/com/kniazkov/cpg/LibraryUnknownEffectsTest.java). Возможные записи через получатель/ссылки/указатели/доступную и глобальную память; псевдонимы потоков и неподдержанное время жизни временных объектов. |
+| L | [LazyLibraryGraphTest](../src/test/java/com/kniazkov/cpg/LazyLibraryGraphTest.java). Замыкание востребованных объявлений, происхождение, владение, сброс после правки/смены профиля, область include внутри единицы трансляции. |
+| V | [VectorResolutionTest](../src/test/java/com/kniazkov/cpg/VectorResolutionTest.java), [VectorIteratorResolutionTest](../src/test/java/com/kniazkov/cpg/VectorIteratorResolutionTest.java), [VectorAccessNormalizationTest](../src/test/java/com/kniazkov/cpg/VectorAccessNormalizationTest.java). Конкретные vector-вызовы, итераторы, ёмкость/инвалидация; границы proxy и нетривиальных типов. |
+| K | [ContainerIteratorResolutionTest](../src/test/java/com/kniazkov/cpg/ContainerIteratorResolutionTest.java), [ContainerNormalizationTest](../src/test/java/com/kniazkov/cpg/ContainerNormalizationTest.java), [ContainerFamilyFlowTest](../src/test/java/com/kniazkov/cpg/ContainerFamilyFlowTest.java). Операции deque/list/ассоциативных контейнеров/адаптеров и эффекты памяти. |
+| Q | [StringAlgorithmResolutionTest](../src/test/java/com/kniazkov/cpg/StringAlgorithmResolutionTest.java), [SequenceNormalizationTest](../src/test/java/com/kniazkov/cpg/SequenceNormalizationTest.java), [SequenceFlowTest](../src/test/java/com/kniazkov/cpg/SequenceFlowTest.java), [SequenceModelTest](../src/test/java/com/kniazkov/cpg/SequenceModelTest.java). Выбранные строки/алгоритмы диапазонов, эффекты функций и вывода, копирование/сброс графа. |
+| N | [Скрипт нативных сигнатур](../scripts/probe-cpp03-library-catalogue.sh): [контейнеры](../src/test/resources/library-catalogue/containers.cpp), [остальные C++-сигнатуры](../src/test/resources/library-catalogue/remaining-cpp-signatures.cpp), [C-сигнатуры](../src/test/resources/library-catalogue/c-compatibility-signatures.cpp), [старые написания C](../src/test/resources/library-catalogue/c-legacy-signatures.cpp), входы R. Только синтаксис, кроме двух безопасных программ; проверка STL хоста, не разрешения CPG. |
+| B | Только нативные [безопасная C-программа](../src/test/resources/library-catalogue/c-benign-runtime.cpp) и [форматирование потока](../src/test/resources/library-catalogue/c-stream-signatures.cpp). Реальные проверки значений. assert/va_* здесь берутся из заголовков хоста, а не из CPG. |
+| E | [Cpp03CorpusIT](../src/test/java/com/kniazkov/cpg/e2e/Cpp03CorpusIT.java): сценарии `lazy-library`, `vector-semantics`, `vector-access`, `container-families`, `strings-algorithms`, `remaining-library`. Исходные/сгенерированные/свёрнутые программы, граф/JSON/DOT/SVG, строгие нативные GCC/Clang проверки этих входов. Не отдельный сценарий для каждого заголовка. |
+
+Реализация объявлений: [StandardLibraryCatalogue](../src/main/java/com/kniazkov/cpg/analysis/StandardLibraryCatalogue.java),
+[StandardLibraryC](../src/main/java/com/kniazkov/cpg/analysis/StandardLibraryC.java),
+[StandardLibraryStreams](../src/main/java/com/kniazkov/cpg/analysis/StandardLibraryStreams.java).
+Их точные объявления остаются источником истины; таблицы содержат **проверенные
+примеры**, а не замену полного synopsis. Индексы имён типов/шаблонов проверяются
+отдельно от объявлений и разрешения.
+
+Эффект **непрозрачный** означает возможные обращения, сохранённые
+[LibraryCallEffects](../src/main/java/com/kniazkov/cpg/analysis/LibraryCallEffects.java),
+а не чистоту, отсутствие исключений или известную реализацию.
+**Общая модель** означает поддержанный случай в
+[ContainerSemantics](../src/main/java/com/kniazkov/cpg/analysis/ContainerSemantics.java) или
+[SequenceSemantics](../src/main/java/com/kniazkov/cpg/analysis/SequenceSemantics.java)
+с указанным V/K/Q-доказательством. Остальные случаи остаются обычным C++.
+Генератор сохраняет вызовы и include, а не создаёт реализацию STL; E проверяет
+только выбранные программы.
+
+## 33 обязательных C++-заголовка (32 в каталоге)
+
+Для каждой имеющейся в каталоге строки есть разбор D; для отсутствующего strstream его нет. «Только D» прямо
+означает отсутствие отдельного теста разрешения/поведения данного интерфейса.
+`C`/`T` сокращают тип символа/значения и не обещают произвольные пользовательские
+типы.
+
+| Заголовок; глава | Проверенные объявления / сигнатуры | CPG, эффекты и генерация | Явная граница |
+|---|---|---|---|
+| `algorithm`; 25 | C++03 `void rotate`, `void fill_n`, `void generate_n`; copy/find_if/унарный transform/sort/remove; общий swap(T&,T&) объявлен здесь. | D.`cxx03AlgorithmReturnTypesDoNotBorrowCxx11Signatures`; Q.`iteratorArgumentsAndUserFunctorsSurviveOwnedInstantiation`, `algorithmsRetainRangesOutputsCallbacksAndAccumulator`, `removeAndSortMutateRangeWithoutSizeChange`; U.`opaqueReferenceCallMayWriteArgumentsAndKeepIncomingDefinitions`; E `strings-algorithms`. Общая модель выбранных диапазонов/функций, прочее непрозрачно. | Нет проверки каждой перегрузки поиска/partition/merge/set/heap/permutation. Неподходящие категории и const-выходы остаются исходными (Q), не полностью диагностируются. Нет доказательства сложности и всех предусловий. |
+| `bitset`; 23 | 3 группы конструкторов; по 2 set/reset/flip; proxy/const operator[]; явный to_string<C,Traits,Alloc>(); to_ulong, count/проверки, битовые операторы. | O; R.`bitsetOverloadsAndExplicitStringTemplate` (14 вызовов), `bitsetOperatorTargets` (13); N `bits`. Непрозрачно. | Нет модели битовых значений/переполнения/исключений позиции и отдельного нативного сценария генерации. Количества не доказывают все аргументы шаблона. |
+| `complex`; 26 | Основной шаблон и float/double/long-double; pow(complex,int), complex/scalar, complex/complex, scalar/complex; арифметика, real/imag, трансцендентные функции. | O; R.`complexScalarAndComplexPowerOverloads` (16 вызовов), `complexOperatorTargets` (28); N `complex_specializations`. Непрозрачно. | Нет модели точности/областей/ветвлений функций и полного доказательства преобразований специализаций/потокового исполнения. |
+| `deque`; 23 | push_front/back, pop_front/back, index/at/front/back, конкретные итераторы произвольного доступа; объявления конструкторов/модификаторов/сравнений. | K.`sequencesSelectConcreteOperationsAndRespectIteratorCategories`, `dequePushPreservesReferencesButNotIteratorProofs`; E `container-families`. Общая модель выбранных обращений/изменений. | Не все конструкторы/диапазоны/аллокаторы/гарантии исключений. Инвалидация ссылок отличается от инвалидации итераторов. |
+| `exception`; 18 | exception/bad_exception, копирование/присваивание/what, типы обработчиков и set_terminate/set_unexpected/terminate/unexpected/uncaught_exception. | O; R.`exceptionHandlersAndTypeInfo` (8 вызовов суммарно exception/new/typeinfo); N указатели на функции и `exceptions`. Непрозрачно. | Установка обработчиков/завершение не исполняются; нет полной модели исходов спецификаций исключений. |
+| `fstream`; 27 | basic_filebuf, basic_ifstream/ofstream/fstream, узкие/широкие псевдонимы; open/close/is_open/rdbuf, защищённые буферные методы. | Для этого интерфейса только D. B включает заголовок, но не выполняет файловые операции. Непрозрачно. | Нет отдельных CPG-тестов open/seek/close и исходного/сгенерированного файлового сценария. Включение заголовка не доказывает операции. |
+| `functional`; 20 | Арифметические/сравнивающие/логические функторы, отрицатели, bind1st/bind2nd, ptr_fun (2), mem_fun (4), mem_fun_ref (4), const/nonconst адаптеры. | O; R.`functionalAdapters` (14 вызовов); N `functional`; Q сохраняет возможные эффекты функций. Вне доказанного общего применения непрозрачно. | Нет всеобщей чистоты и доказательства каждой подстановки адаптера; пользовательское состояние требует консервативных эффектов. |
+| `iomanip`; 27 | setiosflags/resetiosflags, setbase, setfill<C>, setprecision, setw; типы результатов без заданного представления. | S.`parameterizedManipulatorsResolveWithoutRepresentationAssumptions`, `setfillRetainsItsCharacterTypeAndDoesNotInventExtraction`; B форматирование; E `remaining-library`. Непрозрачно. | Неподходящий тип символа/применение setfill не нормализуются; представление proxy не является знанием ABI. Нет общего симулятора форматирования. |
+| `ios`; 27 | Флаги/состояние/locale/обратные вызовы/хранилище ios_base, basic_ios; clear/rdstate/exceptions/fill/width/precision/flags. | S.`narrowAndWideStringStreamAliasesExposeInheritedStateAndPosition`; U.`streamStateMutatorIsAnOpaqueReceiverWrite`; F.`bitmaskTypesDoNotPretendToBeIntegralAbiTypes`; E `remaining-library`. Непрозрачно. | Не покрыты полностью callback/xalloc/iword/pword/Init/failure и числовые флаги; нативно проверяются выбранные состояния. |
+| `iosfwd`; 27 | Предварительные объявления потоков, char/wchar-псевдонимы, fpos<State>, непрозрачные смещения; строковые потоки сохраняют аллокатор. | D.`stringStreamsRetainTheirThirdAllocatorParameter`; S.`defaultsFromForwardDeclarationsSubstituteTheirOwnParameters`; B объявления типов. Зависимые вызовы непрозрачны. | Видимость предварительных объявлений не доказывает всю арифметику/состояние fpos и все семейства потоков. |
+| `iostream`; 27 | 8 стандартных узких/широких объектов; выбранные cout << value << endl и cin >> value. | [LibraryConsoleTest](../src/test/java/com/kniazkov/cpg/LibraryConsoleTest.java).`catalogueBoundCoutAndEndlNormalize` / `userNamespaceWithSameSpellingDoesNotNormalize`; U.`opaqueLibraryOperatorMayChangeItsReceiverReferenceArgumentAndAccessibleData`. Узкая доказанная форма консоли имеет общую модель, прочее непрозрачно. | Нет полного поведения инициализации/tie/sync всех 8 объектов. Пользовательским одноимённым объектам факты консоли не приписываются. |
+| `istream`; 27 | basic_istream, sentry, форматированный/неформатированный ввод, позиция, basic_iostream; символьные/указательные/манипуляторные перегрузки. | S наследуемый ввод/итераторы; U.`chainedStringStreamExtractionRetainsBothOutputAndReceiverEffects`; E `remaining-library`: значения, EOF/fail, clear и повторное чтение. Непрозрачно. | Не все get/getline/read/putback/ignore/sentry и исключения; происхождение изменений LWG после 2003 требует проверки. |
+| `iterator`; 24 | Traits/tags, специализации указателей, reverse/insert/I/O-адаптеры; advance(I&,D), distance(I,I), конкретные итераторы контейнеров. | Q расстояние указателей/reverse и сохранённые адаптеры; S.`inputAndOutputIteratorFamiliesResolveTheirOperators`; U сохранённые/копированные/переприсвоенные потоковые итераторы; E строки/потоки. Общая модель обычных диапазонов, I/O непрозрачен. | Неподходящие категории/чужие итераторы не получают доказанных операций. Нет универсальной проверки законов итераторов; postfix-результат istreambuf непрозрачен. |
+| `limits`; 18 | numeric_limits<T> и 14 скалярных специализаций, 8 функций значений, статические свойства, enum округления/денормализации. | O.`numericLimitsPreserveUnknownTargetConstantsAndAllScalarSpecializations`; R.`numericLimitsSpecializationTargets` (5 вызовов); N `scalars`. Функции непрозрачны, константы без инициализаторов. | Целевые min/max/NaN/epsilon/radix не задаются и не сворачиваются; ABI/формат не угадывается, вычисление всех членов не доказано. |
+| `list`; 23 | Двунаправленная итерация, insert/erase/front/back, 3 splice, объявления remove/unique/merge/sort/reverse. | K.`listSpliceTransfersStorageWithoutCopying`, `allAndRangeSpliceRetainTheirWrittenBounds`, `recordSplicePreservesStorageWithoutCopyOrDestruction`, условные/пустые/end-случаи; E `container-families`. Общая модель выбранных перемещений/изменений. | Не доказаны общие границы диапазонов/совместимость аллокаторов/merge/sort/исключения; арифметика итераторов неподдержана. |
+| `locale`; 22 | locale/facet/id; use_facet<T>/has_facet<T>; ctype/codecvt, числовые/сравнивающие/временные/денежные/messages и byname-семейства. | O количества, включая num_get 9 и num_put 6; R.`localeFacetsAndCharacterOverloads` (23 вызова); F семейства; N `facets`, `numeric_time_money`. Непрозрачно. | Нет семантики изменения locale/каталогов/жизни facet/сравнения/состояния преобразования; нет отдельного отрицательного теста неверного facet. |
+| `map`; 23 | map/multimap; operator[] только map; find/границы, insert возвращает pair для unique и iterator для multi, erase/наблюдатели/сравнения. | K.`associativeIteratorsPreserveConstKeysAndMappedReferences`, `mapLookupAndSubscriptHaveDifferentEffects`, `mapScalarPairInsertProducesValueResult`, DFG ссылок mapped; E `container-families`. Общая модель выбранного. | Не все компараторы/аллокаторы/hint/диапазоны/исключения; возможный end поиска не объявляется корректным элементом. |
+| `memory`; 20 | allocator address const/nonconst, allocate/deallocate/construct/destroy; allocator<void>/rebind; auto_ptr get/release/reset/преобразования; временные буферы и uninitialized-алгоритмы. | O; R.`allocatorOwnershipAndUninitializedAlgorithms` (17 вызовов, constness параметров address); U.`allocatorReturnedPointerKeepsPossiblePointeeWrites`; N `utilities`. Непрозрачно. | Нет полной модели передачи владения/ошибки выделения/отката конструирования/raw-storage/uninitialized-жизни. Разрешение не доказывает безопасность памяти. |
+| `new`; 18 | 12 глобальных new/new[]/delete/delete[]: обычные, nothrow, placement; bad_alloc/nothrow_t/new_handler. | D.`allocationOverloadsStayInTheGlobalNamespace`; O; R.`allocationOverloadTargets` выбирает все 12; N точные типы указателей. Непрозрачно. | Каталог не доказывает исполнение выделения, ошибки, placement-время жизни и гарантии исключений. |
+| `numeric`; 26 | По 2 accumulate/inner_product/partial_sum/adjacent_difference; выбран accumulate(first,last,0L). | D; Q.`iteratorArgumentsAndUserFunctorsSurviveOwnedInstantiation`, `algorithmsRetainRangesOutputsCallbacksAndAccumulator`; E `strings-algorithms`. Общая модель выбранного накопления. | Нет независимой CPG-проверки всех binary-op перегрузок и остальных 3 семейств, общей проверки переполнения/порядка/сложности. |
+| `ostream`; 27 | basic_ostream/sentry, вывод значений/символов/указателей, put/write/flush/seekp/tellp; endl/ends/flush. | S.`characterInsertionUsesSpecializedOperatorTemplates`, наследуемая позиция; U операторы; B точная сигнатура const-void-pointer; E `remaining-library`. Непрозрачно, кроме узкой нормализации консоли. | Нет всей семантики sentry/неформатированного вывода/ошибок/flush. Строковые потоки не превращаются в консольные PrintStatement. |
+| `queue`; 23 | queue/priority_queue; front/back против const top, push/pop/size/empty; сравнения queue, без равенства priority_queue. | K.`adaptersAndCustomComparatorsRetainSelectedTargets`, `adapterOrdersAndPriorityMutabilityAreDistinct`, `adapterReferencesDifferFromCopiesAndPopWrites`; E `container-families`. Общая модель выбранного порядка/доступа. | Не все пользовательские контейнеры/компараторы, исключения и конструкторы; нет позднего adaptor swap. |
+| `set`; 23 | set/multiset, неизменяемые ключи; insert возвращает pair/iterator; find/границы/equal_range/наблюдатели. | K ассоциативные итераторы, `customComparatorHasSelectedCallAndNoInventedComparisonCount`, `possibleEndResultsAreNotDefinitelyInvalidatedByClear`; E `container-families`. Общая модель выбранного. | Нет всеобщего доказательства порядка компаратора, всех equal_range/hint/диапазонов/аллокаторов/исключений. |
+| `sstream`; 27 | basic_stringbuf и basic_i/o/stringstream с 3 параметрами; конструкторы/str/rdbuf, унаследованное состояние. | S узкие/широкие состояния/позиции; U ввод/материализация/псевдонимы; E `remaining-library`: значения/состояния исходного/сгенерированного/свёрнутого кода. Непрозрачно. | Время жизни отброшенного/немоделируемого возвращённого объекта явно неполно (U); не все буферные hooks/конструкторы/locale. |
+| `stack`; 23 | stack<T,Container>, top const/nonconst, push/pop/size/empty, сравнения. | K разрешение/порядок/ссылки адаптеров; E `container-families`. Общая модель выбранного LIFO-доступа/изменения. | Нет доказательства всех контейнеров/конструкторов/сравнений/исключительных подстановок. |
+| `stdexcept`; 19 | 9 классов исключений, строковые конструкторы, иерархия logic_error/runtime_error, what. | O; R.`standardExceptionHierarchy` (9 вызовов); N `exceptions`. Непрозрачно. | Нет отдельного сгенерированного сценария throw/catch/сообщение/жизнь для всех 9 и точного содержимого what. |
+| `streambuf`; 27 | Публичные get/put/seek/locale методы basic_streambuf и защищённые виртуальные hooks. | Разбор интерфейса D; итераторы S зависят от типов streambuf, но не проверяют каждый hook. Непрозрачно. | Нет отдельной CPG-проверки публичных/защищённых целей, пользовательского переопределения, сгенерированного сценария буферизации/позиции. |
+| `strstream`; таблица 11 главы 17 / D.7 | Обязательный устаревший заголовок с интерфейсами strstreambuf/istrstream/ostrstream/strstream. | **Отсутствует в StandardLibraryCatalogue**. Нынешний тест утверждает лишь 50 канонических имён и не доказывает состав исходной таблицы 11. | Отсутствует целое обязательное семейство объявлений; нет приёмки парсера/разрешения/эффектов/генерации. |
+| `string`; 21 | char_traits-специализации, basic_string/string/wstring; counted/NUL/fill-конструкторы, append/assign/find/substr/доступ/итерация; более широкий набор объявлений. | Q.`stringAliasesDemandConcreteMembersAndIteratorTypes`, `explicitCharacterTraitsUseTheSelectedCharacterSpecialization`, NUL/подстроки/эффекты/память; E `strings-algorithms`. Общая модель выбранных строк. | Нет общей гарантии для своих traits/аллокаторов/специализаций, многих insert/erase/replace/search/сравнений и нетривиальных временных объектов. |
+| `typeinfo`; 18 | type_info ==/!=/before/name, недоступное копирование, bad_cast/bad_typeid. | O; вход R exception/typeinfo проверяет before/name; N `exceptions` также ==/!=. Непрозрачно. | Не симулируются строки name, порядок/тождество/ошибки RTTI; не каждый оператор/запрет копирования проверяется отдельным CPG-тестом. |
+| `utility`; 20 | Конструкторы/типы/поля pair, make_pair(T1,T2), 6 сравнений. | O; R.`utilityTemplates` (1 вызов), `pairComparisonTargets` (6); K поток unique-insert pair; N `utilities`. Непрозрачно, кроме отдельно доказанной структуры результата контейнера. | Подтверждён пробел: исходные §20.2/1 и §20.2.1 требуют четыре общих оператора std::rel_ops, отсутствующих в каталоге. Поведение pair/конструкторов покрыто частично; общий swap объявлен не здесь. |
+| `valarray`; 26 | valarray/slice/gslice и 4 proxy-семейства; 10 index-групп, 6 присваиваний, apply по значению/const-ссылке, арифметика/сравнения/математика. | O; R.`valarrayApplyAndReductions` (10 вызовов), `valarrayOperatorTargets` (54), `valarrayMathOverloads` (20); N `arrays`, `array_math`. Непрозрачно. | Нет модели чисел/proxy-псевдонимов/размеров/границ/жизни/исключений или генерационного исполнения; expression templates не означают известный layout. |
+| `vector`; 23 | Основной шаблон и bool, конкретные конструкторы/assign/push/доступ/ёмкость/итерация/модификаторы, bool reference proxy. | L замыкание; V диапазоны/ёмкость/инвалидация/const/proxy-идентичность; E `lazy-library`, `vector-semantics`, `vector-access`. Общая модель поддержанных default-allocator случаев. | V.`boolRemainsRaw`, `nontrivialAssignmentShiftsRemainRaw`, условная ёмкость/пользовательские специализации: нет ложных bool&, гарантий жизни сдвига, коэффициента роста или всех аллокаторов. |
+
+## 18 C-заголовков и 18 устаревших написаний
+
+Каждая строка отдельно покрывает оба указанных написания. D и C проверяют оба
+пространства имён: `<c...>` предоставляет гарантированные std-имена, `<...h>` —
+глобальные. Необязательные дополнительные импорты не обещаются.
+**Непрозрачно** означает консервативные эффекты CPG; даже значения нативной
+арифметики B не доказывают вычисление констант CPG. 180 выборов сигнатур N на
+каждое написание описаны в исходниках и не означают 180 полных семантик.
+
+| Заголовок / устаревшее написание; глава | Проверенные объявления / макросная граница | Доказательства и эффекты | Пробел / уточнение |
+|---|---|---|---|
+| `cassert` / `assert.h`; 19 | Пустой фрагмент: assert — макрос, не функция. | C.`macroOnlyHeadersDoNotInventObjectsOrFunctions`; N наличие макроса; B исполняет assert хоста. Встроенного CPG-эффекта макроса нет. | Нет раскрытия assert и поведения NDEBUG. Нативный успех не закрывает пробел. |
+| `cctype` / `ctype.h`; 21/22 | 11 классификаторов int, int tolower(int)/toupper(int). | C.`scalarAndCharacterFamiliesResolveUnderBothSpellings`: isdigit/toupper; N сигнатуры; B значения стартовой C-locale. Непрозрачно. | Нет CPG-вычисления locale/значений и диагностики аргумента вне unsigned-char/EOF; поздний isblank исключён. |
+| `cerrno` / `errno.h`; 19 | Пустой фрагмент, нет вымышленного объекта errno/числовых констант. | C.`macroOnlyHeadersDoNotInventObjectsOrFunctions`, `absentTargetMacroDefinitionsRemainUnresolved`; N наличие на хосте. | Нет определений/значений/состояния errno и EDOM/ERANGE; это не «поддержка с неизвестным значением». |
+| `cfloat` / `float.h`; 18 | Пустой фрагмент, значения FLT/DBL/LDBL не угадываются. | C оставляет FLT_RADIX неразрешённым; N наличие макросов хоста. | Обязательные макросы диапазона/формата не имеют целевых определений и вычисления. |
+| `ciso646` / `iso646.h`; совместимость 17 / токены 2 | Для альтернативных C++-токенов пустой фрагмент ожидаем. | C макросная граница; B использует or/not как C++-токены; лексические тесты относятся к языковому аудиту. | Это не отсутствующее семейство вызовов; C-подобные макросы не выдумываются. Одно распознавание заголовка не доказывает лексер. |
+| `climits` / `limits.h`; 18 | Пустой фрагмент, пределы CHAR/INT/LONG не угадываются. | C оставляет INT_MAX неразрешённым; N наличие макросов. | Нет целевых определений/вычисления обязательных целочисленных пределов. |
+| `clocale` / `locale.h`; 22 | Публичные поля lconv C90, char* setlocale(int,const char*), lconv* localeconv(). | C оба localeconv; N точные указатели; F набор объявлений. Непрозрачно. | Нет LC_*, изменения locale, значений/хранилища lconv, сгенерированного locale-сценария. |
+| `cmath` / `math.h`; 26 | float/double/long-double; abs/fabs/sqrt и др.; pow(T,int) против pow(T,T), frexp/ldexp/modf. | C.`mathAndIntegerOverloadsSelectDistinctParameterTypes`, `cppStringSearchOverloadsPreserveConstness` (также pow/modf); N сигнатуры; B sqrt. Непрозрачно. | Нет HUGE_VAL и модели ошибок/точности/области/округления; C99 hypot/round исключены. |
+| `csetjmp` / `setjmp.h`; 18 | Непрозрачный jmp_buf, void longjmp(jmp_buf,int). | C оба longjmp; N указатель и наличие setjmp хоста. Непрозрачно. | Нет макроса setjmp, семантики окружения/нелокального перехода/деструкторов и исполнения перехода. |
+| `csignal` / `signal.h`; 18 | Непрозрачный целочисленный sig_atomic_t, void (*signal(int,void (*)(int)))(int), int raise(int). | C оба raise; F объявления; N указатели. Непрозрачно. | Нет номеров/handler-макросов, исполнения установки/доставки сигналов и модели асинхронных эффектов. |
+| `cstdarg` / `stdarg.h`; 18 | Только непрозрачный va_list, без фиктивных функций va_start/va_arg/va_end. | C оба потребителя va_list через vprintf, макросная граница; N сигнатуры; B variadic-сумма хоста. | Нет va_*-раскрытия в переносимом CPG, модели жизни/обхода состояния; va_copy исключён как поздний. |
+| `cstddef` / `stddef.h`; 18 | size_t по профилю; ptrdiff_t по политике знакового аналога size_t. | C.`cstddefTypesResolveUsingTheSelectedProfile`; D unsigned-long/unsigned-int; Q расстояние указателей. Только типы. | Нет независимого ABI-выбора ptrdiff_t, макросов NULL/offsetof. Парность типов — политика проекта, не требуемая ISO идентичность. |
+| `cstdio` / `stdio.h`; 27 | Непрозрачные FILE/fpos_t; printf/scanf/variadic; файловый/символьный/блочный ввод-вывод, позиция/состояние/remove/rename. | C оба printf; N указатели; U.`cCompatibilityPointerOutputMayWriteExposedLocal` использует scanf; F отрицательный std-импорт. Непрозрачно. | Нет EOF/BUFSIZ/SEEK_* и стандартных stream-макросов, полной проверки формата/файлов/окружения и генерационной приёмки C I/O. gets оставлен как C++03-объявление, не рекомендация безопасности. |
+| `cstdlib` / `stdlib.h`; 18/20/25/26 | div_t/ldiv_t, int/long abs/div, конверсии/память/процесс/random/qsort/bsearch/multibyte. | C оба abs/labs/atoi, точный int/long; N указатели; B div/abs; U различает значение и доступную память. Непрозрачно. | Нет EXIT_*/RAND_MAX/MB_CUR_MAX/NULL, моделей процессов/random/выделения/поиска; нет C99 long-long API. |
+| `cstring` / `string.h`; 21 | memcpy/memmove/memset, строковые операции, mutable/const memchr/strchr/strpbrk/strrchr/strstr. | C оба strcmp/strchr и constness; N точные указатели; B strchr/strlen/strcmp. Непрозрачно. | Нет общей модели границ/перекрытия/терминатора/tokenizer/текста ошибки и отдельного CPG-теста каждой перегрузки. |
+| `ctime` / `time.h`; 20 | Непрозрачные арифметические time_t/clock_t, поля tm; clock/time/difftime/mktime, конверсии/strftime. | C оба mktime; F.`demandedTimeTypeKeepsUnknownUnderlyingRepresentation`; N указатели. Непрозрачно. | Нет CLOCKS_PER_SEC/NULL, симуляции представления времени/часов/часового пояса/статических буферов. |
+| `cwchar` / `wchar.h`; 21/27 | Непрозрачные mbstate_t/wint_t, wide I/O/строки/память/числа/время/restartable multibyte, mutable/const-поиск. | C оба wcslen; N сигнатуры; B wide length и указатель mbrtowc. Непрозрачно. | Нет WEOF/WCHAR_*/NULL, доказанного поведения conversion/locale/state и всех wide-перегрузок CPG. Исключение Clang/glibc для const-поиска описано ниже. |
+| `cwctype` / `wctype.h`; 21/22 | wint_t, непрозрачные wctype_t/wctrans_t, wide-классификация/регистр/iswctype/wctype/towctrans/wctrans. | C оба wctype; N указатели; B iswdigit. Непрозрачно. | Нет модели дескрипторов/locale/исполнения классификации, определения WEOF; C99 iswblank исключён. |
+
+[Уточнение C-проверок](../src/test/resources/library-catalogue/c-compatibility-coverage.md):
+эта комбинация Clang/glibc предоставляет старые объявления широкого поиска.
+Точный const wcschr проверяется GCC; поддержанный mutable-вариант — обоими.
+Старый C-вход подавляет Clang-предупреждение расширения include-next, вызванное
+CPATH. Это не второе независимое доказательство всех const-перегрузок.
+
+## Положительные, отрицательные и граничные тесты по главам
+
+«Отрицательный» означает реальное утверждение об отказе/невыборе цели.
+Консервативный fallback и отсутствие макроса не доказывают стандартную
+диагностику. «Не найден» — пробел, а не неявное прохождение. Программы с
+неопределённым поведением не считаются положительными исполняемыми примерами.
+
+| Глава | Положительные | Отрицательные | Границы и непокрытое |
+|---|---|---|---|
+| 17, введение | D заголовки/зависимости/объявления; L востребованное замыкание. | D исключает array/tuple/thread/unordered_map/cstdint/TR1; F не создаёт std-импорт из stdio.h. | L `includeAvailabilityBeginsAtTheDirective`, `includesDoNotLeakBetweenTranslationUnits`, `incompatibleProfilesKeepSeparateLibraryIdentities`; не все общебиблиотечные требования/свободы реализации. |
+| 18, поддержка языка | R все 12 allocation-сигнатур, handlers/typeinfo/limits; C размерные типы. | C `c99AndLaterApisAreNotPresentedAsCpp03` исключает поздние API. D проверяет правильное размещение allocation-имён, а не отказ в неверном namespace; общая диагностика неверных программ не доказана. | C непрозрачное состояние и отсутствие va_*/setjmp; O неизвестные limits. Нет полной приёмки handler/nonlocal-jump исполнения. |
+| 19, диагностика | R 9 конструкторов stdexcept; O what/иерархия. | C не выдумывает assert/errno. Отдельная нативная неверная программа этого семейства не найдена. | B assert хоста отдельно; CPG-макросы NDEBUG/errno/EDOM/ERANGE отсутствуют. |
+| 20, утилиты | R pair-сравнения, allocator, functional. | U `ordinaryValueArgumentIsNotAReferenceToTheLocal`, `unevaluatedAddressDoesNotExposeStorage` запрещают ложные alias-эффекты; это не языковой отказ. | U alias результата allocator, O выбранные группы; нет полной семантики владения allocator/auto_ptr/raw-storage. |
+| 21, строки | Q counted/NUL/traits/substr/append, C узкие/широкие вызовы, E строки. | Q `userStringSpecializationKeepsItsOwnMembers`, `lookalikeMethodsNeverAcquireLibrarySemantics` запрещают ложную стандартную семантику. | Q `substringCopyOverloadsNeverBecomeBufferCopies`, `materializationDoesNotAdmitNestedOrDiscardedStringTemporary`; не все исключения/псевдонимы. |
+| 22, локализация | R 23 locale-вызова; O facet-группы; N numeric/time/money. | Отдельный неверный facet/locale CPG или нативный вход не найден; C исключает поздние character API. | F непрозрачные маски; нет модели locale/state/descriptor значений; сигнатуры не исполняют изменение locale. |
+| 23, контейнеры | V/K вызовы/DFG/инвалидация; R bitset; E vector/семейства. | V `constIteratorKeepsConstElementsAndUnrelatedContainersDoNotCompare`; K `associativeConstIteratorsCannotBindWritableReferences`; недопустимая list-арифметика без целей. | V bool/нетривиальные сдвиги/ёмкость; K empty/end/условный splice/компараторы. Не все перегрузки/предусловия/гарантии исключений. |
+| 24, итераторы | Q pointer/reverse distance, сохранённые адаптеры; S I/O-операторы; E строки/потоки. | S `iteratorDifferenceAliasDoesNotMergeUnrelatedBaseDeclarations`; V чужие итераторы; K категории. | U сохранённое/копированное/переприсвоенное I/O-состояние; Q неизвестный rebind сохраняет возможные записи. Законы итераторов/диапазонов проверены не полностью. |
+| 25, алгоритмы | Q copy/find_if/transform/sort/remove; C qsort/bsearch-объявления; E строки. | Q `invalidCategoriesAndUnevaluatedCallsStayRaw`, `readOnlyRangesAndOutputsNeverAcquireMutationFacts`. Fallback не равен полному семантическому отказу. | Q remove не удаляет физически; функции могут менять globals; большинство перегрузок/сложность/исключения не покрыты отдельно. |
+| 26, числа | R complex/valarray/limits; Q accumulate; C математика; B безопасные скалярные значения. | C нет hypot/round/long-long; отдельного отрицательного теста области функции/размерности valarray не найдено. | O неизвестные целевые константы; proxy/expression-представления и числовая точность/ошибки не моделируются. |
+| 27, ввод-вывод | S состояние/манипуляторы/операторы; U псевдонимы; E `remaining-library` значения/EOF/fail/clear/повторная генерация. | S `setfillRetainsItsCharacterTypeAndDoesNotInventExtraction`; LibraryConsoleTest не нормализует ложные cout/endl. | Строковый поток не консоль; жизнь отброшенной возвращённой строки неполна; нет отдельной fstream/streambuf-приёмки. |
+
+## Неопределённое, неуточнённое, зависящее от реализации и неподдержанное
+
+Эти категории в отчётах нельзя объединять:
+
+- **Неопределённое поведение (UB):** разыменование end/инвалидированного итератора,
+  неверные диапазоны и размеры буфера, некоторые перекрытия и вызовы вне области
+  допустимых аргументов нельзя использовать как переносимый исполняемый эталон.
+  Сигнатурные входы N содержат заглушки диапазонов, неинициализированные указатели
+  и null-указатели обработчиков исключительно для выбора сигнатур. Скрипт их не
+  исполняет и не утверждает результата. Сохранение синтаксиса/цели в CPG не
+  доказывает предусловия. Полное обнаружение UB не реализовано.
+- **Неуточнённое поведение/представление (unspecified):** если стандарт допускает
+  выбор, граф без доказательств не выбирает порядок хоста, layout proxy или
+  представление результата адаптера. Непрозрачные идентичности манипуляторов,
+  proxy и масок сохраняют эту границу. Непрозрачность может означать и отсутствие
+  сведений; она не доказывает нормативную категорию каждого отдельного типа.
+- **Определяемое реализацией (implementation-defined):** размерные/разностные
+  типы, числовые диапазоны/форматы, представление времени/потоков и подобные
+  документируемые выборы требуют профиля цели или определений. Непрозрачные типы
+  не дают угадывать layout, но отсутствие обязательного макроса остаётся
+  пробелом поддержки. Политика знакового аналога size_t для ptrdiff_t уже множества
+  всех допустимых целей. Размер контейнера и коэффициент роста не предполагаются.
+- **Ограничение реализации проекта:** неразрешённые обязательные макросы,
+  отсутствующий тест, немоделируемая жизнь возвращённого объекта и неизвестные
+  эффекты нельзя объявлять «неуточнёнными в ISO». Консервативные эффекты лучше
+  ложных гарантий чистоты/alias/жизни и сами по себе не требуют отказа от
+  корректного исходника.
+
+## Воспроизводимые проверки и результат запуска
+
+Рекомендуемые команды репозитория:
+
+```sh
+mvn -Dtest=StandardLibraryCatalogueTest,RemainingLibraryOverloadsTest,RemainingLibraryResolutionTest,CCompatibilityFamiliesTest,StreamLibraryResolutionTest,LibraryUnknownEffectsTest,LibraryCatalogueFamiliesTest,LazyLibraryGraphTest,LibraryConsoleTest,VectorResolutionTest,VectorIteratorResolutionTest,VectorAccessNormalizationTest,ContainerIteratorResolutionTest,ContainerNormalizationTest,ContainerFamilyFlowTest,StringAlgorithmResolutionTest,SequenceNormalizationTest,SequenceFlowTest,SequenceModelTest test
+bash scripts/probe-cpp03-library-catalogue.sh
+python3 scripts/check-cpp03-paragraphs.py
+mvn verify
+```
+
+Запуск аудита 2026-11-06: Maven/javac в окружении отсутствовали. Основные и тестовые
+исходники скомпилированы в отдельный временный каталог Eclipse ECJ с целью Java 21;
+перечисленные 19 классов запущены JUnit Console с `-Xmx512m`.
+**203 теста прошли, 0 ошибок, 0 пропусков**. Нативный скрипт **прошёл с GCC 14 и Clang 19**, включая обе
+безопасные исполняемые программы. Для Clang использована документированная
+настройка CPATH к GCC-заголовкам. Это целевые проверки, не новый полный
+`mvn verify` и не все сценарии E. Полный результат принадлежит итоговому
+сводному отчёту приёмки.
+
+## Что нужно до заявления о полной поддержке
+
+1. Разобраться с записанными различиями источника/профиля и явно перечислить
+   принятые исправления; не смешивать чтение координат с приёмкой реализации.
+2. Реализовать/профилировать обязательные макросы и добавить положительные,
+   отрицательные и граничные CPG-тесты. Наличие макросов хоста не заменяет поддержку.
+3. Расширить проверку точных перегрузок CPG за пределы выбранных R/O/V/K/Q/S,
+   особенно файловые потоки, streambuf hooks и непрозрачные семейства.
+4. Добавлять поведение и сгенерированное исполнение только там, где семантика
+   действительно моделируется, включая исключения, корректность диапазонов и
+   время жизни. В остальных случаях сохранять внешние эффекты консервативно.
+5. Раздельно сообщать о каталоге, парсере, разрешении, эффектах, генерации и тестах.
+   Ни одна строка аудита не даёт основания для безусловной отметки «полностью».

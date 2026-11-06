@@ -25,6 +25,11 @@ jobs:
         run: bash scripts/probe-cpp03-library-catalogue.sh
       - name: Verify complete C++03 corpus discovery
         run: python3 scripts/check-cpp03-reports.py
+      - name: Validate C++03 paragraph evidence records
+        run: |
+          python3 scripts/test-inventory-cpp03-source.py
+          python3 scripts/test-cpp03-paragraphs.py
+          python3 scripts/check-cpp03-paragraphs.py --require-source-complete
       - name: Validate JavaDoc including internal parser and analysis classes
         run: |
           mvn -B dependency:build-classpath -Dmdep.includeScope=compile -Dmdep.outputFile=target/javadoc-classpath

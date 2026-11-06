@@ -59,6 +59,11 @@ class Cpp03CorpusIT {
         var settings = new Properties();
         try (var reader = Files.newBufferedReader(fixture.resolve("scenario.properties"))) { settings.load(reader); }
         Path work = Files.createDirectory(temp.resolve(name));
+        if ("final-acceptance".equals(settings.getProperty("mode"))) {
+            for (Path source : FinalAcceptance.verify(fixture, work))
+                nativePrograms(work, source, settings.getProperty("stdout"), Integer.parseInt(settings.getProperty("exit")));
+            return;
+        }
         if ("build-variants".equals(settings.getProperty("mode"))) {
             for (var variant : BuildVariantsAcceptance.verify(fixture, work))
                 for (Path source : List.of(variant.original(), variant.generated()))
