@@ -372,3 +372,15 @@ complete standard audit additionally requires conditions 1–6 above.
 [statements-exceptions]: ../src/test/resources/cpp03/statements-exceptions/sources
 [template-instantiation]: ../src/test/resources/cpp03/template-instantiation/sources
 [templates-dependent]: ../src/test/resources/cpp03/templates-dependent/sources
+
+
+## Diagnostic follow-up to the original audit (#87, part of #88)
+
+[TypeidHeaderValidationTest](../src/test/java/com/kniazkov/cpg/TypeidHeaderValidationTest.java)
+checks preceding active header inclusion, TU ownership, edited/template origins,
+and exact API/JSON ranges. [SwitchCaseConversionTest](../src/test/java/com/kniazkov/cpg/SwitchCaseConversionTest.java)
+checks case uniqueness after target-aware fundamental promotions/conversion.
+[Execution evidence and limits](cpp03-paragraphs/probes/DiagnosticRegressionResults.md)
+are separate from the historical audit probes. Enum/class/bit-field conditions,
+signed out-of-range conversion policy, nested-access findings and broader RTTI
+execution remain outside this focused correction. #48 remains open.

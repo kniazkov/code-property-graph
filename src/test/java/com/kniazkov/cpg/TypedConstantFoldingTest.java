@@ -67,7 +67,7 @@ class TypedConstantFoldingTest {
         assertInstanceOf(AddExpression.class, fold("f() + 0"));
     }
     @Test void sizeofAndScalarTypeidDoNotExecuteUpdatesButAllocationBoundsDo() throws Exception {
-        var project = read("int main() { int i = 1; sizeof(i++); typeid(i++); int *p = new int[i++]; delete[] p; return i; }", Cpg.Stage.RESOLVED);
+        var project = read("#include <typeinfo>\nint main() { int i = 1; sizeof(i++); typeid(i++); int *p = new int[i++]; delete[] p; return i; }", Cpg.Stage.RESOLVED);
         var updates = nodes(project, PostfixIncrementExpression.class);
         assertEquals(3, updates.size());
         var data = project.flows().getFirst().data();
@@ -77,7 +77,7 @@ class TypedConstantFoldingTest {
         assertTrue(data.stream().anyMatch(e -> e.from() == updates.get(2) && e.kind() == FunctionFlow.Dependency.DEFINITION));
     }
     @Test void unknownTypeidRetainsPotentialOperandEffects() throws Exception {
-        var project = read("int main() { int i = 1; typeid(unknown(i = 2)); return i; }", Cpg.Stage.RESOLVED);
+        var project = read("#include <typeinfo>\nint main() { int i = 1; typeid(unknown(i = 2)); return i; }", Cpg.Stage.RESOLVED);
         var assignment = nodes(project, AssignmentExpression.class).getFirst();
         var local = nodes(project, VariableDeclaration.class).getFirst();
         var data = project.flows().getFirst().data();

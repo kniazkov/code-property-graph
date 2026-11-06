@@ -1020,6 +1020,14 @@ written C++03 `export`. Canonical source emits these declarations, including
 `template <>` and `template struct Box<int >;`, while physical source never adds
 synthetic instance bodies or library catalogue declarations.
 
+For callable instances, `TemplateInstance.origin()` identifies the generic
+declaration used for deduction, `selected()` identifies the actual definition
+copied, and `declaration()` owns the substituted callable. The origin may be a
+forward declaration or primary template while the selected definition is a later
+definition or explicit specialization. JSON exports separate `originId` and
+`selectedId` references; both remain project-owned across copies and rebuilds.
+Source-position rules for an instantiated body use its selected definition.
+
 `TemplateInstance.requests()` records all direct demands, including explicit
 instantiation declarations. `causes()` filters call requests; the legacy `cause()`
 returns the first call or null for an explicit-only instance. JSON includes

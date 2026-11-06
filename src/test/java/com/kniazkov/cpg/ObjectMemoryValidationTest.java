@@ -36,9 +36,9 @@ class ObjectMemoryValidationTest {
         assertTrue(errors(project).isEmpty(),errors(project).toString());
     }
     @Test void typeidRequiresCompleteClassButAllowsPointersAndVoid() throws Exception {
-        rejects("struct S; int f(){ typeid(S); return 0; }","invalid-typeid");
-        rejects("struct S; int f(S& s){ typeid(s); return 0; }","invalid-typeid");
-        var project=read("struct S; int f(){ typeid(S*); typeid(void); return 0; }",PlatformProfile.defaults());
+        rejects("#include <typeinfo>\nstruct S; int f(){ typeid(S); return 0; }","invalid-typeid");
+        rejects("#include <typeinfo>\nstruct S; int f(S& s){ typeid(s); return 0; }","invalid-typeid");
+        var project=read("#include <typeinfo>\nstruct S; int f(){ typeid(S*); typeid(void); return 0; }",PlatformProfile.defaults());
         assertTrue(errors(project).isEmpty(),errors(project).toString());
     }
     @Test void newRejectsKnownInvalidObjectTypesAndInitializers() throws Exception {

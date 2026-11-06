@@ -371,3 +371,16 @@ mvn -Dtest=OverloadResolutionTest test
 [statements-exceptions]: ../src/test/resources/cpp03/statements-exceptions/sources
 [template-instantiation]: ../src/test/resources/cpp03/template-instantiation/sources
 [templates-dependent]: ../src/test/resources/cpp03/templates-dependent/sources
+
+
+## Диагностические исправления после аудита (#87, часть #88)
+
+[TypeidHeaderValidationTest](../src/test/java/com/kniazkov/cpg/TypeidHeaderValidationTest.java)
+проверяет предшествующее активное включение, принадлежность TU, редактирование
+и происхождение шаблонов, точные диапазоны API/JSON.
+[SwitchCaseConversionTest](../src/test/java/com/kniazkov/cpg/SwitchCaseConversionTest.java)
+проверяет уникальность case после платформенных promotions и преобразований
+фундаментальных типов. [Результаты и границы](cpp03-paragraphs/probes/DiagnosticRegressionResults.md)
+отделены от исторических проб. Enum/class/bit-field условия, политика signed
+out-of-range, нарушения nested-access и общее исполнение RTTI этим исправлением
+не покрываются. #48 остаётся открытой.

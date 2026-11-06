@@ -230,7 +230,7 @@ class AggregateLayoutSemanticsTest {
         }
     }
     @Test void typeidReferenceToIntIsUnevaluated() throws Exception {
-        var project = read("int f(){ int i=1; typeid(static_cast<int&>(i=2)); return i; }",DEFAULT);
+        var project = read("#include <typeinfo>\nint f(){ int i=1; typeid(static_cast<int&>(i=2)); return i; }",DEFAULT);
         assertTrue(TypeSemantics.typeidOperandUnevaluated(nodes(project,TypeidExpression.class).getFirst(),DEFAULT));
         var assignment = nodes(project,AssignmentExpression.class).getFirst();
         assertTrue(project.flows().stream().flatMap(flow -> flow.data().stream())

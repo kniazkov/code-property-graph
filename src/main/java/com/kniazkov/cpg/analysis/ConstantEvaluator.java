@@ -201,7 +201,8 @@ final class ConstantEvaluator {
     private static Optional<Value> truth(boolean value, PlatformProfile profile) {
         return integerType("bool", profile).map(type -> new Value(value ? BigInteger.ONE : BigInteger.ZERO, type));
     }
-    private static Optional<Value> cast(BigInteger number, IntegerType type) {
+    /** Unsigned conversion is modulo the target width; out-of-range signed results remain unknown. */
+    static Optional<Value> cast(BigInteger number, IntegerType type) {
         return result(type.spelling().equals("bool") ? (number.signum() == 0 ? BigInteger.ZERO : BigInteger.ONE) : number, type);
     }
     private static BigInteger convert(BigInteger value, IntegerType target) {

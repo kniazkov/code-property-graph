@@ -53,7 +53,14 @@ public record Preprocessing(String translationUnit, List<Include> includes, List
     /** A defined/ifdef/ifndef test, not a replacement-token expansion. */
     public record PresenceCheck(long id, String name, SourceRange range, long includeId,
             boolean present, boolean conditionResult, Long definitionId, long branchId) {}
-    public record Directive(String kind, String rawSource, SourceRange range, long includeId, boolean active) {}
+    /** Included header and insertion point are present only for a successfully resolved include.
+     * The point is in the final token stream, even for an empty physical header. */
+    public record Directive(String kind, String rawSource, SourceRange range, long includeId, boolean active,
+            String includedHeader, int startToken) {
+        public Directive(String kind, String rawSource, SourceRange range, long includeId, boolean active) {
+            this(kind, rawSource, range, includeId, active, null, -1);
+        }
+    }
     /** Logical coordinates introduced by #line, separate from physical source ranges. */
     public record LogicalLocation(SourceRange range, long includeId, String file, int line) {}
     /** Active definition IDs after a particular include occurrence finished executing. */
