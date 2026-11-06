@@ -42,6 +42,7 @@ public final class ContainerSemantics {
             TypeNode comparator = assoc ? args.get(mapped ? 2 : 1).type().orElseThrow()
                     : kind == ContainerType.Kind.PRIORITY_QUEUE ? args.get(2).type().orElseThrow() : null;
             var type = ContainerType.create().setKind(kind).setConcreteClass(context.copy(cls)).setValueType(context.copy(value));
+            type.addTransformationProvenance("ContainerSemantics", "source-construct", cls);
             if (assoc) type.setKeyType(context.copy(first));
             if (mapped) type.setMappedType(context.copy(args.get(1).type().orElseThrow()));
             if (comparator != null) type.setComparatorType(context.copy(comparator));
@@ -120,6 +121,7 @@ public final class ContainerSemantics {
                     var family=families.get(cls);
                     var operation=ContainerOperation.create().setKind(kind).setType(types.get(cls)).setSyntax(context.copy(syntax))
                             .setDestination(context.copy(destination)).setSelectedTarget(context.copy(target));
+                    operation.addTransformationProvenance("ContainerSemantics", "source-construct", syntax);
                     var inputs=new ArrayList<NodeBuilder<? extends Node>>(); args.forEach(a->inputs.add(context.copy(a))); operation.setSources(inputs);
                     if(!effects(operation,kind,family,profile,context)) return false;
                     if(usesComparator(kind,family)) comparator(family,profile).ifPresent(c->operation.setComparator(context.copy(c)));

@@ -16,6 +16,9 @@ public abstract non-sealed class Node implements FlowVertex {
     List<Comment> commentReferences = List.of();
     /** Ordered explanatory links; comments are owned only by their source file. */
     public final List<Comment> commentReferences() { return commentReferences; }
+    List<TransformationProvenance> transformationProvenance = List.of();
+    /** Historical inputs retained by identity, outside ownership and semantic references. */
+    public final List<TransformationProvenance> transformationProvenance() { return transformationProvenance; }
     SourceRange origin;
     TokenProvenance provenance;
 

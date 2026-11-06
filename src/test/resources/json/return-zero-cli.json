@@ -1,6 +1,9 @@
 {
   "id": 0,
   "kind": "Project",
+  "schemaVersion": 1,
+  "stage": "resolved",
+  "history": [],
   "files": [
     {
       "id": 1,

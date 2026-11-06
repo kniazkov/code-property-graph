@@ -68,6 +68,16 @@ public abstract class NodeBuilder<T extends Node> {
         var values = new java.util.ArrayList<>(commentReferences);
         values.add(Objects.requireNonNull(value)); commentReferences = java.util.List.copyOf(values);
     }
+    java.util.List<TransformationProvenance> transformationProvenance = java.util.List.of();
+    public final void setTransformationProvenance(java.util.List<TransformationProvenance> values) {
+        transformationProvenance = java.util.List.copyOf(values);
+    }
+    public final void addTransformationProvenance(String passId, String role, Node source) {
+        var edge = new TransformationProvenance(passId, role, source);
+        var edges = new java.util.ArrayList<>(transformationProvenance);
+        if (!edges.contains(edge)) edges.add(edge);
+        transformationProvenance = java.util.List.copyOf(edges);
+    }
     SourceRange origin;
     TokenProvenance provenance;
     TypeRepresentation typeRepresentation;

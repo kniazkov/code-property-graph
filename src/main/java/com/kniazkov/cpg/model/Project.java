@@ -7,6 +7,41 @@ import java.util.Objects;
 
 /** Root containing source files. */
 public final class Project extends Node {
+    private SnapshotStage snapshotStage = SnapshotStage.PARSED;
+    public SnapshotStage snapshotStage() { return snapshotStage; }
+    /** Shares immutable syntax without mutating this snapshot. */
+    public Project withSnapshotStage(SnapshotStage stage) {
+        Project copy = copyMetadata(flows);
+        copy.snapshotStage = java.util.Objects.requireNonNull(stage);
+        return copy;
+    }
+    public record TransformationResult(Node result, String passId, String role) {}
+    /** Reverse transitive query restricted to results owned by this selected snapshot.
+     * Roles describe the result's first edge on each path to the requested input. */
+    public List<TransformationResult> transformationResults(Node original) {
+        java.util.Objects.requireNonNull(original);
+        var results = new ArrayList<TransformationResult>();
+        walk(new NodeVisitor() { @Override public void visit(Node node) {
+            for (var edge : node.transformationProvenance()) {
+                if (reachesHistory(edge.source(), original)) {
+                    var result = new TransformationResult(node, edge.passId(), edge.role());
+                    if (!results.contains(result)) results.add(result);
+                }
+            }
+        }});
+        return List.copyOf(results);
+    }
+    private static boolean reachesHistory(Node start, Node target) {
+        var seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
+        var pending = new java.util.ArrayDeque<Node>(); pending.add(start);
+        while (!pending.isEmpty()) {
+            Node node = pending.removeFirst();
+            if (node == target) return true;
+            if (seen.add(node)) for (var edge : node.transformationProvenance()) pending.add(edge.source());
+        }
+        return false;
+    }
+
     private List<Object> dynamicArrayBindings;
     private List<Object> dynamicArrayBindings() {
         var facts = new ArrayList<Object>();
@@ -334,11 +369,13 @@ public final class Project extends Node {
     public List<FunctionFlow> flows() { return flows; }
 
     /** Shares immutable syntax and attaches complete per-callable analysis results. */
-    public Project withFlows(List<FunctionFlow> results) {
+    private Project copyMetadata(List<FunctionFlow> results) {
         var copy = new Project();
         copy.findings = findings;
         copy.origin = origin;
         copy.provenance = provenance;
+        copy.transformationProvenance = transformationProvenance;
+        copy.snapshotStage = snapshotStage;
         copy.commentReferences = commentReferences;
         copy.editIdentity = editIdentity;
         copy.files = files;
@@ -350,6 +387,11 @@ public final class Project extends Node {
         copy.externalInputs = externalInputs;
         copy.build = build;
         copy.flows = List.copyOf(results);
+        return copy;
+    }
+
+    public Project withFlows(List<FunctionFlow> results) {
+        Project copy = copyMetadata(results);
         var owners = new java.util.HashSet<CallableDeclaration>();
         walk(new NodeVisitor() {
             @Override public void visit(CallableDeclaration callable) {
@@ -459,6 +501,7 @@ public final class Project extends Node {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
+        builder.snapshotStage = snapshotStage;
         builder.files = context.copyAll(files, SourceFile.class);
         builder.librarySources = context.copyAll(librarySources, SourceFile.class);
         builder.libraryCollection = standardLibrary == null ? null : context.edit(standardLibrary, StandardLibrary.Builder.class);
@@ -481,6 +524,8 @@ public final class Project extends Node {
 
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<Project> {
+        private SnapshotStage snapshotStage = SnapshotStage.PARSED;
+        public Builder setSnapshotStage(SnapshotStage value) { snapshotStage = java.util.Objects.requireNonNull(value); return this; }
         private List<NodeBuilder<? extends SourceFile>> files = new ArrayList<>();
         private List<NodeBuilder<? extends SourceFile>> librarySources = new ArrayList<>();
         private StandardLibrary.Builder libraryCollection;
@@ -540,6 +585,7 @@ public final class Project extends Node {
 
         @Override
         void fillNode(Project node, BuildContext context) {
+            node.snapshotStage = snapshotStage;
             node.files = context.copyAll(files);
             if (!librarySources.isEmpty()) {
                 var collection = libraryCollection == null ? new StandardLibrary.Builder() : libraryCollection; collection.headers = librarySources;

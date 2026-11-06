@@ -7,6 +7,7 @@ import com.kniazkov.cpg.model.*;
 import com.kniazkov.cpg.parser.Parser;
 import com.kniazkov.cpg.serialization.ProjectJson;
 import com.kniazkov.cpg.visualization.DotVisualizer;
+import com.kniazkov.json.Json;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -82,7 +83,7 @@ class TemplateInstantiationExportTest {
         assertTrue(project.flows().isEmpty(), "Diagnostic API does not require graph construction");
     }
 
-    @Test void structuredCallableArgumentsHaveOneOwnedJsonOccurrence() {
+    @Test void structuredCallableArgumentsHaveOneOwnedJsonOccurrence() throws Exception {
         for (String text : List.of(
                 "template<class T> T id(T x) { return x; } int main() { return id(1); }",
                 "template<int N> int value() { return N; } int main() { return value<4>(); }",
@@ -103,13 +104,29 @@ class TemplateInstantiationExportTest {
                 var matcher = java.util.regex.Pattern.compile("\"id\"\\s*:\\s*(\\d+)\\s*,\\s*\"kind\"").matcher(json);
                 var ids = new HashSet<Integer>();
                 while (matcher.find()) assertTrue(ids.add(Integer.parseInt(matcher.group(1))), "Repeated owned JSON ID: " + matcher.group(1));
-                assertEquals(owned.size(), ids.size(), "Every owned syntax node appears once in JSON");
+                // History shares the file-local ID namespace, but is not owned by
+                // the selected snapshot. Keep the global uniqueness assertion above.
+                var document = (Map<?, ?>) Json.parse(json).toJavaObject();
+                var current = new LinkedHashMap<>(document);
+                current.remove("history");
+                current.remove("sourceContexts");
+                assertEquals(owned.size(), countNodeDefinitions(current),
+                        "Every current owned syntax node appears once in JSON");
                 String dot = DotVisualizer.toDot(snapshot, false);
                 assertTrue(dot.contains(instance.structuredArguments().getFirst().kind().name()), dot);
                 String source = Source.render(snapshot.files().getFirst(), Language.CPP);
                 assertEquals(text.split("template<", -1).length - 1, source.split("template <", -1).length - 1, source);
             }
         }
+    }
+
+    private static long countNodeDefinitions(Object value) {
+        if (value instanceof List<?> list)
+            return list.stream().mapToLong(TemplateInstantiationExportTest::countNodeDefinitions).sum();
+        if (!(value instanceof Map<?, ?> object)) return 0;
+        long own = object.get("id") instanceof Number && object.get("kind") instanceof String ? 1 : 0;
+        return own + object.values().stream()
+                .mapToLong(TemplateInstantiationExportTest::countNodeDefinitions).sum();
     }
 
     @Test void callsAndInstantiationRequestsHaveDifferentTypedEdges() {

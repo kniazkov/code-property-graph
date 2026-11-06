@@ -17,7 +17,7 @@ public final class ConstantFolder {
         // Replacing even an unevaluated branch can erase the syntax that explains an
         // error. Preserve the complete erroneous snapshot rather than conceal it.
         if (project.hasErrors() || ConstantEvaluator.hasSemanticErrors(project)) return project;
-        var editor = new ProjectEditor(project).withoutRevalidation();
+        var editor = new ProjectEditor(project).setPassId("ConstantFolder").withoutRevalidation();
         var order = new ArrayList<Node>();
         for (var root : SourceContexts.roots(project)) {
             SourceFile file = root.source();

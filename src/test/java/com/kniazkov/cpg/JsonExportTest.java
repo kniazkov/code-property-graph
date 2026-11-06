@@ -80,6 +80,6 @@ class JsonExportTest {
         var call = (CallExpression) ids.keySet().stream().filter(CallExpression.class::isInstance).findFirst().orElseThrow();
         assertTrue(ids.get(call.target().orElseThrow()) > ids.get(call));
         assertTrue(text.replaceAll("\\s+", "").contains("{\"kind\":\"ref\",\"to\":" + ids.get(call.target().orElseThrow()) + "}"));
-        assertTrue(ProjectJson.encode(Project.create().build()).equals(Json.parse("{\"id\":0,\"kind\":\"Project\",\"files\":[]}")));
+        assertTrue(ProjectJson.encode(Project.create().build()).equals(Json.parse("{\"id\":0,\"kind\":\"Project\",\"schemaVersion\":1,\"stage\":\"parsed\",\"history\":[],\"files\":[]}")));
     }
 }

@@ -12,6 +12,7 @@ import java.util.Map;
  * Independent edit calls allocate independent maps. */
 public final class EditContext {
     private EditContext referenceContext;
+    String passId;
     private boolean independentLineage;
     private java.util.Set<Node> localDeclarations = java.util.Set.of();
     /** Independent owned syntax copy with shared external declaration references. */
@@ -65,6 +66,7 @@ public final class EditContext {
                 if (step.userDefined() != null) wrapper.setOperatorTarget(edge(step.userDefined(), CallableDeclaration.class));
                 if (node.origin != null) wrapper.setRange(node.origin);
                 if (node.provenance != null) wrapper.setProvenance(node.provenance);
+                if (passId != null) wrapper.addTransformationProvenance(passId, "source-construct", node);
                 wrapper.syntaxEdited = false; // Derived wrapper does not change the written operands.
                 operand = wrapper;
             }
@@ -103,6 +105,7 @@ public final class EditContext {
             throw new IllegalStateException("Builder does not match node type");
         }
         builder.editIdentity = independentLineage ? new Object() : node.editIdentity;
+        builder.transformationProvenance = node.transformationProvenance;
         builder.origin = node.origin;
         builder.provenance = node.provenance;
         if (node instanceof TypeNode type) builder.typeRepresentation = type.semanticType().orElse(null);

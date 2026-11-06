@@ -87,6 +87,7 @@ final class BuildContext {
         if (builder.editIdentity != null) node.editIdentity = builder.editIdentity;
         node.origin = builder.origin;
         node.provenance = builder.provenance;
+        node.transformationProvenance = builder.transformationProvenance;
         if (node instanceof TypeNode type) type.representation = builder.typeRepresentation;
         if (node instanceof Expression expression) { expression.expressionInfo = builder.expressionInfo; expression.dependent = builder.dependent; }
         nodes.put(builder, node);
