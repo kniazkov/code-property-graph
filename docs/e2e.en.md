@@ -487,3 +487,10 @@ DFG dependencies, and the prior snapshot remains unchanged. JSON records are
 checked with ordinary parsing; original and edited source variants retain native
 GCC/Clang behavior. Unit tests additionally exercise removed callable references,
 no-op public passes and deterministic history export.
+
+`custom-passes` compiles the standalone client in
+`examples/cpp03-custom-passes` against the packaged JAR only, with all Java compiler
+warnings treated as errors. It executes typed analysis/dependency and transformation
+extensions, parses their JSON outside the graph API, and compiles/runs original,
+transformed and CLI-reparsed C++03 source trees with both GCC and Clang. The client
+uses no package-private hooks or dynamic CLI plugin loader.

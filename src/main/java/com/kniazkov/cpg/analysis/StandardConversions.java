@@ -135,7 +135,7 @@ public final class StandardConversions {
     }
     private static void preserveDiagnostics(Project source, ProjectEditor editor) {
         source.walk(new NodeVisitor() {
-            @Override public void visit(Node node) { node.diagnostics().forEach(diagnostic -> editor.diagnose(node, diagnostic)); }
+            @Override public void visit(Node node) { node.intrinsicDiagnostics().forEach(diagnostic -> editor.diagnose(node, diagnostic)); }
         });
     }
     private static void convertOperatorArguments(ProjectEditor editor, Expression expression, PlatformProfile profile) {
