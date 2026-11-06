@@ -524,7 +524,7 @@ public final class ProjectJson {
                         .put("arguments", nodes(instance.arguments())).put("declaration", node(instance.declaration()));
                 }
                 case TemplateInstance instance -> {
-                    obj.put("originId", id(instance.origin()))
+                    obj.put("originId", id(instance.origin())).put("selectedId", id(instance.selected()))
                         .array("requestIds", a -> instance.requests().forEach(request -> a.add(id(request))))
                         .array("causeIds", a -> instance.causes().forEach(cause -> a.add(id(cause))))
                         .put("sourceId", id(instance.source())).put("status", instance.status()).put("complete", instance.complete())
@@ -987,9 +987,11 @@ public final class ProjectJson {
                                 .put("conditionResult", c.conditionResult()).put("branchId", c.branchId());
                         if (c.definitionId() != null) o.put("definitionId", c.definitionId());
                     })))
-                    .array("directives", a -> p.directives().forEach(d -> a.object(o -> o.put("kind", d.kind())
-                            .put("rawSource", d.rawSource()).put("range", range(d.range()))
-                            .put("includeId", d.includeId()).put("active", d.active()))))
+                    .array("directives", a -> p.directives().forEach(d -> a.object(o -> {
+                        o.put("kind", d.kind()).put("rawSource", d.rawSource()).put("range", range(d.range()))
+                                .put("includeId", d.includeId()).put("active", d.active());
+                        if (d.includedHeader() != null) o.put("includedHeader", d.includedHeader()).put("startToken", d.startToken());
+                    })))
                     .array("logicalLocations", a -> p.logicalLocations().forEach(l -> a.object(o -> o.put("range", range(l.range()))
                             .put("includeId", l.includeId()).put("file", l.file()).put("line", l.line()))))
                     .array("includes", a -> p.includes().forEach(i -> a.object(o -> {

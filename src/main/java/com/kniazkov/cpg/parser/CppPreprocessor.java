@@ -85,7 +85,11 @@ public final class CppPreprocessor {
             boolean present, boolean conditionResult, Long definitionId, long branchId) {}
     /** Unknown pragmas are retained and ignored; skipped directives are retained without evaluation. */
     public record Directive(String kind, String rawSource, SourceRange range,
-            Build.IncludeInstance include, boolean active) {}
+            Build.IncludeInstance include, boolean active, String includedHeader, int startToken) {
+        public Directive(String kind, String rawSource, SourceRange range, Build.IncludeInstance include, boolean active) {
+            this(kind, rawSource, range, include, active, null, -1);
+        }
+    }
     /** Presumed filename/line is separate from the immutable physical source span. */
     public record LogicalLocation(SourceRange range, Build.IncludeInstance include, String file, int line) {}
     public record IncludeState(Build.IncludeInstance include, Map<String, Long> activeDefinitions) {
@@ -639,6 +643,7 @@ public final class CppPreprocessor {
             macros.put(name.text(), macro);
         }
         void include(Build.IncludeInstance parent, List<Work> raw, Work location, int depth) {
+            int directiveIndex = directives.size() - 1;
             int firstEvent = events.size();
             var expanded = trim(expand(raw));
             // Include operands are not emitted as C++ tokens, but their events
@@ -664,14 +669,22 @@ public final class CppPreprocessor {
                 var included = instance(candidate, parent);
                 try { process(included, virtualSources == null ? Files.readString(candidate, java.nio.charset.Charset.forName(unit.platform().sourceEncoding())) : virtualSources.get(candidate.toString()), depth + 1); }
                 catch (IOException e) { throw expandedError(location, "Cannot read header " + candidate + ": " + e.getMessage(), expanded, firstEvent); }
+                recordIncludedHeader(directiveIndex, header, anchorIndex);
                 return;
             }
             if (angle && OPAQUE_HEADERS.contains(header)) {
+                recordIncludedHeader(directiveIndex, header, anchorIndex);
                 PreprocessingToken token = new PreprocessingToken(HEADER_NAME, spec, spec, location.value.token().range(), 0, spec.length());
                 output.add(new Work(new ExpandedToken(token, parent, location.value.origins(), location.value.expansionRange())));
                 return;
             }
             throw expandedError(location, "Header not found: " + header, expanded, firstEvent);
+        }
+
+        void recordIncludedHeader(int index, String header, int startToken) {
+            Directive directive = directives.get(index);
+            directives.set(index, new Directive(directive.kind(), directive.rawSource(), directive.range(),
+                    directive.include(), directive.active(), header, startToken));
         }
 
         List<Work> expandOutput(List<Work> input) { return expand(input, null, recovering); }

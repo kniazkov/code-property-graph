@@ -789,7 +789,8 @@ public final class Project extends Node {
         templateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { allOwned.add(node); } }));
         classTemplateInstances.forEach(instance -> instance.walk(new NodeVisitor() { @Override public void visit(Node node) { allOwned.add(node); } }));
         boolean owned = templateInstances.stream().allMatch(instance -> written.contains(instance.source())
-                && allOwned.contains(instance.origin()) && instance.requests().stream().allMatch(allOwned::contains))
+                && allOwned.contains(instance.origin()) && allOwned.contains(instance.selected())
+                && instance.requests().stream().allMatch(allOwned::contains))
                 && classTemplateInstances.stream().allMatch(instance -> written.contains(instance.source()) && written.contains(instance.origin())
                 && instance.requests().stream().allMatch(allOwned::contains));
         if (syntax != null && instanceSyntax != null && instanceSyntax.equals(syntax) && owned) return java.util.Set.of();

@@ -103,3 +103,9 @@ PY_DIAGNOSTICS
 
 Implementation fixes and dedicated negative regressions remain open. Neither probe establishes full support for its paragraph
 or other rules in the same section.
+
+## Subsequent regression work
+
+The observations above are historical and unchanged. See
+[DiagnosticRegressionResults.md](DiagnosticRegressionResults.md) for the later
+fresh-build fixes, automated regressions, replay results, and remaining limits.
