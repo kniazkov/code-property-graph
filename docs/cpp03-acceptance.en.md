@@ -80,9 +80,11 @@ These findings describe the original audit; subsequent corrections are identifie
   now cover prior-header checks and promoted fundamental switch types. Enum/class/bit-field
   conditions and signed out-of-range conversion remain outside that conversion proof. [Reproduction commands and results](cpp03-paragraphs/probes/ExpressionDiagnosticProbes.md)
   identify the exact executable used.
-- Nested/enclosing-class private access is inconsistent: the focused probe
-  diagnoses private methods but misses corresponding field/type cases.
-  [Probe and scope](cpp03-paragraphs/probes/README.md).
+- In the original audit, nested/enclosing-class private access was inconsistent:
+  the focused probe diagnosed private methods but missed field/type cases.
+  [Historical probe](cpp03-paragraphs/probes/README.md); the separate
+  [#89 follow-up](cpp03-paragraphs/probes/NestedAccessRegressionResults.md) records
+  the original-2003 profile, regression scope and outstanding validation gates.
 - The original edition requires 51 standard headers. The catalogue has 50 of
   them; `<strstream>` and its deprecated facilities are missing. The generic
   `std::rel_ops` operators are also missing.
