@@ -1174,8 +1174,6 @@ public final class NameResolver {
         List<Match> ownDirect(String name, Scope scope, int point, Set<Declaration> active, boolean tagsOnly, boolean completeClassContext) {
             var direct = new ArrayList<Match>();
             ClassDeclaration injected=scope.classScope ? scopeClass(scope) : null;
-            if(injected!=null && LibraryDeclarations.isLibrary(injected) && injected.name().equals(name))
-                return List.of(new Match(injected,List.of()));
             for (Declaration declaration : scope.names.getOrDefault(name, List.of())) {
                 if (!libraryVisibleAt(declaration, point)) continue;
                 if (positions.get(declaration) > point && !(scope.classScope && completeClassContext)) continue;
@@ -1195,6 +1193,10 @@ public final class NameResolver {
                     active.remove(using);
                 } else direct.add(new Match(declaration, List.of()));
             }
+            // Ordinary member names may hide the injected class name (e.g.
+            // struct S { int S; }). Elaborated type lookup still finds the tag.
+            if (direct.isEmpty() && injected != null && injected.name().equals(name))
+                direct.add(new Match(injected, List.of(new TypeResolutionStep("injected-class-name", injected, injected))));
             if (!tagsOnly && direct.stream().anyMatch(match -> !(match.declaration() instanceof ClassDeclaration || match.declaration() instanceof EnumDeclaration)))
                 direct.removeIf(match -> match.declaration() instanceof ClassDeclaration || match.declaration() instanceof EnumDeclaration);
             return direct;
@@ -1452,7 +1454,13 @@ public final class NameResolver {
             project.walk(new NodeVisitor() {
                 @Override public void visit(CallExpression call) { resolveCall(call); resolveOperator(call); }
                 @Override public void visit(Expression expression) { editor.dependent(expression, TypeSemantics.dependent(expression)); if (!(expression instanceof CallExpression) && !TypeSemantics.dependent(expression)) resolveOperator(expression); }
-                @Override public void visit(NameExpression name) { editor.dependent(name, TypeSemantics.dependent(name)); if (!TypeSemantics.dependent(name)) diagnoseAmbiguity(name, name.name(), false); }
+                @Override public void visit(NameExpression name) {
+                    editor.dependent(name, TypeSemantics.dependent(name));
+                    if (!TypeSemantics.dependent(name)) {
+                        diagnoseAmbiguity(name, name.name(), false);
+                        name.target().ifPresent(target -> checkNonCallableAccess(name, target));
+                    }
+                }
                 @Override public void visit(MemberExpression member) {
                     editor.dependent(member, TypeSemantics.dependent(member));
                     if (!TypeSemantics.dependent(member)) {
@@ -1463,9 +1471,16 @@ public final class NameResolver {
                             if(match!=null)editor.bind(member,match.declaration());
                         }
                         String name = expressionName(member); diagnoseAmbiguity(member, name == null ? member.member() : name, false);
+                        member.target().ifPresent(target -> checkNonCallableAccess(member, target));
                     }
                 }
-                @Override public void visit(NamedType type) { diagnoseAmbiguity(type, type.name(), type.elaboratedKeyword().isPresent()); }
+                @Override public void visit(NamedType type) {
+                    diagnoseAmbiguity(type, type.name(), type.elaboratedKeyword().isPresent());
+                    if (!type.dependent()) {
+                        Declaration selected = type.alias().<Declaration>map(alias -> alias).orElseGet(() -> type.declaration().orElse(null));
+                        if (selected != null) checkNonCallableAccess(type, selected);
+                    }
+                }
                 @Override public void visit(VariableDeclaration variable) { validateInitialization(variable); }
                 @Override public void visit(NewExpression expression) { validateNew(expression); }
                 @Override public void visit(DeleteExpression expression) { validateDelete(expression); }
@@ -2211,6 +2226,96 @@ public final class NameResolver {
             }
             return false;
         }
+        // Printed ISO/IEC 14882:2003 11.8: lexical nesting conveys no
+        // privilege. Check the declaration actually selected, including aliases.
+        ClassDeclaration accessContext(Node use) {
+            ClassDeclaration context = null;
+            for (Scope scope = scopes.get(use); scope != null && context == null; scope = scope.parent)
+                context = scopeClass(scope);
+            // 11.8/2: the base-clause belongs to the nested declaration, not
+            // to its members. Its access context is the enclosing class.
+            if (context != null && context.bases().stream().anyMatch(base -> containsNode(base, use))) {
+                Scope scope = scopes.get(context);
+                context = null;
+                for (; scope != null && context == null; scope = scope.parent) context = scopeClass(scope);
+            }
+            return context;
+        }
+        boolean directFriend(ClassDeclaration owner, ClassDeclaration context, Node use) {
+            if (context != null) for (Node member : owner.members()) {
+                if (!(member instanceof ClassDeclaration friend) || !friend.isFriend()) continue;
+                // Elaborated friend lookup admits using-declarations and inherited
+                // members, but not using-directives. Resolve at the friend declaration,
+                // so a later nested namesake cannot steal namespace friendship.
+                boolean found = false;
+                Scope namespace = null;
+                for (Scope scope = introduced.get(owner); scope != null; scope = scope.parent) {
+                    if (!scope.classScope && !scope.local && namespace == null) namespace = scope;
+                    List<Match> matches = friend.name().contains("::")
+                            ? lookup(friend.name(), scope, positions.get(friend) - 1, new HashSet<>(), true)
+                            : direct(friend.name(), scope, positions.get(friend) - 1, new HashSet<>(), true, false);
+                    matches = matches.stream().filter(match -> match.declaration() instanceof ClassDeclaration
+                            && !match.declaration().isFriend()
+                            && match.steps().stream().noneMatch(step -> step.kind().equals("using-directive"))).toList();
+                    if (!matches.isEmpty()) {
+                        Match selected = unique(matches);
+                        if (selected != null && ClassSemantics.sameClass((ClassDeclaration)selected.declaration(), context)) return true;
+                        found = true;
+                        break;
+                    }
+                }
+                // An otherwise unknown unqualified friend introduces a class in
+                // the nearest namespace; its definition may occur later.
+                if (!found && namespace != null && !friend.name().contains("::"))
+                    for (Declaration candidate : namespace.names.getOrDefault(friend.name(), List.of()))
+                        if (candidate instanceof ClassDeclaration cls && !cls.isFriend()
+                                && ClassSemantics.sameClass(cls, context)) return true;
+            }
+            CallableDeclaration enclosing = null;
+            for (Scope scope = scopes.get(use); scope != null && enclosing == null; scope = scope.parent) enclosing = callableScopes.get(scope);
+            if (enclosing != null) for (Node member : owner.members()) if (member instanceof CallableDeclaration friend && friend.isFriend()
+                    && entityName(friend).equals(entityName(enclosing)) && signature(friend).equals(signature(enclosing))) return true;
+            return false;
+        }
+        void checkNonCallableAccess(Node use, Declaration selected) {
+            if (selected instanceof CallableDeclaration || selected.isFriend() || scopes.get(use).file.language() != Language.CPP) return;
+            ClassDeclaration owner = scopeClass(scopes.get(selected));
+            if (owner == null) return;
+            String access = selected.access().orElse(owner.memberAccess());
+            if (access.equals("public")) return;
+            ClassDeclaration context = accessContext(use);
+            if (context != null && ClassSemantics.sameClass(context, owner) || directFriend(owner, context, use)) return;
+            // The injected name is public (11.8/2). Preserve the lookup route:
+            // B::A may select an inherited injected name, whereas C::A selects
+            // the private declaration in C, even though both denote class A.
+            if (selected instanceof ClassDeclaration) {
+                List<TypeResolutionStep> steps = List.of();
+                if (use instanceof NamedType type) steps = type.resolutionSteps();
+                else if (use instanceof Expression expression) {
+                    String written = expressionName(expression);
+                    Match match = written == null ? null : unique(lookup(written, scopes.get(use), positions.get(use), new HashSet<>()));
+                    if (match != null && match.declaration() == selected) steps = match.steps();
+                }
+                if (steps.stream().anyMatch(step -> step.kind().equals("injected-class-name") && step.target() == selected)) {
+                    ClassDeclaration route = context;
+                    String written = use instanceof NamedType type ? type.name() : use instanceof Expression expression ? expressionName(expression) : null;
+                    if (written != null && written.contains("::")) {
+                        String qualifier = written.substring(0, written.lastIndexOf("::"));
+                        Match match = unique(lookup(qualifier, scopes.get(use), positions.get(use), new HashSet<>()));
+                        if (match != null && match.declaration() instanceof ClassDeclaration cls) route = cls;
+                    }
+                    if (route != null && accessibleBase(route, (ClassDeclaration)selected, context, new HashSet<>())) return;
+                }
+            }
+            if (context != null && access.equals("protected") && hasBase(context, owner, new HashSet<>())) {
+                if (!(selected instanceof VariableDeclaration) || modifiers(selected).contains("static")
+                        || !(use instanceof MemberExpression member) || member instanceof ScopeMemberExpression) return;
+                ClassDeclaration receiver = receiverClass(member.receiver(), member instanceof PointerMemberExpression);
+                if (receiver != null && (ClassSemantics.sameClass(receiver, context) || hasBase(receiver, context, new HashSet<>()))) return;
+            }
+            error(use, isType(selected) ? "inaccessible-type" : "inaccessible-member",
+                    "The selected " + (isType(selected) ? "type" : "member") + " is " + access + " in " + owner.name());
+        }
         boolean checkSelectedAccess(Node use, CallableDeclaration selected) {
             ClassDeclaration owner = scopeClass(scopes.get(selected));
             if (owner == null || selected.isFriend()) return true;
@@ -2220,7 +2325,7 @@ public final class NameResolver {
             if (access.equals("public")) return true;
             ClassDeclaration context = null;
             for (Scope scope = scopes.get(use); scope != null && context == null; scope = scope.parent) context = scopeClass(scope);
-            if (context != null && ClassSemantics.sameClass(context, owner)) return true;
+            if (context != null && ClassSemantics.sameClass(context, owner) || directFriend(owner, context, use)) return true;
             if (context != null && access.equals("protected") && hasBase(context, owner, new HashSet<>())) {
                 boolean permittedObject = true;
                 if (selected.conversionType().isPresent() && use instanceof Expression expression
@@ -2243,10 +2348,6 @@ public final class NameResolver {
                 }
                 if (permittedObject) return true;
             }
-            CallableDeclaration enclosing = null;
-            for (Scope scope = scopes.get(use); scope != null && enclosing == null; scope = scope.parent) enclosing = callableScopes.get(scope);
-            if (enclosing != null) for (Node member : owner.members()) if (member instanceof CallableDeclaration friend && friend.isFriend()
-                    && entityName(friend).equals(entityName(enclosing)) && signature(friend).equals(signature(enclosing))) return true;
             error(use, "inaccessible-overload", "The selected overload is " + access + " in " + owner.name());
             return false;
         }

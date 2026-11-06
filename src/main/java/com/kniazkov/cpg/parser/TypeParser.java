@@ -151,6 +151,15 @@ final class TypeParser {
         Scope qualifier = scope.nested.computeIfAbsent(name, ignored -> new Scope(scope));
         qualifier.classScope = true;
         scope.names.putIfAbsent(name, new Binding(true, null, qualifier));
+        qualifier.names.putIfAbsent(name, new Binding(true, null, qualifier));
+        qualifier.tags.add(name);
+    }
+    /** Parser-only inherited type recognition; semantic lookup checks ambiguity/access. */
+    void inheritClassTypes(String name, NodeBuilder<? extends TypeNode> base) {
+        Scope inherited = typeScope(base, Collections.newSetFromMap(new IdentityHashMap<>()));
+        Scope derived = scope.nested.get(name);
+        if (inherited != null && derived != null && inherited != derived && !derived.using.contains(inherited))
+            derived.using.add(inherited);
     }
     void declareTemplateType(String name) { scope.names.put(name, new Binding(true, null, null)); scope.templateTypes.add(name); }
     void declareTemplateValue(String name) { declareName(name); scope.templateValues.add(name); }

@@ -1543,3 +1543,34 @@ adds CLI/API/JSON agreement, explicit-profile cases and strict-compiler checks.
 See [validation and historical observations](cpp03-paragraphs/probes/DiagnosticRegressionResults.md)
 for execution evidence and limits. Unsupported/non-evaluable cases remain unknown;
 these assertions do not establish complete coverage of the cited paragraphs.
+
+
+## Original-2003 nested access (#89)
+
+The nested-access profile follows the supplied printed ISO/IEC 14882:2003
+§11.8/1, not a silently adopted later correction. Nested/enclosing membership
+alone grants no mutual private access; friendship of an enclosing class is not
+inherited by its nested class. Access is checked on the selected declaration,
+without replacing an inaccessible selection with an accessible namesake.
+The immediate class context, direct friendship and ordinary self/public access
+are distinguished.
+
+Field/variable uses report `inaccessible-member`, written named types and typedef
+uses report `inaccessible-type`, and selected callable uses retain
+`inaccessible-overload`. Lookup bindings remain available for inspection.
+Checks concern the written alias, not blanket rejection of its underlying type.
+The informative §11.8/2 example distinguishes the nested declaration's base-clause
+from its members: an enclosing private base name is permitted in that base-clause;
+unqualified injected names of the class/base remain usable, whereas an explicitly
+qualified enclosing private name does not acquire that exemption.
+
+[Regression evidence and remaining gates](cpp03-paragraphs/probes/NestedAccessRegressionResults.md)
+separate source/test inspection from executed validation. This is a bounded access
+fix, not complete class-access, inheritance, template or C++03 conformance.
+
+Review regressions also preserve a same-named field's precedence over an injected
+class name in expressions, while type contexts retain class binding. Friend-class
+lookup accepts using-declarations and inherited class declarations, but a
+using-directive alone does not confer friendship. Copies/re-resolution retain
+snapshot-owned selected bindings. These are tested boundaries, not a complete
+friendship or lookup implementation.

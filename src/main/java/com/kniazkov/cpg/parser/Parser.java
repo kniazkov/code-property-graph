@@ -793,6 +793,7 @@ public final class Parser {
                 if (java.util.Set.of("public", "protected", "private").contains(tokens.peek())) { baseAccess = tokens.peek(); tokens.advance(); }
                 if (!virtual) virtual = tokens.take("virtual");
                 var baseType = types.writtenNamedType();
+                types.inheritClassTypes(name, baseType);
                 result.addBase(tokens.span(baseStart, BaseSpecifier.create().setBaseAccess(baseAccess).setVirtual(virtual).setType(baseType)));
             } while (tokens.take(","));
         }
