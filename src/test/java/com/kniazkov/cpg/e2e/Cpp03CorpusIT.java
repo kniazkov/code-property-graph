@@ -70,6 +70,10 @@ class Cpp03CorpusIT {
             for (Path source : SnapshotHistoryAcceptance.verify(fixture, work)) nativePrograms(work, source, "5\n", 0);
             return;
         }
+        if ("integer-ranges".equals(settings.getProperty("mode"))) {
+            for (Path source : IntegerRangesAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
+            return;
+        }
         if ("custom-passes".equals(settings.getProperty("mode"))) {
             for (Path source : CustomPassAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
             return;

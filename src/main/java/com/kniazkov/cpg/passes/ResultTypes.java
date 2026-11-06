@@ -1,6 +1,7 @@
 /* Immutable registry of one-way analysis result encoders. MIT License. */
 package com.kniazkov.cpg.passes;
 
+import com.kniazkov.cpg.lattice.LatticeElement;
 import com.kniazkov.json.JsonElement;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -8,7 +9,8 @@ import java.util.*;
 import java.util.function.Function;
 
 /** One-way JSON conversion for typed result values. Registrations are exact declared
- * classes, not inheritance-based guesses. Each {@link #with} call creates a new
+ * classes and override the default conversions, including {@link LatticeElement#toJson}.
+ * Each {@link #with} call creates a new
  * registry; it never changes an existing runner.
  *
  * <p>Encoders return JSON-compatible strings, booleans, finite standard Java numbers,
@@ -26,7 +28,10 @@ public final class ResultTypes {
 
     /** Built-in conversions for String, Boolean, Byte, Short, Integer, Long, Float,
      * Double, BigInteger and BigDecimal. A Number key also accepts these numeric values;
-     * other Number subclasses require an explicit encoder returning a supported value. */
+     * other Number subclasses require an explicit encoder returning a supported value.
+     * Any {@link LatticeElement} value is converted through its public {@code toJson()}
+     * contract without registration, whether its key declares the interface or a concrete
+     * implementation. Lattice output is validated and frozen just like registered output. */
     public static ResultTypes defaults() {
         return new ResultTypes(Map.of());
     }
@@ -52,6 +57,8 @@ public final class ResultTypes {
         Function<Object, ?> encoder = encoders.get(type);
         Object encoded;
         if (encoder != null) encoded = encoder.apply(value);
+        else if (value instanceof LatticeElement element)
+            encoded = Objects.requireNonNull(element.toJson(), "Lattice JSON representation");
         else if (type == String.class || type == Boolean.class || type == Number.class || numericType(type))
             encoded = value;
         else throw new IllegalArgumentException("No JSON encoder registered for " + type.getName());
