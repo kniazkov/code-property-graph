@@ -25,9 +25,20 @@ public abstract non-sealed class Node implements FlowVertex {
     /** Source-token links, separate from syntax children and resolved references. */
     public final java.util.Optional<TokenProvenance> provenance() { return java.util.Optional.ofNullable(provenance); }
     List<Diagnostic> findings = List.of();
+    List<Diagnostic> customFindings = List.of();
+
+    /** Direct syntax/built-in findings, excluding producer-owned custom analysis products.
+     * Internal annotation-preservation passes use this view to avoid adopting a custom
+     * producer's findings. Use diagnostics() to report every current finding. */
+    public final List<Diagnostic> intrinsicDiagnostics() { return findings; }
 
     /** Returns all findings for this snapshot in reporting order. Editing discards derived findings. */
-    public final List<Diagnostic> diagnostics() { return findings; }
+    public final List<Diagnostic> diagnostics() {
+        if (customFindings.isEmpty()) return findings;
+        var result = new java.util.ArrayList<>(findings);
+        result.addAll(customFindings);
+        return List.copyOf(result);
+    }
 
     /** Returns the original text span when this node has source provenance. */
     public final java.util.Optional<SourceRange> range() {

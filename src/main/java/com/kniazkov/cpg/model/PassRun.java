@@ -50,30 +50,41 @@ public final class PassRun {
     private final Scope scope;
     private final List<Result> results;
     private final Status status;
+    private final Set<String> requirements;
+    private final boolean custom;
 
-    private PassRun(long sequence, String passId, Scope scope, List<Result> results, Status status) {
+    private PassRun(long sequence, String passId, Scope scope, List<Result> results, Status status, Set<String> requirements, boolean custom) {
         this.sequence = sequence;
         this.passId = passId;
         this.scope = scope;
         this.results = List.copyOf(results);
         this.status = status;
+        this.requirements = Set.copyOf(requirements);
+        this.custom = custom;
     }
     static PassRun completed(long sequence, String passId, Scope scope, List<CallableDeclaration> functions) {
+        return completed(sequence, passId, scope, functions, Set.of(), false);
+    }
+    static PassRun completed(long sequence, String passId, Scope scope, List<CallableDeclaration> functions, Set<String> requirements, boolean custom) {
         if (passId == null || passId.isBlank()) throw new IllegalArgumentException("Pass ID is required");
         Objects.requireNonNull(scope);
-        return new PassRun(sequence, passId, scope, functions.stream().map(Result::new).toList(), Status.CURRENT);
+        return new PassRun(sequence, passId, scope, functions.stream().map(Result::new).toList(), Status.CURRENT, requirements, custom);
     }
     public long sequence() { return sequence; }
     public String passId() { return passId; }
     public Scope scope() { return scope; }
     public List<Result> results() { return results; }
     public Status status() { return status; }
+    /** Declared prerequisite pass IDs, empty for legacy built-in records. */
+    public Set<String> requirements() { return requirements; }
+    /** Custom callbacks may inspect the whole snapshot, so edits invalidate their entire coverage. */
+    public boolean custom() { return custom; }
 
     PassRun remap(Map<Object, CallableDeclaration> functions, Set<Object> changed, boolean invalidate) {
         var remapped = results.stream().map(result -> result.remap(functions, changed, invalidate)).toList();
         Status current = invalidate || remapped.stream().anyMatch(result -> result.status() == Status.STALE)
                 ? Status.STALE : status;
-        return new PassRun(sequence, passId, scope, remapped, current);
+        return new PassRun(sequence, passId, scope, remapped, current, requirements, custom);
     }
 
     PassRun restoreCurrentResults(PassRun prior, Map<Object, CallableDeclaration> functions, Set<Object> unchanged) {
@@ -85,6 +96,6 @@ public final class PassRun {
         }).toList();
         Status current = !restored.isEmpty() && restored.stream().allMatch(result -> result.status == Status.CURRENT)
                 ? Status.CURRENT : status;
-        return new PassRun(sequence, passId, scope, restored, current);
+        return new PassRun(sequence, passId, scope, restored, current, requirements, custom);
     }
 }

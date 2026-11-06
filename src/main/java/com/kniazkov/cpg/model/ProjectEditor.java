@@ -7,20 +7,49 @@ import java.util.*;
 public final class ProjectEditor {
     private final Project source;
     private String passId;
+    private String registeredPassId;
+    private boolean passCallback;
+    private boolean closed;
+    private void requireOpen() {
+        if (closed) throw new IllegalStateException("Transformation invocation has finished");
+    }
+
+    /** Runs a registered transformation with a locked provenance identity. The callback
+     * stages edits only; building inside it or reusing the editor afterward is rejected. */
+    public static Project applyPass(Project source, String passId, CallableDeclaration scope,
+            java.util.function.Consumer<ProjectEditor> transformation) {
+        ProjectEditor editor = new ProjectEditor(source).setPassId(passId);
+        editor.registeredPassId = passId;
+        if (scope != null) editor.restrictTo(scope);
+        try {
+            editor.passCallback = true;
+            Objects.requireNonNull(transformation).accept(editor);
+            editor.passCallback = false;
+            return editor.build();
+        } finally {
+            editor.passCallback = false;
+            editor.closed = true;
+        }
+    }
+
     private SnapshotStage snapshotStage;
     public ProjectEditor setPassId(String value) {
+        requireOpen();
+        if (registeredPassId != null && !registeredPassId.equals(value))
+            throw new IllegalArgumentException("Registered pass identity cannot be changed");
         if (value == null || value.isBlank()) throw new IllegalArgumentException("Pass ID is required");
         passId = value; return this;
     }
     public ProjectEditor setSnapshotStage(SnapshotStage value) {
+        requireOpen();
         snapshotStage = Objects.requireNonNull(value); return this;
     }
     private boolean retainDiagnostics;
     private boolean revalidate = true;
     /** Internal semantic transformations do not recursively launch source-edit validation. */
-    public ProjectEditor withoutRevalidation() { revalidate = false; return this; }
+    public ProjectEditor withoutRevalidation() { requireOpen(); revalidate = false; return this; }
     /** Semantic passes may preserve prior findings; ordinary source edits revalidate errors. */
-    public ProjectEditor retainDiagnostics() { retainDiagnostics=true; return this; }
+    public ProjectEditor retainDiagnostics() { requireOpen(); retainDiagnostics=true; return this; }
     private record Instantiation(CallableDeclaration origin, Node cause, SourceFile file, List<TypeNode> arguments, Map<Node, Node> substitutions, CallableDeclaration definition, List<TemplateArgument> structuredArguments) {}
     private final List<Instantiation> instantiations = new ArrayList<>();
     /** Basic instances own a distinct body; written arguments remain children of the call. */
@@ -36,14 +65,14 @@ public final class ProjectEditor {
     }
     public void instantiateArguments(CallableDeclaration origin,Node cause,SourceFile file,List<TemplateArgument> arguments,
             Map<Node,Node> substitutions,CallableDeclaration definition) {
-        requireMember(origin); requireMember(cause); requireMember(file); requireMember(definition);
+        requireMember(origin); requireEditable(cause); requireEditable(file); requireMember(definition);
         if(arguments.size()!=origin.templateParameters().size())throw new IllegalArgumentException("Template argument count");
         instantiations.add(new Instantiation(origin,cause,file,arguments.stream().flatMap(a -> a.type().stream()).toList(),Map.copyOf(substitutions),definition,List.copyOf(arguments)));
     }
 
     private final Map<TemplateInstance, List<Node>> additionalRequests = new IdentityHashMap<>();
     public void requestInstantiation(TemplateInstance instance, Node request) {
-        requireMember(instance); requireMember(request);
+        requireEditable(instance); requireMember(request);
         if (!instance.requests().contains(request)) additionalRequests.computeIfAbsent(instance, ignored -> new ArrayList<>()).add(request);
     }
 
@@ -54,19 +83,19 @@ public final class ProjectEditor {
 
     /** Records green facts without cloning referenced typedef declarations outside the project. */
     public void describe(TypeNode type, TypeRepresentation representation) {
-        requireMember(type);
+        requireEditable(type);
         typeRepresentations.put(type, Objects.requireNonNull(representation));
     }
 
     private final Map<ConversionExpression, String> conversionSources = new IdentityHashMap<>();
     public void describeSource(ConversionExpression expression, String type) {
-        requireMember(expression); conversionSources.put(expression, Objects.requireNonNull(type));
+        requireEditable(expression); conversionSources.put(expression, Objects.requireNonNull(type));
     }
     private final Map<Expression, Boolean> dependencies = new IdentityHashMap<>();
-    public void dependent(Expression expression, boolean value) { requireMember(expression); dependencies.put(expression, value); }
+    public void dependent(Expression expression, boolean value) { requireEditable(expression); dependencies.put(expression, value); }
     private final Map<Expression, ExpressionInfo> expressions = new IdentityHashMap<>();
     public void describe(Expression expression, ExpressionInfo info) {
-        requireMember(expression); expressions.put(expression, Objects.requireNonNull(info));
+        requireEditable(expression); expressions.put(expression, Objects.requireNonNull(info));
     }
 
     /** Adds semantic wrappers without independently cloning the operand's declaration links. */
@@ -78,7 +107,7 @@ public final class ProjectEditor {
     }
     private final Map<Expression, List<ConversionStep>> conversions = new IdentityHashMap<>();
     public void convert(Expression expression, List<ConversionStep> steps) {
-        requireMember(expression);
+        requireEditable(expression);
         steps.forEach(step -> { if (step.userDefined() != null) requireMember(step.userDefined()); });
         if (!steps.isEmpty()) conversions.put(expression, List.copyOf(steps));
     }
@@ -90,10 +119,10 @@ public final class ProjectEditor {
     private final Map<Declaration, String> typeIdentities = new IdentityHashMap<>();
     private final Map<Declaration, String> languageLinkages = new IdentityHashMap<>();
     public void identifyType(Declaration declaration, String identity) {
-        requireMember(declaration); typeIdentities.put(declaration, Objects.requireNonNull(identity));
+        requireEditable(declaration); typeIdentities.put(declaration, Objects.requireNonNull(identity));
     }
     public void languageLinkage(Declaration declaration, String language) {
-        requireMember(declaration); languageLinkages.put(declaration, Objects.requireNonNull(language));
+        requireEditable(declaration); languageLinkages.put(declaration, Objects.requireNonNull(language));
     }
     private final Map<NamedType, TypeBinding> types = new IdentityHashMap<>();
     private final Map<Declaration, Declaration> imports = new IdentityHashMap<>();
@@ -102,7 +131,7 @@ public final class ProjectEditor {
     /** Stages declaration identity without mutating either snapshot. Null relations clear old edges. */
     public void declare(Declaration declaration, Declaration.Linkage linkage, boolean isDefinition,
             Declaration previous, Declaration definition) {
-        requireMember(declaration);
+        requireEditable(declaration);
         if (previous != null) requireMember(previous);
         if (definition != null) requireMember(definition);
         declarations.put(declaration, new DeclarationFacts(Objects.requireNonNull(linkage), isDefinition, previous, definition));
@@ -110,7 +139,7 @@ public final class ProjectEditor {
 
     /** Records the declaration visible at this exact written type occurrence. */
     public void bind(NamedType type, Declaration declaration, boolean complete, List<TypeResolutionStep> steps) {
-        requireMember(type);
+        requireEditable(type);
         if (declaration != null) requireMember(declaration);
         steps.forEach(step -> { requireMember(step.via()); requireMember(step.target()); });
         types.put(type, new TypeBinding(declaration, complete, List.copyOf(steps)));
@@ -118,7 +147,7 @@ public final class ProjectEditor {
 
     /** Binds namespace aliases and using nodes. A null target clears a stale import. */
     public void bindImport(Declaration declaration, Declaration target) {
-        requireMember(declaration);
+        requireEditable(declaration);
         if (target != null) requireMember(target);
         if (!(declaration instanceof NamespaceAliasDeclaration || declaration instanceof UsingDeclaration
                 || declaration instanceof UsingDirective)) throw new IllegalArgumentException("Not an import declaration");
@@ -127,18 +156,18 @@ public final class ProjectEditor {
 
     /** Attaches an analysis finding to the newly built node, never the input snapshot. */
     public void diagnose(Node node, Diagnostic diagnostic) {
-        requireMember(node);
+        requireEditable(node);
         diagnostics.computeIfAbsent(node, ignored -> new ArrayList<>()).add(Objects.requireNonNull(diagnostic));
     }
 
-    public void unbind(NameExpression use) { requireMember(use); names.put(use, null); }
+    public void unbind(NameExpression use) { requireEditable(use); names.put(use, null); }
 
     private final Map<MemberInitializer, Declaration> initializerNames = new IdentityHashMap<>();
-    public void bind(MemberInitializer use, Declaration target) { requireMember(use); if (target != null) requireMember(target); initializerNames.put(use, target); }
+    public void bind(MemberInitializer use, Declaration target) { requireEditable(use); if (target != null) requireMember(target); initializerNames.put(use, target); }
 
     private final Map<MemberExpression, Declaration> memberNames = new IdentityHashMap<>();
     public void bind(MemberExpression use, Declaration target) {
-        requireMember(use); if (target != null) requireMember(target); memberNames.put(use, target);
+        requireEditable(use); if (target != null) requireMember(target); memberNames.put(use, target);
     }
     private final Map<NameExpression, Declaration> names = new IdentityHashMap<>();
     private final Map<CallExpression, CallableDeclaration> calls = new IdentityHashMap<>();
@@ -149,12 +178,12 @@ public final class ProjectEditor {
         resolveOperator(expression, List.of(target), CallExpression.Resolution.RESOLVED);
     }
     public void resolveOperator(Expression expression, List<CallableDeclaration> candidates, CallExpression.Resolution status) {
-        requireMember(expression); candidates.forEach(this::requireMember);
+        requireEditable(expression); candidates.forEach(this::requireMember);
         operatorResolutions.put(expression, new Resolution(List.copyOf(candidates), Objects.requireNonNull(status)));
     }
     private final Map<CallExpression, Resolution> resolutions = new IdentityHashMap<>();
     public void resolve(CallExpression call, List<CallableDeclaration> candidates, CallExpression.Resolution status) {
-        requireMember(call); candidates.forEach(this::requireMember);
+        requireEditable(call); candidates.forEach(this::requireMember);
         resolutions.put(call, new Resolution(List.copyOf(candidates), status));
     }
 
@@ -162,14 +191,14 @@ public final class ProjectEditor {
     private final Map<CallExpression, VirtualTargets> virtualTargets = new IdentityHashMap<>();
     /** Records conservative runtime implementations separately from static overload selection. */
     public void virtualTargets(CallExpression call, List<CallableDeclaration> targets, boolean complete) {
-        requireMember(call); targets.forEach(this::requireMember);
+        requireEditable(call); targets.forEach(this::requireMember);
         virtualTargets.put(call, new VirtualTargets(List.copyOf(targets), complete));
     }
 
     private final Map<CallExpression, List<CallExpression.DefaultArgument>> defaults = new IdentityHashMap<>();
     /** Records source-point default providers without making them children of the call. */
     public void defaultArguments(CallExpression call, List<CallExpression.DefaultArgument> arguments) {
-        requireMember(call);
+        requireEditable(call);
         arguments.forEach(argument -> { requireMember(argument.declaration()); requireMember(argument.parameter()); });
         defaults.put(call, List.copyOf(arguments));
     }
@@ -181,6 +210,30 @@ public final class ProjectEditor {
         });
     }
 
+    private Set<Node> editable;
+    private CallableDeclaration scopeRoot;
+
+    /** Restricts mutation subjects to this callable's owned subtree. Bindings may still
+     * reference other owned project nodes. Once restricted, the write scope cannot widen. */
+    public ProjectEditor restrictTo(CallableDeclaration function) {
+        requireOpen();
+        requireMember(function);
+        Set<Node> selected = Collections.newSetFromMap(new IdentityHashMap<>());
+        function.walk(new NodeVisitor() { @Override public void visit(Node node) { selected.add(node); } });
+        if (editable != null && !editable.containsAll(selected))
+            throw new IllegalArgumentException("Cannot widen the editor scope");
+        editable = selected;
+        scopeRoot = function;
+        return this;
+    }
+
+    private void requireEditable(Node node) {
+        requireOpen();
+        requireMember(node);
+        if (editable != null && !editable.contains(node))
+            throw new IllegalArgumentException("Node is outside the selected transformation scope");
+    }
+
     private void requireMember(Node node) {
         if (!members.contains(node)) throw new IllegalArgumentException("Node is outside the source project");
     }
@@ -188,14 +241,18 @@ public final class ProjectEditor {
     /** Replaces the owning edge and redirects references. Missing replacement source range
      * and token provenance inherit the old node's metadata; explicit metadata wins. */
     public void replace(Node node, Node replacement) {
-        requireMember(node);
+        requireEditable(node);
         if (node == source || removed.contains(node)) throw new IllegalArgumentException("Cannot replace this node");
-        replacements.put(node, Objects.requireNonNull(replacement));
+        Objects.requireNonNull(replacement);
+        if (node == scopeRoot && replacement.editIdentity != node.editIdentity)
+            throw new IllegalArgumentException("A scoped transformation must preserve its callable identity");
+        replacements.put(node, replacement);
     }
 
     /** Removes a list element only when no edge from outside its subtree references it. */
     public void remove(Node node) {
-        requireMember(node);
+        requireEditable(node);
+        if (node == scopeRoot) throw new IllegalArgumentException("Cannot remove the selected callable scope");
         Set<Node> subtree = Collections.newSetFromMap(new IdentityHashMap<>());
         node.walk(new NodeVisitor() {
             @Override public void visit(Node child) { subtree.add(child); }
@@ -217,11 +274,11 @@ public final class ProjectEditor {
     }
 
     public void bind(NameExpression use, Declaration target) {
-        requireMember(use); requireMember(target); names.put(use, target);
+        requireEditable(use); requireMember(target); names.put(use, target);
     }
 
     public void bind(CallExpression call, CallableDeclaration target) {
-        requireMember(call); requireMember(target); calls.put(call, target);
+        requireEditable(call); requireMember(target); calls.put(call, target);
     }
 
     private boolean invalidateAffected(Node node, EditContext context, boolean hierarchyChanged) {
@@ -250,6 +307,8 @@ public final class ProjectEditor {
 
     /** Copies all owned nodes and redirects links in the same identity context before validation. */
     public Project build() {
+        requireOpen();
+        if (passCallback) throw new IllegalStateException("The pass runner builds the transformation batch after the callback");
         var adjusted = new IdentityHashMap<Node, Node>(replacements);
         var origins = new IdentityHashMap<Object, Node>();
         var ambiguousOrigins = Collections.newSetFromMap(new IdentityHashMap<Object, Boolean>());
@@ -417,7 +476,7 @@ public final class ProjectEditor {
         var build = new BuildContext();
         Project result = build.build(root);
         if(retainDiagnostics && replacements.isEmpty() && removed.isEmpty()) for(Node member:members)
-            if(!member.diagnostics().isEmpty())build.copy(context.copy(member)).findings=member.diagnostics();
+            if(!member.findings.isEmpty())build.copy(context.copy(member)).findings=member.findings;
         diagnostics.forEach((node, findings) -> {
             Node target=build.copy(context.copy(node));
             var combined=new ArrayList<Diagnostic>(target.findings);
@@ -452,7 +511,7 @@ public final class ProjectEditor {
             Node target = destinations.get(original.editIdentity);
             if (target == null) continue;
             var preserved = new ArrayList<>(target.findings);
-            for (Diagnostic diagnostic : original.diagnostics())
+            for (Diagnostic diagnostic : original.findings)
                 if (diagnostic.severity() != Diagnostic.Severity.ERROR && !derivedWarning(diagnostic)
                         && !preserved.contains(diagnostic))
                     preserved.add(diagnostic);
@@ -461,12 +520,12 @@ public final class ProjectEditor {
         Project checked = com.kniazkov.cpg.analysis.NameResolver.resolve(result.edit().build());
         checked.walk(new NodeVisitor() {
             @Override public void visit(Node node) {
-                if (node.diagnostics().isEmpty()) return;
+                if (node.findings.isEmpty()) return;
                 // New instantiated semantic nodes may not exist in the caller's unanalysed
                 // graph. Keep their located findings on the root rather than losing errors.
                 Node target = destinations.getOrDefault(node.editIdentity, result);
                 var findings = new ArrayList<>(target.findings);
-                for (Diagnostic diagnostic : node.diagnostics()) {
+                for (Diagnostic diagnostic : node.findings) {
                     Diagnostic located = diagnostic.primaryRange() != null ? diagnostic : new Diagnostic(
                             diagnostic.code(), diagnostic.severity(), diagnostic.message(),
                             node.range().orElse(null), diagnostic.relatedRanges());

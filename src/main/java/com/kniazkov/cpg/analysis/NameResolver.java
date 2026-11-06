@@ -332,7 +332,7 @@ public final class NameResolver {
             // findings on ordinary edits, so carry earlier semantic findings forward.
             project.walk(new NodeVisitor() {
                 @Override public void visit(Node node) {
-                    node.diagnostics().forEach(diagnostic -> editor.diagnose(node, diagnostic));
+                    node.intrinsicDiagnostics().forEach(diagnostic -> editor.diagnose(node, diagnostic));
                 }
             });
             for (Declaration declaration : declarations) if (declaration instanceof CallableDeclaration callable

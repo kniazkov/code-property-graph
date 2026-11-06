@@ -7,6 +7,225 @@ import java.util.Objects;
 
 /** Root containing source files. */
 public final class Project extends Node {
+    private AnalysisProducts analysisProducts = AnalysisProducts.EMPTY;
+    private java.util.Map<Object, Node> analysisNodeIndex;
+
+    /** Producer-owned products, including stale values on surviving nodes. */
+    public List<AnalysisResult<?>> analysisResults() { return analysisProducts.results; }
+    /** Producer-owned findings; only current findings appear in Node.diagnostics(). */
+    public List<AnalysisDiagnostic> analysisDiagnostics() { return analysisProducts.diagnostics; }
+
+    /** Returns a current typed value. Stale, deleted, ambiguous and foreign targets return empty.
+     * An ancestor handle resolves only through exact edit lineage, never source coordinates. */
+    public <T> java.util.Optional<T> resultOf(Node node, com.kniazkov.cpg.passes.ResultKey<T> key) {
+        Objects.requireNonNull(node); Objects.requireNonNull(key);
+        Node current = nodeIndex().get(node.editIdentity);
+        if (current == null) return java.util.Optional.empty();
+        for (var result : analysisProducts.results) if (result.node() == current && result.key().equals(key)
+                && result.status() == PassRun.Status.CURRENT) return java.util.Optional.of(key.type().cast(result.value()));
+        return java.util.Optional.empty();
+    }
+
+    /** Distinguishes a retained stale value from a missing result without returning it as current. */
+    public java.util.Optional<PassRun.Status> resultStatus(Node node, com.kniazkov.cpg.passes.ResultKey<?> key) {
+        Objects.requireNonNull(node); Objects.requireNonNull(key);
+        Node current = nodeIndex().get(node.editIdentity);
+        if (current == null) return java.util.Optional.empty();
+        return analysisProducts.results.stream().filter(value -> value.node() == current && value.key().equals(key))
+                .map(AnalysisResult::status).findFirst();
+    }
+
+    /** Resolves an owned current or ancestor node; duplicate lineage is deliberately ambiguous. */
+    public java.util.Optional<Node> correspondingNode(Node node) {
+        Objects.requireNonNull(node);
+        return java.util.Optional.ofNullable(nodeIndex().get(node.editIdentity));
+    }
+
+    private java.util.Map<Object, Node> nodeIndex() {
+        if (analysisNodeIndex != null) return analysisNodeIndex;
+        var nodes = new java.util.IdentityHashMap<Object, Node>();
+        var ambiguous = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Object, Boolean>());
+        walk(new NodeVisitor() { @Override public void visit(Node node) {
+            if (nodes.putIfAbsent(node.editIdentity, node) != null) ambiguous.add(node.editIdentity);
+        }});
+        ambiguous.forEach(nodes::remove);
+        analysisNodeIndex = java.util.Collections.unmodifiableMap(nodes);
+        return analysisNodeIndex;
+    }
+
+    private java.util.Map<Node, Object> analysisOwners() {
+        record Owned(Node node, Object function) {}
+        var owners = new java.util.IdentityHashMap<Node, Object>();
+        var pending = new java.util.ArrayDeque<Owned>(); pending.push(new Owned(this, null));
+        while (!pending.isEmpty()) {
+            Owned item = pending.pop(); Node node = item.node();
+            Object owner = node instanceof CallableDeclaration function && function.body().isPresent()
+                    ? node.editIdentity : item.function();
+            owners.put(node, owner);
+            List<Node> children = node.children();
+            for (int i = children.size() - 1; i >= 0; i--) pending.push(new Owned(children.get(i), owner));
+        }
+        return owners;
+    }
+
+    /** Atomically publishes one complete producer invocation. All validation and encoding
+     * happen before a snapshot is returned. Custom T values must satisfy ResultKey's
+     * immutable-value contract; encoded JSON trees are independently frozen by ResultTypes. */
+    public Project publishAnalysis(com.kniazkov.cpg.passes.PassId producer,
+            java.util.Set<com.kniazkov.cpg.passes.PassId> requirements, CallableDeclaration function,
+            java.util.Map<Node, java.util.Map<com.kniazkov.cpg.passes.ResultKey<?>, Object>> values,
+            java.util.Map<Node, List<Diagnostic>> diagnostics) {
+        return publishAnalysis(producer, requirements, function, values, diagnostics,
+                com.kniazkov.cpg.passes.ResultTypes.defaults());
+    }
+
+    public Project publishAnalysis(com.kniazkov.cpg.passes.PassId producer,
+            java.util.Set<com.kniazkov.cpg.passes.PassId> requirements, CallableDeclaration function,
+            java.util.Map<Node, java.util.Map<com.kniazkov.cpg.passes.ResultKey<?>, Object>> values,
+            java.util.Map<Node, List<Diagnostic>> diagnostics, com.kniazkov.cpg.passes.ResultTypes types) {
+        Objects.requireNonNull(producer); Objects.requireNonNull(requirements);
+        Objects.requireNonNull(values); Objects.requireNonNull(diagnostics); Objects.requireNonNull(types);
+        var required = requirements.stream().map(com.kniazkov.cpg.passes.PassId::value).collect(java.util.stream.Collectors.toUnmodifiableSet());
+        if (required.contains(producer.value())) throw new IllegalArgumentException("A pass cannot require itself");
+        CallableDeclaration scope = function == null ? null : correspondingCallable(function)
+                .orElseThrow(() -> new IllegalArgumentException("Function is outside this project"));
+        for (String prerequisite : required) if ((scope == null ? passStatus(prerequisite) : passStatus(prerequisite, scope))
+                .orElse(PassRun.Status.STALE) != PassRun.Status.CURRENT)
+            throw new IllegalStateException("Pass prerequisite is not current: " + prerequisite);
+        var members = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
+        (scope == null ? this : scope).walk(new NodeVisitor() { @Override public void visit(Node node) { members.add(node); } });
+        if (!members.containsAll(values.keySet()) || !members.containsAll(diagnostics.keySet()))
+            throw new IllegalArgumentException("Analysis product is outside the selected scope");
+        values.values().forEach(Objects::requireNonNull);
+        diagnostics.values().forEach(Objects::requireNonNull);
+        var selected = scope == null ? null : java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Object, Boolean>());
+        if (selected != null) members.forEach(node -> selected.add(node.editIdentity));
+        var owners = analysisOwners();
+        var products = new ArrayList<AnalysisResult<?>>();
+        var findings = new ArrayList<AnalysisDiagnostic>();
+        // Syntax order makes publication deterministic even when a caller uses hash maps.
+        walk(new NodeVisitor() { @Override public void visit(Node node) {
+            var entries = values.get(node);
+            if (entries != null) entries.entrySet().stream()
+                    .sorted(java.util.Comparator.comparing((java.util.Map.Entry<com.kniazkov.cpg.passes.ResultKey<?>, Object> entry) -> entry.getKey().name())
+                            .thenComparing(entry -> entry.getKey().type().getName()))
+                    .forEach(entry -> {
+                        var key = Objects.requireNonNull(entry.getKey());
+                        if (!key.producer().equals(producer)) throw new IllegalArgumentException("Result belongs to another producer");
+                        products.add(analysisResult(key, node, entry.getValue(), types, owners.get(node)));
+                    });
+            if (diagnostics.containsKey(node)) for (Diagnostic diagnostic : Objects.requireNonNull(diagnostics.get(node)))
+                findings.add(new AnalysisDiagnostic(producer, node, diagnostic, PassRun.Status.CURRENT, owners.get(node)));
+        }});
+        Project copy = recordPass(producer.value(), scope == null ? PassRun.Scope.PROJECT : PassRun.Scope.FUNCTION,
+                customCoverage(scope), required, false, true);
+        copy.analysisProducts = copy.analysisProducts.replace(producer.value(), selected, products, findings)
+                .remapRoot(this, copy);
+        return copy.refreshCustomAnnotations(this);
+    }
+
+    private static <T> AnalysisResult<T> analysisResult(com.kniazkov.cpg.passes.ResultKey<T> key,
+            Node node, Object value, com.kniazkov.cpg.passes.ResultTypes types, Object owner) {
+        if (value == null || !key.type().isInstance(value)) throw new IllegalArgumentException("Result value has the wrong type");
+        return new AnalysisResult<>(key, node, key.type().cast(value), types.encode(key.type(), value), PassRun.Status.CURRENT, owner);
+    }
+
+    /** Records a completed transformation with its declared prerequisites. */
+    public Project recordCustomPass(com.kniazkov.cpg.passes.PassId producer,
+            java.util.Set<com.kniazkov.cpg.passes.PassId> requirements, CallableDeclaration function) {
+        Objects.requireNonNull(producer); Objects.requireNonNull(requirements);
+        CallableDeclaration scope = function == null ? null : correspondingCallable(function)
+                .orElseThrow(() -> new IllegalArgumentException("Function is outside this project"));
+        var required = requirements.stream().map(com.kniazkov.cpg.passes.PassId::value).collect(java.util.stream.Collectors.toUnmodifiableSet());
+        if (required.contains(producer.value())) throw new IllegalArgumentException("A pass cannot require itself");
+        return recordPass(producer.value(), scope == null ? PassRun.Scope.PROJECT : PassRun.Scope.FUNCTION,
+                customCoverage(scope), required, true, true);
+    }
+
+    private List<CallableDeclaration> customCoverage(CallableDeclaration scope) {
+        if (scope == null) return callables();
+        var covered = new ArrayList<CallableDeclaration>();
+        scope.walk(new NodeVisitor() { @Override public void visit(CallableDeclaration function) {
+            if (function.body().isPresent()) covered.add(function);
+        }});
+        return List.copyOf(covered);
+    }
+
+    /** Must only be called on fresh, unpublished syntax owned by this snapshot. */
+    private void attachCustomDiagnostics() {
+        var findings = new java.util.IdentityHashMap<Node, List<Diagnostic>>();
+        for (var finding : analysisProducts.diagnostics) if (finding.status() == PassRun.Status.CURRENT)
+            findings.computeIfAbsent(finding.node(), ignored -> new ArrayList<>()).add(finding.diagnostic());
+        walk(new NodeVisitor() { @Override public void visit(Node node) {
+            node.customFindings = List.copyOf(findings.getOrDefault(node, List.of()));
+        }});
+    }
+
+    private Project refreshCustomAnnotations(Project previous) {
+        if (analysisProducts.sameCurrentDiagnostics(previous.analysisProducts)) return this;
+        var annotations = new java.util.IdentityHashMap<Node, List<Diagnostic>>();
+        walk(new NodeVisitor() { @Override public void visit(Node node) {
+            if (!node.findings.isEmpty()) annotations.put(node, node.findings);
+        }});
+        return copyAnnotations(annotations);
+    }
+
+    private java.util.Set<String> dependentPasses(java.util.Set<String> changed) {
+        var affected = new java.util.HashSet<String>(changed);
+        boolean added;
+        do {
+            added = false;
+            for (PassRun run : passRuns) if (run.requirements().stream().anyMatch(affected::contains))
+                added |= affected.add(run.passId());
+        } while (added);
+        return affected;
+    }
+
+    private void invalidateCustomProducts(java.util.Set<String> changed, java.util.Set<Object> functions) {
+        if (analysisProducts.results.isEmpty() && analysisProducts.diagnostics.isEmpty()
+                && passRuns.stream().allMatch(run -> run.requirements().isEmpty())) return;
+        var affected = dependentPasses(changed);
+        var callables = callableIndex();
+        // A declared dependent may inspect prerequisite products in any function through
+        // context.project(). Only the producer being rerun has a known replacement scope.
+        passRuns = passRuns.stream().map(run -> affected.contains(run.passId()) && !changed.contains(run.passId())
+                ? run.remap(callables, java.util.Set.of(), true) : run).toList();
+        analysisProducts = analysisProducts.remap(nodeIndex(), (producer, owner) -> affected.contains(producer)
+                && (!changed.contains(producer) || functions == null || functions.contains(owner)));
+    }
+
+    /** A rebuild may discard a prerequisite's products even if syntax is unchanged. */
+    private void synchronizeCustomFreshness() {
+        if (analysisProducts.results.isEmpty() && analysisProducts.diagnostics.isEmpty()
+                && passRuns.stream().allMatch(run -> run.requirements().isEmpty())) return;
+        for (int iteration = 0; iteration < passRuns.size(); iteration++) {
+            boolean changed = false;
+            var records = new ArrayList<PassRun>();
+            for (PassRun run : passRuns) {
+                if (run.requirements().isEmpty()) { records.add(run); continue; }
+                // Prerequisites were prepared for this invocation's selected scope,
+                // not separately for nested callables that it happens to own.
+                CallableDeclaration root = run.scope() == PassRun.Scope.FUNCTION && !run.results().isEmpty()
+                        ? run.results().getFirst().function().orElse(null) : null;
+                boolean invalid = run.requirements().stream().anyMatch(id ->
+                        (run.scope() == PassRun.Scope.PROJECT ? passStatus(id)
+                                : root == null ? java.util.Optional.<PassRun.Status>empty() : latestPassStatus(id, root))
+                                .orElse(PassRun.Status.STALE) != PassRun.Status.CURRENT);
+                PassRun updated = run.remap(callableIndex(), java.util.Set.of(), invalid);
+                changed |= updated.status() != run.status() || java.util.stream.IntStream.range(0, run.results().size())
+                        .anyMatch(i -> updated.results().get(i).status() != run.results().get(i).status());
+                records.add(updated);
+            }
+            passRuns = List.copyOf(records);
+            if (!changed) break;
+        }
+        analysisProducts = analysisProducts.remap(nodeIndex(), (producer, owner) -> {
+            CallableDeclaration function = owner == null ? null : callableIndex().get(owner);
+            return (function == null ? passStatus(producer) : latestPassStatus(producer, function))
+                    .orElse(PassRun.Status.STALE) != PassRun.Status.CURRENT;
+        });
+    }
+
     private List<PassRun> passRuns = List.of();
     private PassInputs passInputs;
     private List<CallableDeclaration> passCallables;
@@ -15,7 +234,8 @@ public final class Project extends Node {
     /** Completed public pass invocations in actual execution order, including empty results. */
     public List<PassRun> passRuns() { return passRuns; }
 
-    /** Records whole-project execution without changing syntax, findings or dependencies. */
+    /** Records whole-project execution without changing syntax, and retires dependent
+     * custom products that were computed from the earlier invocation. */
     public Project recordPass(String passId) {
         return recordPass(passId, PassRun.Scope.PROJECT, callables());
     }
@@ -28,12 +248,21 @@ public final class Project extends Node {
     }
 
     private Project recordPass(String passId, PassRun.Scope scope, List<CallableDeclaration> functions) {
-        var records = new ArrayList<>(passRuns);
-        long sequence = records.isEmpty() ? 1 : records.getLast().sequence() + 1;
-        records.add(PassRun.completed(sequence, passId, scope, functions));
+        return recordPass(passId, scope, functions, java.util.Set.of(), true, false);
+    }
+
+    private Project recordPass(String passId, PassRun.Scope scope, List<CallableDeclaration> functions,
+            java.util.Set<String> requirements, boolean refreshAnnotations, boolean custom) {
         Project copy = copyMetadata(flows);
+        var selected = scope == PassRun.Scope.PROJECT ? null
+                : java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Object, Boolean>());
+        if (selected != null) functions.forEach(function -> selected.add(function.editIdentity));
+        copy.invalidateCustomProducts(java.util.Set.of(passId), selected);
+        var records = new ArrayList<>(copy.passRuns);
+        long sequence = records.isEmpty() ? 1 : records.getLast().sequence() + 1;
+        records.add(PassRun.completed(sequence, passId, scope, functions, requirements, custom));
         copy.passRuns = List.copyOf(records);
-        return copy;
+        return refreshAnnotations ? copy.refreshCustomAnnotations(this) : copy;
     }
 
     /** Latest status for this callable; empty means no completed invocation covered it. */
@@ -54,11 +283,26 @@ public final class Project extends Node {
     }
 
     /** Whole-project freshness, combining the latest covering result for every current callable.
-     * A partial scoped run cannot make a never-analyzed second callable current. */
+     * A partial scoped run cannot make a never-analyzed second callable current.
+     * Custom callbacks additionally require a current actual whole-project invocation;
+     * covering all callables through scoped runs never executes their global branch. */
     public java.util.Optional<PassRun.Status> passStatus(String passId) {
         Objects.requireNonNull(passId);
         boolean executed = passRuns.stream().anyMatch(run -> run.passId().equals(passId));
         if (!executed) return java.util.Optional.empty();
+        if (passRuns.stream().anyMatch(run -> run.passId().equals(passId) && run.custom())) {
+            // Function coverage cannot invent execution of a custom callback's global
+            // branch or products on project/file nodes outside all callables.
+            PassRun projectRun = null;
+            for (int i = passRuns.size() - 1; i >= 0; i--) {
+                PassRun candidate = passRuns.get(i);
+                if (candidate.passId().equals(passId) && candidate.scope() == PassRun.Scope.PROJECT) {
+                    projectRun = candidate; break;
+                }
+            }
+            if (projectRun == null || projectRun.status() != PassRun.Status.CURRENT)
+                return java.util.Optional.of(PassRun.Status.STALE);
+        }
         List<CallableDeclaration> functions = callables();
         if (!functions.isEmpty()) {
             var statuses = new java.util.IdentityHashMap<Object, PassRun.Status>();
@@ -85,9 +329,11 @@ public final class Project extends Node {
         Objects.requireNonNull(passIds);
         Project copy = copyMetadata(flows);
         var functions = callableIndex();
+        var affected = dependentPasses(passIds);
         copy.passRuns = passRuns.stream().map(run -> run.remap(functions, java.util.Set.of(),
-                passIds.contains(run.passId()))).toList();
-        return copy;
+                affected.contains(run.passId()))).toList();
+        copy.analysisProducts = copy.analysisProducts.remap(copy.nodeIndex(), (producer, owner) -> affected.contains(producer));
+        return copy.refreshCustomAnnotations(this);
     }
 
     /** Retains existing per-function products across prerequisite-only copies when their
@@ -101,6 +347,9 @@ public final class Project extends Node {
             if (previous.sequence() != current.sequence() || !previous.passId().equals(current.passId())
                     || previous.scope() != current.scope()) throw new IllegalArgumentException("Prior history is not an ancestor");
         }
+        // Custom callbacks have no proven local-input boundary. Their dependency/source
+        // invalidations cannot be undone by this built-in unchanged-function optimization.
+        if (passRuns.stream().anyMatch(run -> run.passId().equals(passId) && run.custom())) return this;
         PassInputs before = prior.passInputs(), after = passInputs();
         if (!before.global.equals(after.global)) return this;
         var changed = changedPassFunctions(prior);
@@ -119,7 +368,7 @@ public final class Project extends Node {
         // never mutate the immutable syntax shared by copyMetadata.
         var findings = new java.util.IdentityHashMap<Node, Diagnostic>();
         walk(new NodeVisitor() { @Override public void visit(Node node) {
-            node.diagnostics().stream().filter(diagnostic -> diagnostic.code().equals("unread-write"))
+            node.findings.stream().filter(diagnostic -> diagnostic.code().equals("unread-write"))
                     .findFirst().ifPresent(diagnostic -> findings.put(node, diagnostic));
         }});
         var destinations = new java.util.IdentityHashMap<Object, Node>();
@@ -129,7 +378,7 @@ public final class Project extends Node {
                     || prior.latestPassStatus(passId, function).orElse(PassRun.Status.STALE) != PassRun.Status.CURRENT) continue;
             function.walk(new NodeVisitor() { @Override public void visit(Node node) {
                 Node target = destinations.get(node.editIdentity);
-                if (target != null) node.diagnostics().stream().filter(diagnostic -> diagnostic.code().equals("unread-write"))
+                if (target != null) node.findings.stream().filter(diagnostic -> diagnostic.code().equals("unread-write"))
                         .findFirst().ifPresent(diagnostic -> findings.put(target, diagnostic));
             }});
         }
@@ -170,15 +419,21 @@ public final class Project extends Node {
 
     /** Called once after an unpublished builder snapshot is fully validated. */
     void inheritPassHistory(Project source) {
-        if (source == null || source.passRuns.isEmpty()) return;
+        if (source == null) return;
+        if (source.passRuns.isEmpty()) return;
         var functions = callableIndex();
         PassInputs before = source.passInputs(), after = passInputs();
         boolean global = !before.global.equals(after.global);
         var changed = global ? java.util.Set.<Object>of() : changedPassFunctions(source);
         boolean sourceChanged = global || !changed.isEmpty();
         passRuns = source.passRuns.stream().map(run -> run.remap(functions, changed,
-                global || run.passId().equals("ControlFlow") || run.passId().equals("DataFlow")
+                global || sourceChanged && run.custom() || run.passId().equals("ControlFlow") || run.passId().equals("DataFlow")
                 || !sourceChanged && run.passId().equals("UnreadWrites"))).toList();
+        if (!source.analysisProducts.results.isEmpty() || !source.analysisProducts.diagnostics.isEmpty())
+            analysisProducts = source.analysisProducts.remap(nodeIndex(), (producer, owner) ->
+                    sourceChanged);
+        synchronizeCustomFreshness();
+        if (!analysisProducts.diagnostics.isEmpty()) attachCustomDiagnostics();
         if (sourceChanged && !global) restoreUnaffectedFindings(source);
     }
 
@@ -276,6 +531,10 @@ public final class Project extends Node {
         var functions = callableIndex();
         passRuns = source.passRuns.stream().map(run -> run.remap(functions, java.util.Set.of(), false)).toList();
         passInputs = source.passInputs;
+        if (!source.analysisProducts.results.isEmpty() || !source.analysisProducts.diagnostics.isEmpty()) {
+            analysisProducts = source.analysisProducts.remap(nodeIndex(), (producer, owner) -> false);
+            attachCustomDiagnostics();
+        }
     }
 
     /** Preserve unread-write products only where the retained pass result remains current. */
@@ -289,7 +548,7 @@ public final class Project extends Node {
                 Node target = nodes.get(node.editIdentity);
                 if (target == null) return;
                 var findings = new ArrayList<>(target.findings);
-                node.diagnostics().stream().filter(diagnostic -> diagnostic.code().equals("unread-write"))
+                node.findings.stream().filter(diagnostic -> diagnostic.code().equals("unread-write"))
                         .filter(diagnostic -> !findings.contains(diagnostic)).forEach(findings::add);
                 target.findings = List.copyOf(findings);
             }});
@@ -661,6 +920,8 @@ public final class Project extends Node {
     private Project copyMetadata(List<FunctionFlow> results) {
         var copy = new Project();
         copy.findings = findings;
+        copy.customFindings = customFindings;
+        copy.analysisProducts = analysisProducts.remapRoot(this, copy);
         copy.origin = origin;
         copy.provenance = provenance;
         copy.transformationProvenance = transformationProvenance;
@@ -723,20 +984,24 @@ public final class Project extends Node {
         var changed = new java.util.HashSet<Node>();
         walk(new NodeVisitor() {
             @Override public void visit(Node node) {
-                if (node.diagnostics().isEmpty() && !pending.containsKey(node)) return;
-                var updated = new ArrayList<>(node.diagnostics());
+                if (node.findings.isEmpty() && !pending.containsKey(node)) return;
+                var updated = new ArrayList<>(node.findings);
                 updated.removeIf(d -> d.code().equals(rule));
                 Diagnostic finding = pending.remove(node);
                 if (finding != null) {
                     if (!finding.code().equals(rule)) throw new IllegalArgumentException("Unexpected rule code");
                     updated.add(finding);
                 }
-                if (!updated.equals(node.diagnostics())) changed.add(node);
+                if (!updated.equals(node.findings)) changed.add(node);
                 if (!updated.isEmpty()) annotations.put(node, List.copyOf(updated));
             }
         });
         if (!pending.isEmpty()) throw new IllegalArgumentException("Finding outside this project");
         if (changed.isEmpty()) return this;
+        return copyAnnotations(annotations);
+    }
+
+    private Project copyAnnotations(java.util.Map<Node, List<Diagnostic>> annotations) {
         var edit = new EditContext();
         var build = new BuildContext();
         Project copy = build.build(edit.edit(this, Builder.class));
@@ -772,7 +1037,7 @@ public final class Project extends Node {
             throw new IllegalArgumentException("Finding outside the selected function");
         var combined = new java.util.IdentityHashMap<Node, Diagnostic>(findingsByNode);
         walk(new NodeVisitor() { @Override public void visit(Node node) {
-            if (!members.contains(node)) node.diagnostics().stream().filter(diagnostic -> diagnostic.code().equals(rule))
+            if (!members.contains(node)) node.findings.stream().filter(diagnostic -> diagnostic.code().equals(rule))
                     .findFirst().ifPresent(diagnostic -> combined.put(node, diagnostic));
         }});
         return withDiagnostics(rule, combined);
