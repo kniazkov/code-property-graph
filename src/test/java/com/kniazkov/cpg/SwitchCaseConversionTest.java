@@ -61,10 +61,9 @@ class SwitchCaseConversionTest {
         assertEquals(0, duplicates(resolve(selection("long", "-1", "18446744073709551615UL"))));
         assertEquals(1, duplicates(resolve(selection("int", "1", "1U"))));
     }
-    @Test void unknownEnumClassAndBitfieldPromotionRemainConservative() {
+    @Test void defaultUnknownSignedConversionRemainsConservativeForPromotedEnumsAndBitfields() {
         for (String source : List.of(
                 "enum E{zero};" + selection("E", "-1", "4294967295U"),
-                "struct C{operator unsigned int();};" + selection("C", "-1", "4294967295U"),
                 "struct S{unsigned int b:3;};void f(S s){switch(s.b){case -1:break;case 4294967295U:break;}}",
                 "struct S{unsigned int b:3;void f(){switch(b){case -1:break;case 4294967295U:break;}}};"))
             assertEquals(0, duplicates(resolve(source)), source);

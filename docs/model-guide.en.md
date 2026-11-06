@@ -1478,3 +1478,68 @@ supported callable, unevaluated nodes retain bottom. Expression products describ
 possible evaluation values; declaration products describe initialization rather
 than the variable's final value, and assignment-target products describe written
 values. Parameters start unknown (`bool` is bounded to 0 and 1).
+
+## Switch converted-case diagnostics (#88)
+
+`duplicate-case` compares certified integral constant expressions after conversion
+to the promoted condition type using the translation unit's `PlatformProfile`.
+This is diagnostic typing, not a claim of complete switch admissibility or modeled
+runtime conversion-function call edges and effects.
+
+- `enumUnderlyingType`: `int-first` (default), `unsigned-first`, or `unknown`.
+  The first two try `int`, `unsigned int`, `long`, `unsigned long` and
+  `unsigned int`, `int`, `unsigned long`, `long`, respectively, subject to the
+  representability and size restriction of printed C++03 7.2/5. Promotion then
+  uses the full underlying-type range under 4.5/2, not just enumerator values.
+- `signedIntegerConversion`: `unknown` (default) or opt-in `twos-complement`.
+  The latter specifies out-of-range signed integral conversion under 4.7/3;
+  it does not make signed arithmetic overflow defined.
+- `bitFieldSignedness`: `signed` (default), `unsigned`, or `unknown`, independently
+  of ordinary `char` signedness. This choice applies to plain `char`, `short`,
+  `int`, and `long` bit-fields, not explicitly signed or unsigned declarations.
+  Direct integral fields promote by their value width; excess width is padding.
+  Enum bit-fields use enum promotion regardless of width. Arithmetic uses shared
+  expression promotions; explicit casts and comparisons keep their result types.
+
+Class conditions require exactly one visible, nonhidden integral/enum conversion
+function, with inherited lookup, reference results, cv-callability and access
+proved. Multiple such functions remain unknown even if they return the same type:
+the later unique-target relaxation is not substituted for printed 6.4.2/2.
+
+Before CWG324, assignment/compound-assignment, prefix increment/decrement,
+comma-with-field-right-operand and conditional-field result provenance remains
+unknown. Postfix increment/decrement instead uses the full declared result type
+under 5.2.6, not the operand's bit-field width. Merely containing a field does not
+make an otherwise unambiguous expression unknown.
+
+Enumerator and certified const-case evaluation uses a snapshot-owned
+`IntegralConstants` context shared with `TypeSemantics` and `StandardConversions`.
+It certifies enum ownership and static/nonstatic membership, memoizes successful
+values and guards cycles. Enum/const names in widths and enum initializers remain
+available inside nested unary-plus and arithmetic promotion expressions.
+Reference condition declarations and protected-conversion access use the actual
+receiver type, not only the declaring class.
+Integral-constant-expression syntax under 5.19 is checked across all arms,
+including unevaluated conditional arms; volatile values, references, nonstatic
+members and object-member calls are not accepted as constant proof. Unknown
+profiles or conversions do not invent converted keys. Proven equal raw constants
+can still establish a duplicate independently of an unknown target conversion.
+
+Integer-to-enum ICE casts are supported conservatively only between the minimum
+and maximum enumerator values (zero for an empty enum). This subset does not
+implement the entire enum value range of printed 7.2/6. The discrepancy between
+that paragraph's normative wording and footnote 81 is not silently resolved by
+adopting later CWG58. Direct floating-zero-to-integer casts are supported;
+nonzero floating literals remain unknown, not invalid. The profile gives storage
+sizes but no target floating representation or rounding policy. Neither this
+boundary nor an imported C defect-report interpretation proves broader C++
+constant-expression conformance.
+
+Regression assertions are in
+[`SwitchConversionCompletenessTest`](../src/test/java/com/kniazkov/cpg/SwitchConversionCompletenessTest.java),
+with existing `SwitchCaseConversionTest` and profile checks in `PlatformProfileTest`.
+[`SwitchCaseConversionsIT`](../src/test/java/com/kniazkov/cpg/e2e/SwitchCaseConversionsIT.java)
+adds CLI/API/JSON agreement, explicit-profile cases and strict-compiler checks.
+See [validation and historical observations](cpp03-paragraphs/probes/DiagnosticRegressionResults.md)
+for execution evidence and limits. Unsupported/non-evaluable cases remain unknown;
+these assertions do not establish complete coverage of the cited paragraphs.

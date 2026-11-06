@@ -140,6 +140,7 @@ public final class NameResolver {
         final Map<Declaration, Declaration.Linkage> linkages = new IdentityHashMap<>();
         final Map<Declaration, String> keys = new IdentityHashMap<>();
         final Map<String, List<Declaration>> groups = new LinkedHashMap<>();
+        final Map<com.kniazkov.cpg.build.PlatformProfile, IntegralConstants> integralConstants = new HashMap<>();
         final Set<Declaration> conflicting = Collections.newSetFromMap(new IdentityHashMap<>());
         final Set<Declaration> writtenClassMembers = Collections.newSetFromMap(new IdentityHashMap<>());
         int position;
@@ -275,7 +276,8 @@ public final class NameResolver {
             scopes.put(node, scope); pointScopes.put(position, scope); positions.put(node, position++);
             if (node instanceof Declaration declaration) {
                 declarations.add(declaration);
-                if (!(declaration instanceof CallableDeclaration callable) || callable.kind() == CallableDeclaration.Kind.FUNCTION) scope.add(name(declaration), declaration);
+                if (!(declaration instanceof CallableDeclaration callable) || callable.kind() == CallableDeclaration.Kind.FUNCTION
+                        || callable.conversionType().isPresent()) scope.add(name(declaration), declaration);
             }
             if (node instanceof NamespaceDeclaration namespace) {
                 String name = namespace.anonymous() ? "(anonymous)" : namespace.name();
@@ -420,28 +422,64 @@ public final class NameResolver {
                 this.owner = owner; this.promotedType = promotedType;
             }
             boolean hasDefault;
-            final Set<java.math.BigInteger> values = new HashSet<>();
+            final Set<java.math.BigInteger> values = new HashSet<>(), rawValues = new HashSet<>();
+        }
+        IntegralConstants integralConstants(com.kniazkov.cpg.build.PlatformProfile profile) {
+            return integralConstants.computeIfAbsent(profile, value -> new IntegralConstants(project, value));
+        }
+        void conversionNames(ClassDeclaration owner, Set<ClassDeclaration> active, Set<String> names) {
+            if (!active.add(owner)) return;
+            for (Declaration member : owner.members()) if (member instanceof CallableDeclaration callable && callable.conversionType().isPresent())
+                names.add(name(callable));
+            for (BaseSpecifier base : owner.bases()) {
+                ClassDeclaration parent = resolvedBase(base);
+                if (parent != null) conversionNames(parent, active, names);
+            }
+        }
+        Optional<TypeNode> switchClassConversion(Expression condition, TypeNode source,
+                com.kniazkov.cpg.build.PlatformProfile profile) {
+            ClassDeclaration owner = ClassSemantics.objectClass(source).orElse(null);
+            if (owner == null || introduced.get(owner) == null) return Optional.empty();
+            var names = new LinkedHashSet<String>(); conversionNames(owner, new HashSet<>(), names);
+            var candidates = new ArrayList<Match>();
+            for (String name : names) candidates.addAll(direct(name, introduced.get(owner), positions.get(condition), new HashSet<>(), false, true));
+            candidates.removeIf(match -> !(match.declaration() instanceof CallableDeclaration callable) || callable.conversionType().isEmpty()
+                    || !TypeSemantics.integralOrEnum(TypeSemantics.withoutReference(callable.conversionType().get()), profile));
+            // A conversion with an aliased spelling still hides the same target in a base.
+            var all = List.copyOf(candidates);
+            candidates.removeIf(match -> all.stream().anyMatch(other -> other != match
+                    && ((CallableDeclaration) other.declaration()).conversionType().get().canonicalIdentity()
+                        .equals(((CallableDeclaration) match.declaration()).conversionType().get().canonicalIdentity())
+                    && scopeClass(scopes.get(other.declaration())) != scopeClass(scopes.get(match.declaration()))
+                    && hasBase(scopeClass(scopes.get(other.declaration())), scopeClass(scopes.get(match.declaration())), new HashSet<>())));
+            candidates = new ArrayList<>(distinct(candidates));
+            // Printed 6.4.2/2 requires one function, before cv/access selection. Do not
+            // import the later unique-conversion-target relaxation.
+            if (candidates.size() != 1 || candidates.getFirst().ambiguous()) return Optional.empty();
+            CallableDeclaration selected = (CallableDeclaration) candidates.getFirst().declaration();
+            if (!selected.templateParameters().isEmpty()) return Optional.empty();
+            int cv = TypeSemantics.qualifiers(source);
+            if ((cv & 1) != 0 && !selected.isConst() || (cv & 2) != 0 && !selected.isVolatile()) return Optional.empty();
+            ClassDeclaration context = null, declaring = scopeClass(scopes.get(selected));
+            for (Scope scope = scopes.get(condition); scope != null && context == null; scope = scope.parent) context = scopeClass(scope);
+            if (declaring == null || !accessibleBase(owner, declaring, context, new HashSet<>()) || !checkSelectedAccess(condition, selected)) return Optional.empty();
+            return selected.conversionType().map(TypeSemantics::withoutReference);
         }
         Optional<ConstantEvaluator.IntegerType> switchPromotedType(SwitchStatement selection) {
             Expression condition = selection.condition();
-            // Bit-fields have their own range-based promotions (4.5/3). Do not
-            // substitute the full declared type, including through compound expressions.
-            boolean[] bitField = {false};
-            condition.walk(new NodeVisitor() {
-                @Override public void visit(NameExpression name) { inspect(name.target()); }
-                @Override public void visit(MemberExpression member) { inspect(member.target()); }
-                void inspect(Optional<Declaration> target) {
-                    bitField[0] |= target.filter(VariableDeclaration.class::isInstance).map(VariableDeclaration.class::cast)
-                            .flatMap(VariableDeclaration::bitWidth).isPresent();
-                }
-            });
-            if (bitField[0]) return Optional.empty();
+            if (BitFieldSemantics.uncertainResult(condition)) return Optional.empty();
             var profile = TypeSemantics.profile(scopes.get(selection).file);
             Optional<TypeNode> type = condition instanceof ConditionDeclarationExpression declaration
-                    ? declaration.declaration().type() : TypeSemantics.expressionType(condition, profile);
-            // Enum underlying types and class conversion functions need separate policies.
-            return type.flatMap(value -> TypeSemantics.integerType(value, profile))
-                    .flatMap(value -> ConstantEvaluator.promote(value, profile));
+                    ? declaration.declaration().type().map(TypeSemantics::withoutReference)
+                    : TypeSemantics.expressionType(condition, profile, integralConstants(profile)).or(() -> argumentType(condition));
+            if (type.isEmpty()) return integralConstants(profile).evaluate(condition)
+                    .flatMap(value -> ConstantEvaluator.promote(value.type(), profile));
+            if (ClassSemantics.objectClass(type.get()).isPresent()) type = switchClassConversion(condition, type.get(), profile);
+            if (type.isEmpty()) return Optional.empty();
+            if (EnumSemantics.declaration(type.get()).isPresent()) return integralConstants(profile).integerType(type.get(), true);
+            var field = BitFieldSemantics.field(condition);
+            if (field.isPresent()) return BitFieldSemantics.promoted(field.get(), profile, integralConstants(profile)::evaluate);
+            return integralConstants(profile).integerType(type.get(), true);
         }
         void validateStatement(Node node, int loops, Deque<SwitchLabels> switches, int handlers,
                 Map<String, LabelStatement> labels, List<GotoStatement> jumps) {
@@ -475,11 +513,17 @@ public final class NameResolver {
                 else if (label.value().isEmpty()) {
                     if (switches.peek().hasDefault) error(node, "duplicate-default", "Duplicate default in switch");
                     switches.peek().hasDefault = true;
-                } else ConstantEvaluator.evaluate(label.value().get(), TypeSemantics.profile(scopes.get(node).file)).ifPresent(value -> {
-                    var converted = switches.peek().promotedType.flatMap(type -> ConstantEvaluator.cast(value.number(), type))
-                            .map(ConstantEvaluator.Value::number).orElse(value.number());
-                    if (!switches.peek().values.add(converted)) error(node, "duplicate-case", "Duplicate case value in switch");
-                });
+                } else {
+                    var profile = TypeSemantics.profile(scopes.get(node).file);
+                    integralConstants(profile).evaluate(label.value().get()).ifPresent(value -> {
+                        var labelsForSwitch = switches.peek();
+                        boolean duplicate = !labelsForSwitch.rawValues.add(value.number());
+                        var converted = labelsForSwitch.promotedType.flatMap(type -> ConstantEvaluator.cast(value.number(), type, profile));
+                        if (converted.isPresent()) duplicate |= !labelsForSwitch.values.add(converted.get().number());
+                        if (duplicate) editor.diagnose(node, new Diagnostic("duplicate-case", Diagnostic.Severity.ERROR,
+                                "Duplicate case value in switch", node.range().orElse(null), List.of()));
+                    });
+                }
             }
             if (node instanceof CaseStatement && !switches.isEmpty()) {
                 for (Declaration candidate : declarations) if (candidate instanceof VariableDeclaration variable
@@ -2167,18 +2211,26 @@ public final class NameResolver {
             }
             return false;
         }
-        void checkSelectedAccess(Node use, CallableDeclaration selected) {
+        boolean checkSelectedAccess(Node use, CallableDeclaration selected) {
             ClassDeclaration owner = scopeClass(scopes.get(selected));
-            if (owner == null || selected.isFriend()) return;
-            String access = selected.access().orElseGet(() -> callableGroup(selected, scopes.get(use).file).stream()
-                    .map(Declaration::access).flatMap(Optional::stream).findFirst().orElse(owner.memberAccess()));
-            if (access.equals("public")) return;
+            if (owner == null || selected.isFriend()) return true;
+            String access = selected.access().orElseGet(() -> !keys.containsKey(selected) ? owner.memberAccess()
+                    : callableGroup(selected, scopes.get(use).file).stream().map(Declaration::access)
+                        .flatMap(Optional::stream).findFirst().orElse(owner.memberAccess()));
+            if (access.equals("public")) return true;
             ClassDeclaration context = null;
             for (Scope scope = scopes.get(use); scope != null && context == null; scope = scope.parent) context = scopeClass(scope);
-            if (context != null && ClassSemantics.sameClass(context, owner)) return;
+            if (context != null && ClassSemantics.sameClass(context, owner)) return true;
             if (context != null && access.equals("protected") && hasBase(context, owner, new HashSet<>())) {
                 boolean permittedObject = true;
-                if (!selected.modifiers().contains("static") && use instanceof CallExpression call
+                if (selected.conversionType().isPresent() && use instanceof Expression expression
+                        && !(expression instanceof CallExpression call && call.target().orElse(null) == selected)) {
+                    TypeNode source = expression instanceof ConditionDeclarationExpression declaration
+                            ? declaration.declaration().type().map(TypeSemantics::withoutReference).orElse(null)
+                            : argumentType(expression).orElse(null);
+                    ClassDeclaration receiver = source == null ? null : ClassSemantics.objectClass(source).orElse(null);
+                    permittedObject = receiver != null && (ClassSemantics.sameClass(receiver, context) || hasBase(receiver, context, new HashSet<>()));
+                } else if (!selected.modifiers().contains("static") && use instanceof CallExpression call
                         && call.callee() instanceof MemberExpression member && !(member instanceof ScopeMemberExpression)) {
                     ClassDeclaration receiver = receiverClass(member.receiver(), member instanceof PointerMemberExpression);
                     permittedObject = receiver != null && (ClassSemantics.sameClass(receiver, context) || hasBase(receiver, context, new HashSet<>()));
@@ -2189,13 +2241,14 @@ public final class NameResolver {
                     ClassDeclaration receiver = operands.isEmpty() ? null : argumentType(operands.getFirst()).flatMap(ClassSemantics::objectClass).orElse(null);
                     permittedObject = receiver != null && (ClassSemantics.sameClass(receiver, context) || hasBase(receiver, context, new HashSet<>()));
                 }
-                if (permittedObject) return;
+                if (permittedObject) return true;
             }
             CallableDeclaration enclosing = null;
             for (Scope scope = scopes.get(use); scope != null && enclosing == null; scope = scope.parent) enclosing = callableScopes.get(scope);
             if (enclosing != null) for (Node member : owner.members()) if (member instanceof CallableDeclaration friend && friend.isFriend()
-                    && entityName(friend).equals(entityName(enclosing)) && signature(friend).equals(signature(enclosing))) return;
+                    && entityName(friend).equals(entityName(enclosing)) && signature(friend).equals(signature(enclosing))) return true;
             error(use, "inaccessible-overload", "The selected overload is " + access + " in " + owner.name());
+            return false;
         }
         List<CallableDeclaration> callableGroup(CallableDeclaration declaration, SourceFile caller) {
             List<CallableDeclaration> local = groups.get(keys.get(declaration)).stream()
