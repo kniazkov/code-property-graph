@@ -88,7 +88,7 @@ public final class ClassTemplateInstances {
         var build = new BuildContext();
         Project result = build.build(root);
         project.walk(new NodeVisitor() { @Override public void visit(Node node) {
-            if (!node.diagnostics().isEmpty()) build.copy(context.copy(node)).findings = node.diagnostics();
+            if (!node.intrinsicDiagnostics().isEmpty()) build.copy(context.copy(node)).findings = node.intrinsicDiagnostics();
         }});
         return result;
     }

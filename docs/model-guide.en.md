@@ -1371,3 +1371,58 @@ Run entries contain scope, status and covered results; live function references
 use file-local IDs. Removed functions retain descriptive stale results rather
 than dangling references or imported old function bodies. There are no timestamps
 or random identifiers, so repeated equivalent inputs remain deterministic.
+
+### User-defined passes and typed products (#46)
+
+The public `com.kniazkov.cpg.passes` API provides `AnalysisPass` and
+`TransformationPass`. Both declare a `PassId` and `requires()` dependencies.
+Register them with `PassRunner`, then call `run(project, id)` or the overload
+with a callable. `BuiltinPasses` exposes IDs for the existing analyses.
+Dependencies are validated before execution and prepared deterministically.
+A requested pass always runs; current prerequisites can be reused. If a later
+transformation invalidates an earlier prerequisite, the runner prepares it again.
+Cycles, missing registrations and dependencies that cannot stabilize are errors.
+
+An analysis receives immutable `PassContext` input and an `AnalysisResults` sink.
+Use `put(node, key, value)` and `diagnose(node, diagnostic)` to stage a complete
+producer result set. `ResultKey<T>` includes producer ID, name and Java type,
+so two producers can both publish `range` on the same node. `resultOf(node, key)`
+on the project/context returns only current values; missing, stale, deleted or
+foreign targets return empty. `resultStatus`, `analysisResults()` and
+`analysisDiagnostics()` expose retained stale metadata separately.
+
+`ResultTypes.defaults()` handles strings, booleans and standard numeric types.
+`with(IntRange.class, r -> Map.of("min", r.min(), "max", r.max()))` registers an
+outgoing conversion; construct the runner with that registry. Custom Java values
+must themselves be immutable, for example records with immutable components.
+The encoder output is validated and deeply frozen during publication, so a later
+mutation of its map/list cannot change an old JSON snapshot. Encoders do not run
+again during export; no decoder or JSON-to-Project importer is required.
+
+Successful analysis publication atomically replaces this producer's values and
+diagnostics within the requested scope, including removing omitted keys. Other
+producers and the producer's other scopes retain their products subject to
+freshness. Diagnostic ownership is independent of diagnostic code or message.
+A callback, validation or encoder exception publishes no partial result set and
+leaves the caller's snapshot unchanged. Arbitrary custom analyses may read the
+whole project, so source/binding edits conservatively stale custom products;
+rerunning a prerequisite also stales its declared dependent producers.
+
+A transformation stages edits in the supplied `ProjectEditor`. The runner applies
+one batch, fixes the registered provenance ID and records completion. Calling
+`build()` within the callback or using an escaped editor afterward is rejected.
+Function-scoped transforms may reference declarations elsewhere in the project,
+but cannot write outside their scope, remove the selected callable or replace it
+with an unrelated identity. A same-lineage callable edit is permitted.
+
+JSON adds producer-owned `analysisResults` and `analysisDiagnostics` when present,
+with file-local node references and current/stale status. Custom history entries
+include the custom marker and sorted nonempty requirements. Removed node products
+are omitted from the new snapshot; the older snapshot retains them.
+The standalone example in `examples/cpp03-custom-passes` is compiled against the
+packaged JAR alone and demonstrates the complete API without package-private access.
+
+Function scope includes the owned subtree, including methods of local classes.
+Its history covers those nested callables. Combining separate function runs does
+not substitute for a whole-project custom invocation: global-node products need
+the callback to run with project scope.

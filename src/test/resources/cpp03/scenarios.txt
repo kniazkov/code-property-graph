@@ -65,3 +65,6 @@ snapshot-history
 
 # Scoped pass completion, edit invalidation and ordered dependency rebuilding.
 pass-history
+
+# External typed analysis and transformation clients against the packaged JAR.
+custom-passes

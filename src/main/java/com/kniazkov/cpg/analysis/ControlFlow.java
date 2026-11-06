@@ -43,7 +43,7 @@ public final class ControlFlow {
     private static Project resolved(Project input) {
         if (input.passStatus("NameResolver").orElse(null) == PassRun.Status.CURRENT) return input;
         Project result = NameResolver.resolve(input);
-        var missing = input.diagnostics().stream().filter(finding -> !result.diagnostics().contains(finding)).toList();
+        var missing = input.intrinsicDiagnostics().stream().filter(finding -> !result.intrinsicDiagnostics().contains(finding)).toList();
         if (missing.isEmpty()) return result;
         var editor = new ProjectEditor(result).retainDiagnostics().withoutRevalidation();
         missing.forEach(finding -> editor.diagnose(result, finding));

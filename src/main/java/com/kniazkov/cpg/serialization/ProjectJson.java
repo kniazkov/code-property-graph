@@ -304,15 +304,59 @@ public final class ProjectJson {
         }
 
         private JsonObject passRun(PassRun run) {
-            return Json.object().put("sequence", run.sequence()).put("passId", run.passId())
-                    .put("scope", lower(run.scope())).put("status", lower(run.status()))
-                    .array("results", results -> run.results().forEach(result -> results.object(value -> {
+            var object = Json.object().put("sequence", run.sequence()).put("passId", run.passId())
+                    .put("scope", lower(run.scope())).put("status", lower(run.status()));
+            if (run.custom()) object.put("custom", true);
+            if (!run.requirements().isEmpty()) object.array("requires", values -> run.requirements().stream().sorted().forEach(values::add));
+            return object.array("results", results -> run.results().forEach(result -> results.object(value -> {
                         value.put("name", result.name()).put("status", lower(result.status()));
                         result.range().ifPresent(source -> value.put("range", range(source)));
                         // The result points only to this snapshot's owned callable. Deleted
                         // callables retain their summary without reimporting their old body.
                         result.function().ifPresent(function -> value.put("functionId", id(function)));
                     }))).build();
+        }
+
+        /** Result payloads are detached values, never syntax ownership or history edges. */
+        private JsonObject analysisResult(AnalysisResult<?> result) {
+            return Json.object().put("producer", result.key().producer().value())
+                    .put("name", result.key().name()).put("type", result.key().type().getName())
+                    .put("status", lower(result.status())).put("nodeId", id(result.node()))
+                    .put("value", resultValue(result.encodedValue())).build();
+        }
+
+        private JsonObject analysisDiagnostic(AnalysisDiagnostic finding) {
+            Diagnostic diagnostic = finding.diagnostic();
+            var object = Json.object().put("producer", finding.producer().value())
+                    .put("status", lower(finding.status())).put("nodeId", id(finding.node()))
+                    .put("code", diagnostic.code()).put("severity", lower(diagnostic.severity()))
+                    .put("message", diagnostic.message());
+            if (diagnostic.primaryRange() != null) object.put("primaryRange", range(diagnostic.primaryRange()));
+            else finding.node().range().ifPresent(value -> object.put("primaryRange", range(value)));
+            if (!diagnostic.relatedRanges().isEmpty()) object.array("relatedRanges", values ->
+                    diagnostic.relatedRanges().forEach(value -> values.object(item -> item
+                            .put("role", value.role()).put("label", value.label()).put("range", range(value.range())))));
+            return object.build();
+        }
+
+        /** Builds a fresh JSON tree from the registry's already validated immutable copy.
+         * No custom encoder runs here, so stateful encoders cannot change a snapshot. */
+        private static JsonElement resultValue(Object value) {
+            if (value == null) return JsonNull.INSTANCE;
+            if (value instanceof String text) return new JsonString(text);
+            if (value instanceof Boolean flag) return JsonBoolean.of(flag);
+            if (value instanceof Number number) return JsonNumber.of(number);
+            if (value instanceof Map<?, ?> map) {
+                var object = Json.object();
+                map.forEach((key, item) -> object.put((String) key, resultValue(item)));
+                return object.build();
+            }
+            if (value instanceof List<?> list) {
+                var array = Json.array();
+                list.forEach(item -> array.add(resultValue(item)));
+                return array.build();
+            }
+            throw new IllegalStateException("Unencoded analysis result value");
         }
 
         private JsonObject node(Node n) {
@@ -329,6 +373,18 @@ public final class ProjectJson {
                     if (historical) break; // Context, never ownership of an entire old snapshot.
                     if (!discovering) {
                         obj.array("passRuns", a -> p.passRuns().forEach(run -> a.add(passRun(run))));
+                        if (!p.analysisResults().isEmpty()) obj.array("analysisResults", values -> p.analysisResults().stream()
+                                .filter(result -> currentNodes.contains(result.node()))
+                                .sorted(Comparator.comparing((AnalysisResult<?> result) -> result.key().producer().value())
+                                        .thenComparing(result -> result.key().name()).thenComparing(result -> result.key().type().getName())
+                                        .thenComparingInt(result -> id(result.node())))
+                                .forEach(result -> values.add(analysisResult(result))));
+                        if (!p.analysisDiagnostics().isEmpty()) obj.array("analysisDiagnostics", values -> p.analysisDiagnostics().stream()
+                                .filter(finding -> currentNodes.contains(finding.node()))
+                                .sorted(Comparator.comparing((AnalysisDiagnostic finding) -> finding.producer().value())
+                                        .thenComparingInt(finding -> id(finding.node())).thenComparing(finding -> finding.diagnostic().code())
+                                        .thenComparing(finding -> finding.diagnostic().severity()).thenComparing(finding -> finding.diagnostic().message()))
+                                .forEach(finding -> values.add(analysisDiagnostic(finding))));
                         obj.array("history", a -> {
                             for (int i = currentCount; i < ordered.size(); i++)
                                 if (ordered.get(i) instanceof Node old) a.add(historyNode(old));

@@ -101,7 +101,7 @@ public final class LibraryGraph {
         project.templateInstances().forEach(i->inspect.accept(i,i.source()));
         project.classTemplateInstances().forEach(i->{if(!com.kniazkov.cpg.analysis.LibraryDeclarations.isLibrary(i.origin()))inspect.accept(i,i.source());});
         var build=new BuildContext(); Project result=build.build(root);
-        project.walk(new NodeVisitor(){@Override public void visit(Node n){if(!n.diagnostics().isEmpty())build.copy(context.copy(n)).findings=n.diagnostics();}});
+        project.walk(new NodeVisitor(){@Override public void visit(Node n){if(!n.intrinsicDiagnostics().isEmpty())build.copy(context.copy(n)).findings=n.intrinsicDiagnostics();}});
         return result;
     }
     public static Project materialize(Project project) {
@@ -153,7 +153,7 @@ public final class LibraryGraph {
         for(var instance:project.templateInstances()) if(keep.contains(instance))
             context.edit(instance,TemplateInstance.Builder.class).requests=context.copyAll(instance.requests().stream().filter(keep::contains).toList(),Node.class);
         var build=new BuildContext(); Project result=build.build(root);
-        for(Node n:all) if(keep.contains(n) && !n.diagnostics().isEmpty()) build.copy(context.copy(n)).findings=n.diagnostics();
+        for(Node n:all) if(keep.contains(n) && !n.intrinsicDiagnostics().isEmpty()) build.copy(context.copy(n)).findings=n.intrinsicDiagnostics();
         return result;
     }
 }
