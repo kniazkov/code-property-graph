@@ -205,7 +205,7 @@ public final class ContainerSemantics {
         }
         types.forEach((cls,type)->type.setWrittenTypes(sites.get(cls)));
         root.setContainerTypes(new ArrayList<>(types.values())).setContainerSemantics(operations);
-        return root.build();
+        return root.build().recordPass("ContainerSemantics");
     }
     private static final class Tracked {
         final ContainerOperation.Builder producer; final Node syntax; final boolean iterator,boundary,endBase,mayBeEnd;

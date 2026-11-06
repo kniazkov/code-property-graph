@@ -46,6 +46,28 @@ class InstantiationDiagnosticTest {
             assertEquals(List.of(finding), snapshot.semanticDiagnostics());
         }
     }
+    @Test void automaticPrerequisitesPreserveMultipleRootErrorsAndDoNotDuplicateThem() {
+        var plain = Project.create().addFile(Parser.parse("limits.cpp", "int f() { return 0; }", Language.CPP)).build();
+        var first = new Diagnostic("template-instantiation-depth", Diagnostic.Severity.ERROR, "First instantiation request exceeded depth");
+        var second = new Diagnostic("template-instantiation-depth", Diagnostic.Severity.ERROR, "Second instantiation request exceeded depth");
+        var editor = new ProjectEditor(plain).withoutRevalidation();
+        editor.diagnose(plain, first);
+        editor.diagnose(plain, second);
+        var diagnosed = editor.build();
+        var control = com.kniazkov.cpg.analysis.ControlFlow.analyze(diagnosed);
+        var data = com.kniazkov.cpg.analysis.DataFlow.analyze(diagnosed);
+        var unread = com.kniazkov.cpg.analysis.UnreadWrites.analyze(diagnosed);
+        var repeated = com.kniazkov.cpg.analysis.UnreadWrites.analyze(unread);
+        for (var snapshot : List.of(control, data, unread, repeated)) {
+            assertTrue(snapshot.hasErrors());
+            assertEquals(List.of(first, second), snapshot.diagnostics());
+            assertEquals(List.of(first, second), snapshot.semanticDiagnostics());
+            assertEquals(PassRun.Status.CURRENT, snapshot.passStatus("NameResolver").orElseThrow());
+        }
+        assertEquals(List.of(first, second), diagnosed.diagnostics());
+        assertTrue(diagnosed.passRuns().isEmpty());
+        assertTrue(plain.diagnostics().isEmpty());
+    }
     @Test void legacyFindingsKeepTheirConstructorAndDoNotImplyAnError() {
         var warning = new Diagnostic("note", Diagnostic.Severity.WARNING, "Ordinary finding");
         assertNull(warning.primaryRange());

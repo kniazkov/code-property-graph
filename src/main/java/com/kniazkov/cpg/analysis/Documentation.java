@@ -7,7 +7,7 @@ import java.util.*;
 /** Documentation is physical text; bindings retain each distinct declaration occurrence. */
 public final class Documentation {
     private Documentation() {}
-    public static Project analyze(Project project) { return DocumentationBinding.analyze(project); }
+    public static Project analyze(Project project) { return DocumentationBinding.analyze(project).recordPass("Documentation"); }
 
     /** Related declarations are identified by resolved edges, never by name or source location. */
     public static List<CallableDeclaration> relatedDeclarations(Project project, CallableDeclaration declaration) {

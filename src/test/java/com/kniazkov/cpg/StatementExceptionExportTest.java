@@ -139,7 +139,12 @@ class StatementExceptionExportTest {
         var originalFlow = com.kniazkov.cpg.analysis.ControlFlow.analyze(project);
         var extraFlow = com.kniazkov.cpg.analysis.ControlFlow.analyze(NameResolver.resolve(extra));
         assertFalse(originalFlow.flows().getFirst().auxiliaryVertices().isEmpty());
-        SnapshotAssertions.assertEquivalent(ProjectJson.encode(originalFlow), ProjectJson.encode(extraFlow));
+        SnapshotAssertions.assertEquivalentGraph(ProjectJson.encode(originalFlow), ProjectJson.encode(extraFlow));
+        // The extra-attribution branch explicitly reruns resolution before computing its CFG.
+        int repeatedResolution = project.passRuns().size();
+        assertEquals(originalFlow.passRuns().size() + repeatedResolution, extraFlow.passRuns().size());
+        assertEquals(originalFlow.passRuns().stream().map(PassRun::passId).toList(),
+                extraFlow.passRuns().subList(repeatedResolution, extraFlow.passRuns().size()).stream().map(PassRun::passId).toList());
     }
 
 }

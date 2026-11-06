@@ -16,8 +16,28 @@ public final class UnreadWrites {
      * leaving a write proves that some CFG path carries the stored value to a read.
      * Using the assignment expression's result is independent of reading its target.
      */
-    public static Project analyze(Project resolved) {
-        Project project = DataFlow.analyze(resolved);
+    public static Project analyze(Project project) {
+        return analyzeScope(project, null);
+    }
+
+    /**
+     * Replaces unread-write findings only in the selected callable. Interprocedural
+     * DFG prerequisites still cover the complete project and are recorded as such.
+     * The selected callable is followed by edit lineage across dependency snapshots.
+     */
+    public static Project analyze(Project project, CallableDeclaration callable) {
+        Objects.requireNonNull(callable);
+        CallableDeclaration scope = project.correspondingCallable(callable)
+                .orElseThrow(() -> new IllegalArgumentException("Callable is outside this project"));
+        return analyzeScope(project, scope);
+    }
+
+    private static Project analyzeScope(Project input, CallableDeclaration requested) {
+        Project project = input.passStatus("DataFlow").orElse(null) == PassRun.Status.CURRENT
+                ? input : DataFlow.analyze(input);
+        if (requested != null) project = project.retainUnchangedPassResults(input, "UnreadWrites");
+        CallableDeclaration scope = requested == null ? null : project.correspondingCallable(requested)
+                .orElseThrow(() -> new IllegalArgumentException("Callable is outside the analyzed project"));
         Map<Node, Diagnostic> findings = new IdentityHashMap<>();
         // A callee write may be observed only after returning to its caller.
         Set<Node> observed = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -26,10 +46,13 @@ public final class UnreadWrites {
                 .forEach(edge -> observed.add(edge.from())));
         var contexts = SourceContexts.index(project);
         for (var flow : project.flows()) {
+            if (scope != null && flow.entry() != scope) continue;
             SourceFile source = SourceContexts.require(contexts, flow.entry());
             inspect(flow, project.dynamicArraySemantics(), project.containerSemantics(), project.sequenceSemantics(), source.language() == Language.CPP ? TypeSemantics.profile(source) : null, observed, findings);
         }
-        return project.withDiagnostics(CODE, findings);
+        if (scope == null) return project.withDiagnostics(CODE, findings).recordPass("UnreadWrites");
+        Project result = project.withDiagnostics(CODE, findings, scope);
+        return result.recordPass("UnreadWrites", result.correspondingCallable(scope).orElseThrow());
     }
 
     private static void walkEvaluatedSyntax(CallableDeclaration callable, NodeVisitor visitor) {
