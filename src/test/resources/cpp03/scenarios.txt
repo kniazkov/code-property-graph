@@ -68,3 +68,6 @@ pass-history
 
 # External typed analysis and transformation clients against the packaged JAR.
 custom-passes
+
+# External lattices, opt-in integer intervals and dependency-prepared checks.
+integer-ranges
