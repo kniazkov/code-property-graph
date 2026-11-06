@@ -14,7 +14,8 @@ public final class ControlFlow {
     private ControlFlow() {}
 
     /** Computes one CFG for each callable with a body, replacing previous flow results. */
-    public static Project analyze(Project project) {
+    public static Project analyze(Project input) {
+        Project project = resolved(input);
         var unsupported = new ArrayList<CallableDeclaration>();
         project.walk(new NodeVisitor() { @Override public void visit(CallableDeclaration function) {
             if (function.body().isPresent() && initializers(project, function).isEmpty()) unsupported.add(function);
@@ -32,7 +33,21 @@ public final class ControlFlow {
                         .orElseGet(() -> new FunctionFlow(fn, fn.exit(), List.of(), List.of(), false))));
             }
         });
-        return snapshot.withFlows(flows);
+        return snapshot.withFlows(flows).invalidatePasses(Set.of("DataFlow")).recordPass("ControlFlow");
+    }
+
+    /** Resolving an implicit prerequisite must not erase previously reported root errors.
+     * Resolver internals discard annotations on intermediate snapshots, including resource
+     * errors that cannot be reconstructed from a partial graph. Restore only missing root
+     * findings while retaining every newly produced resolver diagnostic. */
+    private static Project resolved(Project input) {
+        if (input.passStatus("NameResolver").orElse(null) == PassRun.Status.CURRENT) return input;
+        Project result = NameResolver.resolve(input);
+        var missing = input.diagnostics().stream().filter(finding -> !result.diagnostics().contains(finding)).toList();
+        if (missing.isEmpty()) return result;
+        var editor = new ProjectEditor(result).retainDiagnostics().withoutRevalidation();
+        missing.forEach(finding -> editor.diagnose(result, finding));
+        return editor.build();
     }
 
     private static Optional<List<ClassSemantics.Subobject>> initializers(Project project, CallableDeclaration function) {

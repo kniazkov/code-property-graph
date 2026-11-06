@@ -70,6 +70,10 @@ class Cpp03CorpusIT {
             for (Path source : SnapshotHistoryAcceptance.verify(fixture, work)) nativePrograms(work, source, "5\n", 0);
             return;
         }
+        if ("pass-history".equals(settings.getProperty("mode"))) {
+            for (Path source : PassHistoryAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
+            return;
+        }
         if ("safe-editing".equals(settings.getProperty("mode"))) {
             for (Path source : SafeEditingAcceptance.verify(fixture, work)) nativePrograms(work, source, "", 0);
             return;

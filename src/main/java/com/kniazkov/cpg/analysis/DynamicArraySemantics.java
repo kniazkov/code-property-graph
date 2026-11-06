@@ -244,7 +244,7 @@ public final class DynamicArraySemantics {
         }
         types.forEach((cls, type) -> type.setWrittenTypes(sites.get(cls)));
         root.setDynamicArrayTypes(new ArrayList<>(types.values())); root.setDynamicArraySemantics(operations);
-        return root.build();
+        return root.build().recordPass("DynamicArraySemantics");
     }
     private static void collectConditionalNodes(Node node, boolean conditional, Set<Node> result) {
         if (conditional) result.add(node);

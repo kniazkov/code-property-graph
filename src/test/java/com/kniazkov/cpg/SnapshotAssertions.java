@@ -11,6 +11,20 @@ public final class SnapshotAssertions {
     public static void assertEquivalent(JsonElement expected, JsonElement actual) {
         assertEquals(semantic(expected.toJavaObject()), semantic(actual.toJavaObject()));
     }
+    /** Compare graph products when the caller separately checks intentionally different executions.
+     * Repeat exports and identical pipelines must still compare the complete snapshot. */
+    public static void assertGraphEquals(JsonElement expected, JsonElement actual) {
+        assertEquals(withoutPassRuns(expected), withoutPassRuns(actual));
+    }
+    /** The same graph comparison with the usual explicit API/CLI attribution allowance. */
+    public static void assertEquivalentGraph(JsonElement expected, JsonElement actual) {
+        assertEquals(semantic(withoutPassRuns(expected)), semantic(withoutPassRuns(actual)));
+    }
+    private static Map<?,?> withoutPassRuns(JsonElement value) {
+        var root = new LinkedHashMap<>((Map<?,?>) value.toJavaObject());
+        root.remove("passRuns");
+        return root;
+    }
     private static Object semantic(Object value) {
         if (value instanceof List<?> list) return list.stream().map(SnapshotAssertions::semantic).toList();
         if (!(value instanceof Map<?, ?> map)) return value;

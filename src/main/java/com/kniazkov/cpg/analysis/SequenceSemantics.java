@@ -199,7 +199,7 @@ public final class SequenceSemantics {
         }
         types.forEach((cls,type)->type.setWrittenTypes(sites.get(cls)));
         root.setCharacterSequenceTypes(new ArrayList<>(types.values())).setSequenceSemantics(operations);
-        return root.build();
+        return root.build().recordPass("SequenceSemantics");
     }
     private static boolean standard(Project p,TypeNode type,String name) {
         var cls=ClassSemantics.objectClass(type).orElse(null);

@@ -14,7 +14,8 @@ import java.util.*;
  * contain {@code nodeId} references. Reference-only historical dependencies are
  * marked {@code historyDependency} and retain identity and source range, not ownership.
  * Earlier project/file nodes are context only,
- * so provenance never implicitly imports unrelated earlier syntax. */
+ * so provenance never implicitly imports unrelated earlier syntax. Ordered pass
+ * executions are separate {@code passRuns} records, not provenance dependencies. */
 public final class ProjectJson {
     private ProjectJson() {}
 
@@ -302,6 +303,18 @@ public final class ProjectJson {
             return array.build();
         }
 
+        private JsonObject passRun(PassRun run) {
+            return Json.object().put("sequence", run.sequence()).put("passId", run.passId())
+                    .put("scope", lower(run.scope())).put("status", lower(run.status()))
+                    .array("results", results -> run.results().forEach(result -> results.object(value -> {
+                        value.put("name", result.name()).put("status", lower(result.status()));
+                        result.range().ifPresent(source -> value.put("range", range(source)));
+                        // The result points only to this snapshot's owned callable. Deleted
+                        // callables retain their summary without reimporting their old body.
+                        result.function().ifPresent(function -> value.put("functionId", id(function)));
+                    }))).build();
+        }
+
         private JsonObject node(Node n) {
             if (referenceChildren) return Json.object().put("nodeId", syntaxId(n)).build();
             return fullNode(n);
@@ -315,6 +328,7 @@ public final class ProjectJson {
                     obj.put("schemaVersion", 1).put("stage", lower(p.snapshotStage()));
                     if (historical) break; // Context, never ownership of an entire old snapshot.
                     if (!discovering) {
+                        obj.array("passRuns", a -> p.passRuns().forEach(run -> a.add(passRun(run))));
                         obj.array("history", a -> {
                             for (int i = currentCount; i < ordered.size(); i++)
                                 if (ordered.get(i) instanceof Node old) a.add(historyNode(old));

@@ -102,7 +102,10 @@ class TypedConstantFoldingTest {
             var expected = nodes(resolved, Expression.class).stream().flatMap(n -> n.diagnostics().stream())
                     .filter(d -> d.severity() == Diagnostic.Severity.ERROR).map(Diagnostic::code).toList();
             assertFalse(expected.isEmpty(), source);
-            assertSame(resolved, com.kniazkov.cpg.analysis.ConstantFolder.fold(resolved));
+            var direct = com.kniazkov.cpg.analysis.ConstantFolder.fold(resolved);
+            assertSame(resolved.files(), direct.files());
+            assertEquals(resolved.passRuns().size() + 1, direct.passRuns().size());
+            assertEquals("ConstantFolder", direct.passRuns().getLast().passId());
             var folded = read(source, Cpg.Stage.FOLDED);
             var actual = nodes(folded, Expression.class).stream().flatMap(n -> n.diagnostics().stream())
                     .filter(d -> d.severity() == Diagnostic.Severity.ERROR).map(Diagnostic::code).toList();

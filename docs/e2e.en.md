@@ -479,3 +479,11 @@ the previous AddExpression and coordinates. An unrelated old function is exclude
 from history. Direct API checks verify stream/value/newline/flush contributions,
 both reverse roles of endl and unchanged earlier snapshots. Error snapshots keep
 explicit requested stage metadata. All generated variants run under GCC/Clang.
+
+The `pass-history` corpus scenario verifies execution history independently of
+node provenance: an empty findings set still records a completed run, function
+scope leaves the other function's result untouched, an edit requires refreshed
+DFG dependencies, and the prior snapshot remains unchanged. JSON records are
+checked with ordinary parsing; original and edited source variants retain native
+GCC/Clang behavior. Unit tests additionally exercise removed callable references,
+no-op public passes and deterministic history export.

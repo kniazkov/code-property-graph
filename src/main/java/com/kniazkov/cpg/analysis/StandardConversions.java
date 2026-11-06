@@ -21,7 +21,7 @@ public final class StandardConversions {
                 editor.replace(conversion, operand); changed[0] = true;
             }
         });
-        return changed[0] ? editor.build() : project;
+        return (changed[0] ? editor.build() : project).recordPass("StandardConversions.written");
     }
 
     public static Project analyze(Project project) {
@@ -131,7 +131,7 @@ public final class StandardConversions {
             });
         }
         preserveDiagnostics(converted, facts);
-        return facts.build();
+        return facts.build().recordPass("StandardConversions");
     }
     private static void preserveDiagnostics(Project source, ProjectEditor editor) {
         source.walk(new NodeVisitor() {

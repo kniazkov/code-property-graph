@@ -132,6 +132,10 @@ class TemplateExportTest {
         assertTrue(LibraryDeclarations.visible(project.files().get(0), library));
         assertTrue(LibraryDeclarations.visible(project.files().get(1), library));
         assertFalse(LibraryDeclarations.visible(project.files().get(2), library));
-        assertSame(project, LibraryDeclarations.install(project));
+        var installed = LibraryDeclarations.install(project);
+        assertSame(project.files(), installed.files());
+        assertSame(project.librarySources(), installed.librarySources());
+        assertEquals(project.passRuns().size() + 1, installed.passRuns().size());
+        assertEquals("LibraryDeclarations.install", installed.passRuns().getLast().passId());
     }
 }
