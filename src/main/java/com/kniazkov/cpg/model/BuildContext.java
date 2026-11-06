@@ -71,6 +71,8 @@ final class BuildContext {
                     && entry.getValue() instanceof CallableDeclaration) declarationsChanged = true;
         }
         invalidateOperatorBindings(result, edited, copied, declarationsChanged);
+        if (result instanceof Project project && root instanceof Project.Builder builder)
+            project.inheritPassHistory(builder.historySource);
         return result;
     }
 

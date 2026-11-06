@@ -71,7 +71,18 @@ class BuildVariantsTest {
             assertEquals(selected.build(), selected.withFlows(selected.flows()).build());
             assertEquals(selected.build(), selected.withDiagnostics("test", Map.of(selected,
                     new Diagnostic("test", Diagnostic.Severity.INFO, "test"))).build());
-            assertEquals(ProjectJson.encode(selected), ProjectJson.encode(Cpg.read(new Build(build.units(), composition), RESOLVED)));
+            Project fresh = Cpg.read(new Build(build.units(), composition), RESOLVED);
+            SnapshotAssertions.assertGraphEquals(ProjectJson.encode(selected), ProjectJson.encode(fresh));
+            // Selecting a prior snapshot preserves its actual executions before reanalysis;
+            // a fresh import reaches the same graph without that earlier variant coverage.
+            int previousRuns = unknown.passRuns().size();
+            assertEquals(previousRuns + fresh.passRuns().size(), selected.passRuns().size());
+            assertEquals(unknown.passRuns().stream().map(PassRun::sequence).toList(),
+                    selected.passRuns().subList(0, previousRuns).stream().map(PassRun::sequence).toList());
+            assertEquals(fresh.passRuns().stream().map(PassRun::passId).toList(),
+                    selected.passRuns().subList(previousRuns, selected.passRuns().size()).stream().map(PassRun::passId).toList());
+            assertEquals(unknown.passRuns().getFirst().results().size(), selected.passRuns().getFirst().results().size());
+            assertEquals(PassRun.Status.CURRENT, selected.passStatus("UnreadWrites").orElseThrow());
         }
         assertEquals(json, ProjectJson.encode(unknown).toText(""));
     }

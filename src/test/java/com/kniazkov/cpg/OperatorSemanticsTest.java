@@ -113,7 +113,10 @@ class OperatorSemanticsTest {
         assertEquals(1, addition.operatorCandidates().size());
         assertTrue(addition.operatorCandidates().stream().noneMatch(c -> c.name().equals("<builtin>")));
         assertTrue(addition.diagnostics().stream().anyMatch(d -> d.code().equals("ambiguous-overload")));
-        assertSame(project, ConstantFolder.fold(project));
+        var folded = ConstantFolder.fold(project);
+        assertSame(project.files(), folded.files());
+        assertEquals(project.passRuns().size() + 1, folded.passRuns().size());
+        assertEquals("ConstantFolder", folded.passRuns().getLast().passId());
     }
     @Test void nativeCompilerConfirmsCrossedBuiltinAndUserConversionAmbiguity() throws Exception {
         var compiler = Path.of("/usr/bin/g++");

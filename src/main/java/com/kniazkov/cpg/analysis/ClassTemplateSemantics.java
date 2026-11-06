@@ -12,9 +12,9 @@ public final class ClassTemplateSemantics {
     private record Use(Node node, SourceFile file, String scope, String name, List<TemplateArgument> arguments, int position) {}
     private record Match(ClassDeclaration declaration, Map<TemplateParameterDeclaration, TemplateArgument> bindings) {}
 
-    public static Project analyze(Project project) { return analyze(project, false); }
+    public static Project analyze(Project project) { return analyze(project, false).recordPass("ClassTemplateSemantics"); }
     /** Recomputes persistent class diagnostics after the binding pipeline. */
-    public static Project diagnose(Project project) { return analyze(project, true); }
+    public static Project diagnose(Project project) { return analyze(project, true).recordPass("ClassTemplateSemantics.diagnose"); }
     private static Project analyze(Project project, boolean diagnosticsOnly) {
         var declarations = new ArrayList<Located>();
         var uses = new ArrayList<Use>();

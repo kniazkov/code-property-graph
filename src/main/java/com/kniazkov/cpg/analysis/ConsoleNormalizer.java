@@ -46,6 +46,6 @@ public final class ConsoleNormalizer {
                 }
             }
         });
-        return editor.build();
+        return editor.build().recordPass("ConsoleNormalizer");
     }
 }

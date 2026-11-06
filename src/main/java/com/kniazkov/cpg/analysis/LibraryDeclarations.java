@@ -50,9 +50,9 @@ public final class LibraryDeclarations {
             previous.files().forEach(f->f.walk(new NodeVisitor(){@Override public void visit(IncludeDirective i){
                 if(i.system() && StandardLibraryCatalogue.headers().contains(i.header()) && i.libraryHeader().isEmpty()) linked[0]=false;
             }}));
-            if(oldHeaders.equals(newHeaders) && linked[0]) return previous;
+            if(oldHeaders.equals(newHeaders) && linked[0]) return previous.recordPass("LibraryDeclarations.install");
         }
-        return result;
+        return result.recordPass("LibraryDeclarations.install");
     }
     static Project candidates(Project previous) {
         Project project=LibraryGraph.reset(previous);

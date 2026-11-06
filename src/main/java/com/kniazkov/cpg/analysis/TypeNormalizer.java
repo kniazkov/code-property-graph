@@ -16,6 +16,6 @@ public final class TypeNormalizer {
                 @Override public void visit(TypeNode type) { editor.describe(type, TypeSemantics.describe(type, profile)); }
             });
         }
-        return editor.build();
+        return editor.build().recordPass("TypeNormalizer");
     }
 }

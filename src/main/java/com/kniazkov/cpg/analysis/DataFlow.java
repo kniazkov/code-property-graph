@@ -30,12 +30,13 @@ public final class DataFlow {
 
     /** Uses the CFG for this snapshot (building it if necessary) and attaches deduplicated data edges. */
     public static Project analyze(Project project) {
-        var cfg = project.flows().isEmpty() ? ControlFlow.analyze(project) : project;
+        var cfg = project.passStatus("ControlFlow").orElse(null) == PassRun.Status.CURRENT
+                ? project : ControlFlow.analyze(project);
         var contexts = SourceContexts.index(cfg);
         return CppMemoryFlow.analyze(cfg.withFlows(cfg.flows().stream().map(flow -> {
             SourceFile source = SourceContexts.require(contexts, flow.entry());
             return new DataFlow(source.language(), TypeSemantics.profile(source)).analyzeFunction(flow, cfg.dynamicArraySemantics(), cfg.containerSemantics(), cfg.sequenceSemantics());
-        }).toList()));
+        }).toList())).recordPass("DataFlow");
     }
 
     private FunctionFlow analyzeFunction(FunctionFlow flow, List<DynamicArrayOperation> operations, List<ContainerOperation> containerOperations, List<SequenceOperation> sequenceOperations) {

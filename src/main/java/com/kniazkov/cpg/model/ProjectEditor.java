@@ -425,6 +425,7 @@ public final class ProjectEditor {
             target.findings=List.copyOf(combined);
         });
         if (revalidate && (!replacements.isEmpty() || !removed.isEmpty())) revalidateDiagnostics(result);
+        result.restoreUnaffectedFindings(source);
         return result;
     }
 

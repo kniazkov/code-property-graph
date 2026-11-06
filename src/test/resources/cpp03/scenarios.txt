@@ -62,3 +62,6 @@ remaining-library
 interprocedural-dfg
 safe-editing
 snapshot-history
+
+# Scoped pass completion, edit invalidation and ordered dependency rebuilding.
+pass-history

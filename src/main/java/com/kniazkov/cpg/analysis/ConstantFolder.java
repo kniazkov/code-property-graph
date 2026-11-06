@@ -16,7 +16,7 @@ public final class ConstantFolder {
     public static Project fold(Project project) {
         // Replacing even an unevaluated branch can erase the syntax that explains an
         // error. Preserve the complete erroneous snapshot rather than conceal it.
-        if (project.hasErrors() || ConstantEvaluator.hasSemanticErrors(project)) return project;
+        if (project.hasErrors() || ConstantEvaluator.hasSemanticErrors(project)) return project.recordPass("ConstantFolder");
         var editor = new ProjectEditor(project).setPassId("ConstantFolder").withoutRevalidation();
         var order = new ArrayList<Node>();
         for (var root : SourceContexts.roots(project)) {
@@ -66,7 +66,7 @@ public final class ConstantFolder {
                 || !project.containerTypes().isEmpty() || !project.containerSemantics().isEmpty()
                 || !project.characterSequenceTypes().isEmpty() || !project.sequenceSemantics().isEmpty())
             folded = SequenceSemantics.green(ContainerSemantics.green(DynamicArraySemantics.green(NameResolver.resolve(folded))));
-        return folded;
+        return folded.recordPass("ConstantFolder");
     }
 
     private static boolean hasGreenTypes(SourceFile file) {

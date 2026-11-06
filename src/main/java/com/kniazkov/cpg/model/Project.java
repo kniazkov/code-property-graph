@@ -7,6 +7,295 @@ import java.util.Objects;
 
 /** Root containing source files. */
 public final class Project extends Node {
+    private List<PassRun> passRuns = List.of();
+    private PassInputs passInputs;
+    private List<CallableDeclaration> passCallables;
+    private java.util.Map<Object, CallableDeclaration> passCallableIndex;
+
+    /** Completed public pass invocations in actual execution order, including empty results. */
+    public List<PassRun> passRuns() { return passRuns; }
+
+    /** Records whole-project execution without changing syntax, findings or dependencies. */
+    public Project recordPass(String passId) {
+        return recordPass(passId, PassRun.Scope.PROJECT, callables());
+    }
+
+    /** Records execution for one current callable, accepting an exact prior edit-lineage handle. */
+    public Project recordPass(String passId, CallableDeclaration function) {
+        CallableDeclaration owned = correspondingCallable(function)
+                .orElseThrow(() -> new IllegalArgumentException("Function is outside this project"));
+        return recordPass(passId, PassRun.Scope.FUNCTION, List.of(owned));
+    }
+
+    private Project recordPass(String passId, PassRun.Scope scope, List<CallableDeclaration> functions) {
+        var records = new ArrayList<>(passRuns);
+        long sequence = records.isEmpty() ? 1 : records.getLast().sequence() + 1;
+        records.add(PassRun.completed(sequence, passId, scope, functions));
+        Project copy = copyMetadata(flows);
+        copy.passRuns = List.copyOf(records);
+        return copy;
+    }
+
+    /** Latest status for this callable; empty means no completed invocation covered it. */
+    public java.util.Optional<PassRun.Status> passStatus(String passId, CallableDeclaration function) {
+        Objects.requireNonNull(passId);
+        CallableDeclaration current = correspondingCallable(function)
+                .orElseThrow(() -> new IllegalArgumentException("Function is outside this project"));
+        return latestPassStatus(passId, current);
+    }
+
+    private java.util.Optional<PassRun.Status> latestPassStatus(String passId, CallableDeclaration current) {
+        for (int i = passRuns.size() - 1; i >= 0; i--) {
+            PassRun run = passRuns.get(i);
+            if (run.passId().equals(passId)) for (PassRun.Result result : run.results())
+                if (result.covers(current)) return java.util.Optional.of(result.status());
+        }
+        return java.util.Optional.empty();
+    }
+
+    /** Whole-project freshness, combining the latest covering result for every current callable.
+     * A partial scoped run cannot make a never-analyzed second callable current. */
+    public java.util.Optional<PassRun.Status> passStatus(String passId) {
+        Objects.requireNonNull(passId);
+        boolean executed = passRuns.stream().anyMatch(run -> run.passId().equals(passId));
+        if (!executed) return java.util.Optional.empty();
+        List<CallableDeclaration> functions = callables();
+        if (!functions.isEmpty()) {
+            var statuses = new java.util.IdentityHashMap<Object, PassRun.Status>();
+            for (int i = passRuns.size() - 1; i >= 0 && statuses.size() < functions.size(); i--) {
+                PassRun run = passRuns.get(i);
+                if (run.passId().equals(passId)) for (PassRun.Result result : run.results())
+                    if (result.function().isPresent()) statuses.putIfAbsent(result.identity(), result.status());
+            }
+            for (CallableDeclaration function : functions)
+                if (statuses.getOrDefault(function.editIdentity, PassRun.Status.STALE) != PassRun.Status.CURRENT)
+                    return java.util.Optional.of(PassRun.Status.STALE);
+            return java.util.Optional.of(PassRun.Status.CURRENT);
+        }
+        for (int i = passRuns.size() - 1; i >= 0; i--) {
+            PassRun run = passRuns.get(i);
+            if (run.passId().equals(passId) && run.scope() == PassRun.Scope.PROJECT)
+                return java.util.Optional.of(run.status());
+        }
+        return java.util.Optional.of(PassRun.Status.STALE);
+    }
+
+    /** Explicitly retires products replaced by another pass, preserving the original snapshot. */
+    public Project invalidatePasses(java.util.Set<String> passIds) {
+        Objects.requireNonNull(passIds);
+        Project copy = copyMetadata(flows);
+        var functions = callableIndex();
+        copy.passRuns = passRuns.stream().map(run -> run.remap(functions, java.util.Set.of(),
+                passIds.contains(run.passId()))).toList();
+        return copy;
+    }
+
+    /** Retains existing per-function products across prerequisite-only copies when their
+     * written syntax and bindings are unchanged. This restores earlier records, never
+     * invents an execution. The prior history must be a prefix of this history. */
+    public Project retainUnchangedPassResults(Project prior, String passId) {
+        Objects.requireNonNull(prior); Objects.requireNonNull(passId);
+        if (prior.passRuns.size() > passRuns.size()) throw new IllegalArgumentException("Prior history is not an ancestor");
+        for (int i = 0; i < prior.passRuns.size(); i++) {
+            PassRun previous = prior.passRuns.get(i), current = passRuns.get(i);
+            if (previous.sequence() != current.sequence() || !previous.passId().equals(current.passId())
+                    || previous.scope() != current.scope()) throw new IllegalArgumentException("Prior history is not an ancestor");
+        }
+        PassInputs before = prior.passInputs(), after = passInputs();
+        if (!before.global.equals(after.global)) return this;
+        var changed = changedPassFunctions(prior);
+        var unchanged = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Object, Boolean>());
+        before.functions.forEach((identity, facts) -> {
+            if (!changed.contains(identity) && facts.equals(after.functions.get(identity))) unchanged.add(identity);
+        });
+        var records = new ArrayList<>(passRuns);
+        var functions = callableIndex();
+        for (int i = 0; i < prior.passRuns.size(); i++) if (records.get(i).passId().equals(passId))
+            records.set(i, records.get(i).restoreCurrentResults(prior.passRuns.get(i), functions, unchanged));
+        Project copy = copyMetadata(flows);
+        copy.passRuns = List.copyOf(records);
+        if (!passId.equals("UnreadWrites")) return copy;
+        // withDiagnostics creates a private annotation copy before restoring findings;
+        // never mutate the immutable syntax shared by copyMetadata.
+        var findings = new java.util.IdentityHashMap<Node, Diagnostic>();
+        walk(new NodeVisitor() { @Override public void visit(Node node) {
+            node.diagnostics().stream().filter(diagnostic -> diagnostic.code().equals("unread-write"))
+                    .findFirst().ifPresent(diagnostic -> findings.put(node, diagnostic));
+        }});
+        var destinations = new java.util.IdentityHashMap<Object, Node>();
+        walk(new NodeVisitor() { @Override public void visit(Node node) { destinations.put(node.editIdentity, node); } });
+        for (CallableDeclaration function : prior.callables()) {
+            if (!unchanged.contains(function.editIdentity)
+                    || prior.latestPassStatus(passId, function).orElse(PassRun.Status.STALE) != PassRun.Status.CURRENT) continue;
+            function.walk(new NodeVisitor() { @Override public void visit(Node node) {
+                Node target = destinations.get(node.editIdentity);
+                if (target != null) node.diagnostics().stream().filter(diagnostic -> diagnostic.code().equals("unread-write"))
+                        .findFirst().ifPresent(diagnostic -> findings.put(target, diagnostic));
+            }});
+        }
+        return copy.withDiagnostics("unread-write", findings);
+    }
+
+    /** Resolves current or ancestor handles only by exact edit lineage, never by name or range. */
+    public java.util.Optional<CallableDeclaration> correspondingCallable(CallableDeclaration function) {
+        Objects.requireNonNull(function);
+        return java.util.Optional.ofNullable(callableIndex().get(function.editIdentity));
+    }
+
+    private List<CallableDeclaration> callables() {
+        if (passCallables != null) return passCallables;
+        var result = new ArrayList<CallableDeclaration>();
+        walk(new NodeVisitor() { @Override public void visit(CallableDeclaration function) {
+            if (function.body().isPresent()) result.add(function);
+        }});
+        passCallables = List.copyOf(result);
+        return passCallables;
+    }
+
+    private java.util.Map<Object, CallableDeclaration> callableIndex() {
+        if (passCallableIndex != null) return passCallableIndex;
+        var result = new java.util.IdentityHashMap<Object, CallableDeclaration>();
+        var ambiguous = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Object, Boolean>());
+        for (CallableDeclaration function : callables())
+            if (result.putIfAbsent(function.editIdentity, function) != null) ambiguous.add(function.editIdentity);
+        ambiguous.forEach(result::remove);
+        passCallableIndex = java.util.Collections.unmodifiableMap(result);
+        return passCallableIndex;
+    }
+
+    private PassInputs passInputs() {
+        if (passInputs == null) passInputs = new PassInputs(this);
+        return passInputs;
+    }
+
+    /** Called once after an unpublished builder snapshot is fully validated. */
+    void inheritPassHistory(Project source) {
+        if (source == null || source.passRuns.isEmpty()) return;
+        var functions = callableIndex();
+        PassInputs before = source.passInputs(), after = passInputs();
+        boolean global = !before.global.equals(after.global);
+        var changed = global ? java.util.Set.<Object>of() : changedPassFunctions(source);
+        boolean sourceChanged = global || !changed.isEmpty();
+        passRuns = source.passRuns.stream().map(run -> run.remap(functions, changed,
+                global || run.passId().equals("ControlFlow") || run.passId().equals("DataFlow")
+                || !sourceChanged && run.passId().equals("UnreadWrites"))).toList();
+        if (sourceChanged && !global) restoreUnaffectedFindings(source);
+    }
+
+    private java.util.Set<Object> changedPassFunctions(Project source) {
+        PassInputs before = source.passInputs(), after = passInputs();
+        var changed = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Object, Boolean>());
+        before.functions.forEach((identity, facts) -> {
+            if (!facts.equals(after.functions.get(identity))) changed.add(identity);
+        });
+        after.functions.keySet().stream().filter(identity -> !before.functions.containsKey(identity)).forEach(changed::add);
+        if (changed.isEmpty()) return changed;
+        // Call effects flow toward callers, while observed writes flow back toward
+        // callees. Use both graphs: removed and newly introduced calls both matter.
+        var candidates = new ArrayList<>(source.callables()); candidates.addAll(callables());
+        var previousCalls = new java.util.IdentityHashMap<Object, Object>();
+        source.walk(new NodeVisitor() { @Override public void visit(CallExpression call) {
+            previousCalls.put(call.editIdentity, callShape(call));
+        }});
+        var graph = new java.util.IdentityHashMap<Object, java.util.Set<Object>>();
+        source.callables().forEach(function -> addCallDependencies(function, candidates, graph, previousCalls, false));
+        callables().forEach(function -> addCallDependencies(function, candidates, graph, previousCalls, true));
+        var pending = new java.util.ArrayDeque<Object>(); pending.addAll(changed);
+        while (!pending.isEmpty()) for (Object target : graph.getOrDefault(pending.removeFirst(), java.util.Set.of()))
+            if (changed.add(target)) pending.add(target);
+        return changed;
+    }
+
+    private static void addCallDependencies(CallableDeclaration owner, List<CallableDeclaration> candidates,
+            java.util.Map<Object, java.util.Set<Object>> graph, java.util.Map<Object, Object> previousCalls,
+            boolean edited) {
+        var seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
+        var pending = new java.util.ArrayDeque<Node>(); pending.add(owner);
+        while (!pending.isEmpty()) {
+            Node node = pending.removeFirst();
+            if (!seen.add(node)) continue;
+            pending.addAll(node.children());
+            for (Node target : node.references()) {
+                relatedCallableIdentities(target).forEach(identity -> connectCall(graph, owner.editIdentity, identity));
+                // Omitted arguments remain owned by a declaration, but execute at this call.
+                if (target instanceof Expression) pending.add(target);
+            }
+            if (node instanceof CallExpression call) {
+                call.target().ifPresent(target -> relatedCallableIdentities(target)
+                        .forEach(identity -> connectCall(graph, owner.editIdentity, identity)));
+                if (call.target().isPresent() || !call.candidates().isEmpty()) continue;
+                String name = call.callee() instanceof NameExpression named ? named.name()
+                        : call.callee() instanceof MemberExpression member ? member.member() : null;
+                var possible = candidates.stream().filter(candidate -> name != null
+                        && simpleCallName(candidate.name()).equals(simpleCallName(name))).toList();
+                possible.forEach(candidate -> connectCall(graph, owner.editIdentity, candidate.editIdentity));
+                if (possible.isEmpty() && edited && !Objects.equals(previousCalls.get(call.editIdentity), callShape(call)))
+                    candidates.forEach(candidate -> connectCall(graph, owner.editIdentity, candidate.editIdentity));
+            }
+        }
+    }
+
+    private static String simpleCallName(String name) {
+        int separator = name.lastIndexOf("::");
+        String result = separator < 0 ? name : name.substring(separator + 2);
+        int arguments = result.indexOf('<');
+        return arguments < 0 ? result : result.substring(0, arguments);
+    }
+
+    private static Object callShape(CallExpression call) {
+        try { return com.kniazkov.cpg.generation.Source.render(call, Language.CPP); }
+        catch (IllegalArgumentException | IllegalStateException | java.util.NoSuchElementException unsupported) {
+            return new Object();
+        }
+    }
+
+    private static void connectCall(java.util.Map<Object, java.util.Set<Object>> graph, Object from, Object to) {
+        graph.computeIfAbsent(from, ignored -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>())).add(to);
+        graph.computeIfAbsent(to, ignored -> java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>())).add(from);
+    }
+
+    private static java.util.Set<Object> relatedCallableIdentities(Node target) {
+        var identities = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Object, Boolean>());
+        if (!(target instanceof CallableDeclaration)) return identities;
+        var seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Declaration, Boolean>());
+        var pending = new java.util.ArrayDeque<Declaration>();
+        pending.add((Declaration) target);
+        while (!pending.isEmpty()) {
+            Declaration declaration = pending.removeFirst();
+            if (!seen.add(declaration)) continue;
+            identities.add(declaration.editIdentity);
+            declaration.definition().ifPresent(pending::add);
+            declaration.previousDeclaration().ifPresent(pending::add);
+            declaration.templateOrigin().ifPresent(pending::add);
+        }
+        return identities;
+    }
+
+    /** Annotation-only copies restore all products and therefore all original freshness. */
+    private void remapPassHistory(Project source) {
+        var functions = callableIndex();
+        passRuns = source.passRuns.stream().map(run -> run.remap(functions, java.util.Set.of(), false)).toList();
+        passInputs = source.passInputs;
+    }
+
+    /** Preserve unread-write products only where the retained pass result remains current. */
+    void restoreUnaffectedFindings(Project source) {
+        var nodes = new java.util.IdentityHashMap<Object, Node>();
+        walk(new NodeVisitor() { @Override public void visit(Node node) { nodes.put(node.editIdentity, node); } });
+        for (CallableDeclaration function : source.callables()) {
+            var current = correspondingCallable(function);
+            if (current.isEmpty() || passStatus("UnreadWrites", current.get()).orElse(PassRun.Status.STALE) != PassRun.Status.CURRENT) continue;
+            function.walk(new NodeVisitor() { @Override public void visit(Node node) {
+                Node target = nodes.get(node.editIdentity);
+                if (target == null) return;
+                var findings = new ArrayList<>(target.findings);
+                node.diagnostics().stream().filter(diagnostic -> diagnostic.code().equals("unread-write"))
+                        .filter(diagnostic -> !findings.contains(diagnostic)).forEach(findings::add);
+                target.findings = List.copyOf(findings);
+            }});
+        }
+    }
+
     private SnapshotStage snapshotStage = SnapshotStage.PARSED;
     public SnapshotStage snapshotStage() { return snapshotStage; }
     /** Shares immutable syntax without mutating this snapshot. */
@@ -375,6 +664,10 @@ public final class Project extends Node {
         copy.origin = origin;
         copy.provenance = provenance;
         copy.transformationProvenance = transformationProvenance;
+        copy.passRuns = passRuns;
+        copy.passInputs = passInputs;
+        copy.passCallables = passCallables;
+        copy.passCallableIndex = passCallableIndex;
         copy.snapshotStage = snapshotStage;
         copy.commentReferences = commentReferences;
         copy.editIdentity = editIdentity;
@@ -464,7 +757,25 @@ public final class Project extends Node {
                     e.callSite() == null ? null : (CallExpression) copied.apply(e.callSite()))).toList();
             return new FunctionFlow(entry, entry.exit(), control, data, flow.complete());
         }).toList();
+        copy.remapPassHistory(this);
         return copy;
+    }
+
+    /** Replaces a rule's findings only inside one callable, retaining all other scopes. */
+    public Project withDiagnostics(String rule, java.util.Map<Node, Diagnostic> findingsByNode,
+            CallableDeclaration function) {
+        CallableDeclaration scope = correspondingCallable(function)
+                .orElseThrow(() -> new IllegalArgumentException("Function is outside this project"));
+        var members = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<Node, Boolean>());
+        scope.walk(new NodeVisitor() { @Override public void visit(Node node) { members.add(node); } });
+        if (!members.containsAll(findingsByNode.keySet()))
+            throw new IllegalArgumentException("Finding outside the selected function");
+        var combined = new java.util.IdentityHashMap<Node, Diagnostic>(findingsByNode);
+        walk(new NodeVisitor() { @Override public void visit(Node node) {
+            if (!members.contains(node)) node.diagnostics().stream().filter(diagnostic -> diagnostic.code().equals(rule))
+                    .findFirst().ifPresent(diagnostic -> combined.put(node, diagnostic));
+        }});
+        return withDiagnostics(rule, combined);
     }
 
     private Project() {
@@ -501,6 +812,7 @@ public final class Project extends Node {
     Builder copyBuilder(EditContext context) {
         Builder builder = new Builder();
         context.register(this, builder);
+        builder.historySource = this;
         builder.snapshotStage = snapshotStage;
         builder.files = context.copyAll(files, SourceFile.class);
         builder.librarySources = context.copyAll(librarySources, SourceFile.class);
@@ -524,6 +836,7 @@ public final class Project extends Node {
 
     /** Mutable counterpart; setters may be chained before building a snapshot. */
     public static final class Builder extends NodeBuilder<Project> {
+        Project historySource;
         private SnapshotStage snapshotStage = SnapshotStage.PARSED;
         public Builder setSnapshotStage(SnapshotStage value) { snapshotStage = java.util.Objects.requireNonNull(value); return this; }
         private List<NodeBuilder<? extends SourceFile>> files = new ArrayList<>();

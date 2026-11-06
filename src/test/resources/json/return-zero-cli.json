@@ -3,6 +3,268 @@
   "kind": "Project",
   "schemaVersion": 1,
   "stage": "resolved",
+  "passRuns": [
+    {
+      "passId": "StandardConversions.written",
+      "results": [
+        {
+          "functionId": 2,
+          "name": "main",
+          "range": {
+            "end": {
+              "column": 25,
+              "line": 1,
+              "offset": 24
+            },
+            "file": "FILE_PATH",
+            "start": {
+              "column": 1,
+              "line": 1,
+              "offset": 0
+            }
+          },
+          "status": "stale"
+        }
+      ],
+      "scope": "project",
+      "sequence": 1,
+      "status": "stale"
+    },
+    {
+      "passId": "ClassTemplateSemantics",
+      "results": [
+        {
+          "functionId": 2,
+          "name": "main",
+          "range": {
+            "end": {
+              "column": 25,
+              "line": 1,
+              "offset": 24
+            },
+            "file": "FILE_PATH",
+            "start": {
+              "column": 1,
+              "line": 1,
+              "offset": 0
+            }
+          },
+          "status": "stale"
+        }
+      ],
+      "scope": "project",
+      "sequence": 2,
+      "status": "stale"
+    },
+    {
+      "passId": "ClassTemplateSemantics",
+      "results": [
+        {
+          "functionId": 2,
+          "name": "main",
+          "range": {
+            "end": {
+              "column": 25,
+              "line": 1,
+              "offset": 24
+            },
+            "file": "FILE_PATH",
+            "start": {
+              "column": 1,
+              "line": 1,
+              "offset": 0
+            }
+          },
+          "status": "stale"
+        }
+      ],
+      "scope": "project",
+      "sequence": 3,
+      "status": "stale"
+    },
+    {
+      "passId": "StandardConversions",
+      "results": [
+        {
+          "functionId": 2,
+          "name": "main",
+          "range": {
+            "end": {
+              "column": 25,
+              "line": 1,
+              "offset": 24
+            },
+            "file": "FILE_PATH",
+            "start": {
+              "column": 1,
+              "line": 1,
+              "offset": 0
+            }
+          },
+          "status": "current"
+        }
+      ],
+      "scope": "project",
+      "sequence": 4,
+      "status": "current"
+    },
+    {
+      "passId": "Documentation",
+      "results": [
+        {
+          "functionId": 2,
+          "name": "main",
+          "range": {
+            "end": {
+              "column": 25,
+              "line": 1,
+              "offset": 24
+            },
+            "file": "FILE_PATH",
+            "start": {
+              "column": 1,
+              "line": 1,
+              "offset": 0
+            }
+          },
+          "status": "current"
+        }
+      ],
+      "scope": "project",
+      "sequence": 5,
+      "status": "current"
+    },
+    {
+      "passId": "ClassTemplateSemantics.diagnose",
+      "results": [
+        {
+          "functionId": 2,
+          "name": "main",
+          "range": {
+            "end": {
+              "column": 25,
+              "line": 1,
+              "offset": 24
+            },
+            "file": "FILE_PATH",
+            "start": {
+              "column": 1,
+              "line": 1,
+              "offset": 0
+            }
+          },
+          "status": "current"
+        }
+      ],
+      "scope": "project",
+      "sequence": 6,
+      "status": "current"
+    },
+    {
+      "passId": "NameResolver",
+      "results": [
+        {
+          "functionId": 2,
+          "name": "main",
+          "range": {
+            "end": {
+              "column": 25,
+              "line": 1,
+              "offset": 24
+            },
+            "file": "FILE_PATH",
+            "start": {
+              "column": 1,
+              "line": 1,
+              "offset": 0
+            }
+          },
+          "status": "current"
+        }
+      ],
+      "scope": "project",
+      "sequence": 7,
+      "status": "current"
+    },
+    {
+      "passId": "ControlFlow",
+      "results": [
+        {
+          "functionId": 2,
+          "name": "main",
+          "range": {
+            "end": {
+              "column": 25,
+              "line": 1,
+              "offset": 24
+            },
+            "file": "FILE_PATH",
+            "start": {
+              "column": 1,
+              "line": 1,
+              "offset": 0
+            }
+          },
+          "status": "current"
+        }
+      ],
+      "scope": "project",
+      "sequence": 8,
+      "status": "current"
+    },
+    {
+      "passId": "DataFlow",
+      "results": [
+        {
+          "functionId": 2,
+          "name": "main",
+          "range": {
+            "end": {
+              "column": 25,
+              "line": 1,
+              "offset": 24
+            },
+            "file": "FILE_PATH",
+            "start": {
+              "column": 1,
+              "line": 1,
+              "offset": 0
+            }
+          },
+          "status": "current"
+        }
+      ],
+      "scope": "project",
+      "sequence": 9,
+      "status": "current"
+    },
+    {
+      "passId": "UnreadWrites",
+      "results": [
+        {
+          "functionId": 2,
+          "name": "main",
+          "range": {
+            "end": {
+              "column": 25,
+              "line": 1,
+              "offset": 24
+            },
+            "file": "FILE_PATH",
+            "start": {
+              "column": 1,
+              "line": 1,
+              "offset": 0
+            }
+          },
+          "status": "current"
+        }
+      ],
+      "scope": "project",
+      "sequence": 10,
+      "status": "current"
+    }
+  ],
   "history": [],
   "files": [
     {
@@ -54,7 +316,10 @@
                   "value": 0,
                   "cppType": "int",
                   "spelling": "0",
-                  "semanticInfo": { "resultType": "int", "category": "rvalue" },
+                  "semanticInfo": {
+                    "resultType": "int",
+                    "category": "rvalue"
+                  },
                   "range": {
                     "file": "FILE_PATH",
                     "start": {

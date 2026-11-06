@@ -17,6 +17,17 @@ class CallSiteDataFlowTest {
         assertFalse(resolved.hasErrors(), resolved.semanticDiagnostics().toString());
         return UnreadWrites.analyze(resolved);
     }
+    private void assertReanalysisStable(Project before, java.util.function.UnaryOperator<Project> analysis, String passId) {
+        String original = ProjectJson.encode(before).toText("");
+        Project after = analysis.apply(before);
+        var expected = new LinkedHashMap<>((Map<?, ?>) ProjectJson.encode(before).toJavaObject());
+        var actual = new LinkedHashMap<>((Map<?, ?>) ProjectJson.encode(after).toJavaObject());
+        expected.remove("passRuns"); actual.remove("passRuns");
+        assertEquals(expected, actual);
+        assertEquals(before.passRuns().size() + 1, after.passRuns().size());
+        assertEquals(passId, after.passRuns().getLast().passId());
+        assertEquals(original, ProjectJson.encode(before).toText(""));
+    }
     private static <T extends Node> List<T> nodes(Node root, Class<T> type) {
         return LazyLibraryGraphTest.nodes(root, type);
     }
@@ -240,7 +251,7 @@ class CallSiteDataFlowTest {
         assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
             var p = analyze("void update(int& x,int n){if(n)update(x,n-1);else x=7;} int f(int n){int x=1;update(x,n);return x;}");
             var f = flow(p,"f"); assertTrue(originateCallBody(p,returned(f),"update"));
-            assertEquals(ProjectJson.encode(p).toText(""),ProjectJson.encode(DataFlow.analyze(p)).toText(""));
+            assertReanalysisStable(p, DataFlow::analyze, "DataFlow");
         });
     }
     @Test void mutuallyRecursiveSummariesTerminateWithReachableWrites() {
@@ -346,7 +357,7 @@ class CallSiteDataFlowTest {
         var p=analyze("void update(int& x){x=7;}int f(){int unused=0;int x=1;update(x);return x;}");
         Set<Node> owned=Collections.newSetFromMap(new IdentityHashMap<>());p.walk(new NodeVisitor(){@Override public void visit(Node node){owned.add(node);}});
         for(var flow:p.flows())for(var edge:flow.data()){assertTrue(owned.contains(edge.from()));assertTrue(owned.contains(edge.to()));if(edge.callSite()!=null)assertTrue(owned.contains(edge.callSite()));}
-        assertEquals(ProjectJson.encode(p).toText(""),ProjectJson.encode(UnreadWrites.analyze(p)).toText(""));
+        assertReanalysisStable(p, UnreadWrites::analyze, "UnreadWrites");
         assertTrue(p.edit().build().flows().isEmpty());
     }
     @Test void javaScalarReachingDefinitionsRemainUnchanged() {

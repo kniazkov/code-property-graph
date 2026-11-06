@@ -174,7 +174,22 @@ class AggregateLayoutSemanticsTest {
             assertEquals("S",named.name());
             assertEquals(1,nodes(add.right(),IntegerLiteral.class).getFirst().value());
         }
-        assertEquals(ProjectJson.encode(analyzed),ProjectJson.encode(analyzed.edit().build()));
+        var copied = analyzed.edit().build();
+        SnapshotAssertions.assertGraphEquals(ProjectJson.encode(analyzed), ProjectJson.encode(copied));
+        assertEquals(analyzed.passRuns().size(), copied.passRuns().size());
+        for (int index = 0; index < analyzed.passRuns().size(); index++) {
+            var before = analyzed.passRuns().get(index);
+            var after = copied.passRuns().get(index);
+            assertEquals(before.sequence(), after.sequence());
+            assertEquals(before.passId(), after.passId());
+            assertEquals(before.scope(), after.scope());
+            assertTrue(before.results().isEmpty());
+            assertTrue(after.results().isEmpty());
+            // A raw builder copy does not retain derived flow/diagnostic products,
+            // even in this declaration-only fixture where the graph itself is equal.
+            assertEquals(Set.of("ControlFlow", "DataFlow", "UnreadWrites").contains(before.passId())
+                    ? PassRun.Status.STALE : before.status(), after.status());
+        }
         var root = (Map<?,?>) ProjectJson.encode(analyzed).toJavaObject();
         var file = (Map<?,?>) ((List<?>) root.get("files")).getFirst();
         var items = (List<?>) file.get("items");

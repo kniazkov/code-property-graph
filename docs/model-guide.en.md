@@ -1346,3 +1346,28 @@ keeps library dependencies from importing unrelated historical catalogue syntax.
 `historyDependency: true` marks such a reference-only descriptor. It omits owning
 children, semantic outgoing edges and token-unit expansion; its identity, range
 and available type information remain readable.
+
+### Pass execution history and result freshness (#45)
+
+`Project.passRuns()` records completed public pass executions in order, including
+runs with no changes or diagnostics. This is distinct from node transformation
+provenance: an unchanged result can still prove that an analysis was executed.
+Each immutable `PassRun` has a sequence, pass identifier, project/function scope,
+aggregate status and per-function results. Project-wide runs freeze their covered
+functions; a later added function does not inherit a successful earlier check.
+`Project.passStatus(passId, callable)` selects the latest applicable result.
+An absent status means no applicable run, while `STALE` means recomputation is
+required. Older snapshots retain their own history and results after edits.
+
+`UnreadWrites.analyze(project, callable)` checks one function and preserves the
+other functions' unread-write results. The one-argument overload checks the whole
+project. Missing or stale dependencies are recomputed before inspection. CFG and
+DFG dependencies may cover the entire project because memory flow crosses call
+boundaries; the history records their actual scope and execution order rather
+than pretending the prerequisite work was limited to the selected function.
+
+JSON adds ordered `passRuns`, separately from historical syntax in `history`.
+Run entries contain scope, status and covered results; live function references
+use file-local IDs. Removed functions retain descriptive stale results rather
+than dangling references or imported old function bodies. There are no timestamps
+or random identifiers, so repeated equivalent inputs remain deterministic.
