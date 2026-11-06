@@ -32,3 +32,11 @@ selected callable access, which does not establish equivalent field/type checks.
 This is incomplete enforcement, not evidence of a deliberate later-defect-report
 profile. No particular later correction has been verified here. The probe's
 observations are not a full Maven run or a generation/round-trip test.
+
+
+## Subsequent work
+
+The output above remains the historical observation of that exact artifact.
+The separate [#89 regression report](NestedAccessRegressionResults.md) records
+the original-2003 access fix and its validation gates; it does not attribute new
+behavior to the old JAR or claim complete clause coverage.

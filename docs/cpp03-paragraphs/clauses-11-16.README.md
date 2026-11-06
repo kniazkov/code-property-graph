@@ -73,3 +73,12 @@ compared to the source inventory with no missing or extra IDs. Every referenced
 implementation/test path exists, and each referenced JUnit method name was checked
 against its source. `git diff --check` passed for the shard and probe. These are
 artifact validations, not a full runtime or conformance test run.
+
+
+## Subsequent nested-access regression work (#89)
+
+The counts and concrete findings above describe the source-audit snapshot.
+[The separate follow-up](probes/NestedAccessRegressionResults.md) documents the
+original-2003 profile and bounded regression evidence for 11.8/1 and the
+informative 11.8/2 example. Ledger links are updated without promoting these
+paragraphs to full verified coverage or replacing the historical probe result.
