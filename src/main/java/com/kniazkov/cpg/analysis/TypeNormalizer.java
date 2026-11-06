@@ -7,7 +7,7 @@ import com.kniazkov.cpg.model.*;
 public final class TypeNormalizer {
     private TypeNormalizer() {}
     public static Project green(Project project) {
-        var editor = new ProjectEditor(project);
+        var editor = new ProjectEditor(project).setPassId("TypeNormalizer");
         for (var root : SourceContexts.roots(project)) {
             SourceFile file = root.source();
             if (file.language() != Language.CPP) continue;

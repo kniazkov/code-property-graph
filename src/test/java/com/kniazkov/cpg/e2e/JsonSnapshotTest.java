@@ -28,11 +28,38 @@ class JsonSnapshotTest {
         assertThrows(AssertionError.class, () -> json.exactly("/json/return-zero.json", Map.of()));
     }
 
+    @Test void currentSelectorsExcludeHistoryWhileIntegrityChecksIncludeIt() throws Exception {
+        Path file = temp.resolve("history.json");
+        Files.writeString(file, """
+                {"id":0,"kind":"Project","items":[
+                  {"id":1,"kind":"A","edges":[{"kind":"ref","to":2}]},
+                  {"id":2,"kind":"B"}],
+                 "history":[
+                  {"id":3,"kind":"A","edges":[{"kind":"ref","to":4}]},
+                  {"id":4,"kind":"B"},
+                  {"id":5,"kind":"AddExpression","edges":[{"kind":"ref","to":2}]}],
+                 "sourceContexts":[{"id":6,"kind":"SourceContext"}]}
+                """);
+        var snapshot = JsonSnapshot.read(file);
+        snapshot.expectEdge("{\"kind\":\"A\"}", "ref", "{\"kind\":\"B\"}");
+        snapshot.excludesNode("{\"kind\":\"AddExpression\"}");
+        snapshot.excludesNode("{\"kind\":\"SourceContext\"}");
+        assertThrows(AssertionError.class, () -> snapshot.containsNode("{\"kind\":\"AddExpression\"}"));
+
+        String valid = Files.readString(file);
+        Files.writeString(file, valid.replace("\"id\":4", "\"id\":2"));
+        assertTrue(assertThrows(AssertionError.class, () -> JsonSnapshot.read(file)).getMessage().contains("Duplicate ID"));
+        Files.writeString(file, valid.replace("\"to\":4", "\"to\":99"));
+        assertTrue(assertThrows(AssertionError.class, () -> JsonSnapshot.read(file)).getMessage().contains("Dangling edge"));
+        Files.writeString(file, valid.replace("\"id\":6", "\"id\":1"));
+        assertTrue(assertThrows(AssertionError.class, () -> JsonSnapshot.read(file)).getMessage().contains("Duplicate ID"));
+    }
+
     @Test void duplicateIdsAndDanglingEdgesFailDuringLoad() throws Exception {
         Path file = temp.resolve("broken.json");
-        Files.writeString(file, "{\"id\":0,\"child\":{\"id\":0}}");
-        assertThrows(AssertionError.class, () -> JsonSnapshot.read(file));
-        Files.writeString(file, "{\"id\":0,\"edges\":[{\"kind\":\"ref\",\"to\":7}]}");
-        assertThrows(AssertionError.class, () -> JsonSnapshot.read(file));
+        Files.writeString(file, "{\"id\":0,\"kind\":\"Project\",\"child\":{\"id\":0,\"kind\":\"A\"}}");
+        assertTrue(assertThrows(AssertionError.class, () -> JsonSnapshot.read(file)).getMessage().contains("Duplicate ID"));
+        Files.writeString(file, "{\"id\":0,\"kind\":\"Project\",\"edges\":[{\"kind\":\"ref\",\"to\":7}]}");
+        assertTrue(assertThrows(AssertionError.class, () -> JsonSnapshot.read(file)).getMessage().contains("Dangling edge"));
     }
 }

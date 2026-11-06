@@ -28,6 +28,7 @@ public final class SequenceSemantics {
                     .setCharacterType(context.copy(args.getFirst().type().orElseThrow()))
                     .setTraitsType(context.copy(args.get(1).type().orElseThrow()))
                     .setAllocatorType(context.copy(args.get(2).type().orElseThrow())));
+            types.get(cls).addTransformationProvenance("SequenceSemantics", "source-construct", cls);
             sites.put(cls,new ArrayList<>());
         }
         var operations=new ArrayList<NodeBuilder<? extends SequenceOperation>>();
@@ -104,6 +105,7 @@ public final class SequenceSemantics {
                 }
                 SequenceOperation.Builder base(SequenceOperation.Kind kind,Node syntax,CallableDeclaration target,List<? extends Expression> args) {
                     var b=SequenceOperation.create().setKind(kind).setSyntax(context.copy(syntax)).setSelectedTarget(context.copy(target));
+                    b.addTransformationProvenance("SequenceSemantics", "source-construct", syntax);
                     var inputs=new ArrayList<NodeBuilder<? extends Node>>();args.forEach(a->inputs.add(context.copy(a)));b.setSources(inputs);
                     target.returnType().ifPresent(t->b.setResultType(context.copy(t)));
                     return b;

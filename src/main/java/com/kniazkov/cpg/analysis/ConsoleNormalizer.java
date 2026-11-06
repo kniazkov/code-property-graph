@@ -23,7 +23,7 @@ public final class ConsoleNormalizer {
 
     /** Recognizes the supported console forms after name resolution, respecting local shadowing. */
     public static Project green(Project project) {
-        var editor = new ProjectEditor(project).withoutRevalidation();
+        var editor = new ProjectEditor(project).setPassId("ConsoleNormalizer").withoutRevalidation();
         for (SourceFile file : project.files()) file.walk(new NodeVisitor() {
             @Override public void visit(ExpressionStatement statement) {
                 Expression expr = statement.expression();
@@ -31,11 +31,18 @@ public final class ConsoleNormalizer {
                         && call.callee() instanceof DotMemberExpression println && println.member().equals("println")
                         && println.receiver() instanceof DotMemberExpression out && out.member().equals("out")
                         && external(out.receiver(), "System")) {
-                    editor.replace(statement, PrintStatement.from(statement, call.arguments().getFirst()));
+                    editor.replace(statement, PrintStatement.from(statement, call.arguments().getFirst(), java.util.List.of(
+                            new TransformationProvenance("ConsoleNormalizer", "stream", out),
+                            new TransformationProvenance("ConsoleNormalizer", "value", call.arguments().getFirst()),
+                            new TransformationProvenance("ConsoleNormalizer", "newline", println))));
                 }
                 if (file.language() == Language.CPP && expr instanceof ShiftLeftExpression tail && stream(tail.right(), "endl")
                         && tail.left() instanceof ShiftLeftExpression head && stream(head.left(), "cout")) {
-                    editor.replace(statement, PrintStatement.from(statement, head.right()));
+                    editor.replace(statement, PrintStatement.from(statement, head.right(), java.util.List.of(
+                            new TransformationProvenance("ConsoleNormalizer", "stream", head.left()),
+                            new TransformationProvenance("ConsoleNormalizer", "value", head.right()),
+                            new TransformationProvenance("ConsoleNormalizer", "newline", tail.right()),
+                            new TransformationProvenance("ConsoleNormalizer", "flush", tail.right()))));
                 }
             }
         });

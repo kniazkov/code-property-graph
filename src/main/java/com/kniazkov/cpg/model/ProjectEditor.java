@@ -6,6 +6,15 @@ import java.util.*;
 /** Stages replacements and bindings against one source snapshot. Each build creates independent objects. */
 public final class ProjectEditor {
     private final Project source;
+    private String passId;
+    private SnapshotStage snapshotStage;
+    public ProjectEditor setPassId(String value) {
+        if (value == null || value.isBlank()) throw new IllegalArgumentException("Pass ID is required");
+        passId = value; return this;
+    }
+    public ProjectEditor setSnapshotStage(SnapshotStage value) {
+        snapshotStage = Objects.requireNonNull(value); return this;
+    }
     private boolean retainDiagnostics;
     private boolean revalidate = true;
     /** Internal semantic transformations do not recursively launch source-edit validation. */
@@ -287,6 +296,7 @@ public final class ProjectEditor {
             }}
         });
         var context = new EditContext(adjusted, removed, conversions);
+        context.passId = passId;
         var root = context.edit(source, Project.Builder.class);
         dependencies.forEach((expression, value) -> context.copy(expression).setDependent(value));
         additionalRequests.forEach((instance, requests) -> {
@@ -384,6 +394,26 @@ public final class ProjectEditor {
                 .setOperatorCandidates(context.copyAll(value.candidates(), CallableDeclaration.class), value.status()));
         conversionSources.forEach((expression, type) -> context.edit(expression, ConversionExpression.Builder.class).setSourceType(type));
         expressions.forEach((expression, info) -> context.copy(expression).setExpressionInfo(info));
+        if (snapshotStage != null) root.setSnapshotStage(snapshotStage);
+        if (passId != null) {
+            // Several nested replacements can contribute to the same retained builder.
+            // Record those edges in source order, never IdentityHashMap iteration order.
+            source.walk(new NodeVisitor() { @Override public void visit(Node old) {
+                Node replacement = replacements.get(old);
+                if (replacement == null) return;
+                context.copy(replacement).addTransformationProvenance(passId, "source-construct", old);
+                replacement.walk(new NodeVisitor() { @Override public void visit(Node retained) {
+                    Node prior = origins.get(retained.editIdentity);
+                    if (prior != null && prior != old && !ambiguousOrigins.contains(retained.editIdentity))
+                        context.copy(retained).addTransformationProvenance(passId, "source-construct", prior);
+                }});
+            }});
+            source.walk(new NodeVisitor() { @Override public void visit(TypeNode old) {
+                TypeRepresentation representation = typeRepresentations.get(old);
+                if (representation != null && !Objects.equals(old.semanticType().orElse(null), representation))
+                    context.copy(old).addTransformationProvenance(passId, "source-construct", old);
+            }});
+        }
         var build = new BuildContext();
         Project result = build.build(root);
         if(retainDiagnostics && replacements.isEmpty() && removed.isEmpty()) for(Node member:members)

@@ -15,10 +15,11 @@ import static org.junit.jupiter.api.Assertions.*;
 final class JsonSnapshot {
     private final Object document;
     private final List<Map<?, ?>> nodes = new ArrayList<>();
+    private final List<Map<?, ?>> currentNodes = new ArrayList<>();
 
     private JsonSnapshot(Object document) {
         this.document = document;
-        index(document);
+        index(document, true);
         assertFalse(nodes.isEmpty(), "Snapshot contains no nodes");
         Set<Object> ids = new HashSet<>();
         for (var node : nodes) assertTrue(ids.add(node.get("id")), () -> "Duplicate ID: " + node.get("id"));
@@ -64,17 +65,22 @@ final class JsonSnapshot {
                 () -> "Missing edge " + from + " --" + kind + "--> " + to);
     }
 
-    private void index(Object value) {
+    /** Validate the entire file, but ordinary selectors describe the selected snapshot. */
+    private void index(Object value, boolean current) {
         if (value instanceof Map<?,?> map) {
-            if (map.containsKey("id") && map.containsKey("kind")) nodes.add(map);
-            map.values().forEach(this::index);
-        } else if (value instanceof List<?> list) list.forEach(this::index);
+            if (map.containsKey("id") && map.containsKey("kind")) {
+                nodes.add(map);
+                if (current) currentNodes.add(map);
+            }
+            map.forEach((key, child) -> index(child,
+                    current && !(value == document && Set.of("history", "sourceContexts").contains(key))));
+        } else if (value instanceof List<?> list) list.forEach(child -> index(child, current));
     }
 
     private List<Map<?, ?>> matching(String json) throws Exception {
         Object pattern = Json.parse(json).toJavaObject();
         assertInstanceOf(Map.class, pattern, "Node pattern must be an object");
-        return nodes.stream().filter(node -> matches(pattern, node)).toList();
+        return currentNodes.stream().filter(node -> matches(pattern, node)).toList();
     }
 
     private static boolean matches(Object pattern, Object actual) {

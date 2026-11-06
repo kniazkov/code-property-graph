@@ -43,6 +43,14 @@ public final class PrintStatement extends Statement {
         return result;
     }
 
+    /** Retains role-specific contributors from the immediately preceding snapshot. */
+    public static PrintStatement from(ExpressionStatement original, Expression value,
+            List<TransformationProvenance> contributions) {
+        PrintStatement result = from(original, value);
+        result.transformationProvenance = List.copyOf(contributions);
+        return result;
+    }
+
     public static Builder create() {
         return new Builder();
     }
