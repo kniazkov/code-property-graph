@@ -212,13 +212,15 @@ public final class OverloadResolution {
         source = TypeSemantics.unqualified(source); target = TypeSemantics.unqualified(target);
         if (same(source, target)) return Optional.of(new Sequence(Rank.EXACT, 0, null));
         if (source instanceof NamedType named && named.declaration().orElse(null) instanceof EnumDeclaration enumeration && arithmetic(target, profile)) {
-            var promotion = enumPromotion(enumeration, profile);
+            var promotion = EnumSemantics.promoted(enumeration, profile).map(ConstantEvaluator.IntegerType::spelling);
             if (promotion.isEmpty()) return Optional.of(new Sequence(Rank.UNKNOWN, 0, null));
             return Optional.of(new Sequence(target.canonicalIdentity().equals(promotion.get()) ? Rank.PROMOTION : Rank.CONVERSION, 0, null));
         }
         if (arithmetic(source, profile) && arithmetic(target, profile)) {
             String identity = target.canonicalIdentity();
-            boolean promotion = TypeSemantics.promoted(source, profile).map(type -> type.canonicalIdentity().equals(identity)).orElse(false)
+            var promoted = expression == null ? TypeSemantics.promoted(source, profile) : TypeSemantics.promoted(expression, profile);
+            if (promoted.isEmpty()) return Optional.of(new Sequence(Rank.UNKNOWN, 0, null));
+            boolean promotion = promoted.map(type -> type.canonicalIdentity().equals(identity)).orElse(false)
                     || TypeSemantics.floatingRank(source) == 1 && TypeSemantics.floatingRank(target) == 2;
             return Optional.of(new Sequence(promotion ? Rank.PROMOTION : Rank.CONVERSION, 0, null));
         }
@@ -291,22 +293,6 @@ public final class OverloadResolution {
             if (parent.isPresent() && (ClassSemantics.sameClass(parent.get(), to) || derives(parent.get(), to, seen))) return true;
         }
         return false;
-    }
-    private static Optional<String> enumPromotion(EnumDeclaration enumeration, PlatformProfile profile) {
-        java.math.BigInteger next = java.math.BigInteger.ZERO, min = next, max = next;
-        for (EnumeratorDeclaration value : enumeration.enumerators()) {
-            if (value.value().isPresent()) {
-                var evaluated = ConstantEvaluator.evaluate(value.value().get(), profile);
-                if (evaluated.isEmpty()) return Optional.empty();
-                next = evaluated.get().number();
-            }
-            min = min.min(next); max = max.max(next); next = next.add(java.math.BigInteger.ONE);
-        }
-        for (String type : List.of("int", "unsigned int", "long", "unsigned long")) {
-            var range = profile.integerRange(type);
-            if (range.isPresent() && range.get().min().compareTo(min) <= 0 && range.get().max().compareTo(max) >= 0) return Optional.of(type);
-        }
-        return Optional.empty();
     }
     public static List<ClassDeclaration> associatedClasses(List<Expression> arguments, PlatformProfile profile) {
         Set<ClassDeclaration> result = new LinkedHashSet<>();

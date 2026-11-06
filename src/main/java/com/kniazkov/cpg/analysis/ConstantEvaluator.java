@@ -5,6 +5,7 @@ import com.kniazkov.cpg.build.PlatformProfile;
 import com.kniazkov.cpg.model.*;
 import java.math.BigInteger;
 import java.util.*;
+import java.util.function.Function;
 
 /** Uses arbitrary precision internally, but never invents a value for signed overflow. */
 final class ConstantEvaluator {
@@ -67,7 +68,47 @@ final class ConstantEvaluator {
 
     static Optional<Value> evaluate(Expression expression, PlatformProfile profile) {
         if (hasSemanticErrors(expression)) return Optional.empty();
-        return evaluate(expression, profile, Collections.newSetFromMap(new IdentityHashMap<>()));
+        return evaluate(expression, profile, Collections.newSetFromMap(new IdentityHashMap<>()), ignored -> Optional.empty(), false);
+    }
+    /** Context supplies enum ownership without adding parent edges to immutable nodes. */
+    static Optional<Value> evaluate(Expression expression, PlatformProfile profile,
+            Function<Declaration, Optional<Value>> constants) {
+        if (hasSemanticErrors(expression)) return Optional.empty();
+        return evaluate(expression, profile, Collections.newSetFromMap(new IdentityHashMap<>()), constants, true);
+    }
+    /** Printed 5.19/1 excludes forbidden syntax even in an unevaluated conditional arm.
+     * This is intentionally narrower than ordinary folding; sizeof does not inspect its operand. */
+    static Optional<Value> integralConstant(Expression expression, PlatformProfile profile,
+            Function<Declaration, Optional<Value>> constants) {
+        return integralSyntax(expression, profile, constants) ? evaluate(expression, profile, constants) : Optional.empty();
+    }
+    private static boolean integralSyntax(Expression expression, PlatformProfile profile,
+            Function<Declaration, Optional<Value>> constants) {
+        if (OperatorSemantics.mayInvokeUserCode(expression)) return false;
+        if (expression instanceof SizeofExpression || expression instanceof IntegerLiteral
+                || expression instanceof BooleanLiteral || expression instanceof CharacterLiteral) return true;
+        Declaration target = expression instanceof NameExpression name ? name.target().orElse(null)
+                : expression instanceof ScopeMemberExpression member ? member.target().orElse(null) : null;
+        if (target != null) return constants.apply(target).isPresent();
+        if (expression instanceof ConversionExpression conversion) return ! (TypeSemantics.unqualified(conversion.targetType()) instanceof ReferenceType)
+                && TypeSemantics.integralOrEnum(conversion.targetType(), profile)
+                && (integralSyntax(conversion.operand(), profile, constants)
+                    || conversion.operand() instanceof FloatingLiteral literal && literal.value().signum() == 0
+                        && TypeSemantics.integerType(conversion.targetType(), profile).isPresent());
+        if (expression instanceof InitializationExpression initialization) return initialization.form() == InitializationExpression.Form.TEMPORARY
+                && initialization.type().filter(type -> !(TypeSemantics.unqualified(type) instanceof ReferenceType))
+                        .filter(type -> TypeSemantics.integralOrEnum(type, profile)).isPresent()
+                && initialization.arguments().size() <= 1 && initialization.arguments().stream().allMatch(value -> integralSyntax(value, profile, constants)
+                    || value instanceof FloatingLiteral literal && literal.value().signum() == 0
+                        && initialization.type().flatMap(type -> TypeSemantics.integerType(type, profile)).isPresent());
+        if (expression instanceof ConditionalExpression conditional) return integralSyntax(conditional.condition(), profile, constants)
+                && integralSyntax(conditional.thenExpression(), profile, constants) && integralSyntax(conditional.elseExpression(), profile, constants);
+        if (expression instanceof UnaryExpression unary) return (unary instanceof LogicalNotExpression || unary instanceof BitwiseNotExpression
+                || unary instanceof UnaryPlusExpression || unary instanceof NegateExpression) && integralSyntax(unary.operand(), profile, constants);
+        if (expression instanceof BinaryExpression binary) return !(binary instanceof CommaExpression || binary instanceof IndexExpression
+                || binary instanceof DotMemberPointerExpression || binary instanceof ArrowMemberPointerExpression)
+                && integralSyntax(binary.left(), profile, constants) && integralSyntax(binary.right(), profile, constants);
+        return false;
     }
     /** Ill-formed descendants matter even in branches that are never evaluated. */
     static boolean hasSemanticErrors(Node root) {
@@ -79,10 +120,19 @@ final class ConstantEvaluator {
         });
         return invalid[0];
     }
-    private static Optional<Value> evaluate(Expression expression, PlatformProfile profile, Set<Expression> active) {
+    private static Optional<Value> evaluate(Expression expression, PlatformProfile profile, Set<Expression> active,
+            Function<Declaration, Optional<Value>> constants, boolean integralConstant) {
         if (OperatorSemantics.mayInvokeUserCode(expression)) return Optional.empty();
         if (!active.add(expression)) return Optional.empty();
         try {
+            Declaration declaration = expression instanceof NameExpression name ? name.target().orElse(null)
+                    : expression instanceof MemberExpression member ? member.target().orElse(null) : null;
+            if (declaration != null) {
+                if (expression instanceof MemberExpression && !(expression instanceof ScopeMemberExpression)) return Optional.empty();
+                var known = constants.apply(declaration);
+                if (known.isPresent()) return known;
+                return Optional.empty();
+            }
             if (expression instanceof IntegerLiteral literal) return literal(literal, profile);
             if (expression instanceof BooleanLiteral literal) return truth(literal.value(), profile);
             if (expression instanceof CharacterLiteral literal) return integerType(literal.cppType(), profile)
@@ -92,34 +142,37 @@ final class ConstantEvaluator {
                         || conversion.kind() == ConversionExpression.Kind.C_STYLE_CAST)
                     && conversion.kind() != ConversionExpression.Kind.REFERENCE_BINDING
                     && !(TypeSemantics.unqualified(conversion.targetType()) instanceof ReferenceType)) {
-                var type = TypeSemantics.integerType(conversion.targetType(), profile);
-                if (type.isEmpty()) return Optional.empty();
-                return evaluate(conversion.operand(), profile, active).flatMap(value -> cast(value.number(), type.get()));
+                return castOperand(conversion.operand(), conversion.targetType(), profile, active, constants, integralConstant);
             }
             if (expression instanceof InitializationExpression initialization
                     && initialization.form() == InitializationExpression.Form.TEMPORARY) {
-                var type = initialization.type().filter(t -> !(TypeSemantics.unqualified(t) instanceof ReferenceType))
-                        .flatMap(t -> TypeSemantics.integerType(t, profile));
-                if (type.isEmpty() || initialization.arguments().size() > 1) return Optional.empty();
-                if (initialization.arguments().isEmpty()) return cast(BigInteger.ZERO, type.get());
-                return evaluate(initialization.arguments().getFirst(), profile, active)
-                        .flatMap(value -> cast(value.number(), type.get()));
+                if (initialization.type().isEmpty() || initialization.arguments().size() > 1
+                        || TypeSemantics.unqualified(initialization.type().get()) instanceof ReferenceType) return Optional.empty();
+                if (initialization.arguments().isEmpty()) return TypeSemantics.integerType(initialization.type().get(), profile)
+                        .flatMap(type -> cast(BigInteger.ZERO, type, profile));
+                return castOperand(initialization.arguments().getFirst(), initialization.type().get(), profile, active, constants, integralConstant);
             }
             if (expression instanceof ConditionalExpression conditional) {
-                var condition = evaluate(conditional.condition(), profile, active);
+                var condition = evaluate(conditional.condition(), profile, active, constants, integralConstant);
                 // Both branch types participate, even when only one branch is evaluated.
-                var type = TypeSemantics.expressionType(conditional, profile)
+                var type = TypeSemantics.expressionType(conditional, profile, constants)
                         .flatMap(t -> TypeSemantics.integerType(t, profile));
+                if (type.isEmpty()) {
+                    var a = evaluate(conditional.thenExpression(), profile, active, constants, integralConstant);
+                    var b = evaluate(conditional.elseExpression(), profile, active, constants, integralConstant);
+                    if (a.isPresent() && b.isPresent()) type = commonType(a.get().type(), b.get().type(), profile);
+                }
                 if (condition.isEmpty() || type.isEmpty()) return Optional.empty();
+                var targetType = type.get();
                 return evaluate(condition.get().number().signum() != 0 ? conditional.thenExpression()
-                        : conditional.elseExpression(), profile, active).flatMap(value -> cast(value.number(), type.get()));
+                        : conditional.elseExpression(), profile, active, constants, integralConstant).flatMap(value -> cast(value.number(), targetType, profile));
             }
             if (expression instanceof SizeofExpression sizeof) {
                 var type = TypeSemantics.sizeType(profile).flatMap(name -> integerType(name, profile));
                 return type.flatMap(t -> TypeSemantics.sizeof(sizeof, profile).filter(t::contains).map(value -> new Value(value, t)));
             }
             if (expression instanceof UnaryExpression unary) {
-                var operand = evaluate(unary.operand(), profile, active);
+                var operand = evaluate(unary.operand(), profile, active, constants, integralConstant);
                 if (operand.isEmpty()) return Optional.empty();
                 var value = operand.orElseThrow();
                 if (unary instanceof LogicalNotExpression) return truth(value.number().signum() == 0, profile);
@@ -135,18 +188,19 @@ final class ConstantEvaluator {
                 return result(number, type.orElseThrow());
             }
             if (expression instanceof BinaryExpression binary) {
-                var left = evaluate(binary.left(), profile, active);
+                var left = evaluate(binary.left(), profile, active, constants, integralConstant);
                 if (left.isEmpty()) return Optional.empty();
                 if (binary instanceof LogicalAndExpression || binary instanceof LogicalOrExpression) {
                     // Reject potential overloaded operators, including an unknown right-hand type.
-                    var rhsType = TypeSemantics.expressionType(binary.right(), profile);
-                    if (rhsType.isEmpty() || TypeSemantics.integerType(rhsType.get(), profile).isEmpty()) return Optional.empty();
+                    var rhsType = TypeSemantics.expressionType(binary.right(), profile, constants);
+                    if (rhsType.flatMap(type -> TypeSemantics.integerType(type, profile)).isEmpty()
+                            && evaluate(binary.right(), profile, active, constants, integralConstant).isEmpty()) return Optional.empty();
                     boolean a = left.get().number().signum() != 0;
                     if (binary instanceof LogicalAndExpression && !a) return truth(false, profile);
                     if (binary instanceof LogicalOrExpression && a) return truth(true, profile);
-                    return evaluate(binary.right(), profile, active).flatMap(value -> truth(value.number().signum() != 0, profile));
+                    return evaluate(binary.right(), profile, active, constants, integralConstant).flatMap(value -> truth(value.number().signum() != 0, profile));
                 }
-                var right = evaluate(binary.right(), profile, active);
+                var right = evaluate(binary.right(), profile, active, constants, integralConstant);
                 if (left.isEmpty() || right.isEmpty()) return Optional.empty();
                 if (binary instanceof ShiftLeftExpression || binary instanceof ShiftRightExpression) {
                     var promoted = promote(left.get().type(), profile);
@@ -194,6 +248,24 @@ final class ConstantEvaluator {
             return Optional.empty();
         } finally { active.remove(expression); }
     }
+    private static Optional<Value> castOperand(Expression operand, TypeNode destination, PlatformProfile profile,
+            Set<Expression> active, Function<Declaration, Optional<Value>> constants, boolean integralConstant) {
+        var integer = TypeSemantics.integerType(destination, profile);
+        // The profile specifies no floating representation. Exact zero is guaranteed;
+        // other mathematical decimal literals are not silently rounded by the host.
+        if (operand instanceof FloatingLiteral literal) return literal.value().signum() == 0 && integer.isPresent()
+                ? cast(BigInteger.ZERO, integer.get(), profile) : Optional.empty();
+        var value = evaluate(operand, profile, active, constants, integralConstant);
+        if (integer.isPresent()) return value.flatMap(number -> cast(number.number(), integer.get(), profile));
+        // An enum value's promoted arithmetic type is sufficient for an ICE proof,
+        // but cannot replace the enum-typed expression in ordinary constant folding.
+        if (!integralConstant) return Optional.empty();
+        var enumeration = EnumSemantics.declaration(destination);
+        if (enumeration.isEmpty() || value.isEmpty() || !EnumSemantics.containsKnownValue(enumeration.get(), value.get().number(), profile, constants))
+            return Optional.empty();
+        return EnumSemantics.underlying(enumeration.get(), profile, constants)
+                .flatMap(type -> EnumSemantics.promoteUnderlying(type, profile)).map(type -> new Value(value.get().number(), type));
+    }
     /** C++03 permits implementation-defined quotient rounding for negative, non-exact division. */
     private static boolean unspecifiedDivision(BigInteger a, BigInteger b, IntegerType target) {
         return !target.unsigned() && (a.signum() < 0 || b.signum() < 0) && a.remainder(b).signum() != 0;
@@ -201,9 +273,14 @@ final class ConstantEvaluator {
     private static Optional<Value> truth(boolean value, PlatformProfile profile) {
         return integerType("bool", profile).map(type -> new Value(value ? BigInteger.ONE : BigInteger.ZERO, type));
     }
-    /** Unsigned conversion is modulo the target width; out-of-range signed results remain unknown. */
-    static Optional<Value> cast(BigInteger number, IntegerType type) {
-        return result(type.spelling().equals("bool") ? (number.signum() == 0 ? BigInteger.ZERO : BigInteger.ONE) : number, type);
+    /** 4.7 conversions, not arithmetic overflow. The latter still uses result(). */
+    static Optional<Value> cast(BigInteger number, IntegerType type, PlatformProfile profile) {
+        if (type.spelling().equals("bool")) number = number.signum() == 0 ? BigInteger.ZERO : BigInteger.ONE;
+        else if (!type.unsigned() && !type.contains(number) && profile.signedIntegerConversion().equals("twos-complement")) {
+            number = number.mod(BigInteger.ONE.shiftLeft(type.bits()));
+            if (number.compareTo(type.max()) > 0) number = number.subtract(BigInteger.ONE.shiftLeft(type.bits()));
+        }
+        return result(number, type);
     }
     private static BigInteger convert(BigInteger value, IntegerType target) {
         return target.unsigned() ? value.mod(BigInteger.ONE.shiftLeft(target.bits())) : value;

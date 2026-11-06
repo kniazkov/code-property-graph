@@ -183,3 +183,159 @@ Without the first forward declaration, both produce a complete instance with no
 errors. GCC and Clang accept the full source with `-std=c++03 -pedantic-errors
 -fsyntax-only` (exit 0; Clang reports unused-value warnings). This valid-input
 selection gap is separate from the missing-header fix and remains follow-up work.
+
+
+## #88: enum, class and bit-field converted-case typing
+
+This section describes the #88 source/test scope and the focused execution below.
+Earlier commands, JAR hashes and observations above remain historical evidence
+for their original sources, not this extension. Final local aggregate validation is reported
+separately below; CI remains pending.
+
+The profile choices and printed-edition limits are documented in the
+[English model guide](../../model-guide.en.md#switch-converted-case-diagnostics-88)
+and [Russian model guide](../../model-guide.ru.md).
+The implementation uses `EnumSemantics`, `BitFieldSemantics`, `ConstantEvaluator`,
+`IntegralConstants`, `StandardConversions`, expression typing and `NameResolver` for duplicate-case
+proof, without asserting runtime class-conversion calls or full admissibility.
+
+New regression assertions in
+[`SwitchConversionCompletenessTest`](../../../src/test/java/com/kniazkov/cpg/SwitchConversionCompletenessTest.java)
+cover:
+
+- `enumUnderlyingChoicePrecedesFullRangePromotion`: explicit enum choices,
+  representability boundaries, aliases/references, condition declarations and
+  enum bit-fields. `enumAndCertifiedConstCasesAreEvaluatedContextually` adds
+  enumerator dependencies and certified const/static-const cases.
+- `unknownSignedConversionAndOptInWrapAreDistinctFromOverflow`: default unknown
+  versus explicit two's-complement conversion, width variation, explicit casts,
+  raw equal-value fallback and refusal to infer defined signed overflow.
+- `bitfieldPromotionsUseValueWidthNotStorageWidth`,
+  `plainBitfieldSignednessIsAnIndependentTargetChoice`,
+  `bitfieldDescendantsDoNotTaintUnambiguousResultTypes` and
+  `preCwg324ResultProvenanceStaysUnknown`: direct width/padding, plain versus
+  explicit signedness, expression promotions and the printed pre-CWG324 boundary.
+- `uniqueClassConversionsIncludeReferencesDeclarationsAndInheritance` and
+  `ambiguousInaccessibleAndUncallableClassConversionsAreNotGuessed`: exactly one
+  eligible conversion function, inheritance/access/cv/reference cases, no modern
+  unique-target relaxation or guessed conversion chains.
+- `foldableButForbiddenCaseSyntaxAndNonconstantsStayUnevaluated`: 5.19 syntax in
+  all arms, volatile/reference/nonstatic-member exclusions and cycle guards.
+- `nestedLabelsCopyJsonRangesAndEditedRebuildRemainExact`: per-switch identity,
+  diagnostic locations, copying/export and rebuilding after an edit.
+
+These scoped assertions were exercised in the focused run recorded below.
+Ledger updates are limited to 6.4.2/2 and the relevant portions of 4.5/2, 4.5/3,
+4.7/3, 7.2/5 and 9.6/3. In particular enum sizeof, bit-field layout/address/reference
+restrictions and complete switch/ICE admissibility are not established here.
+
+
+### #88 review-driven scope additions
+
+The following review regressions are included in the focused run below:
+
+- `enumPromotionsShareTheOverloadPolicy` checks shared enum promotion policy.
+- `contextualConstantsReachNestedPromotionExpressions` checks enum/const names in
+  field widths and enum initializers within nested unary/arithmetic promotions.
+- `referenceConditionsAndProtectedReceiversUseActualObjectTypes` checks reference
+  declarations and protected conversion access against the receiver's actual type.
+- `lvalueWrappersCannotEraseUnknownHistoricalFieldProvenance` retains conservative
+  pre-CWG324 provenance through implicit lvalue-to-rvalue wrappers.
+- `ownershipRatherThanAccessMetadataCertifiesStaticConstants` checks that actual
+  declaration ownership, not access metadata alone, certifies static constants.
+- `repeatedCrossEnumDependenciesAreMemoizedAndCyclesRemainUnknown` checks repeated
+  enum dependencies under a time bound; existing cycle examples remain in
+  `foldableButForbiddenCaseSyntaxAndNonconstantsStayUnevaluated`.
+- `integralEnumCastsUseOnlyProvenValuesAndFloatingPolicyStaysUnknown` checks the
+  deliberately narrow enum-cast range and floating-zero/nonzero boundary.
+
+`IntegralConstants` owns snapshot/profile-scoped successful-value memoization,
+cycle guards and enum/member ownership certification, shared by `TypeSemantics`
+and `StandardConversions`. Enum casts prove only values between minimum/maximum
+enumerators (zero for an empty enum), not the entire printed 7.2/6 range. The
+normative wording/footnote 81 discrepancy and later CWG58 are not silently treated
+as equivalent. Direct floating zero can be converted to integer; nonzero floating
+literals remain unknown because storage sizes alone do not specify the target
+floating representation or rounding. They are not thereby diagnosed invalid.
+No broad C++ conformance conclusion is inferred from a C defect-report reading.
+
+[`SwitchCaseConversionsIT`](../../../src/test/java/com/kniazkov/cpg/e2e/SwitchCaseConversionsIT.java)
+adds `convertedCollisionsReachCliJsonAtTheConflictingLabel`,
+`explicitProfilesControlCliConversionsIndependentlyOfHost` and
+`validOriginalAndGeneratedSourcesRunOnBothStrictCompilers`. These assert API/CLI
+JSON diagnostics and exact label locations, custom-profile behavior, refusal to
+emit invalid examples, compiler-only rejection of invalid inputs and execution
+of valid original/generated sources with GCC and Clang in strict C++03 mode.
+Native compiler agreement is scoped to the supplied ordinary cases, not all
+implementation-defined profiles. These assertions passed in the focused run below.
+
+
+### #88 confirmed validation, production revision f190ae4
+
+Production revision: `f190ae4127570c057bf34d0dc1bfd23c930be84b`.
+A fresh local build at `/tmp/cpp03-local.Orwme5/cpg.jar`, SHA-256
+`9561c93b74a8e8f69345621a9f4d6bb656e32d671f927df96b0d7ef1d59667ff`,
+passed **91/91** focused tests with no failures. Log:
+`/tmp/cpp03-switch-focused-final.log`. Suites:
+`SwitchCaseConversionTest`, `SwitchConversionCompletenessTest`,
+`PlatformProfileTest`, `OverloadResolutionTest`, `TypedConstantFoldingTest`,
+`ProfileTypeSemanticsTest`, `Cpp03StatementScopesTest`, and
+`e2e.SwitchCaseConversionsIT`.
+
+Independent review reran the original reproductions and all 19 tests in
+`SwitchConversionCompletenessTest`, reporting no blocker. JavaDoc also passed.
+The ledger checker reported zero errors; its own tests passed 13/13. These checks
+establish only their stated assertions and do not establish whole-language
+conformance or complete coverage of the cited paragraphs.
+
+A separate aggregate run on the same production revision used the `EExidt`
+build, SHA-256
+`99b010e85aa31e6b2c4635e616003404209b7c5c7c6c4fc3e1dc20508a37da11`.
+It passed **1303/1305**, with two failures:
+`PackagedCliIT.completeCppSnapshotAndSource` and
+`JsonExportTest.completeSnapshotMatchesReviewedFixture`. Log:
+`/tmp/cpp03-tools/full88-reviewed.log`. The failures were stale return-zero JSON
+fixtures after adding explicit profile fields and changing the corresponding
+stable-identity hash. Fixture-only revision
+`f30303b18fd57b960bec9ae1e7111f0dbf3f0880` corrects exactly 37 JSON values per
+fixture: 36 default-profile identity references and one profile text value adding
+`bitFieldSignedness=signed`, `enumUnderlyingType=int-first`, and
+`signedIntegerConversion=unknown`. Review found no other graph changes.
+`JsonExportTest` and `e2e.PackagedCliIT` then passed **7/7** using the same `EExidt`
+production JAR and hash above. Log: `/tmp/cpp03-switch-snapshots-final.log`.
+The final local aggregate rerun on revision
+`19ea97650b26685446ebf97ae9b6cd81d5284ee7` passed **1305/1305**, with zero
+skipped, aborted or failed tests and all 150 containers successful, in
+1,333,701 ms. Artifact: `/tmp/cpp03-local.MgnWrb/cpg.jar`, verified SHA-256
+`2cd7c22e307e70e07c93eda6ddcb337755f63c311fbd5bf683c8c7d06e30e24a`.
+Log: `/tmp/cpp03-tools/full88-final.log`. JavaDoc passed. This final run includes
+the fixture corrections; the earlier 1303/1305 observation and 7/7 follow-up
+remain recorded above. CI remains pending. Passing the local suite does not
+expand the implementation scope or prove complete C++03 conformance.
+
+Reproduction invocations for the recorded local artifacts (from repository root;
+these temporary paths require the corresponding build and JUnit/JSON dependencies):
+
+```sh
+export PATH=/tmp/cpp03-clang-bin:$PATH
+export CPATH=/usr/lib/gcc/x86_64-linux-gnu/14/include
+java -Xmx512m -Dcpg.e2e.jar=/tmp/cpp03-local.Orwme5/cpg.jar \
+  -jar /tmp/cpp03-tools/junit.jar execute \
+  --class-path /tmp/cpp03-local.Orwme5/classes:/tmp/cpp03-local.Orwme5/test-classes:/tmp/cpp03-tools/json.jar:src/test/resources \
+  --select-class com.kniazkov.cpg.SwitchCaseConversionTest \
+  --select-class com.kniazkov.cpg.SwitchConversionCompletenessTest \
+  --select-class com.kniazkov.cpg.PlatformProfileTest \
+  --select-class com.kniazkov.cpg.OverloadResolutionTest \
+  --select-class com.kniazkov.cpg.TypedConstantFoldingTest \
+  --select-class com.kniazkov.cpg.ProfileTypeSemanticsTest \
+  --select-class com.kniazkov.cpg.Cpp03StatementScopesTest \
+  --select-class com.kniazkov.cpg.e2e.SwitchCaseConversionsIT \
+  --details summary --disable-banner
+
+java -Xmx512m -Dcpg.e2e.jar=/tmp/cpp03-local.EExidt/cpg.jar \
+  -jar /tmp/cpp03-tools/junit.jar execute \
+  --class-path /tmp/cpp03-local.EExidt/classes:/tmp/cpp03-local.EExidt/test-classes:/tmp/cpp03-tools/json.jar:src/test/resources \
+  --select-class com.kniazkov.cpg.JsonExportTest \
+  --select-class com.kniazkov.cpg.e2e.PackagedCliIT \
+  --details summary --disable-banner
+```

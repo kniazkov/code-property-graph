@@ -51,6 +51,18 @@ public final class OperatorSemantics {
         return conversions.size() == 1 ? Optional.of(conversions.getFirst()) : original;
     }
 
+    /** Built-in promotions use an operand's bit-field range, not only its declared type. */
+    static Optional<TypeNode> builtinPromotedOperandType(Expression expression, PlatformProfile profile) {
+        return builtinPromotedOperandType(expression, profile, ignored -> Optional.empty());
+    }
+    static Optional<TypeNode> builtinPromotedOperandType(Expression expression, PlatformProfile profile,
+            Function<Declaration, Optional<ConstantEvaluator.Value>> constants) {
+        var original = TypeSemantics.expressionType(expression, profile, constants);
+        if (original.flatMap(ClassSemantics::objectClass).isPresent())
+            return builtinOperandType(expression, profile).flatMap(type -> TypeSemantics.promoted(type, profile, constants));
+        return TypeSemantics.promoted(expression, profile, constants);
+    }
+
     public static String operatorName(Expression expression) {
         String token = switch (expression) {
             case AddExpression ignored -> "+";
