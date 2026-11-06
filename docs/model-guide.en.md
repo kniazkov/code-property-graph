@@ -1426,3 +1426,47 @@ Function scope includes the owned subtree, including methods of local classes.
 Its history covers those nested callables. Combining separate function runs does
 not substitute for a whole-project custom invocation: global-node products need
 the callback to run with project scope.
+
+### Lattice values and opt-in integer ranges (#47)
+
+`com.kniazkov.cpg.lattice.Lattice<E>` defines `lessOrEqual`, `join`, `meet`,
+`bottom()` and `top()`. Its immutable values implement `LatticeElement.toJson()`.
+The result encoder calls this interface, including for an external custom domain;
+it does not select an encoder by a list of known domain classes. An explicitly
+registered exact-type encoder still takes precedence. JSON is frozen once at
+publication, just like other custom results.
+
+`IntegerDomain.INSTANCE` is a language-independent mathematical integer lattice.
+Its factory produces immutable `IntegerValue` objects with inclusive `BigInteger`
+bounds. `constant(7)` and `interval(7, 7)` are equal normalized constants;
+`interval(7, 9)` remains an interval. Reversed bounds produce bottom, and unbounded
+ends can be created with `atLeast` or `atMost`. Join computes the interval hull:
+joining 1 and 10 yields `[1, 10]`, not a two-element set. Consequently 5 remains
+possible in this approximation. Bottom means no possible integer; top means any
+integer. Neither is the same as an absent published `ResultKey` value.
+
+`IntegerRanges` is an explicitly registered `AnalysisPass`, with public `ID` and
+`RANGE` key. Register `new IntegerRanges()` with `PassRunner` and request its ID,
+or declare that ID in another pass's `requires()`. Ordinary parsing, building,
+export and result queries do not execute the interval pass. A dependent request
+prepares missing ranges first and records the actual invocation order. Stale
+results follow the same conservative freshness contract as other custom passes.
+
+The first range pass deliberately supports a small, conservative scalar subset:
+automatic nonvolatile `int`/`bool` locals, by-value parameters, pure literals and
+names, unary `+`, `-`, `!`, arithmetic `+`, `-`, `*`, comparisons, safe conversions,
+standalone assignment/increment, and structured loops/branches/returns. Integer
+bounds come from the target platform profile (Java uses 32-bit `int`). Possible
+machine overflow loses precision to top; the mathematical lattice does not
+silently justify overflowing source arithmetic. There is no branch-condition
+refinement. Repeatedly growing loop states widen to top after a bounded number
+of joins.
+
+Calls, aliasing, members, static/global state, volatile accesses, unsigned or
+other unsupported numeric types and unsupported expression/control-flow forms
+make the callable conservative: all its published ranges become top. This is a
+soundness boundary, not a claim to analyze all C++03 arithmetic precisely. For a
+supported callable, unevaluated nodes retain bottom. Expression products describe
+possible evaluation values; declaration products describe initialization rather
+than the variable's final value, and assignment-target products describe written
+values. Parameters start unknown (`bool` is bounded to 0 and 1).

@@ -494,3 +494,14 @@ warnings treated as errors. It executes typed analysis/dependency and transforma
 extensions, parses their JSON outside the graph API, and compiles/runs original,
 transformed and CLI-reparsed C++03 source trees with both GCC and Clang. The client
 uses no package-private hooks or dynamic CLI plugin loader.
+
+### Integer lattice and opt-in passes (#47)
+
+The `integer-ranges` corpus scenario compiles an external Java client against the
+packaged JAR. It compares ordinary construction with an explicit range request
+and a dependent check that automatically prepares missing ranges. It checks
+singleton normalization, the `[1,10]` branch join with possible equality to 5,
+producer history, custom-domain interface JSON, and absent versus bottom/top
+products. Original and generated/reparsed C++03 sources execute with both required
+compilers. See `examples/cpp03-integer-ranges` and the model guide for the precise
+conservative subset; this scenario is not proof of complete numeric semantics.
