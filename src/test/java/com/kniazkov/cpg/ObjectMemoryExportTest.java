@@ -32,7 +32,7 @@ class ObjectMemoryExportTest {
         assertThrows(IllegalArgumentException.class, () -> Source.render(project.files().getFirst(), Language.JAVA));
     }
     @Test void allocationsTypeidAndDeletionsRoundTrip() {
-        var project = parse("void f(void* arena) { int* a = new int; int* b = new int(); int* c = new int[3]; int* d = new (arena) int(7); int* e = ::new (int); typeid(int); typeid(*a); delete a; delete b; delete[] c; ::delete e; }");
+        var project = parse("#include <typeinfo>\nvoid f(void* arena) { int* a = new int; int* b = new int(); int* c = new int[3]; int* d = new (arena) int(7); int* e = ::new (int); typeid(int); typeid(*a); delete a; delete b; delete[] c; ::delete e; }");
         String source = Source.render(project.files().getFirst(), Language.CPP);
         var reparsed = parse(source);
         var before = nodes(project, NewExpression.class);

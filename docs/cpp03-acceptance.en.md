@@ -72,11 +72,13 @@ audit gates above remain open.
 
 ## Findings already confirmed by the source audit
 
-These are remaining gaps, not fixes delivered by this audit:
+These findings describe the original audit; subsequent corrections are identified separately:
 
-- The CLI accepts `typeid(int)` without a preceding `<typeinfo>` inclusion, and
-  accepts two switch labels that become equal after conversion to the unsigned
-  condition type. [Reproduction commands and results](cpp03-paragraphs/probes/ExpressionDiagnosticProbes.md)
+- The original audit CLI accepted `typeid(int)` without a preceding `<typeinfo>`
+  inclusion and two switch labels equal after unsigned condition conversion.
+  The subsequent [diagnostic regressions](cpp03-paragraphs/probes/DiagnosticRegressionResults.md)
+  now cover prior-header checks and promoted fundamental switch types. Enum/class/bit-field
+  conditions and signed out-of-range conversion remain outside that conversion proof. [Reproduction commands and results](cpp03-paragraphs/probes/ExpressionDiagnosticProbes.md)
   identify the exact executable used.
 - Nested/enclosing-class private access is inconsistent: the focused probe
   diagnoses private methods but misses corresponding field/type cases.

@@ -221,7 +221,7 @@ public final class Parser {
                 result.presenceChecks().stream().map(c -> new Preprocessing.PresenceCheck(c.id(), c.name(), c.range(),
                         c.include().occurrence(), c.present(), c.conditionResult(), c.definitionId(), c.branchId())).toList(),
                 result.directives().stream().map(d -> new Preprocessing.Directive(d.kind(), d.rawSource(), d.range(),
-                        d.include().occurrence(), d.active())).toList(),
+                        d.include().occurrence(), d.active(), d.includedHeader(), d.startToken())).toList(),
                 result.logicalLocations().stream().map(l -> new Preprocessing.LogicalLocation(l.range(),
                         l.include().occurrence(), l.file(), l.line())).toList(),
                 result.includeStates().stream().map(s -> new Preprocessing.IncludeState(s.include().occurrence(), s.activeDefinitions())).toList(), result.translationTime());

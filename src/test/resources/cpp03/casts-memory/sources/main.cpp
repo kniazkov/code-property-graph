@@ -1,4 +1,4 @@
-namespace std { class type_info; }
+#include <typeinfo>
 void* operator new(unsigned long size, void* address) { return address; }
 struct S { char c; int i; };
 struct Base { int base; };

@@ -144,6 +144,7 @@ public final class NameResolver {
         final Set<Declaration> writtenClassMembers = Collections.newSetFromMap(new IdentityHashMap<>());
         int position;
         final Map<SourceFile,Map<String,Integer>> libraryActivation=new IdentityHashMap<>();
+        final Map<TypeidExpression,TypeidExpression> typeidOrigins=new IdentityHashMap<>();
         final Map<SourceFile,Set<SourceFile>> visibleLibraries=new IdentityHashMap<>();
         boolean instantiationLimitReached;
         Engine(Project project) {
@@ -166,10 +167,12 @@ public final class NameResolver {
                 for (SourceFile library : project.librarySources()) if (visibleLibraries.get(file).contains(library)) mergeScope(root, originalLibraries.get(library));
                 index(file, root);
                 var active=new HashMap<String,Integer>(); libraryActivation.put(file,active);
-                file.walk(new NodeVisitor(){@Override public void visit(IncludeDirective include){
-                    if(include.system()) for(String header:LibraryDeclarations.activatedHeaders(include.header()))
-                        active.merge(header,positions.get(include),Math::min);
-                }});
+                file.walk(new NodeVisitor(){
+                    @Override public void visit(IncludeDirective include){
+                        if(include.system()) for(String header:LibraryDeclarations.activatedHeaders(include.header()))
+                            active.merge(header,positions.get(include),Math::min);
+                    }
+                });
             }
             for (ClassTemplateInstance instance : project.classTemplateInstances()) {
                 Scope root = roots.get(instance.source());
@@ -184,6 +187,7 @@ public final class NameResolver {
                 scopes.put(instance, isolated); positions.put(instance, position++);
                 instance.arguments().forEach(argument -> index(argument, isolated));
                 index(instance.declaration(),isolated);
+                bindTypeidOrigins(instance.declaration(),instance.selected());
             }
             for (TemplateInstance instance : project.templateInstances()) {
                 Scope root = roots.get(instance.source());
@@ -200,7 +204,24 @@ public final class NameResolver {
                 scopes.put(instance, isolated); positions.put(instance, position++);
                 instance.structuredArguments().forEach(argument -> index(argument,isolated));
                 index(instance.declaration(), isolated);
+                bindTypeidOrigins(instance.declaration(),instance.selected());
             }
+        }
+
+        void bindTypeidOrigins(Node derived, Node original) {
+            var uses = new ArrayList<TypeidExpression>();
+            original.walk(new NodeVisitor() { @Override public void visit(TypeidExpression expression) { uses.add(expression); } });
+            derived.walk(new NodeVisitor() { @Override public void visit(TypeidExpression expression) {
+                // Only an explicit instantiation edge grants definition context.
+                // Match within that declaration, consuming duplicate provenance in
+                // syntax order instead of sharing a TU-wide token-position map.
+                for (int i = 0; i < uses.size(); i++) {
+                    TypeidExpression candidate = uses.get(i);
+                    if (expression.provenance().equals(candidate.provenance())) {
+                        typeidOrigins.put(expression,candidate); uses.remove(i); break;
+                    }
+                }
+            } });
         }
 
         Scope importScope(Scope original, Scope parent) {
@@ -394,9 +415,33 @@ public final class NameResolver {
         }
         static final class SwitchLabels {
             final Node owner;
-            SwitchLabels(Node owner) { this.owner = owner; }
+            final Optional<ConstantEvaluator.IntegerType> promotedType;
+            SwitchLabels(Node owner, Optional<ConstantEvaluator.IntegerType> promotedType) {
+                this.owner = owner; this.promotedType = promotedType;
+            }
             boolean hasDefault;
             final Set<java.math.BigInteger> values = new HashSet<>();
+        }
+        Optional<ConstantEvaluator.IntegerType> switchPromotedType(SwitchStatement selection) {
+            Expression condition = selection.condition();
+            // Bit-fields have their own range-based promotions (4.5/3). Do not
+            // substitute the full declared type, including through compound expressions.
+            boolean[] bitField = {false};
+            condition.walk(new NodeVisitor() {
+                @Override public void visit(NameExpression name) { inspect(name.target()); }
+                @Override public void visit(MemberExpression member) { inspect(member.target()); }
+                void inspect(Optional<Declaration> target) {
+                    bitField[0] |= target.filter(VariableDeclaration.class::isInstance).map(VariableDeclaration.class::cast)
+                            .flatMap(VariableDeclaration::bitWidth).isPresent();
+                }
+            });
+            if (bitField[0]) return Optional.empty();
+            var profile = TypeSemantics.profile(scopes.get(selection).file);
+            Optional<TypeNode> type = condition instanceof ConditionDeclarationExpression declaration
+                    ? declaration.declaration().type() : TypeSemantics.expressionType(condition, profile);
+            // Enum underlying types and class conversion functions need separate policies.
+            return type.flatMap(value -> TypeSemantics.integerType(value, profile))
+                    .flatMap(value -> ConstantEvaluator.promote(value, profile));
         }
         void validateStatement(Node node, int loops, Deque<SwitchLabels> switches, int handlers,
                 Map<String, LabelStatement> labels, List<GotoStatement> jumps) {
@@ -431,7 +476,9 @@ public final class NameResolver {
                     if (switches.peek().hasDefault) error(node, "duplicate-default", "Duplicate default in switch");
                     switches.peek().hasDefault = true;
                 } else ConstantEvaluator.evaluate(label.value().get(), TypeSemantics.profile(scopes.get(node).file)).ifPresent(value -> {
-                    if (!switches.peek().values.add(value.number())) error(node, "duplicate-case", "Duplicate case value in switch");
+                    var converted = switches.peek().promotedType.flatMap(type -> ConstantEvaluator.cast(value.number(), type))
+                            .map(ConstantEvaluator.Value::number).orElse(value.number());
+                    if (!switches.peek().values.add(converted)) error(node, "duplicate-case", "Duplicate case value in switch");
                 });
             }
             if (node instanceof CaseStatement && !switches.isEmpty()) {
@@ -446,7 +493,7 @@ public final class NameResolver {
                 editor.diagnose(node, new Diagnostic("rethrow-without-lexical-handler", Diagnostic.Severity.WARNING,
                         "Rethrow requires a dynamically active exception; otherwise execution terminates"));
             boolean isSwitch = node instanceof SwitchStatement;
-            if (isSwitch) switches.push(new SwitchLabels(node));
+            if (isSwitch) switches.push(new SwitchLabels(node, switchPromotedType((SwitchStatement) node)));
             int nextLoops = loops + (node instanceof WhileStatement || node instanceof DoWhileStatement || node instanceof ForStatement ? 1 : 0);
             int nextHandlers = handlers + (node instanceof CatchClause ? 1 : 0);
             for (Node child : node.children()) validateStatement(child, nextLoops, switches, nextHandlers, labels, jumps);
@@ -750,7 +797,14 @@ public final class NameResolver {
             boolean internal = generic.modifiers().contains("static") || scope != null && scope.anonymous;
             return (internal ? file.path() + ":" : "") + owner + ":" + generic.name() + ":" + signature(generic)
                     + ":" + arguments.stream().map(argument -> argument.type().map(TypeNode::canonicalIdentity).orElseGet(() -> ConstantEvaluator.evaluate(argument.expression().orElseThrow(),TypeSemantics.profile(file)).map(v->v.number().toString()).orElse("unsupported-value"))).toList()
-                    + ":" + generic.source(Language.CPP) + ":" + file.language() + ":" + TypeSemantics.profile(file).stableIdentity();
+                    + ":" + templateIdentitySyntax(generic) + ":" + file.language() + ":" + TypeSemantics.profile(file).stableIdentity();
+        }
+        private String templateIdentitySyntax(CallableDeclaration generic) {
+            // Re-resolving an already diagnosed definition still needs its syntax
+            // identity. A detached edit drops derived findings; this does not
+            // remove diagnostics from the project or permit invalid source export.
+            Node syntax = ConstantEvaluator.hasSemanticErrors(generic) ? generic.edit().build() : generic;
+            return syntax.source(Language.CPP);
         }
 
         Project bindNames() {
@@ -1047,6 +1101,31 @@ public final class NameResolver {
             if(!LibraryDeclarations.isLibrary(definition) || occurrence==null || occurrence.file==definition) return true;
             if(LibraryDeclarations.isLibrary(occurrence.file)) return visibleLibraries.getOrDefault(occurrence.file,Set.of()).contains(definition);
             return libraryActivation.getOrDefault(occurrence.file,Map.of()).getOrDefault(LibraryDeclarations.headerName(definition),Integer.MAX_VALUE)<=point;
+        }
+        boolean typeinfoIncludedBefore(TypeidExpression expression) {
+            Set<TypeidExpression> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+            while (typeidOrigins.containsKey(expression) && seen.add(expression)) expression = typeidOrigins.get(expression);
+            SourceFile file = scopes.get(expression).file;
+            int point = positions.get(expression);
+            // Retained syntax is authoritative for modeled headers, including
+            // removal/reordering through ProjectEditor rather than reparsing.
+            if (libraryActivation.getOrDefault(file,Map.of()).getOrDefault("typeinfo",Integer.MAX_VALUE) < point) return true;
+            // Template copies keep their original preprocessing provenance: an
+            // include at the instantiation point cannot repair an earlier use.
+            if (expression.provenance().isPresent()) {
+                TokenProvenance use = expression.provenance().orElseThrow();
+                // Source edits may move an ordinary declaration between TUs while
+                // retaining its old source range. Its old TU cannot grant access.
+                if (file.provenance().map(TokenProvenance::unit).orElse(null) != use.unit()) return false;
+                return use.unit().directives().stream().anyMatch(directive -> directive.active()
+                        && "typeinfo".equals(directive.includedHeader()) && directive.startToken() >= 0
+                        && directive.startToken() <= use.startToken()
+                        // Opaque includes already have syntax checked above. A
+                        // physical include contributes its contents, possibly none.
+                        && (directive.startToken() >= use.unit().tokens().size()
+                            || !use.unit().tokens().get(directive.startToken()).spelling().equals("<typeinfo>")));
+            }
+            return false;
         }
         List<Match> ownDirect(String name, Scope scope, int point, Set<Declaration> active, boolean tagsOnly, boolean completeClassContext) {
             var direct = new ArrayList<Match>();
@@ -1347,6 +1426,8 @@ public final class NameResolver {
                 @Override public void visit(NewExpression expression) { validateNew(expression); }
                 @Override public void visit(DeleteExpression expression) { validateDelete(expression); }
                 @Override public void visit(TypeidExpression expression) {
+                    if (!typeinfoIncludedBefore(expression))
+                        error(expression, "missing-typeinfo", "typeid requires a preceding inclusion of <typeinfo>");
                     var profile = TypeSemantics.profile(scopes.get(expression).file);
                     expression.type().or(() -> expression.operand().flatMap(operand -> TypeSemantics.expressionType(operand, profile)))
                             .map(type -> TypeSemantics.unqualified(TypeSemantics.withoutReference(type)))

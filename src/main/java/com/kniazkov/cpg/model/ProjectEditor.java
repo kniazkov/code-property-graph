@@ -383,6 +383,7 @@ public final class ProjectEditor {
                 @Override public void visit(MemberExpression member) { ((MemberExpression.Builder<?, ?>) fork.copy(member)).clearTarget().setDependent(false); }
             });
             var b = new TemplateInstance.Builder(); b.origin = context.edge(instance.origin(), CallableDeclaration.class);
+            b.selected = context.edge(instance.definition(), CallableDeclaration.class);
             b.requests = new ArrayList<>(List.of(context.copy(instance.cause()))); b.source = context.edge(instance.file(), SourceFile.class);
             b.declaration = declaration;
             var structured=new ArrayList<NodeBuilder<? extends TemplateArgument>>();
