@@ -149,6 +149,11 @@ final class ExpressionParser {
     private NodeBuilder<? extends Expression> primary() {
         var start = tokens.start();
         if (java.util.Set.of(";", ")", "]", "}", ",", ":", "<eof>").contains(tokens.peek())) throw tokens.missingExpression();
+        if (language == Language.CPP && tokens.peek().equals("__builtin_huge_val")) {
+            if (tokens.platform().hugeVal().isEmpty()) throw tokens.error("Compiler intrinsic requires hugeVal capability");
+            tokens.advance(); tokens.expect("("); tokens.expect(")");
+            return tokens.span(start, CompilerIntrinsicExpression.create());
+        }
         NodeBuilder<? extends Expression> value;
         if (language == Language.CPP && types != null && types.functionalTypeAhead()) {
             int checkpoint = tokens.checkpoint();

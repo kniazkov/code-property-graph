@@ -19,11 +19,12 @@ public final class PlatformProfile {
     private static final List<String> SCALARS = List.of("bool", "char", "short", "int", "long",
             "long long", "wchar_t", "float", "double", "long double", "pointer");
     private static final Set<String> SETTINGS = Set.of("inherits", "name", "bitsPerByte", "sizes", "alignments",
-            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness", "floatingFormats", "floatingRounds", "nullPointerConstant", "maxMultibyteLength", "cRuntime", "runtimeIntegerMacros", "mbCurMaxBinding", "standardStreamsBinding", "wideInteger", "clockScale");
+            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness", "floatingFormats", "floatingRounds", "nullPointerConstant", "maxMultibyteLength", "cRuntime", "runtimeIntegerMacros", "mbCurMaxBinding", "standardStreamsBinding", "wideInteger", "clockScale", "hugeVal");
     private static final PlatformProfile DEFAULT = new Builder(true).build();
     private final Map<String, RuntimeIntegerMacros.Fact> runtimeIntegerMacros;
     private final WideIntegerModel wideInteger;
     private final ClockScaleModel clockScale;
+    private final HugeValModel hugeVal;
     private final Map<String, String> floatingFormats;
     private final int floatingRounds, maxMultibyteLength;
     private final String nullPointerConstant, cRuntime, mbCurMaxBinding, standardStreamsBinding;
@@ -122,6 +123,8 @@ public final class PlatformProfile {
         signedIntegerConversion = policy(b.signedIntegerConversion, "signedIntegerConversion",
                 Set.of("unknown", "twos-complement"));
         runtimeIntegerMacros = RuntimeIntegerMacros.validate(b.runtimeIntegerMacros, this);
+        hugeVal = b.hugeVal;
+        if (hugeVal != null) hugeVal.validate(this);
         clockScale = b.clockScale;
         if (clockScale != null) clockScale.validate(this);
         wideInteger = b.wideInteger;
@@ -145,6 +148,7 @@ public final class PlatformProfile {
     /** Explicit external stream-object contract; no FILE layout is implied. */
     public String standardStreamsBinding() { return standardStreamsBinding; }
     public String mbCurMaxBinding() { return mbCurMaxBinding; }
+    public Optional<HugeValModel> hugeVal() { return Optional.ofNullable(hugeVal); }
     public Optional<ClockScaleModel> clockScale() { return Optional.ofNullable(clockScale); }
     public Optional<WideIntegerModel> wideInteger() { return Optional.ofNullable(wideInteger); }
     public Map<String, RuntimeIntegerMacros.Fact> runtimeIntegerMacros() { return runtimeIntegerMacros; }
@@ -225,6 +229,7 @@ public final class PlatformProfile {
         map.put("cRuntime", cRuntime);
         map.put("mbCurMaxBinding", mbCurMaxBinding);
         map.put("standardStreamsBinding", standardStreamsBinding);
+        map.put("hugeVal", hugeVal == null ? Map.of() : hugeVal.settings());
         map.put("clockScale", clockScale == null ? Map.of() : clockScale.settings());
         map.put("wideInteger", wideInteger == null ? Map.of() : wideInteger.settings());
         var facts = new LinkedHashMap<String,Object>();
@@ -314,6 +319,14 @@ public final class PlatformProfile {
         if (settings.containsKey("cRuntime")) b.cRuntime(string(settings.get("cRuntime"), "cRuntime"));
         if (settings.containsKey("standardStreamsBinding")) b.standardStreamsBinding(string(settings.get("standardStreamsBinding"), "standardStreamsBinding"));
         if (settings.containsKey("mbCurMaxBinding")) b.mbCurMaxBinding(string(settings.get("mbCurMaxBinding"), "mbCurMaxBinding"));
+        if (settings.containsKey("hugeVal")) {
+            if (!(settings.get("hugeVal") instanceof Map<?,?> model)) throw invalid("hugeVal must be an object");
+            if (model.isEmpty()) b.hugeVal = null;
+            else {
+                if (!model.keySet().equals(Set.of("kind", "emission"))) throw invalid("hugeVal requires exactly kind and emission");
+                b.hugeVal(string(model.get("kind"), "hugeVal.kind"), string(model.get("emission"), "hugeVal.emission"));
+            }
+        }
         if (settings.containsKey("clockScale")) {
             if (!(settings.get("clockScale") instanceof Map<?,?> model)) throw invalid("clockScale must be an object");
             if (model.isEmpty()) b.clockScale = null;
@@ -391,6 +404,7 @@ public final class PlatformProfile {
         private final Map<String, RuntimeIntegerMacros.Fact> runtimeIntegerMacros = new LinkedHashMap<>();
         private WideIntegerModel wideInteger;
         private ClockScaleModel clockScale;
+        private HugeValModel hugeVal;
         private final Map<String, String> floatingFormats = new LinkedHashMap<>(Map.of(
                 "float", "unknown", "double", "unknown", "long double", "unknown"));
         private int floatingRounds = -1, maxMultibyteLength = 1;
@@ -417,6 +431,7 @@ public final class PlatformProfile {
             runtimeIntegerMacros.putAll(p.runtimeIntegerMacros);
             wideInteger = p.wideInteger;
             clockScale = p.clockScale;
+            hugeVal = p.hugeVal;
             cRuntime = p.cRuntime; mbCurMaxBinding = p.mbCurMaxBinding; standardStreamsBinding = p.standardStreamsBinding;
             floatingFormats.putAll(p.floatingFormats); floatingRounds = p.floatingRounds;
             maxMultibyteLength = p.maxMultibyteLength; nullPointerConstant = p.nullPointerConstant;
@@ -430,6 +445,7 @@ public final class PlatformProfile {
         public Builder runtimeIntegerMacro(String name, String type, String decimal) {
             runtimeIntegerMacros.put(name, RuntimeIntegerMacros.Fact.parse(type, decimal)); return this;
         }
+        public Builder hugeVal(String kind, String emission) { hugeVal = new HugeValModel(kind, emission); return this; }
         public Builder clockScale(String clockType, String expressionType, String value) { clockScale = ClockScaleModel.parse(clockType, expressionType, value); return this; }
         public Builder wideInteger(String type, String decimal, String domain) { wideInteger = WideIntegerModel.parse(type, decimal, domain); return this; }
         public Builder cRuntime(String value) { cRuntime = value; return this; }

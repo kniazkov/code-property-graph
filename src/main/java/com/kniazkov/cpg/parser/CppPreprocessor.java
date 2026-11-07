@@ -717,6 +717,20 @@ public final class CppPreprocessor {
                 }
             }
             String canonical = com.kniazkov.cpg.analysis.StandardLibraryCatalogue.canonicalHeader(header);
+            if (canonical.equals("cmath")) {
+                var model = unit.platform().hugeVal();
+                String file = unit.directory().resolve("<cpg-library:" + header + ":HUGE_VAL>").toString();
+                String source = "HUGE_VAL " + model.map(m -> m.replacement()).orElse("");
+                definitionSources.put(file, source);
+                define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                        "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":HUGE_VAL");
+                if (model.isEmpty()) {
+                    Definition d = definitions.getLast();
+                    definitions.set(definitions.size() - 1, new Definition(d.id(), d.name(), false, List.of(),
+                            d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(),
+                            "Library macro HUGE_VAL requires an explicit hugeVal compiler capability"));
+                }
+            }
             if (canonical.equals("ctime")) {
                 var model = unit.platform().clockScale();
                 String file = unit.directory().resolve("<cpg-library:" + header + ":CLOCKS_PER_SEC>").toString();

@@ -67,9 +67,14 @@ public final class Source {
 
     /** Retains lexical block context when a source-preserving edit renders one local declaration. */
     static String renderFragment(Node node, Language target, boolean local) {
-        requireComplete(node);
+        return renderFragment(node, target, local, null);
+    }
+
+    /** An isolated replacement uses its enclosing translation unit's selected compiler contract. */
+    static String renderFragment(Node node, Language target, boolean local, Preprocessing context) {
+        requireComplete(node, context);
         if (node instanceof Project project) requireVariantSelection(project);
-        if (!languages(node).contains(target)) throw new IllegalArgumentException("Unsupported direct emission to " + target);
+        if (!languages(node, context).contains(target)) throw new IllegalArgumentException("Unsupported direct emission to " + target);
         var source = new Source(target);
         source.blockDepth = local ? 1 : 0;
         return source.emit(node, 0);
@@ -77,8 +82,13 @@ public final class Source {
 
     /** Intersects the language restrictions of owned syntax nodes without following semantic references. */
     public static Set<Language> languages(Node node) {
+        return languages(node, null);
+    }
+
+    private static Set<Language> languages(Node node, Preprocessing context) {
         EnumSet<Language> targets = EnumSet.copyOf(SUPPORTED_TARGETS);
         if (!implicitIntroductionsMatch(node)) targets.clear();
+        if (!intrinsicsSupported(node, context, context != null)) targets.clear();
         node.walk(new NodeVisitor() {
             @Override public void visit(Node n) {
                 if (n instanceof Comment comment && !javaComment(comment)) targets.remove(Language.JAVA);
@@ -89,7 +99,7 @@ public final class Source {
                         || n instanceof ScopeMemberExpression || n instanceof PointerMemberExpression
                         || n instanceof NameExpression name && name.name().contains("::")
                         || n instanceof AddressOfExpression || n instanceof DereferenceExpression
-                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CharacterLiteral || n instanceof StringLiteral
+                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CompilerIntrinsicExpression || n instanceof CharacterLiteral || n instanceof StringLiteral
                         || cppOnlyStatement(n) || n instanceof CommaExpression || n instanceof DotMemberPointerExpression || n instanceof ArrowMemberPointerExpression
                         || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion) || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression
                         || n instanceof ConditionalExpression
@@ -170,8 +180,14 @@ public final class Source {
 
     /** Invalid snapshots must never reach either replay-based or generated-source emission. */
     private static void requireComplete(Node node) {
+        requireComplete(node, null);
+    }
+
+    private static void requireComplete(Node node, Preprocessing context) {
         if (!implicitIntroductionsMatch(node))
             throw new IllegalArgumentException("Source generation cannot change an implicit class declaration independently of its written elaborated type");
+        if (!intrinsicsSupported(node, context, context != null))
+            throw new IllegalArgumentException("Compiler intrinsic emission requires the matching explicit hugeVal platform capability");
         node.walk(new NodeVisitor() {
             @Override public void visit(Node n) {
                 if (n instanceof SourceFile file && file.hasErrors())
@@ -185,6 +201,28 @@ public final class Source {
                         throw new IllegalArgumentException("Source generation is blocked by " + diagnostic.code() + ": " + diagnostic.message());
             }
         });
+    }
+
+    /** The enclosing translation unit, not a moved leaf's original provenance, selects compiler support. */
+    private static boolean intrinsicsSupported(Node node, Preprocessing unit, boolean contextSelected) {
+        if (node instanceof SourceFile) {
+            unit = node.provenance().map(TokenProvenance::unit).orElse(null);
+            contextSelected = true;
+        } else if (!contextSelected && node.provenance().isPresent()) {
+            unit = node.provenance().orElseThrow().unit();
+            contextSelected = true;
+        }
+        if (node instanceof CompilerIntrinsicExpression intrinsic) {
+            if (unit == null || unit.configuration() == null) return false;
+            var capability = unit.configuration().platform().hugeVal();
+            if (capability.isEmpty() || !capability.orElseThrow().emission().equals(intrinsic.emission())) return false;
+            if (!switch (intrinsic.kind()) {
+                case DOUBLE_POSITIVE_INFINITY -> capability.orElseThrow().kind().equals("positive_infinity");
+            }) return false;
+        }
+        for (Node child : node.children())
+            if (!intrinsicsSupported(child, unit, contextSelected)) return false;
+        return true;
     }
 
     private static boolean unrepresentableDeclaration(Node node) {
@@ -281,7 +319,7 @@ public final class Source {
         file.walk(new NodeVisitor() {
             @Override public void visit(Node n) {
                 if (target == Language.JAVA && (n instanceof Expression expression && !expression.operatorCandidates().isEmpty()
-                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CharacterLiteral
+                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CompilerIntrinsicExpression || n instanceof CharacterLiteral
                         || n instanceof StringLiteral || cppOnlyStatement(n) || n instanceof CommaExpression || n instanceof DotMemberPointerExpression
                         || n instanceof ArrowMemberPointerExpression || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion)
                         || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression || n instanceof ConditionalExpression
@@ -473,6 +511,7 @@ public final class Source {
             case IntegerLiteral i -> integerLiteral(i);
             case BooleanLiteral b -> Boolean.toString(b.value());
             case FloatingLiteral f -> f.spelling();
+            case CompilerIntrinsicExpression intrinsic -> compilerIntrinsic(intrinsic);
             case CharacterLiteral c -> c.spelling();
             case StringLiteral s -> s.spelling();
             case ConversionExpression c -> conversion(c);
@@ -495,6 +534,13 @@ public final class Source {
             case UnaryExpression u -> "(" + symbol(u) + "(" + emit(u.operand(), 0) + "))";
             case BinaryExpression b -> "(" + emit(b.left(), 0) + " " + symbol(b) + " " + emit(b.right(), 0) + ")";
             default -> throw unsupported(n);
+        };
+    }
+
+    private String compilerIntrinsic(CompilerIntrinsicExpression intrinsic) {
+        if (target != Language.CPP) throw unsupported(intrinsic);
+        return switch (intrinsic.kind()) {
+            case DOUBLE_POSITIVE_INFINITY -> "__builtin_huge_val()";
         };
     }
 
