@@ -33,6 +33,22 @@ class TypedConstantFoldingTest {
     private BigInteger number(String expression) throws Exception {
         return assertInstanceOf(IntegerLiteral.class, fold(expression)).bigValue();
     }
+    @Test void synthesizedNegativeLiteralsReplayThroughPreservedSourceWithoutWeakeningEquivalence() throws Exception {
+        String[][] cases={{"int","-1"},{"int","-7"},{"int","(-2147483647 - 1)"},
+                {"long","-1L"},{"long","(-9223372036854775807L - 1L)"}};
+        for (String[] c:cases) for (boolean macro:List.of(false,true)) {
+            String source=macro ? "#define NEG " + c[1] + "\n" + c[0] + " f(){return NEG;}"
+                    : "#define UNUSED 7\n" + c[0] + " f(){return " + c[1] + ";}";
+            var project=read(source,Cpg.Stage.FOLDED);
+            var expected=assertInstanceOf(IntegerLiteral.class,nodes(project,ReturnStatement.class).getFirst().value().orElseThrow());
+            String generated=Cpg.sources(project,Language.CPP).get("constants.cpp");
+            assertEquals(generated,Cpg.sources(project.edit().build(),Language.CPP).get("constants.cpp"));
+            var reparsed=read(generated,Cpg.Stage.FOLDED);
+            var actual=assertInstanceOf(IntegerLiteral.class,nodes(reparsed,ReturnStatement.class).getFirst().value().orElseThrow());
+            assertEquals(expected.bigValue(),actual.bigValue());assertEquals(expected.cppType(),actual.cppType());
+            assertFalse(reparsed.hasErrors());
+        }
+    }
     @Test void explicitIntegralConversionsAndUnsignedWrapping() throws Exception {
         assertEquals(BigInteger.valueOf(4294967295L), number("static_cast<unsigned int>(-1)"));
         assertEquals(BigInteger.valueOf(4294967295L), number("(unsigned int)-1"));

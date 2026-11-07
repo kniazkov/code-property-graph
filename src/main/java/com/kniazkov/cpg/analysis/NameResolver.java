@@ -1349,6 +1349,16 @@ public final class NameResolver {
                     if (definitions.size() <= 1) return definitions.isEmpty() ? matches.getFirst() : definitions.getFirst();
                 }
             }
+            // Separate trusted catalogue scopes may repeat a typedef for the same
+            // library entity. Only fully resolved identical types in one target
+            // profile denote the same type; ordinary imported aliases stay distinct.
+            if (!matches.isEmpty() && matches.stream().allMatch(m -> m.declaration() instanceof TypedefDeclaration alias
+                    && LibraryDeclarations.isLibrary(alias) && alias.type().canonicalType() instanceof NamedType named
+                    && named.fundamentalKind().isPresent())
+                    && matches.stream().map(m -> entityName(m.declaration())).distinct().count() == 1
+                    && matches.stream().map(m -> TypeSemantics.profile(scopes.get(m.declaration()).file).stableIdentity()).distinct().count() == 1
+                    && matches.stream().map(m -> ((TypedefDeclaration)m.declaration()).type().canonicalIdentity()).distinct().count() == 1)
+                return matches.getFirst();
             if (!matches.isEmpty() && matches.stream().allMatch(m -> m.declaration() instanceof NamespaceDeclaration)
                     && matches.stream().map(m -> entityName(m.declaration())).distinct().count() == 1)
                 return matches.getFirst();

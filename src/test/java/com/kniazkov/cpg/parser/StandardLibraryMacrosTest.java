@@ -84,9 +84,13 @@ class StandardLibraryMacrosTest {
         assertTrue(error.reason().contains("explicit floatingFormats.long double"));
         assertEquals(1, error.line());
     }
-    @Test void wcharLimitsFollowTheirPromotedUnderlyingTypeAndDoNotInventWeof() {
+    @Test void wcharLimitsFollowTheirPromotedUnderlyingTypeAndLeaveWeofUnavailable() {
         var profile = PlatformProfile.builder().wcharType("unsigned int").build();
-        assertEquals("0U 4294967295U WEOF", text(preprocess("#include <wchar.h>\nWCHAR_MIN WCHAR_MAX WEOF", profile)));
+        assertEquals("0U 4294967295U", text(preprocess("#include <wchar.h>\nWCHAR_MIN WCHAR_MAX", profile)));
+        assertNotNull(preprocess("#include <wchar.h>\n", profile).definitions().stream()
+                .filter(d -> d.name().equals("WEOF")).findFirst().orElseThrow().unavailableReason());
+        assertTrue(assertThrows(ParseException.class, () -> preprocess("#include <wchar.h>\nWEOF", profile))
+                .reason().contains("wideInteger"));
     }
     @Test void wcharLimitsUseWcharIntegralPromotionRatherThanUnderlyingIntegerRank() {
         var ilp32 = PlatformProfile.builder().sizeBits("long", 32).alignmentBits("long", 32);
@@ -95,10 +99,15 @@ class StandardLibraryMacrosTest {
         assertEquals("( - 2147483647 - 1 ) 2147483647", text(preprocess("#include <cwchar>\nWCHAR_MIN WCHAR_MAX", signed)));
         assertEquals("0U 4294967295U", text(preprocess("#include <wchar.h>\nWCHAR_MIN WCHAR_MAX", unsigned)));
     }
+    private static boolean targetFactAvailable(PlatformProfile profile, Object name) {
+        return "WEOF".equals(name) ? profile.wideInteger().isPresent() : profile.runtimeIntegerMacros().containsKey(name);
+    }
     @Test void implementedInventoryObligationsMatchActualHeaderDefinitions() throws Exception {
         var inventory = (Map<?, ?>) com.kniazkov.json.Json.parse(Path.of("docs/cpp03-library-macros.json").toFile()).toJavaObject();
         var entries = (List<?>) inventory.get("entries");
         for (var profile : List.of(PlatformProfile.defaults(), PlatformProfile.builder().cRuntime("glibc").build(),
+                PlatformProfile.builder().wideInteger("unsigned int","4294967295","nonnegative-wchar").build(),
+                PlatformProfile.builder().wideInteger("int","-1","nonnegative-wchar").build(),
                 PlatformProfile.builder().cRuntime("glibc").standardStreamsBinding("glibc-x86_64-lp64").build(),
                 PlatformProfile.builder().cRuntime("glibc").mbCurMaxBinding("glibc-x86_64-lp64-mb16").build(),
                 PlatformProfile.read(Path.of("src/test/resources/runtime-integer-macros/synthetic-profile.json"))))
@@ -110,7 +119,7 @@ class StandardLibraryMacrosTest {
             for (Object record : entries) {
                 var entry = (Map<?, ?>) record;
                 if (cpp.equals(entry.get("header")) && "target_fact".equals(entry.get("support_status"))) targetFacts.add((String)entry.get("name"));
-                if (cpp.equals(entry.get("header")) && ("target_fact".equals(entry.get("support_status")) && profile.runtimeIntegerMacros().containsKey(entry.get("name"))
+                if (cpp.equals(entry.get("header")) && ("target_fact".equals(entry.get("support_status")) && targetFactAvailable(profile, entry.get("name"))
                         || "profile_definition".equals(entry.get("support_status"))
                         || "runtime_binding".equals(entry.get("support_status")) && (Set.of("stdin", "stdout", "stderr").contains(entry.get("name")) ? !profile.standardStreamsBinding().equals("unavailable") : entry.get("name").equals("MB_CUR_MAX") ? !profile.mbCurMaxBinding().equals("unavailable") : profile.cRuntime().equals("glibc"))))
                     assertTrue(implemented.add((String) entry.get("name")), "Duplicate inventory obligation: " + entry);
@@ -124,7 +133,7 @@ class StandardLibraryMacrosTest {
                         .filter(d->targetFacts.contains(d.name())).toList();
                 assertEquals(targetFacts, targetDefinitions.stream().map(CppPreprocessor.Definition::name).collect(java.util.stream.Collectors.toSet()), spelling);
                 for (var definition : targetDefinitions)
-                    assertEquals(profile.runtimeIntegerMacros().containsKey(definition.name()), definition.unavailableReason() == null, definition.name());
+                    assertEquals(targetFactAvailable(profile, definition.name()), definition.unavailableReason() == null, definition.name());
                 assertEquals(implemented.size(), definitions.size(), spelling);
                 assertEquals(implemented, definitions.stream().map(CppPreprocessor.Definition::name).collect(java.util.stream.Collectors.toSet()), spelling);
             }
