@@ -45,3 +45,4 @@ jobs:
             target/demo/
             target/runtime-integer-oracle/
             target/errno-runtime-oracle/
+            target/mb-cur-max-oracle/
