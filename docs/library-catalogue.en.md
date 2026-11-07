@@ -254,3 +254,13 @@ never chooses its value. This brings the bounded inventory to 85 header/name
 obligations (79 names), with 17 obligations (16 names) still open under #92.
 The count does not mean that every profile supplies every value, or that numeric
 macros implement the related runtime functions. [Checks and remaining work](cpp03-runtime-integer-macros-verification.md).
+
+## Mutable errno runtime binding (#92, fourth stage)
+
+With explicit cRuntime=glibc, cerrno/errno.h defines errno as
+`(*::__errno_location())` and supplies the actual global C-linkage int-pointer
+accessor with throw(). The result is a mutable int lvalue, not an invented global
+errno object or constant. Numeric error selectors still require their separate
+explicit target facts. Unknown runtime leaves a recorded unavailable macro and
+diagnoses use. The inventory now has 86 bounded obligations (80 names), with
+16 obligations (15 names) still open under #92. [Verification and analysis limits](cpp03-errno-verification.md).
