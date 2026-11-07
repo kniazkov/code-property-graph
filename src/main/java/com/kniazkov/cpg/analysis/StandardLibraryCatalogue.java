@@ -6,13 +6,13 @@ import java.util.*;
 
 /**
  * Host-independent C++03 interface declarations, not implementation headers or behavior.
- * All 50 standard headers and 18 compatibility spellings are inventoried; declaration
+ * All 51 standard headers and 18 compatibility spellings are inventoried; declaration
  * coverage is explicitly inventoried (see docs/library-catalogue.en.md).
  * The dataset is not owned by a Project and contains no callable implementation bodies.
  */
 public final class StandardLibraryCatalogue {
     private StandardLibraryCatalogue() {}
-    private static final List<String> CPP = List.of("algorithm", "bitset", "complex", "deque", "exception", "fstream", "functional", "iomanip", "ios", "iosfwd", "iostream", "istream", "iterator", "limits", "list", "locale", "map", "memory", "new", "numeric", "ostream", "queue", "set", "sstream", "stack", "stdexcept", "streambuf", "string", "typeinfo", "utility", "valarray", "vector");
+    private static final List<String> CPP = List.of("algorithm", "bitset", "complex", "deque", "exception", "fstream", "functional", "iomanip", "ios", "iosfwd", "iostream", "istream", "iterator", "limits", "list", "locale", "map", "memory", "new", "numeric", "ostream", "queue", "set", "sstream", "stack", "stdexcept", "streambuf", "string", "strstream", "typeinfo", "utility", "valarray", "vector");
     private static final List<String> C = List.of("assert", "ctype", "errno", "float", "iso646", "limits", "locale", "math", "setjmp", "signal", "stdarg", "stddef", "stdio", "stdlib", "string", "time", "wchar", "wctype");
     /** Standard C++ headers and their deprecated C compatibility spellings. */
     public static Set<String> headers() {

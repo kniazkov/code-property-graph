@@ -135,4 +135,13 @@ class OverloadResolutionTest {
         var p=resolve("void valid(const int* const*);void invalid(const int**);int main(){int** p;valid(p);invalid(p);}");
         assertTrue(calls(p,"valid").getFirst().target().isPresent());assertTrue(calls(p,"invalid").getFirst().target().isEmpty());
     }
+    @Test void equalOpaqueConstructorArgumentsAllowKnownArgumentsToDecide() {
+        var p=resolve("#include <iosfwd>\nstruct Buffer { Buffer(char*,std::streamsize); Buffer(const char*,std::streamsize); }; void f(char* data){Buffer b(data,1);}");
+        assertFalse(p.hasErrors(),()->p.semanticDiagnostics().toString());
+        var b=nodes(p,VariableDeclaration.class).stream().filter(v->v.name().equals("b")).findFirst().orElseThrow();
+        assertEquals("pointer(char)",b.constructorTarget().orElseThrow().parameters().getFirst().type().orElseThrow().canonicalIdentity());
+        var unknown=resolve("#include <iosfwd>\nstruct Buffer { Buffer(char*,std::streamsize); Buffer(const char*,std::streamoff); }; void f(char* data){Buffer b(data,1);}");
+        assertTrue(nodes(unknown,VariableDeclaration.class).stream().filter(v->v.name().equals("b")).findFirst().orElseThrow().constructorTarget().isEmpty());
+    }
+
 }
