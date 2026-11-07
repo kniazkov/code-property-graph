@@ -188,7 +188,15 @@ public final class StandardLibraryCatalogue {
             return "extern \"C\" int* __errno_location() throw();";
         if (h.equals("cassert") && profile.cRuntime().equals("glibc"))
             return "extern \"C\" void __assert_fail(const char*, const char*, unsigned int, const char*) throw();";
-        if (StandardLibraryC.supports(h)) { String data = StandardLibraryC.declarations(h); return header.endsWith(".h") ? data : ns(data); }
+        if (StandardLibraryC.supports(h)) {
+            String data = StandardLibraryC.declarations(h);
+            String declarations = header.endsWith(".h") ? data : ns(data);
+            // Keep ordinary cstdlib declarations and its canonical size_t dependency.
+            // The opt-in contract establishes this exact underlying return type.
+            if (h.equals("cstdlib") && !profile.mbCurMaxBinding().equals("unavailable"))
+                declarations += "\nextern \"C\" " + size + " __ctype_get_mb_cur_max() throw();";
+            return declarations;
+        }
         if (StandardLibraryStreams.supports(h)) return ns(StandardLibraryStreams.declarations(h));
         String body=switch(h) {
             // The profile currently has no independent ptrdiff_t setting. This is a

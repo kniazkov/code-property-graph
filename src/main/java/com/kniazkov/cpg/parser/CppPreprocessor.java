@@ -731,6 +731,20 @@ public final class CppPreprocessor {
                             "Library macro errno requires an explicitly selected supported C runtime (cRuntime=glibc)"));
                 }
             }
+            if (canonical.equals("cstdlib")) {
+                boolean available = !unit.platform().mbCurMaxBinding().equals("unavailable");
+                String file = unit.directory().resolve("<cpg-library:" + header + ":MB_CUR_MAX>").toString();
+                String source = "MB_CUR_MAX " + (available ? "(::__ctype_get_mb_cur_max())" : "");
+                definitionSources.put(file, source);
+                define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                        "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":MB_CUR_MAX");
+                if (!available) {
+                    Definition d = definitions.getLast();
+                    definitions.set(definitions.size() - 1, new Definition(d.id(), d.name(), false, List.of(),
+                            d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(),
+                            "Library macro MB_CUR_MAX requires explicit mbCurMaxBinding=glibc-x86_64-lp64-mb16"));
+                }
+            }
             for (String name : com.kniazkov.cpg.build.RuntimeIntegerMacros.namesForHeader(canonical)) {
                 var fact = unit.platform().runtimeIntegerMacros().get(name);
                 String replacement = fact == null ? "" : fact.replacement(unit.platform());

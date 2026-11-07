@@ -3,6 +3,7 @@ package com.kniazkov.cpg.e2e;
 
 import java.io.IOException;
 import java.nio.file.*;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.*;
@@ -10,9 +11,19 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Builds an input folder and invokes the packaged CLI in a fresh working directory for each run. */
 final class CliSandbox {
     private final Path workspace;
+    private final long timeoutNanos;
     final Path input;
 
     CliSandbox(Path workspace) throws IOException {
+        this(workspace, Duration.ofSeconds(45));
+    }
+
+    /** A finite per-sandbox deadline; ordinary scenarios retain the 45-second default. */
+    CliSandbox(Path workspace, Duration timeout) throws IOException {
+        Objects.requireNonNull(timeout, "timeout");
+        try { timeoutNanos = timeout.toNanos(); }
+        catch (ArithmeticException error) { throw new IllegalArgumentException("CLI timeout must fit a finite nanosecond budget", error); }
+        if (timeoutNanos <= 0) throw new IllegalArgumentException("CLI timeout must be positive");
         this.workspace = workspace;
         input = Files.createDirectory(workspace.resolve("input sources"));
     }
@@ -69,9 +80,16 @@ final class CliSandbox {
         command.addAll(List.of(options));
         Process child = new ProcessBuilder(command).directory(work.toFile())
                 .redirectOutput(out.toFile()).redirectError(err.toFile()).start();
+        int status = awaitExit(child, command, err);
+        return new CliRun(work, status, Files.readString(out), Files.readString(err));
+    }
+
+    /** Kept separate so deadline and cleanup behavior can be tested without sleeping. */
+    int awaitExit(Process child, List<String> command, Path err) throws IOException, InterruptedException {
         try {
-            if (!child.waitFor(45, TimeUnit.SECONDS)) fail("Timed out: " + command + "\n" + Files.readString(err));
-            return new CliRun(work, child.exitValue(), Files.readString(out), Files.readString(err));
+            if (!child.waitFor(timeoutNanos, TimeUnit.NANOSECONDS))
+                fail("Timed out after " + Duration.ofNanos(timeoutNanos) + ": " + command + "\n" + Files.readString(err));
+            return child.exitValue();
         } finally {
             if (child.isAlive()) {
                 child.destroyForcibly();

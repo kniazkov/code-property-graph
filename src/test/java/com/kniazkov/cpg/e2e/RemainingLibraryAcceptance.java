@@ -9,12 +9,16 @@ import com.kniazkov.cpg.serialization.ProjectJson;
 import com.kniazkov.cpg.visualization.DotVisualizer;
 import com.kniazkov.json.Json;
 import java.nio.file.*;
+import java.time.Duration;
 import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 final class RemainingLibraryAcceptance {
     private RemainingLibraryAcceptance() { }
+    // The template-heavy GREEN child measures about 36 seconds locally; allow
+    // shared-runner variation without changing any semantic/native assertions.
+    private static final Duration CLI_BUDGET = Duration.ofSeconds(90);
     static List<Path> verify(Path fixture, Path work) throws Exception {
-        var cli = new CliSandbox(work).directory(fixture.resolve("sources"));
+        var cli = new CliSandbox(work, CLI_BUDGET).directory(fixture.resolve("sources"));
         var green = Cpg.read(cli.input, options(Cpg.Stage.GREEN));
         verifyGraph(green);
         verifyGraph(UnreadWrites.analyze(green.edit().build()));
@@ -28,7 +32,7 @@ final class RemainingLibraryAcceptance {
         verifyGraph(Cpg.read(run.work().resolve("generated"), options(Cpg.Stage.GREEN)));
         var folded = cli.run("cpp", "--stage", "folded", "--cpp-standard", "c++03").expectStatus(0);
         verifyGraph(Cpg.read(cli.input, options(Cpg.Stage.FOLDED)));
-        var svgCli = new CliSandbox(Files.createDirectories(work.resolve("svg"))).directory(fixture.resolve("svg"));
+        var svgCli = new CliSandbox(Files.createDirectories(work.resolve("svg")), CLI_BUDGET).directory(fixture.resolve("svg"));
         var svgRun = svgCli.run("cpp", "--stage", "green", "--cpp-standard", "c++03", "--svg", "snapshot.svg").expectStatus(0);
         String svg = Files.readString(svgRun.work().resolve("snapshot.svg"));
         assertTrue(svg.contains("operator implementation")); assertTrue(svg.contains("DFG def"));

@@ -264,3 +264,20 @@ errno object or constant. Numeric error selectors still require their separate
 explicit target facts. Unknown runtime leaves a recorded unavailable macro and
 diagnoses use. The inventory now has 86 bounded obligations (80 names), with
 16 obligations (15 names) still open under #92. [Verification and analysis limits](cpp03-errno-verification.md).
+
+## Live MB_CUR_MAX query (#92, fifth stage)
+
+The preceding follow-ups describe their respective stages. The current inventory
+adds one bounded locale-query binding: 87 obligations/81 names implemented within
+explicit limits, 15 obligations/14 names still open. MB_CUR_MAX under cstdlib and
+stdlib.h requires `mbCurMaxBinding: "glibc-x86_64-lp64-mb16"`, alongside glibc,
+8-bit bytes, 32-bit int, 64-bit long/pointers, exact unsigned-long size_t and
+MB_LEN_MAX16. Naming glibc alone does not enable this query.
+
+The object macro calls the genuine global C-linkage accessor with throw(), while
+ordinary cstdlib declarations remain available. Its scalar rvalue is unknown to
+static evaluation and observes the current locale at runtime. Missing capability
+permits unused headers and diagnoses expansion. This caller-selected deployment
+contract is not automatic ABI detection or complete locale semantics. Original
+C90 requires a positive integer expression; exact size_t is the selected glibc
+signature. [Verification and limits](cpp03-mb-cur-max-verification.md).
