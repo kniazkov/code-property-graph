@@ -284,7 +284,7 @@ signature. [Verification and limits](cpp03-mb-cur-max-verification.md).
 
 ## Standard-stream objects and macros (#92, sixth stage)
 
-The current inventory has 90 bounded obligations/84 names and 12 open
+At stage six the inventory had 90 bounded obligations/84 names and 12 open
 obligations/11 names. `standardStreamsBinding: "glibc-x86_64-lp64"` enables
 stdin/stdout/stderr under cstdio/stdio.h. It defaults to unavailable, independently
 of cRuntime. Selection requires glibc, byte8/int32/long64/pointer64 and exact
@@ -298,3 +298,25 @@ C90 requires FILE-pointer expressions; mutable cells belong to this glibc bindin
 The target ABI and deployed exports must match. Complete I/O semantics and generic
 unresolved-qualified-name diagnostics remain open. [Executed checks and pending
 merge gates](cpp03-standard-streams-verification.md). #92 and #48 remain open.
+
+## Configurable wint_t and WEOF (#92, seventh stage)
+
+The coupled `wideInteger` object supplies `wintType`, decimal-string `weof` and
+`characterDomain: "nonnegative-wchar"`. Missing or empty settings retain opaque
+wint_t and unavailable WEOF; actual headers remain authoritative. The supported
+types are int, unsigned int, long and unsigned long. Both wide header families,
+wide signatures and char_traits use the configured canonical type. No host or
+libc-family fact is inferred.
+
+The selected type must cover the entire nonnegative wchar_t range; WEOF must
+fit that type and lie outside that envelope. This deliberately stronger policy
+is not ISO's character-repertoire requirement. Signed -1 is permitted, including
+when wchar_t can represent it; WEOF need not equal EOF. Type-preserving constant
+expressions support #if. Synthetic profiles do not authorize mismatched native
+wide-library calls or claim a complete repertoire/locale model.
+
+The bounded inventory now has 92 obligations/85 names, with 10 obligations/10
+names open. Focused implementation checks support the two WEOF entries; all four WEOF native cases passed. Expanded
+regression, full-suite and exact-head CI results are separately tracked
+in the [verification report](cpp03-weof-verification.md). Prior stage counts and
+reports remain historical. #92 and #48 remain open.

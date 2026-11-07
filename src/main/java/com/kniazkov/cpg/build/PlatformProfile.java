@@ -19,9 +19,10 @@ public final class PlatformProfile {
     private static final List<String> SCALARS = List.of("bool", "char", "short", "int", "long",
             "long long", "wchar_t", "float", "double", "long double", "pointer");
     private static final Set<String> SETTINGS = Set.of("inherits", "name", "bitsPerByte", "sizes", "alignments",
-            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness", "floatingFormats", "floatingRounds", "nullPointerConstant", "maxMultibyteLength", "cRuntime", "runtimeIntegerMacros", "mbCurMaxBinding", "standardStreamsBinding");
+            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness", "floatingFormats", "floatingRounds", "nullPointerConstant", "maxMultibyteLength", "cRuntime", "runtimeIntegerMacros", "mbCurMaxBinding", "standardStreamsBinding", "wideInteger");
     private static final PlatformProfile DEFAULT = new Builder(true).build();
     private final Map<String, RuntimeIntegerMacros.Fact> runtimeIntegerMacros;
+    private final WideIntegerModel wideInteger;
     private final Map<String, String> floatingFormats;
     private final int floatingRounds, maxMultibyteLength;
     private final String nullPointerConstant, cRuntime, mbCurMaxBinding, standardStreamsBinding;
@@ -120,6 +121,8 @@ public final class PlatformProfile {
         signedIntegerConversion = policy(b.signedIntegerConversion, "signedIntegerConversion",
                 Set.of("unknown", "twos-complement"));
         runtimeIntegerMacros = RuntimeIntegerMacros.validate(b.runtimeIntegerMacros, this);
+        wideInteger = b.wideInteger;
+        if (wideInteger != null) wideInteger.validate(this);
     }
 
     public static PlatformProfile defaults() { return DEFAULT; }
@@ -139,6 +142,7 @@ public final class PlatformProfile {
     /** Explicit external stream-object contract; no FILE layout is implied. */
     public String standardStreamsBinding() { return standardStreamsBinding; }
     public String mbCurMaxBinding() { return mbCurMaxBinding; }
+    public Optional<WideIntegerModel> wideInteger() { return Optional.ofNullable(wideInteger); }
     public Map<String, RuntimeIntegerMacros.Fact> runtimeIntegerMacros() { return runtimeIntegerMacros; }
     public int bitsPerByte() { return bitsPerByte; }
     public boolean charSigned() { return charSigned; }
@@ -217,6 +221,7 @@ public final class PlatformProfile {
         map.put("cRuntime", cRuntime);
         map.put("mbCurMaxBinding", mbCurMaxBinding);
         map.put("standardStreamsBinding", standardStreamsBinding);
+        map.put("wideInteger", wideInteger == null ? Map.of() : wideInteger.settings());
         var facts = new LinkedHashMap<String,Object>();
         runtimeIntegerMacros.forEach((key,value) -> facts.put(key,value.settings()));
         map.put("runtimeIntegerMacros", Collections.unmodifiableMap(facts));
@@ -304,6 +309,16 @@ public final class PlatformProfile {
         if (settings.containsKey("cRuntime")) b.cRuntime(string(settings.get("cRuntime"), "cRuntime"));
         if (settings.containsKey("standardStreamsBinding")) b.standardStreamsBinding(string(settings.get("standardStreamsBinding"), "standardStreamsBinding"));
         if (settings.containsKey("mbCurMaxBinding")) b.mbCurMaxBinding(string(settings.get("mbCurMaxBinding"), "mbCurMaxBinding"));
+        if (settings.containsKey("wideInteger")) {
+            if (!(settings.get("wideInteger") instanceof Map<?,?> model)) throw invalid("wideInteger must be an object");
+            if (model.isEmpty()) b.wideInteger = null;
+            else {
+                if (!model.keySet().equals(Set.of("wintType", "weof", "characterDomain")))
+                    throw invalid("wideInteger requires exactly wintType, weof and characterDomain");
+                b.wideInteger(string(model.get("wintType"), "wideInteger.wintType"),
+                        string(model.get("weof"), "wideInteger.weof"), string(model.get("characterDomain"), "wideInteger.characterDomain"));
+            }
+        }
         if (settings.containsKey("runtimeIntegerMacros")) {
             if (!(settings.get("runtimeIntegerMacros") instanceof Map<?,?> facts)) throw invalid("runtimeIntegerMacros must be an object");
             for (var entry : facts.entrySet()) {
@@ -359,6 +374,7 @@ public final class PlatformProfile {
     public static final class Builder {
         private String name = "custom";
         private final Map<String, RuntimeIntegerMacros.Fact> runtimeIntegerMacros = new LinkedHashMap<>();
+        private WideIntegerModel wideInteger;
         private final Map<String, String> floatingFormats = new LinkedHashMap<>(Map.of(
                 "float", "unknown", "double", "unknown", "long double", "unknown"));
         private int floatingRounds = -1, maxMultibyteLength = 1;
@@ -383,6 +399,7 @@ public final class PlatformProfile {
         }
         private Builder(PlatformProfile p) {
             runtimeIntegerMacros.putAll(p.runtimeIntegerMacros);
+            wideInteger = p.wideInteger;
             cRuntime = p.cRuntime; mbCurMaxBinding = p.mbCurMaxBinding; standardStreamsBinding = p.standardStreamsBinding;
             floatingFormats.putAll(p.floatingFormats); floatingRounds = p.floatingRounds;
             maxMultibyteLength = p.maxMultibyteLength; nullPointerConstant = p.nullPointerConstant;
@@ -396,6 +413,7 @@ public final class PlatformProfile {
         public Builder runtimeIntegerMacro(String name, String type, String decimal) {
             runtimeIntegerMacros.put(name, RuntimeIntegerMacros.Fact.parse(type, decimal)); return this;
         }
+        public Builder wideInteger(String type, String decimal, String domain) { wideInteger = WideIntegerModel.parse(type, decimal, domain); return this; }
         public Builder cRuntime(String value) { cRuntime = value; return this; }
         public Builder standardStreamsBinding(String value) { standardStreamsBinding = value; return this; }
         public Builder mbCurMaxBinding(String value) { mbCurMaxBinding = value; return this; }

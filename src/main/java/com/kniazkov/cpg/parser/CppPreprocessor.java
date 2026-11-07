@@ -717,6 +717,20 @@ public final class CppPreprocessor {
                 }
             }
             String canonical = com.kniazkov.cpg.analysis.StandardLibraryCatalogue.canonicalHeader(header);
+            if (canonical.equals("cwchar") || canonical.equals("cwctype")) {
+                var model = unit.platform().wideInteger();
+                String file = unit.directory().resolve("<cpg-library:" + header + ":WEOF>").toString();
+                String source = "WEOF " + model.map(m -> m.replacement(unit.platform())).orElse("");
+                definitionSources.put(file, source);
+                define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                        "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":WEOF");
+                if (model.isEmpty()) {
+                    Definition d = definitions.getLast();
+                    definitions.set(definitions.size() - 1, new Definition(d.id(), d.name(), false, List.of(),
+                            d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(),
+                            "Library macro WEOF requires an explicit wideInteger target model"));
+                }
+            }
             if (canonical.equals("cerrno")) {
                 boolean available = unit.platform().cRuntime().equals("glibc");
                 String file = unit.directory().resolve("<cpg-library:" + header + ":errno>").toString();

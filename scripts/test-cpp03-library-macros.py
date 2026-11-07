@@ -80,6 +80,46 @@ class MacroInventoryTest(unittest.TestCase):
         entry['target_fact']['entry_name'] = 'errno'
         self.assertTrue(checker.check(self.data))
 
+    def test_weof_exact_coupled_selection(self):
+        mutations = [('profile_setting', 'runtimeIntegerMacros'), ('entry_name', 'EOF'),
+                     ('supported_types', ['int']),
+                     ('supported_types', ['int', 'unsigned int', 'long', 'unsigned long', 'short']),
+                     ('character_domain', 'all-wchar'), ('unknown_behavior', ''), ('value_origin', '')]
+        for header in ('cwchar', 'cwctype'):
+            for field, wrong in mutations:
+                with self.subTest(header=header, field=field, wrong=wrong):
+                    data = copy.deepcopy(self.data)
+                    row = next(e for e in data['entries'] if e['name'] == 'WEOF' and e['header'] == header)
+                    row['target_fact'][field] = wrong
+                    self.assertTrue(checker.check(data))
+
+    def test_weof_rejects_extra_or_contradictory_fields(self):
+        for key, value in [('supported_type', 'short'), ('supported_type', 'int'), ('extra', True)]:
+            with self.subTest(key=key, value=value):
+                data = copy.deepcopy(self.data)
+                row = next(e for e in data['entries'] if e['name'] == 'WEOF')
+                row['target_fact'][key] = value
+                self.assertTrue(checker.check(data))
+
+    def test_weof_retains_header_and_if_contract(self):
+        for field, wrong in [('header', 'cstdio'), ('macro_kind', 'function'), ('required_in_if', 'no')]:
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                row = next(e for e in data['entries'] if e['name'] == 'WEOF')
+                row[field] = wrong
+                self.assertTrue(checker.check(data))
+
+    def test_wide_model_does_not_relax_old_integer_whitelist(self):
+        wide = next(e for e in self.data['entries'] if e['name'] == 'WEOF')['target_fact']
+        for name in ('EDOM', 'HUGE_VAL', 'errno'):
+            with self.subTest(name=name):
+                data = copy.deepcopy(self.data)
+                row = next(e for e in data['entries'] if e['name'] == name)
+                row['support_status'] = 'target_fact'
+                row['target_fact'] = copy.deepcopy(wide)
+                row['target_fact']['entry_name'] = name
+                self.assertTrue(checker.check(data))
+
 
 if __name__ == '__main__':
     unittest.main()
