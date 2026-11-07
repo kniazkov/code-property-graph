@@ -717,6 +717,20 @@ public final class CppPreprocessor {
                 }
             }
             String canonical = com.kniazkov.cpg.analysis.StandardLibraryCatalogue.canonicalHeader(header);
+            if (canonical.equals("ctime")) {
+                var model = unit.platform().clockScale();
+                String file = unit.directory().resolve("<cpg-library:" + header + ":CLOCKS_PER_SEC>").toString();
+                String source = "CLOCKS_PER_SEC " + model.map(m -> m.replacement()).orElse("");
+                definitionSources.put(file, source);
+                define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                        "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":CLOCKS_PER_SEC");
+                if (model.isEmpty()) {
+                    Definition d = definitions.getLast();
+                    definitions.set(definitions.size() - 1, new Definition(d.id(), d.name(), false, List.of(),
+                            d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(),
+                            "Library macro CLOCKS_PER_SEC requires an explicit clockScale target model"));
+                }
+            }
             if (canonical.equals("cwchar") || canonical.equals("cwctype")) {
                 var model = unit.platform().wideInteger();
                 String file = unit.directory().resolve("<cpg-library:" + header + ":WEOF>").toString();

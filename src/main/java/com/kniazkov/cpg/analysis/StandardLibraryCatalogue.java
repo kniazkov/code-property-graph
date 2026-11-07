@@ -190,6 +190,8 @@ public final class StandardLibraryCatalogue {
             return "extern \"C\" void __assert_fail(const char*, const char*, unsigned int, const char*) throw();";
         if (StandardLibraryC.supports(h)) {
             String data = StandardLibraryC.declarations(h);
+            if (h.equals("ctime") && profile.clockScale().isPresent())
+                data = data.replace("__cpg_opaque_arithmetic_clock_t", profile.clockScale().orElseThrow().clockType());
             if ((h.equals("cwchar") || h.equals("cwctype")) && profile.wideInteger().isPresent())
                 data = data.replace("__cpg_opaque_integer_wint_t", profile.wideInteger().orElseThrow().wintType());
             String declarations = header.endsWith(".h") ? data : ns(data);

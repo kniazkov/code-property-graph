@@ -100,6 +100,7 @@ class StandardLibraryMacrosTest {
         assertEquals("0U 4294967295U", text(preprocess("#include <wchar.h>\nWCHAR_MIN WCHAR_MAX", unsigned)));
     }
     private static boolean targetFactAvailable(PlatformProfile profile, Object name) {
+        if ("CLOCKS_PER_SEC".equals(name)) return profile.clockScale().isPresent();
         return "WEOF".equals(name) ? profile.wideInteger().isPresent() : profile.runtimeIntegerMacros().containsKey(name);
     }
     @Test void implementedInventoryObligationsMatchActualHeaderDefinitions() throws Exception {
@@ -108,6 +109,8 @@ class StandardLibraryMacrosTest {
         for (var profile : List.of(PlatformProfile.defaults(), PlatformProfile.builder().cRuntime("glibc").build(),
                 PlatformProfile.builder().wideInteger("unsigned int","4294967295","nonnegative-wchar").build(),
                 PlatformProfile.builder().wideInteger("int","-1","nonnegative-wchar").build(),
+                PlatformProfile.builder().clockScale("long","long","1000000").build(),
+                PlatformProfile.builder().clockScale("int","unsigned long","18446744073709551615").build(),
                 PlatformProfile.builder().cRuntime("glibc").standardStreamsBinding("glibc-x86_64-lp64").build(),
                 PlatformProfile.builder().cRuntime("glibc").mbCurMaxBinding("glibc-x86_64-lp64-mb16").build(),
                 PlatformProfile.read(Path.of("src/test/resources/runtime-integer-macros/synthetic-profile.json"))))
