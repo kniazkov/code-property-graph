@@ -123,6 +123,12 @@ safe rejection after the fix. It also checked quoted physical paths, number-only
 #line, logical filenames, nested wrapper macros, mixed logical/physical cases,
 local-header assertions, scoped helper lookup and relocation idempotence.
 
+A follow-up historical check also corrects three still-open inventory entries:
+C90 EDOM/ERANGE require distinct nonzero integral constant expressions, not the
+later C99 positive-int wording; C90 CLOCKS_PER_SEC does not establish C99's
+clock_t-expression type requirement. These are evidence corrections only, with
+no new macro implementation or change to source-review hashes.
+
 The [complete inventory](cpp03-library-macros.json) now separates 54 numeric/null
 profile obligations, one explicit assertion runtime binding and 47 open
 obligations. Eight inventory mutation tests require explicit ABI/unknown-runtime
