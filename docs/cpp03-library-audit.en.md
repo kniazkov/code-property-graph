@@ -303,3 +303,12 @@ The original audit above records the catalogue at audit time. The later #90
 implementation adds the missing header/four class interfaces; current inventory
 is 51 core headers / 69 spellings. This does not close the documented D.7 runtime
 contract gaps or general acceptance #48. See [bounded verification](cpp03-strstream-verification.md).
+
+
+## Follow-up #91: std::rel_ops
+
+The historical omission identified above is addressed by four nested, opt-in
+operator templates. Scoped lookup, template selection, lazy ownership and
+original/generated native truth tables have targeted regressions. The catalogue
+still supplies no STL bodies or proof of user-type prerequisites; 20.2.1/10 and
+general acceptance remain bounded gaps. [Verification](cpp03-rel-ops-verification.md).

@@ -97,7 +97,7 @@ public final class StandardLibraryCatalogue {
         String comparisons = "operator== operator!= operator< operator> operator<= operator>= ";
         String math = "abs acos asin atan cos cosh exp log log10 sin sinh sqrt tan tanh ";
         return names(switch (canonicalHeader(header)) {
-            case "utility" -> comparisons + "make_pair";
+            case "utility" -> comparisons + "make_pair rel_ops::operator!= rel_ops::operator> rel_ops::operator<= rel_ops::operator>=";
             case "memory" -> "operator== operator!= get_temporary_buffer return_temporary_buffer uninitialized_copy uninitialized_fill uninitialized_fill_n";
             case "vector", "deque", "list", "map", "set" -> comparisons + "swap";
             case "queue", "stack" -> comparisons;
@@ -200,7 +200,7 @@ public final class StandardLibraryCatalogue {
                 template<class ForwardIterator,class Size,class T> void uninitialized_fill_n(ForwardIterator first,Size n,const T& value);
                 """;
             case "vector" -> vector() + vectorBoolean();
-            case "utility" -> "template<class T1, class T2> struct pair { typedef T1 first_type; typedef T2 second_type; T1 first; T2 second; pair(); pair(const T1& x, const T2& y); template<class U, class V> pair(const pair<U,V>& x); }; template<class T1, class T2> pair<T1,T2> make_pair(T1 x,T2 y);" + pairRelations();
+            case "utility" -> "template<class T1, class T2> struct pair { typedef T1 first_type; typedef T2 second_type; T1 first; T2 second; pair(); pair(const T1& x, const T2& y); template<class U, class V> pair(const pair<U,V>& x); }; template<class T1, class T2> pair<T1,T2> make_pair(T1 x,T2 y);" + pairRelations() + relOpsRelations();
             case "functional" -> functional();
             case "iterator" -> iterators();
             case "deque", "list" -> sequence(h);
@@ -1015,6 +1015,16 @@ public final class StandardLibraryCatalogue {
                 .append("(const ").append(type).append("& x,const ").append(type).append("& y);");
         return s + "template<" + parameters + "> void swap(" + type + "& x," + type + "& y);";
     }
+    /** C++03 20.2.1: opt-in relational operator templates; intentionally declaration-only. */
+    private static String relOpsRelations() {
+        StringBuilder result = new StringBuilder("namespace rel_ops {");
+        for (String op : List.of("!=", ">", "<=", ">=")) {
+            result.append("template<class T> bool operator").append(op)
+                    .append("(const T& x, const T& y);");
+        }
+        return result.append("}").toString();
+    }
+
     private static String pairRelations() {
         StringBuilder text = new StringBuilder();
         for (String op : List.of("==", "!=", "<", ">", "<=", ">="))

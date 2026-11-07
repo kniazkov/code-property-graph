@@ -102,7 +102,19 @@ final class TypeParser {
                 if (com.kniazkov.cpg.analysis.StandardLibraryCatalogue.canonicalHeader(header).equals("cstddef")) scope.libraryScalars.add(name);
             }
             for (String name : com.kniazkov.cpg.analysis.StandardLibraryCatalogue.templateNames(header)) declareTemplate(name);
-            for (String name : com.kniazkov.cpg.analysis.StandardLibraryCatalogue.callableTemplateNames(header)) declareTemplate(name);
+            for (String name : com.kniazkov.cpg.analysis.StandardLibraryCatalogue.callableTemplateNames(header)) {
+                declareTemplate(name);
+                // Qualified callable indexes also introduce their namespace scopes, so
+                // using directives can see nested catalogue namespaces before resolution.
+                String relative = name.startsWith("std::") ? name.substring(5) : name;
+                String[] parts = relative.split("::");
+                Scope owner = scope;
+                for (int i = 0; i < parts.length - 1; i++) {
+                    Scope parent = owner;
+                    owner = owner.nested.computeIfAbsent(parts[i], ignored -> new Scope(parent));
+                }
+                owner.templates.add(parts[parts.length - 1]);
+            }
             libraryMemberTemplates.addAll(com.kniazkov.cpg.analysis.StandardLibraryCatalogue.memberCallableTemplateNames(header));
             for (String name : com.kniazkov.cpg.analysis.StandardLibraryCatalogue.nestedTypeNames(header)) registerQualifiedLibraryType(name);
         } finally { if (!global) popScope(); scope = saved; }

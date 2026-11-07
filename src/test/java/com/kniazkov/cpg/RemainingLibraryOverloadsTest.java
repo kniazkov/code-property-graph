@@ -48,18 +48,24 @@ class RemainingLibraryOverloadsTest {
         var failures=new ArrayList<String>();
         for(String header:StandardLibraryCatalogue.headers()) {
             var expected=new TreeSet<String>();
-            for(Node item:parse(header).items()) {
-                List<? extends Node> declarations=item instanceof NamespaceDeclaration ns?ns.members():List.of(item);
-                for(Node declaration:declarations)if(declaration instanceof CallableDeclaration callable&&!callable.templateParameters().isEmpty()) {
-                    expected.add(callable.name());if(!header.endsWith(".h"))expected.add("std::"+callable.name());
-                }
-            }
+            for(Node item:parse(header).items()) collectNamespaceTemplates(item,"",expected);
             var actual=new TreeSet<>(StandardLibraryCatalogue.callableTemplateNames(header));
             if(!expected.equals(actual)) failures.add(header+": expected="+expected+" actual="+actual);
         }
         assertTrue(failures.isEmpty(),()->String.join("\n",failures));
         assertFalse(StandardLibraryCatalogue.templateNames("memory").contains("std::get_temporary_buffer"));
         assertFalse(StandardLibraryCatalogue.typeNames("locale").contains("std::use_facet"));
+    }
+    /** Collect namespace members with their paths, without entering class scopes. */
+    private static void collectNamespaceTemplates(Node node,String scope,Set<String> names) {
+        if(node instanceof NamespaceDeclaration namespace) {
+            String nested=scope.isEmpty()?namespace.name():scope+"::"+namespace.name();
+            for(Node member:namespace.members())collectNamespaceTemplates(member,nested,names);
+        } else if(node instanceof CallableDeclaration callable&&!callable.templateParameters().isEmpty()) {
+            String name=scope.isEmpty()?callable.name():scope+"::"+callable.name();
+            names.add(name);
+            if(name.startsWith("std::"))names.add(name.substring(5));
+        }
     }
     @Test void memberTemplateIndexMatchesDeclaredCallableIdentifiers() {
         var failures=new ArrayList<String>();
