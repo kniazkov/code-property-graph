@@ -1,6 +1,6 @@
 # C++03 standard-library declaration inventory
 
-The built-in catalogue recognizes all 50 C++03 standard headers and 18 deprecated
+The built-in catalogue recognizes all 51 C++03 standard headers and 18 deprecated
 C compatibility spellings. C++11, TR1 and vendor headers are excluded. The complete
 available declaration dataset stays outside `Project`, in `StandardLibraryCatalogue`
 and its C/stream helpers. Only demanded declarations, required dependencies and
@@ -101,7 +101,7 @@ normalization is a separate pass, not an effect summary inferred from declaratio
 
 ## Reproducible checks
 
-`mvn -Dtest=StandardLibraryCatalogueTest test` parses all 68 fragments with their
+`mvn -Dtest=StandardLibraryCatalogueTest test` parses all 69 fragments with their
 dependencies for two size-type policies, verifies exact namespace type/template
 indexes and declared nested indexes, checks stream arities, bool proxy/opaque
 choices, global allocation overloads and representative member families, and
@@ -165,3 +165,25 @@ remain unresolved; real-header presence checks do not imply macro evaluation in
 the graph. See `src/test/resources/library-catalogue/c-compatibility-coverage.md`
 for namespace and compiler-specific probe qualifications. Alternative tokens in
 `ciso646` are C++ language tokens, not missing function declarations.
+
+
+## Deprecated strstream declarations (#90)
+
+The required `<strstream>` header contributes `strstreambuf`, `istrstream`,
+`ostrstream`, and `strstream`, with 39 explicit callable declarations and four
+`strstream` typedefs. The independent D.7 coordinate fixture checks access,
+explicit/virtual/const qualifiers, defaults, callbacks, bases and types. Complete
+stream fragments index their declared nested aliases; forward-only `iosfwd` does
+not invent these members.
+
+Demanded concrete classes instantiate their stream template bases. Actual member
+receiver types also create this demand, including returned buffers and used
+function/class-template bodies. Include-only and unused member bodies do not
+materialize unused bases. The tests check instantiated targets rather than only
+a successful lookup, with copy/re-resolution and both size-type profiles.
+
+These remain declaration-only interfaces. `str()` and `freeze()` have conservative
+receiver-write effects, not inferred allocation/ownership/frozen-state/lifetime
+semantics. Native fixed-buffer and dynamic freeze/unfreeze examples use the
+compiler's STL. They demonstrate those particular executions only.
+[Verification and source decisions](cpp03-strstream-verification.md).

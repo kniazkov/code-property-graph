@@ -27,8 +27,14 @@ class StandardLibraryCatalogueTest {
     }
     @Test void catalogueRecognizesExactlyCpp03HeadersAndCompatibilityNames() {
         var headers = StandardLibraryCatalogue.headers();
-        assertEquals(68, headers.size());
-        assertEquals(50, headers.stream().map(StandardLibraryCatalogue::canonicalHeader).distinct().count());
+        // Independent ISO 17.4.1.2 Tables 11/12 and D.5 Table 100 inventory.
+        var expected = new TreeSet<>(List.of(("algorithm bitset complex deque exception fstream functional iomanip ios iosfwd iostream istream iterator limits list locale map memory new numeric ostream queue set sstream stack stdexcept streambuf string strstream typeinfo utility valarray vector").split(" ")));
+        for (String c : "assert ctype errno float iso646 limits locale math setjmp signal stdarg stddef stdio stdlib string time wchar wctype".split(" ")) {
+            expected.add("c"+c); expected.add(c+".h");
+        }
+        assertEquals(expected, headers);
+        assertEquals(69, headers.size());
+        assertEquals(51, headers.stream().map(StandardLibraryCatalogue::canonicalHeader).distinct().count());
         assertEquals(18, headers.stream().filter(h -> h.endsWith(".h")).count());
         for (String absent : List.of("array", "tuple", "thread", "unordered_map", "cstdint", "stdint.h", "tr1/memory"))
             assertFalse(headers.contains(absent), absent);
