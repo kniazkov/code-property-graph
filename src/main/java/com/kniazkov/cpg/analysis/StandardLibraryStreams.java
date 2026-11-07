@@ -291,12 +291,21 @@ virtual ~strstream(); strstreambuf* rdbuf() const; void freeze(bool = true); int
 
         return Set.copyOf(out);
     }
-    static Set<String> nestedTypeNames(String h) { return switch(h) {
+    static Set<String> nestedTypeNames(String h) {
+        var names = new java.util.LinkedHashSet<String>(switch(h) {
         case "strstream" -> Set.of("strstream::char_type", "strstream::int_type", "strstream::pos_type", "strstream::off_type");
         case "ios" -> Set.of("ios_base::failure", "ios_base::Init", "ios_base::fmtflags", "ios_base::iostate", "ios_base::openmode", "ios_base::seekdir", "ios_base::event", "ios_base::event_callback");
         case "locale" -> Set.of("locale::facet", "locale::id", "locale::category", "ctype_base::mask", "codecvt_base::result", "time_base::dateorder", "money_base::part", "money_base::pattern", "messages_base::catalog");
         default -> Set.of();
-    }; }
+        });
+        // Complete template fragments actually declare these aliases. iosfwd
+        // only declares the classes and must not invent their member inventory.
+        if (!h.equals("iosfwd")) for (String owner : templateNames(h))
+            if (owner.startsWith("basic_"))
+                for (String member : new String[]{"char_type", "traits_type", "int_type", "pos_type", "off_type"})
+                    names.add(owner + "::" + member);
+        return Set.copyOf(names);
+    }
     private static String locale() {
         var s=new StringBuilder("""
 class ios_base;
