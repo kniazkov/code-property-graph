@@ -245,11 +245,31 @@
       "value_source": "NDEBUG at each include",
       "guarantee": "NDEBUG defined: void expression without evaluating argument; otherwise evaluates condition and diagnoses/aborts failure. Each include reselects current mode; NDEBUG is user-controlled, not a header-provided macro.",
       "required_in_if": "not_applicable",
-      "support_status": "open",
+      "support_status": "runtime_binding",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java",
+        "src/main/java/com/kniazkov/cpg/analysis/StandardLibraryCatalogue.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/AssertionMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/AssertionRuntimeIT.java"
+      ],
+      "support_boundary": "NDEBUG mode is selected at each include. Disabled mode discards nonempty arguments without evaluation or prescan. Enabled mode requires explicit cRuntime=glibc and a compatible target C ABI; unknown runtime is recorded and diagnosed only on invocation. This is a real runtime binding, not a CPG implementation of libc. General nonreturning CFG inference is not established.",
+      "runtime_binding": {
+        "profile_setting": "cRuntime",
+        "supported_value": "glibc",
+        "unknown_behavior": "Enabled invocation produces unavailable-library-macro; unused include and disabled mode work without a runtime binding.",
+        "abi_scope": "Runtime-family/signature choice with 8-bit bytes/char, 32-bit int and 32- or 64-bit pointers validated; caller must select a matching glibc C calling convention and pointer ABI. No complete architecture ABI is claimed."
+      },
+      "historical_note": "C90 DR107 permits reliance on int arguments. Chosen bool-conversion expansion is not proof that later scalar/contextual-bool guarantees belong to original ISO2003; exact C++ adaptation remains an evidence gap.",
+      "supporting_sources": [
+        "https://www9.open-std.org/JTC1/SC22/WG14/issues/c90/issue0107.html",
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.39/assert/assert.h",
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.39/assert/assert.c",
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.39/misc/sys/cdefs.h"
+      ]
     },
     {
       "header": "cerrno",
@@ -263,13 +283,14 @@
       "inherited_locator": "C90 7.1.4",
       "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
       "value_source": "target",
-      "guarantee": "Distinct positive int constant expressions identifying errors; do not assume POSIX numbers.",
+      "guarantee": "Distinct nonzero integral constant expressions identifying errors and suitable for preprocessing conditionals; positive int values may be selected target facts, not an imported C99 requirement. Do not assume POSIX numbers.",
       "required_in_if": "yes",
       "support_status": "open",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
       "implementation": [],
       "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support.",
+      "historical_note": "C90 7.1.4 uses integral constant expressions with distinct nonzero values. The stronger positive-int wording belongs to later C99; this correction relies on indexed original-C90 excerpts, not a fresh full ISO2003 read."
     },
     {
       "header": "cerrno",
@@ -283,13 +304,14 @@
       "inherited_locator": "C90 7.1.4",
       "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
       "value_source": "target",
-      "guarantee": "Distinct positive int constant expressions identifying errors; do not assume POSIX numbers.",
+      "guarantee": "Distinct nonzero integral constant expressions identifying errors and suitable for preprocessing conditionals; positive int values may be selected target facts, not an imported C99 requirement. Do not assume POSIX numbers.",
       "required_in_if": "yes",
       "support_status": "open",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
       "implementation": [],
       "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support.",
+      "historical_note": "C90 7.1.4 uses integral constant expressions with distinct nonzero values. The stronger positive-int wording belongs to later C99; this correction relies on indexed original-C90 excerpts, not a fresh full ISO2003 read."
     },
     {
       "header": "cerrno",
@@ -2228,13 +2250,18 @@
       "inherited_locator": "C90 7.12.1",
       "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
       "value_source": "target",
-      "guarantee": "Expression of clock_t representing clock ticks per second; clock_t is arithmetic, not guaranteed integral. Not necessarily a constant expression; never universally assume POSIX 1000000.",
+      "guarantee": "Target expression giving clock ticks per second; exact expression type/value supplied by target facts. clock_t is arithmetic; do not assume integral type, literal 1000000, or a universal preprocessing constant.",
       "required_in_if": "not_universally_guaranteed",
       "support_status": "open",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
       "implementation": [],
       "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support.",
+      "historical_note": "C90 7.12.1 does not establish the later C99 requirement that the expression have type clock_t. Do not mechanically cast to a guessed clock_t; verify selected target expression and clock_t independently.",
+      "supporting_sources": [
+        "https://www.yodaiken.com/wp-content/uploads/2021/05/ansi-iso-9899-1990-1.pdf",
+        "https://sourceware.org/legacy-ml/libc-alpha/2015-01/msg00063.html"
+      ]
     },
     {
       "header": "cwchar",
@@ -2551,8 +2578,8 @@
     "No profile values are inferred from JVM or current host.",
     "Every implementation row should retain issue92 or a specific open follow-up until full expansion/semantics is proved.",
     "Stage one supplies 54 header/name obligations (48 unique macros); 48 obligations (47 unique macros) remain open under #92.",
-    "NDEBUG is input to assert selection, not a required header-defined macro. Assert and all ABI/runtime-dependent macros remain open.",
-    "The source-locator census in cpp03-paragraphs/inventory.json retains its separate denominator and hashes."
+    "The source-locator census in cpp03-paragraphs/inventory.json retains its separate denominator and hashes.",
+    "Stage two adds the assert obligation under an explicit glibc runtime binding (disabled mode is runtime independent): total 55 obligations/49 names supplied within documented bounds; 47 obligations/46 names remain open under #92. NDEBUG is user input, not header-provided."
   ],
-  "support_scope": "Issue #92 stage one: explicit-profile token definitions only; this inventory is not a claim of complete library or target-ABI conformance."
+  "support_scope": "Issue #92 stages one and two: explicit-profile numeric/null token definitions and an explicitly selected assertion runtime binding; not complete library or target-ABI conformance."
 }

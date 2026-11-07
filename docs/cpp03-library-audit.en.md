@@ -322,3 +322,12 @@ header spellings. The [dedicated inventory](cpp03-library-macros.json) separates
 presence is not counted as CPG implementation. The [verification report](cpp03-library-macros-verification.md)
 records target assumptions, exact evidence and remaining ABI/runtime/assert
 work. No complete-library claim or closure of #48 follows from this packet.
+
+## Follow-up #92: assertion binding
+
+The historical cassert gap now has a CPG-owned function-like macro, NDEBUG
+reselection, an explicit glibc runtime binding, and an unavailable-binding
+boundary for other profiles. This is not a portable implementation of libc or
+proof of every historical expression-type case. Copying and unrelated edits
+are supported; condition edits through the expanded graph are rejected pending
+safe re-stringization. [Verification](cpp03-assert-verification.md).

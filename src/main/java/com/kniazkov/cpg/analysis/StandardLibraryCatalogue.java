@@ -182,6 +182,10 @@ public final class StandardLibraryCatalogue {
     /** Declarations are parsed only in an isolated candidate catalogue, without filesystem reads. */
     public static String declarations(String header, PlatformProfile profile) {
         String h=canonicalHeader(header), size=profile.sizeType();
+        // Real glibc ABI declaration, not a standard-library function or CPG body.
+        // Keep C linkage and global namespace under both header spellings.
+        if (h.equals("cassert") && profile.cRuntime().equals("glibc"))
+            return "extern \"C\" void __assert_fail(const char*, const char*, unsigned int, const char*) throw();";
         if (StandardLibraryC.supports(h)) { String data = StandardLibraryC.declarations(h); return header.endsWith(".h") ? data : ns(data); }
         if (StandardLibraryStreams.supports(h)) return ns(StandardLibraryStreams.declarations(h));
         String body=switch(h) {
