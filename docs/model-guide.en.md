@@ -1675,3 +1675,27 @@ The accessor's compiler const attribute is not treated as an immutable pointee
 or a promise that errno survives later library calls unchanged. Successful
 library calls may change errno too; this packet adds no such value inference.
 See [runtime checks and conservative memory boundary](cpp03-errno-verification.md).
+
+### Locale-sensitive MB_CUR_MAX (#92)
+
+An explicit `mbCurMaxBinding: "glibc-x86_64-lp64-mb16"` selects the current
+locale query. The default is `unavailable`, including when cRuntime=glibc.
+Selection validates cRuntime=glibc, bytes8/int32/long64/pointer64, exact
+sizeType=unsigned long and maxMultibyteLength=16. Mismatched selected contracts
+are rejected, not silently repaired. Existing errno/assert profiles remain valid.
+Default-based profiles already have bound16; an inherits=none profile omitting
+the optional bound retains legacy fallback1 and cannot select this contract.
+
+The capability participates in settings, copying, profile and variant identity.
+MB_LEN_MAX is the selected whole-runtime bound; MB_CUR_MAX calls
+`::__ctype_get_mb_cur_max()` to read the current locale. Its genuine global
+C-linkage return type equals canonical selected size_t. The scalar rvalue stays
+unknown before and after setlocale; it is never clamped, cached or substituted
+with MB_LEN_MAX. sizeof remains unevaluated. Actual headers retain precedence.
+
+CPG exposes the correct rvalue category but does not currently diagnose all
+invalid assignments, increments or address-taking of scalar-returning calls.
+Strict native rejection tests do not constitute CPG diagnostics. This existing
+generic limitation is not hidden by a macro-name exception. The narrow target
+contract still requires a matching deployed ABI and runtime export.
+[Verification and remaining work](cpp03-mb-cur-max-verification.md).
