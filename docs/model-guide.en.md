@@ -1742,8 +1742,25 @@ when wchar_t can represent it; WEOF need not equal EOF. Type-preserving constant
 expressions support #if. Synthetic profiles do not authorize mismatched native
 wide-library calls or claim a complete repertoire/locale model.
 
-The bounded inventory now has 92 obligations/85 names, with 10 obligations/10
+At stage seven the bounded inventory had 92 obligations/85 names, with 10 obligations/10
 names open. Focused implementation checks support the two WEOF entries; all four WEOF native cases passed. Expanded
 regression, full-suite and exact-head CI results are separately tracked
 in the [verification report](cpp03-weof-verification.md). Prior stage counts and
 reports remain historical. #92 and #48 remain open.
+
+## Clock-scale target facts (#92, eighth stage)
+
+Optional `clockScale` couples independent `clockType`, `expressionType` and
+positive decimal-string `value` facts. Each type supports int, unsigned int,
+long or unsigned long; value must fit expressionType, not necessarily clockType.
+Missing/empty settings retain opaque clock_t and unavailable CLOCKS_PER_SEC.
+Actual headers remain authoritative; no libc/host/JVM facts are inferred.
+
+Original C90 describes arithmetic clock_t and a scale giving the number per
+second of clock() values. It does not impose later C99 exact-clock_t or constant
+wording. The chosen typed-literal subset supports #if without making that a
+universal historical guarantee. clock() remains an opaque runtime call.
+The inventory has 93 bounded obligations/86 names and nine open obligations/
+nine names. Expanded focused acceptance passed 269 units and 28 integration tests; full verification
+and exact-head CI remain separately tracked in the [report](cpp03-clock-scale-verification.md).
+Prior stage counts remain historical. #92 and #48 remain open.

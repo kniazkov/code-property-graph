@@ -68,9 +68,24 @@ def check(data, root=ROOT):
                     label + ': runtime binding needs explicit selection and ABI/unknown boundaries')
         if entry.get('support_status') == 'target_fact':
             fact = entry.get('target_fact', {})
-            require(entry.get('macro_kind') == 'object' and entry.get('required_in_if') == 'yes',
+            require(entry.get('macro_kind') == 'object' and entry.get('required_in_if') ==
+                    ('not_universally_guaranteed' if entry['name'] == 'CLOCKS_PER_SEC' else 'yes'),
                     label + ': integer target fact must retain its object macro and #if contract')
-            if entry['name'] == 'WEOF':
+            if entry['name'] == 'CLOCKS_PER_SEC':
+                require(set(fact) == {'profile_setting', 'entry_name', 'supported_clock_types',
+                                      'supported_expression_types', 'value_constraint',
+                                      'selected_form_in_if', 'unknown_behavior', 'value_origin'},
+                        label + ': clock scale needs exact independent-type schema')
+                require(entry['header'] == 'ctime' and fact.get('profile_setting') == 'clockScale'
+                        and fact.get('entry_name') == 'CLOCKS_PER_SEC',
+                        label + ': wrong clock scale header/selection')
+                for field in ('supported_clock_types', 'supported_expression_types'):
+                    require(fact.get(field) == ['int', 'unsigned int', 'long', 'unsigned long'],
+                            label + ': unsupported clock scale type set ' + field)
+                require(fact.get('value_constraint') == 'positive_decimal' and
+                        fact.get('selected_form_in_if') is True,
+                        label + ': clock literal value/#if policy missing')
+            elif entry['name'] == 'WEOF':
                 require(set(fact) == {'profile_setting', 'entry_name', 'supported_types',
                                       'character_domain', 'unknown_behavior', 'value_origin'},
                         label + ': WEOF target fact needs the exact coupled schema')

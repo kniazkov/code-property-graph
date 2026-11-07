@@ -120,6 +120,36 @@ class MacroInventoryTest(unittest.TestCase):
                 row['target_fact']['entry_name'] = name
                 self.assertTrue(checker.check(data))
 
+    def test_clock_scale_exact_independent_schema(self):
+        mutations = [('profile_setting', 'runtimeIntegerMacros'), ('entry_name', 'clock_t'),
+                     ('supported_clock_types', ['int']), ('supported_expression_types', ['long']),
+                     ('value_constraint', 'decimal'), ('selected_form_in_if', False),
+                     ('selected_form_in_if', 1), ('unknown_behavior', ''), ('value_origin', ''),
+                     ('supported_type', 'long'), ('types_must_equal', True), ('extra', True)]
+        for field, wrong in mutations:
+            with self.subTest(field=field, wrong=wrong):
+                data = copy.deepcopy(self.data)
+                row = next(e for e in data['entries'] if e['name'] == 'CLOCKS_PER_SEC')
+                row['target_fact'][field] = wrong
+                self.assertTrue(checker.check(data))
+
+    def test_clock_scale_preserves_portable_if_qualification(self):
+        for field, wrong in [('header', 'cstdio'), ('required_in_if', 'yes'), ('macro_kind', 'function')]:
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                row = next(e for e in data['entries'] if e['name'] == 'CLOCKS_PER_SEC')
+                row[field] = wrong
+                self.assertTrue(checker.check(data))
+
+    def test_clock_scale_rejects_missing_schema_fields(self):
+        row = next(e for e in self.data['entries'] if e['name'] == 'CLOCKS_PER_SEC')
+        for field in row['target_fact']:
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                entry = next(e for e in data['entries'] if e['name'] == 'CLOCKS_PER_SEC')
+                del entry['target_fact'][field]
+                self.assertTrue(checker.check(data))
+
 
 if __name__ == '__main__':
     unittest.main()

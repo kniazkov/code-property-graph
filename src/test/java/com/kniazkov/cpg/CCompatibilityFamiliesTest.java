@@ -89,14 +89,16 @@ class CCompatibilityFamiliesTest {
         assertEquals("double", calls.get(6).target().orElseThrow().parameters().get(1).type().orElseThrow().canonicalIdentity());
         for (var call : calls) assertTrue(call.target().orElseThrow().body().isEmpty(), "Known declaration does not imply a modeled implementation");
     }
-    @Test void absentTargetMacroDefinitionsRemainUnresolved() throws Exception {
-        var project = read("#include <cstdio>\n#include <cerrno>\n#include <ctime>\n#include <climits>\n#include <cfloat>\nint f(){return CLOCKS_PER_SEC+INT_MAX+FLT_RADIX;}");
+    @Test void absentClockScaleDiagnosesUseWhileProfileLimitsRemainAvailable() throws Exception {
+        var error = assertThrows(com.kniazkov.cpg.parser.ParseException.class,
+                () -> read("#include <ctime>\nint f(){return CLOCKS_PER_SEC;}"));
+        assertTrue(error.getMessage().contains("clockScale"));
+        var project = read("#include <ctime>\n#include <climits>\n#include <cfloat>\nint f(){return INT_MAX+FLT_RADIX;}");
         var names = new ArrayList<NameExpression>();
         project.files().getFirst().walk(new NodeVisitor() {
             @Override public void visit(NameExpression name) { names.add(name); }
         });
-        assertEquals(Set.of("CLOCKS_PER_SEC"), names.stream().map(NameExpression::name).collect(java.util.stream.Collectors.toSet()));
-        for (var name : names) assertTrue(name.target().isEmpty(), name.name());
+        assertTrue(names.isEmpty());
     }
     @Test void cstddefTypesResolveUsingTheSelectedProfile() throws Exception {
         for (boolean legacy : List.of(false, true)) {
