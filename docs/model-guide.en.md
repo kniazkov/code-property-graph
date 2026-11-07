@@ -1611,3 +1611,48 @@ blocks generation. NDEBUG-disabled assertions need no runtime. Selected glibc
 uses ordinary resolved C++ calls with conservative effects; this packet does not
 infer a terminal CFG edge merely from the helper's spelling. For source-location
 preservation and graph-edit boundaries see [the assertion report](cpp03-assert-verification.md).
+
+### Typed runtime integer facts (#92)
+
+`runtimeIntegerMacros` is an optional profile object, empty by default (including
+older complete profiles). It carries selected target facts, not arbitrary C++
+replacement text. Each recognized name maps to exactly a type and decimal string:
+
+```json
+{"inherits":"default", "runtimeIntegerMacros":{
+  "EDOM":{"type":"int","value":"33"},
+  "ERANGE":{"type":"int","value":"34"}
+}}
+```
+
+These example values are explicit choices, not portable defaults. The supported
+set has 30 names from cerrno, clocale, csignal, cstdio and cstdlib; the inventory
+lists every name and source locator. This stage accepts only int expressions.
+That is a supported-profile restriction, not a claim that every original C90
+integral macro has type int. Decimal strings avoid JSON numeric truncation;
+canonical value spelling and name order participate in profile identity, variant
+identity, copy and effective-settings serialization. Unknown names/types,
+malformed values and values outside the selected target int range are rejected.
+Negative values, including the target int minimum, preserve their expression type.
+Profile files and embedded compilation-database profiles require strict JSON with
+unique decoded keys; duplicate names/fields cannot silently overwrite facts.
+
+Partial fact sets are intentional. Including a built-in header installs each
+modeled macro, but omitted facts have an `unavailableReason` and no invented
+replacement. Ordinary or #if expansion reports `unavailable-library-macro`.
+`defined(NAME)` and #ifdef report definition presence, not knowledge of its value.
+An unused include remains usable. Actual supplied headers retain precedence, and
+macros do not leak across translation units. Neither cRuntime=glibc nor the JVM
+or build host fills in missing values.
+
+The validator checks family-specific nonzero/distinct/range constraints. Original
+C90 error selectors need not be positive, and EXIT_SUCCESS need not equal zero.
+Checking a number does not prove runtime exit, locale, signal, random-number or
+I/O semantics. Typed clock/wide/math macros, handler pointers, live errno/streams,
+locale-dependent MB_CUR_MAX, offsetof, varargs and setjmp remain separate work.
+See [verification and exact boundaries](cpp03-runtime-integer-macros-verification.md).
+
+Trusted declaration-only strstream parsing may retain an unavailable EOF token
+in a default argument with its metadata; it does not invent a value. This internal
+mode is explicit, never inferred from a filename. User code and #if still diagnose
+missing facts.

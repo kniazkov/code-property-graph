@@ -43,3 +43,4 @@ jobs:
           path: |
             target/cpg-*.jar
             target/demo/
+            target/runtime-integer-oracle/
