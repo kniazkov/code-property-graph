@@ -349,3 +349,17 @@ its genuine accessor and an object-like mutable-lvalue macro. Error-number facts
 remain separately selected. Unknown runtime is diagnosed on use, not replaced
 with an invented global int or zero. Exact TLS identity and complete library
 error-state semantics remain beyond this bounded packet. [Checks](cpp03-errno-verification.md).
+
+## Issue #92 continuation: live multibyte limit
+
+The historical absent-MB_CUR_MAX row now has a bounded opt-in glibc accessor
+binding, separate from prior numeric/null and integer-fact packets. Both header
+spellings retain an object macro and ordinary declarations. The query is an
+unknown scalar rvalue, not a constant locale model. Exact size_t belongs to the
+selected glibc contract, not original C90 wording. The earlier table and counts
+are historical; the current inventory has 15 obligations/14 names open.
+
+Only the explicitly validated glibc-x86_64-lp64-mb16 contract is supplied; naming
+glibc alone does not establish this ABI or enable the query. Complete locale
+conversion semantics and generic scalar-call rvalue diagnostics remain outside
+this packet. #92 and #48 remain open. [Verification](cpp03-mb-cur-max-verification.md).
