@@ -205,3 +205,24 @@ representations remain conservative. This is distinct from the library's
 EqualityComparable/LessThanComparable prerequisites, which declaration-only CPG
 does not establish. Calls retain unknown effects rather than invented STL bodies
 or pure-comparison folding. [Evidence and limits](cpp03-rel-ops-verification.md).
+
+## Profile-backed library macros (#92, first stage)
+
+The preprocessor now supplies CPG-owned `NULL` in its seven required header
+families, all 16 `climits` macros, all 29 `cfloat` macros, and `WCHAR_MIN/MAX` in
+`cwchar`. Both C++ and old C spellings work. These 54 header/name obligations
+(48 distinct names) are separate from the declaration catalogue. An explicitly
+provided physical header takes precedence over the built-in model.
+
+Definitions use the selected target profile, not Java numeric constants or hidden
+host headers. Integer suffixes preserve promoted types; floating formats are
+explicit choices separate from storage widths. Unknown required floating facts
+produce a contextual diagnostic rather than guessed values. Macro definitions,
+expansions and profile provenance remain in the graph without emitting synthetic
+headers as user source files.
+
+The [complete inventory](cpp03-library-macros.json) records 102 mandatory
+header/name obligations (95 names), source coordinates and per-entry scope.
+The other 48 obligations remain open under #92: assert/NDEBUG, runtime bindings
+and target/ABI macros are not supplied by this stage. #92 and general acceptance
+#48 stay open. [Verification and boundaries](cpp03-library-macros-verification.md).
