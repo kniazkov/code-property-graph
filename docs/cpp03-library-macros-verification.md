@@ -106,11 +106,15 @@ by 32-bit long must still promote to int, and double/long double cannot choose
 binary32 precision. Regression tests cover signed/unsigned wchar backing and
 invalid format selections. No unrelated language-limit claim is made.
 
-The first full unit pass found one reviewed JSON fixture still carrying the old
-profile identity. Structural comparison found exactly 37 scalar differences:
-36 occurrences of the profile hash and one stable-identity string gaining the
-four new settings. Only those two explicit text transformations were applied;
+The full unit and integration passes found two reviewed JSON fixtures still
+carrying the old profile identity: return-zero.json and return-zero-cli.json.
+Each structural comparison found exactly 37 scalar differences: 36 occurrences
+of the profile hash and one stable-identity string gaining the four new settings.
+Only those two explicit text transformations were applied to each fixture;
 syntax, node IDs, ranges, pass results and predefined values did not change.
+All 227 tracked test resources were checked for remaining stale profile snapshots.
+The four packaged-CLI tests then passed against the corrected source fixture using
+the standalone JUnit launcher; the final complete Maven run remains a merge gate.
 Exact macro-name sets and every supplied inventory/header spelling are also
 cross-checked against the provider, not just counted.
 
