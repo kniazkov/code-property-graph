@@ -187,3 +187,21 @@ receiver-write effects, not inferred allocation/ownership/frozen-state/lifetime
 semantics. Native fixed-buffer and dynamic freeze/unfreeze examples use the
 compiler's STL. They demonstrate those particular executions only.
 [Verification and source decisions](cpp03-strstream-verification.md).
+
+
+## Opt-in relational operators (#91)
+
+`<utility>` declares the four C++03 `std::rel_ops` templates (`!=`, `>`, `<=`,
+`>=`) in their nested namespace. Parser callable indexes expose that namespace
+without importing it into `std` or global lookup. Qualified calls, namespace
+aliases, using-directives and operator using-declarations are covered. Only
+demanded templates enter the graph; target ownership survives copying and
+resolution.
+
+Ordinary non-member overloaded-operator templates (excluding allocation and
+deallocation operators) require a class or enum operand; known
+builtin-only specializations are not callable. Unknown object/unspecified library
+representations remain conservative. This is distinct from the library's
+EqualityComparable/LessThanComparable prerequisites, which declaration-only CPG
+does not establish. Calls retain unknown effects rather than invented STL bodies
+or pure-comparison folding. [Evidence and limits](cpp03-rel-ops-verification.md).
