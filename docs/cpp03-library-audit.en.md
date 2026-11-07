@@ -295,3 +295,11 @@ all E scenarios. The final aggregate acceptance report owns the full-suite resul
    Keep external effects conservative elsewhere.
 5. Continue to report declaration, parser, resolution, effects, generation and test
    coverage separately. No row in this audit warrants an unqualified “complete.”
+
+
+## Follow-up #90: strstream declarations
+
+The original audit above records the catalogue at audit time. The later #90
+implementation adds the missing header/four class interfaces; current inventory
+is 51 core headers / 69 spellings. This does not close the documented D.7 runtime
+contract gaps or general acceptance #48. See [bounded verification](cpp03-strstream-verification.md).

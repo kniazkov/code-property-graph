@@ -135,4 +135,17 @@ class OverloadResolutionTest {
         var p=resolve("void valid(const int* const*);void invalid(const int**);int main(){int** p;valid(p);invalid(p);}");
         assertTrue(calls(p,"valid").getFirst().target().isPresent());assertTrue(calls(p,"invalid").getFirst().target().isEmpty());
     }
+    @Test void equalOpaqueConstructorArgumentsAllowKnownArgumentsToDecide() {
+        var p=resolve("#include <iosfwd>\nstruct Buffer { Buffer(char*,std::streamsize); Buffer(const char*,std::streamsize); }; void f(char* data){Buffer b(data,1);}");
+        assertFalse(p.hasErrors(),()->p.semanticDiagnostics().toString());
+        var b=nodes(p,VariableDeclaration.class).stream().filter(v->v.name().equals("b")).findFirst().orElseThrow();
+        var constructors=nodes(p,CallableDeclaration.class).stream().filter(c->c.kind()==CallableDeclaration.Kind.CONSTRUCTOR && c.name().equals("Buffer")).toList();
+        var selected=OverloadResolution.select(constructors,((InitializationExpression)b.initializer().orElseThrow()).arguments(),com.kniazkov.cpg.build.PlatformProfile.defaults());
+        assertEquals("pointer(char)",selected.selected().orElseThrow().parameters().getFirst().type().orElseThrow().canonicalIdentity());
+        var unknown=resolve("#include <iosfwd>\nstruct Buffer { Buffer(char*,std::streamsize); Buffer(const char*,std::streamoff); }; void f(char* data){Buffer b(data,1);}");
+        var other=nodes(unknown,VariableDeclaration.class).stream().filter(v->v.name().equals("b")).findFirst().orElseThrow();
+        var candidates=nodes(unknown,CallableDeclaration.class).stream().filter(c->c.kind()==CallableDeclaration.Kind.CONSTRUCTOR && c.name().equals("Buffer")).toList();
+        assertTrue(OverloadResolution.select(candidates,((InitializationExpression)other.initializer().orElseThrow()).arguments(),com.kniazkov.cpg.build.PlatformProfile.defaults()).selected().isEmpty());
+    }
+
 }

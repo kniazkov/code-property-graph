@@ -25,6 +25,16 @@ public final class ClassTemplateSemantics {
         unusedMethods.removeAll(demandedMethods(project).keySet());
         for (SourceFile file : project.librarySources()) collect(file, file, "", false, declarations, new ArrayList<>(), new int[]{0}, unusedMethods);
         for (SourceFile file : project.files()) collect(file, file, "", false, declarations, uses, new int[]{0}, unusedMethods);
+        // Concrete catalogue classes can inherit template specializations. Follow
+        // actual type/receiver demand, including used instantiated bodies.
+        var visitedLibraryClasses = new IdentityHashMap<SourceFile, Set<ClassDeclaration>>();
+        java.util.function.BiConsumer<Node, SourceFile> libraryDemand = (node, source) ->
+                collectLibraryDemand(node, source, declarations, uses, unusedMethods,
+                        visitedLibraryClasses.computeIfAbsent(source,
+                                ignored -> Collections.newSetFromMap(new IdentityHashMap<>())));
+        project.files().forEach(file -> libraryDemand.accept(file, file));
+        project.classTemplateInstances().forEach(instance -> libraryDemand.accept(instance.declaration(), instance.source()));
+        project.templateInstances().forEach(instance -> libraryDemand.accept(instance.declaration(), instance.source()));
         // Dependent types become concrete only inside their own instantiated body.
         for (ClassTemplateInstance instance : project.classTemplateInstances())
             collect(instance.declaration(), instance.source(), scopeOf(instance.origin(), declarations), false, declarations, uses, new int[]{Integer.MAX_VALUE / 2}, unusedMethods);
@@ -240,6 +250,36 @@ public final class ClassTemplateSemantics {
     private static Diagnostic error(String code, String message) { return new Diagnostic(code, Diagnostic.Severity.ERROR, message); }
     private static String scopeOf(ClassDeclaration c, List<Located> declarations) { return declarations.stream().filter(d -> d.declaration() == c).map(Located::scope).findFirst().orElse(""); }
     private static String qualify(String scope, String name) { return scope.isEmpty() ? name : scope + "::" + name; }
+    private static void collectLibraryDemand(Node node, SourceFile source,
+            List<Located> declarations, List<Use> uses, Set<CallableDeclaration> unusedMethods,
+            Set<ClassDeclaration> visited) {
+        if (node instanceof ClassDeclaration owner && !owner.templateParameters().isEmpty()
+                || node instanceof CallableDeclaration callable && !callable.templateParameters().isEmpty()) return;
+        TypeNode type = node instanceof NamedType named ? named : null;
+        if (node instanceof MemberExpression member) {
+            type = TypeSemantics.expressionType(member.receiver(), TypeSemantics.profile(source)).orElse(null);
+            if (type != null) {
+                type = TypeSemantics.unqualified(TypeSemantics.withoutReference(type));
+                if (member instanceof PointerMemberExpression && type instanceof PointerType pointer) type = pointer.pointee();
+            }
+        }
+        if (type != null) ClassSemantics.objectClass(type).ifPresent(owner ->
+                collectLibraryBases(owner, source, declarations, uses, unusedMethods, visited));
+        for (Node child : node.children()) {
+            if (node instanceof CallableDeclaration method && unusedMethods.contains(method) && method.body().orElse(null) == child) continue;
+            collectLibraryDemand(child, source, declarations, uses, unusedMethods, visited);
+        }
+    }
+    private static void collectLibraryBases(ClassDeclaration owner, SourceFile source,
+            List<Located> declarations, List<Use> uses, Set<CallableDeclaration> unusedMethods,
+            Set<ClassDeclaration> visited) {
+        if (!owner.templateParameters().isEmpty() || !LibraryDeclarations.isLibrary(owner) || !visited.add(owner)) return;
+        for (BaseSpecifier base : owner.bases()) {
+            collect(base, source, "", false, declarations, uses, new int[]{Integer.MAX_VALUE / 2}, unusedMethods);
+            ClassSemantics.objectClass(base.type()).ifPresent(parent ->
+                    collectLibraryBases(parent, source, declarations, uses, unusedMethods, visited));
+        }
+    }
     private static void collect(Node node, SourceFile file, String scope, boolean dependent, List<Located> declarations, List<Use> uses, int[] position, Set<CallableDeclaration> unusedMethods) {
         int point = position[0]++;
         if (node instanceof ClassDeclaration c) {

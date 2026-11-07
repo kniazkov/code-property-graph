@@ -154,6 +154,12 @@ public final class TypeSemantics {
         return type;
     }
 
+    private static boolean libraryBitmask(TypeNode type) {
+        return unqualified(type) instanceof OpaqueLibraryType opaque
+                && opaque.category()==OpaqueLibraryType.Category.UNSPECIFIED
+                && Set.of("fmtflags", "iostate", "openmode", "ctype_mask").contains(opaque.name());
+    }
+
     /** Semantic result type before context-dependent decay. References denote the referred object. */
     public static Optional<TypeNode> expressionType(Expression expression, PlatformProfile profile) {
         return expressionType(expression, profile, ignored -> Optional.empty());
@@ -250,8 +256,11 @@ public final class TypeSemantics {
             return expressionType(((UnaryExpression) expression).operand(), profile, constants);
         if (expression instanceof PostfixIncrementExpression || expression instanceof PostfixDecrementExpression)
             return expressionType(((UnaryExpression) expression).operand(), profile, constants).map(TypeSemantics::unqualified);
-        if (expression instanceof BitwiseNotExpression bitwise)
+        if (expression instanceof BitwiseNotExpression bitwise) {
+            var operand = expressionType(bitwise.operand(), profile, constants).map(TypeSemantics::unqualified);
+            if (operand.filter(TypeSemantics::libraryBitmask).isPresent()) return operand;
             return promoted(bitwise.operand(), profile, constants).filter(type -> integerType(type, profile).isPresent());
+        }
         if (expression instanceof UnaryPlusExpression || expression instanceof NegateExpression)
             return promoted(((UnaryExpression) expression).operand(), profile, constants);
         if (expression instanceof BinaryExpression binary) {
@@ -260,6 +269,10 @@ public final class TypeSemantics {
             var right = expressionType(binary.right(), profile, constants).map(TypeSemantics::decay);
             if (left.isEmpty() || right.isEmpty()) return Optional.empty();
             TypeNode a = left.get(), b = right.get();
+            // 17.3.2.1.3 guarantees a same-domain bitmask result, not its value.
+            if ((binary instanceof BitwiseAndExpression || binary instanceof BitwiseOrExpression
+                    || binary instanceof BitwiseXorExpression) && libraryBitmask(a)
+                    && unqualified(a).canonicalIdentity().equals(unqualified(b).canonicalIdentity())) return Optional.of(unqualified(a));
             var iteratorA=LibraryIteratorSemantics.info(a);
             var iteratorB=LibraryIteratorSemantics.info(b);
             if (binary instanceof IndexExpression) {
