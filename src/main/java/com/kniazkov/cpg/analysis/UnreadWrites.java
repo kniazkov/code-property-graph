@@ -69,7 +69,14 @@ public final class UnreadWrites {
         containers.forEach(operation -> normalized.add(operation.syntax()));
         sequences.forEach(operation -> normalized.add(operation.syntax()));
         Set<Declaration> escaped = Collections.newSetFromMap(new IdentityHashMap<>());
+        // The local reference binding can itself be unused even when writes
+        // through that binding affect externally observable storage.
+        Set<Declaration> externalReferenceTargets = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Node> unevaluated = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<Declaration> locals = Collections.newSetFromMap(new IdentityHashMap<>());
+        walkEvaluatedSyntax(flow.entry(), new NodeVisitor() {
+            @Override public void visit(VariableDeclaration variable) { locals.add(variable); }
+        });
         Set<Declaration> libraryAccessible = profile == null ? Set.of() : LibraryCallEffects.accessible(flow.entry(), profile);
         if (profile != null) walkEvaluatedSyntax(flow.entry(), new NodeVisitor() {
             @Override public void visit(TypeidExpression typeid) {
@@ -107,6 +114,7 @@ public final class UnreadWrites {
                 if (!unevaluated.contains(address)) escape(address.operand());
             }
             @Override public void visit(VariableDeclaration variable) {
+                if (!unevaluated.contains(variable) && LibraryCallEffects.possiblyNonlocalReference(variable, locals, profile)) externalReferenceTargets.add(variable);
                 if (variable.constructorTarget().filter(LibraryCallEffects::unknown).isPresent()
                         || variable.destructorTarget().filter(LibraryCallEffects::unknown).isPresent()) {
                     escaped.addAll(libraryAccessible);
@@ -147,7 +155,7 @@ public final class UnreadWrites {
                                 ? ((UnaryExpression) write).operand() : null;
                 if (target instanceof NameExpression name)
                     name.target().filter(d -> d instanceof VariableDeclaration || d instanceof ParameterDeclaration)
-                            .filter(d -> !escaped.contains(d)).ifPresent(d -> candidates.put(write, name.name()));
+                            .filter(d -> !escaped.contains(d) && !externalReferenceTargets.contains(d)).ifPresent(d -> candidates.put(write, name.name()));
             }
         }
         candidates.forEach((write, name) -> {

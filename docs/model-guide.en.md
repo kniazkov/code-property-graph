@@ -1656,3 +1656,22 @@ Trusted declaration-only strstream parsing may retain an unavailable EOF token
 in a default argument with its metadata; it does not invent a value. This internal
 mode is explicit, never inferred from a filename. User code and #if still diagnose
 missing facts.
+
+### Mutable runtime errno (#92)
+
+The existing cRuntime=glibc selection also enables errno under cerrno/errno.h.
+Its CPG-owned object-like macro expands to `(*::__errno_location())`, with the
+real global C-linkage `int* __errno_location() throw()` declaration. It is an int
+lvalue: assignment, compound assignment, increment, reference binding and
+address-taking use live runtime storage. sizeof remains unevaluated. No fake
+extern int errno or implementation body is emitted. Selecting a runtime family
+still requires compatible target int/pointer/calling ABI and an actual exported
+accessor; it does not infer EDOM, ERANGE or EILSEQ values.
+
+The unknown runtime mode records an unavailable definition, permits an unused
+include, and reports unavailable-library-macro on use. Header aliases and
+translation units keep their normal preprocessing and ownership boundaries.
+The accessor's compiler const attribute is not treated as an immutable pointee
+or a promise that errno survives later library calls unchanged. Successful
+library calls may change errno too; this packet adds no such value inference.
+See [runtime checks and conservative memory boundary](cpp03-errno-verification.md).

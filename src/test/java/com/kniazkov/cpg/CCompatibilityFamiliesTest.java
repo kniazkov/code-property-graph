@@ -90,12 +90,12 @@ class CCompatibilityFamiliesTest {
         for (var call : calls) assertTrue(call.target().orElseThrow().body().isEmpty(), "Known declaration does not imply a modeled implementation");
     }
     @Test void absentTargetMacroDefinitionsRemainUnresolved() throws Exception {
-        var project = read("#include <cstdio>\n#include <cerrno>\n#include <ctime>\n#include <climits>\n#include <cfloat>\nint f(){return errno+CLOCKS_PER_SEC+INT_MAX+FLT_RADIX;}");
+        var project = read("#include <cstdio>\n#include <cerrno>\n#include <ctime>\n#include <climits>\n#include <cfloat>\nint f(){return CLOCKS_PER_SEC+INT_MAX+FLT_RADIX;}");
         var names = new ArrayList<NameExpression>();
         project.files().getFirst().walk(new NodeVisitor() {
             @Override public void visit(NameExpression name) { names.add(name); }
         });
-        assertEquals(Set.of("errno", "CLOCKS_PER_SEC"), names.stream().map(NameExpression::name).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(Set.of("CLOCKS_PER_SEC"), names.stream().map(NameExpression::name).collect(java.util.stream.Collectors.toSet()));
         for (var name : names) assertTrue(name.target().isEmpty(), name.name());
     }
     @Test void cstddefTypesResolveUsingTheSelectedProfile() throws Exception {
