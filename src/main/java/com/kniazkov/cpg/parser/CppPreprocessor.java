@@ -72,7 +72,11 @@ public final class CppPreprocessor {
     /** Every executed definition, including unused definitions and repeated identical definitions. */
     public record Definition(long id, String name, boolean functionLike, List<String> parameters,
             String rawReplacement, SourceRange range, Build.IncludeInstance include,
-            String originKind, String sourceKey) {
+            String originKind, String sourceKey, String unavailableReason) {
+        public Definition(long id, String name, boolean functionLike, List<String> parameters,
+                String rawReplacement, SourceRange range, Build.IncludeInstance include, String originKind, String sourceKey) {
+            this(id, name, functionLike, parameters, rawReplacement, range, include, originKind, sourceKey, null);
+        }
         public Definition { parameters = List.copyOf(parameters); }
     }
     /** A conditional arm's physical text, and its contribution to the expanded token stream. */
@@ -683,6 +687,26 @@ public final class CppPreprocessor {
         }
 
         void libraryMacros(Build.IncludeInstance parent, String header, Work location) {
+            if (header.equals("cassert") || header.equals("assert.h")) {
+                boolean disabled = macros.containsKey("NDEBUG");
+                String mode = disabled ? "disabled" : "enabled";
+                String unavailable = !disabled && !unit.platform().cRuntime().equals("glibc")
+                        ? "Enabled assert requires an explicitly selected supported C runtime (cRuntime=glibc)" : null;
+                String replacement = disabled ? "((void)0)" : unavailable != null ? ""
+                        : "(static_cast<bool>(expression) ? (void)0 : ::__assert_fail(#expression, __FILE__, __LINE__, 0))";
+                String file = unit.directory().resolve("<cpg-library:" + header + ":assert:" + mode + ">").toString();
+                String source = "assert(expression) " + replacement;
+                definitionSources.put(file, source);
+                // Unlike ordinary redefinition, every inclusion must reselect assert.
+                macros.remove("assert");
+                define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                        "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":assert:" + mode);
+                if (unavailable != null) {
+                    Definition d = definitions.getLast();
+                    definitions.set(definitions.size() - 1, new Definition(d.id(), d.name(), d.functionLike(), d.parameters(),
+                            d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(), unavailable));
+                }
+            }
             Map<String, String> library;
             try { library = StandardLibraryMacros.definitions(header, unit.platform()); }
             catch (IllegalArgumentException error) { throw error(location, error.getMessage()); }
@@ -738,6 +762,11 @@ public final class CppPreprocessor {
                         hide.retainAll(work.get(close).hidden);
                         arguments = collected; rawArguments = rawCollected; end = close + 1;
                     }
+                    String unavailable = definitions.get((int) macro.id - 1).unavailableReason();
+                    if (unavailable != null) throw error(invocation, unavailable).withDiagnostic("unavailable-library-macro",
+                            unavailable, invocation.value.expansionRange(), List.of(new DiagnosticRelatedRange(
+                                    "macro-definition", "Unavailable library macro binding", macro.fullDefinition)),
+                            context(invocation.value.include(), invocation.value.expansionIds()));
                     if (++expansions > 100000) throw error(invocation, "Macro expansion limit exceeded");
                     hide.add(macro.name);
                     SourceRange call = invocation.value.expansionRange();

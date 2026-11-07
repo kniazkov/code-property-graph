@@ -93,10 +93,10 @@ normalization is a separate pass, not an effect summary inferred from declaratio
 | `csignal`, `signal.h` | Abstract sig_atomic_t, signal/raise | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
 | `csetjmp`, `setjmp.h` | Abstract jmp_buf and longjmp | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
 | `cstdarg`, `stdarg.h` | Abstract va_list | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
-| `cassert`, `assert.h` | Header only | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cassert`, `assert.h` | assert macro; no standard callable declaration. Explicit glibc binding may supply its real global helper | #92: disabled mode is runtime independent; enabled mode requires the selected runtime binding |
 | `cerrno`, `errno.h` | Header only | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
-| `cfloat`, `float.h` | Header only | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
-| `climits`, `limits.h` | Header only | Target macros require definitions; resolved calls retain conservative effects; see #41 evidence below |
+| `cfloat`, `float.h` | No callable declarations | #92 supplies 29 macros from explicit target formats |
+| `climits`, `limits.h` | No callable declarations | #92 supplies 16 macros from explicit target facts |
 | `ciso646`, `iso646.h` | Header only; alternative operator tokens are a language feature | No separate C++ declaration family |
 
 ## Reproducible checks
@@ -160,7 +160,7 @@ implementation layouts are not guessed.
 
 Macro-only header recognition is a separate boundary: the portable catalogue
 does not supply target-specific definitions for EOF, errno, clock scales, signal
-numbers, numeric limits, `setjmp` or `va_*`. Without target definitions those names
+numbers, `setjmp` or `va_*`. Numeric limits and NULL are supplied separately by the profile-backed preprocessor described below. Without target definitions those names
 remain unresolved; real-header presence checks do not imply macro evaluation in
 the graph. See `src/test/resources/library-catalogue/c-compatibility-coverage.md`
 for namespace and compiler-specific probe qualifications. Alternative tokens in
@@ -226,3 +226,19 @@ header/name obligations (95 names), source coordinates and per-entry scope.
 The other 48 obligations remain open under #92: assert/NDEBUG, runtime bindings
 and target/ABI macros are not supplied by this stage. #92 and general acceptance
 #48 stay open. [Verification and boundaries](cpp03-library-macros-verification.md).
+
+## Explicit assertion runtime (#92, second stage)
+
+`assert` remains a function-like macro, not std::assert or a fabricated function.
+Every cassert/assert.h inclusion samples the presence of NDEBUG, even NDEBUG=0.
+Disabled mode discards the unused argument without prescan or evaluation. Enabled
+mode uses the explicit `cRuntime: "glibc"` family binding and a real global
+C-linkage __assert_fail declaration. An unknown runtime records an unavailable
+macro definition and diagnoses only its invocation, not an unused include.
+
+This adds one bounded runtime-binding obligation to the numeric/null packet:
+55 supplied header/name obligations, 47 still open under #92. Other libc/ABI
+macros are not implied by selecting glibc. Copying and unrelated graph edits are
+covered; editing inside an assertion expansion is deliberately rejected because
+its condition and diagnostic string must be re-derived together. Edit the source
+argument and reparse instead. [Evidence and limits](cpp03-assert-verification.md).
