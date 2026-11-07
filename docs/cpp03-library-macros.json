@@ -1,0 +1,2558 @@
+{
+  "schema_version": 1,
+  "edition": "ISO/IEC 14882:2003 with ISO/IEC 9899:1990 and Amendment1:1995",
+  "scope": "Mandatory hosted C-compatibility library macros; not core predefined preprocessing macros; implementation may expose extra nonconflicting macros, but these are not mandatory.",
+  "review_basis": {
+    "cpp03": "Existing source-reviewed repository ledger/inventory; original PDF absent; no fresh original ISO2003 read claimed.",
+    "cpp03_source_sha256": "6314a2a25dad5a7ed43559261767ac51226113a0954aade3d8f24b35b9ff981a",
+    "c90": "Selected indexed primary PDF excerpts, not full independent clause-by-clause re-review.",
+    "amendment1": "Primary ISO publisher preview read at 7.1.4 and 7.15.1; preview ends before 7.16.1.",
+    "sources": [
+      "https://www.yodaiken.com/wp-content/uploads/2021/05/ansi-iso-9899-1990-1.pdf",
+      "https://cdn.standards.iteh.ai/samples/23909/3713b553291741f7aa531e8de6b28bfe/ISO-IEC-9899-1990-Amd-1-1995.pdf"
+    ]
+  },
+  "global_locators": [
+    "cpp03:17.4.1.2:p4",
+    "cpp03:17.4.1.2:p5",
+    "cpp03:17.4.4.2:p2",
+    "cpp03:D.5:p1",
+    "cpp03:D.5:p2"
+  ],
+  "headers": [
+    {
+      "header": "cassert",
+      "c_header": "assert.h",
+      "macros": [
+        "assert"
+      ]
+    },
+    {
+      "header": "cctype",
+      "c_header": "ctype.h",
+      "macros": []
+    },
+    {
+      "header": "cerrno",
+      "c_header": "errno.h",
+      "macros": [
+        "EDOM",
+        "ERANGE",
+        "EILSEQ",
+        "errno"
+      ]
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "macros": [
+        "FLT_RADIX",
+        "FLT_ROUNDS",
+        "FLT_MANT_DIG",
+        "FLT_DIG",
+        "FLT_MIN_EXP",
+        "FLT_MIN_10_EXP",
+        "FLT_MAX_EXP",
+        "FLT_MAX_10_EXP",
+        "FLT_MAX",
+        "FLT_EPSILON",
+        "FLT_MIN",
+        "DBL_MANT_DIG",
+        "DBL_DIG",
+        "DBL_MIN_EXP",
+        "DBL_MIN_10_EXP",
+        "DBL_MAX_EXP",
+        "DBL_MAX_10_EXP",
+        "DBL_MAX",
+        "DBL_EPSILON",
+        "DBL_MIN",
+        "LDBL_MANT_DIG",
+        "LDBL_DIG",
+        "LDBL_MIN_EXP",
+        "LDBL_MIN_10_EXP",
+        "LDBL_MAX_EXP",
+        "LDBL_MAX_10_EXP",
+        "LDBL_MAX",
+        "LDBL_EPSILON",
+        "LDBL_MIN"
+      ]
+    },
+    {
+      "header": "ciso646",
+      "c_header": "iso646.h",
+      "macros": []
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "macros": [
+        "CHAR_BIT",
+        "SCHAR_MIN",
+        "SCHAR_MAX",
+        "UCHAR_MAX",
+        "CHAR_MIN",
+        "CHAR_MAX",
+        "MB_LEN_MAX",
+        "SHRT_MIN",
+        "SHRT_MAX",
+        "USHRT_MAX",
+        "INT_MIN",
+        "INT_MAX",
+        "UINT_MAX",
+        "LONG_MIN",
+        "LONG_MAX",
+        "ULONG_MAX"
+      ]
+    },
+    {
+      "header": "clocale",
+      "c_header": "locale.h",
+      "macros": [
+        "LC_ALL",
+        "LC_COLLATE",
+        "LC_CTYPE",
+        "LC_MONETARY",
+        "LC_NUMERIC",
+        "LC_TIME",
+        "NULL"
+      ]
+    },
+    {
+      "header": "cmath",
+      "c_header": "math.h",
+      "macros": [
+        "HUGE_VAL"
+      ]
+    },
+    {
+      "header": "csetjmp",
+      "c_header": "setjmp.h",
+      "macros": [
+        "setjmp"
+      ]
+    },
+    {
+      "header": "csignal",
+      "c_header": "signal.h",
+      "macros": [
+        "SIGABRT",
+        "SIGFPE",
+        "SIGILL",
+        "SIGINT",
+        "SIGSEGV",
+        "SIGTERM",
+        "SIG_DFL",
+        "SIG_ERR",
+        "SIG_IGN"
+      ]
+    },
+    {
+      "header": "cstdarg",
+      "c_header": "stdarg.h",
+      "macros": [
+        "va_start",
+        "va_arg",
+        "va_end"
+      ]
+    },
+    {
+      "header": "cstddef",
+      "c_header": "stddef.h",
+      "macros": [
+        "offsetof",
+        "NULL"
+      ]
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "macros": [
+        "_IOFBF",
+        "_IOLBF",
+        "_IONBF",
+        "BUFSIZ",
+        "EOF",
+        "FOPEN_MAX",
+        "FILENAME_MAX",
+        "L_tmpnam",
+        "SEEK_CUR",
+        "SEEK_END",
+        "SEEK_SET",
+        "TMP_MAX",
+        "stdin",
+        "stdout",
+        "stderr",
+        "NULL"
+      ]
+    },
+    {
+      "header": "cstdlib",
+      "c_header": "stdlib.h",
+      "macros": [
+        "EXIT_FAILURE",
+        "EXIT_SUCCESS",
+        "RAND_MAX",
+        "MB_CUR_MAX",
+        "NULL"
+      ]
+    },
+    {
+      "header": "cstring",
+      "c_header": "string.h",
+      "macros": [
+        "NULL"
+      ]
+    },
+    {
+      "header": "ctime",
+      "c_header": "time.h",
+      "macros": [
+        "CLOCKS_PER_SEC",
+        "NULL"
+      ]
+    },
+    {
+      "header": "cwchar",
+      "c_header": "wchar.h",
+      "macros": [
+        "WCHAR_MIN",
+        "WCHAR_MAX",
+        "WEOF",
+        "NULL"
+      ]
+    },
+    {
+      "header": "cwctype",
+      "c_header": "wctype.h",
+      "macros": [
+        "WEOF"
+      ]
+    }
+  ],
+  "entries": [
+    {
+      "header": "cassert",
+      "c_header": "assert.h",
+      "name": "assert",
+      "macro_kind": "function",
+      "cpp03_locators": [
+        "cpp03:19.2:p2",
+        "cpp03:19.2:p3",
+        "cpp03:17.4.2.1:p2"
+      ],
+      "inherited_locator": "C90 7.2, 7.2.1.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "NDEBUG at each include",
+      "guarantee": "NDEBUG defined: void expression without evaluating argument; otherwise evaluates condition and diagnoses/aborts failure. Each include reselects current mode; NDEBUG is user-controlled, not a header-provided macro.",
+      "required_in_if": "not_applicable",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cerrno",
+      "c_header": "errno.h",
+      "name": "EDOM",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:19.3:table26",
+        "cpp03:19.3:p2"
+      ],
+      "inherited_locator": "C90 7.1.4",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct positive int constant expressions identifying errors; do not assume POSIX numbers.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cerrno",
+      "c_header": "errno.h",
+      "name": "ERANGE",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:19.3:table26",
+        "cpp03:19.3:p2"
+      ],
+      "inherited_locator": "C90 7.1.4",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct positive int constant expressions identifying errors; do not assume POSIX numbers.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cerrno",
+      "c_header": "errno.h",
+      "name": "EILSEQ",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:19.3:p2",
+        "cpp03:17.4.1.2:p4"
+      ],
+      "inherited_locator": "C90 Amendment1 7.1.4",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Amendment1 adds mandatory encoding error macro; omitted from C++03 table26 but included by inherited contract.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cerrno",
+      "c_header": "errno.h",
+      "name": "errno",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:19.3:table26",
+        "cpp03:19.3:p2"
+      ],
+      "inherited_locator": "C90 7.1.4",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "runtime_binding",
+      "guarantee": "Modifiable int lvalue; storage/binding implementation-defined. Not an invented immutable constant or required extern object declaration.",
+      "required_in_if": "no",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "CHAR_BIT",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "SCHAR_MIN",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "SCHAR_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "UCHAR_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "CHAR_MIN",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "CHAR_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "MB_LEN_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "SHRT_MIN",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "SHRT_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "USHRT_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "INT_MIN",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "INT_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "UINT_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "LONG_MIN",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "LONG_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "climits",
+      "c_header": "limits.h",
+      "name": "ULONG_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table16",
+        "cpp03:18.2.2:p2"
+      ],
+      "inherited_locator": "C90 5.2.4.2.1, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant expressions with required range minima; actual integer model, plain-char signedness, and multibyte bound are target choices. Preserve promoted integer types and literal suffixes.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "FLT_RADIX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Floating radix integer, at least 2; explicitly constant and usable in #if.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "FLT_ROUNDS",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target_or_runtime_binding",
+      "guarantee": "Floating addition rounding characterization; may reflect current rounding mode; not necessarily constant.",
+      "required_in_if": "not_universally_guaranteed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "FLT_MANT_DIG",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "FLT_DIG",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "FLT_MIN_EXP",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "FLT_MIN_10_EXP",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "FLT_MAX_EXP",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "FLT_MAX_10_EXP",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "FLT_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating magnitude/precision parameters; MIN is positive normalized minimum, not most negative value. C90 permits nonconstant expressions; do not claim C99 constant-expression rule.",
+      "required_in_if": "no_floating_preprocessor_arithmetic",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "FLT_EPSILON",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating magnitude/precision parameters; MIN is positive normalized minimum, not most negative value. C90 permits nonconstant expressions; do not claim C99 constant-expression rule.",
+      "required_in_if": "no_floating_preprocessor_arithmetic",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "FLT_MIN",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating magnitude/precision parameters; MIN is positive normalized minimum, not most negative value. C90 permits nonconstant expressions; do not claim C99 constant-expression rule.",
+      "required_in_if": "no_floating_preprocessor_arithmetic",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "DBL_MANT_DIG",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "DBL_DIG",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "DBL_MIN_EXP",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "DBL_MIN_10_EXP",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "DBL_MAX_EXP",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "DBL_MAX_10_EXP",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "DBL_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating magnitude/precision parameters; MIN is positive normalized minimum, not most negative value. C90 permits nonconstant expressions; do not claim C99 constant-expression rule.",
+      "required_in_if": "no_floating_preprocessor_arithmetic",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "DBL_EPSILON",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating magnitude/precision parameters; MIN is positive normalized minimum, not most negative value. C90 permits nonconstant expressions; do not claim C99 constant-expression rule.",
+      "required_in_if": "no_floating_preprocessor_arithmetic",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "DBL_MIN",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating magnitude/precision parameters; MIN is positive normalized minimum, not most negative value. C90 permits nonconstant expressions; do not claim C99 constant-expression rule.",
+      "required_in_if": "no_floating_preprocessor_arithmetic",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "LDBL_MANT_DIG",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "LDBL_DIG",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "LDBL_MIN_EXP",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "LDBL_MIN_10_EXP",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "LDBL_MAX_EXP",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "LDBL_MAX_10_EXP",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating-format integer parameters. C90 says all values other than FLT_RADIX need not be constant; exact interaction with C++03 17.4.4.2/2 needs original-text review; constant explicit profile values are permitted.",
+      "required_in_if": "edition_interaction_review_needed",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "LDBL_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating magnitude/precision parameters; MIN is positive normalized minimum, not most negative value. C90 permits nonconstant expressions; do not claim C99 constant-expression rule.",
+      "required_in_if": "no_floating_preprocessor_arithmetic",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "LDBL_EPSILON",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating magnitude/precision parameters; MIN is positive normalized minimum, not most negative value. C90 permits nonconstant expressions; do not claim C99 constant-expression rule.",
+      "required_in_if": "no_floating_preprocessor_arithmetic",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cfloat",
+      "c_header": "float.h",
+      "name": "LDBL_MIN",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.2.2:table17",
+        "cpp03:18.2.2:p4"
+      ],
+      "inherited_locator": "C90 5.2.4.2.2, 7.1.3",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Target floating magnitude/precision parameters; MIN is positive normalized minimum, not most negative value. C90 permits nonconstant expressions; do not claim C99 constant-expression rule.",
+      "required_in_if": "no_floating_preprocessor_arithmetic",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "clocale",
+      "c_header": "locale.h",
+      "name": "LC_ALL",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:22.3:table62",
+        "cpp03:22.3:p2"
+      ],
+      "inherited_locator": "C90 7.4",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct int constant category selectors; numeric encodings are target library choices.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "clocale",
+      "c_header": "locale.h",
+      "name": "LC_COLLATE",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:22.3:table62",
+        "cpp03:22.3:p2"
+      ],
+      "inherited_locator": "C90 7.4",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct int constant category selectors; numeric encodings are target library choices.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "clocale",
+      "c_header": "locale.h",
+      "name": "LC_CTYPE",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:22.3:table62",
+        "cpp03:22.3:p2"
+      ],
+      "inherited_locator": "C90 7.4",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct int constant category selectors; numeric encodings are target library choices.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "clocale",
+      "c_header": "locale.h",
+      "name": "LC_MONETARY",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:22.3:table62",
+        "cpp03:22.3:p2"
+      ],
+      "inherited_locator": "C90 7.4",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct int constant category selectors; numeric encodings are target library choices.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "clocale",
+      "c_header": "locale.h",
+      "name": "LC_NUMERIC",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:22.3:table62",
+        "cpp03:22.3:p2"
+      ],
+      "inherited_locator": "C90 7.4",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct int constant category selectors; numeric encodings are target library choices.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "clocale",
+      "c_header": "locale.h",
+      "name": "LC_TIME",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:22.3:table62",
+        "cpp03:22.3:p2"
+      ],
+      "inherited_locator": "C90 7.4",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct int constant category selectors; numeric encodings are target library choices.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cmath",
+      "c_header": "math.h",
+      "name": "HUGE_VAL",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:26.5:p1",
+        "cpp03:26.5:p2"
+      ],
+      "inherited_locator": "C90 7.5",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Positive double expression used for range-error return; may be positive infinity; do not infer host representation.",
+      "required_in_if": "no_floating_preprocessor_arithmetic",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "csetjmp",
+      "c_header": "setjmp.h",
+      "name": "setjmp",
+      "macro_kind": "function",
+      "cpp03_locators": [
+        "cpp03:18.7:table20",
+        "cpp03:18.7:p2",
+        "cpp03:18.7:p4"
+      ],
+      "inherited_locator": "C90 7.6, 7.6.1.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "ABI_intrinsic",
+      "guarantee": "Must remain macro; saves execution context and returns again on matching longjmp. Expansion cannot honestly be replaced by an arbitrary ordinary function. Preserve permitted invocation contexts and C++ destructor restriction.",
+      "required_in_if": "not_applicable",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "csignal",
+      "c_header": "signal.h",
+      "name": "SIGABRT",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.7:table22",
+        "cpp03:18.7:p2"
+      ],
+      "inherited_locator": "C90 7.7",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct positive int signal values, numbers chosen by target runtime.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "csignal",
+      "c_header": "signal.h",
+      "name": "SIGFPE",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.7:table22",
+        "cpp03:18.7:p2"
+      ],
+      "inherited_locator": "C90 7.7",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct positive int signal values, numbers chosen by target runtime.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "csignal",
+      "c_header": "signal.h",
+      "name": "SIGILL",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.7:table22",
+        "cpp03:18.7:p2"
+      ],
+      "inherited_locator": "C90 7.7",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct positive int signal values, numbers chosen by target runtime.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "csignal",
+      "c_header": "signal.h",
+      "name": "SIGINT",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.7:table22",
+        "cpp03:18.7:p2"
+      ],
+      "inherited_locator": "C90 7.7",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct positive int signal values, numbers chosen by target runtime.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "csignal",
+      "c_header": "signal.h",
+      "name": "SIGSEGV",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.7:table22",
+        "cpp03:18.7:p2"
+      ],
+      "inherited_locator": "C90 7.7",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct positive int signal values, numbers chosen by target runtime.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "csignal",
+      "c_header": "signal.h",
+      "name": "SIGTERM",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.7:table22",
+        "cpp03:18.7:p2"
+      ],
+      "inherited_locator": "C90 7.7",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Distinct positive int signal values, numbers chosen by target runtime.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "csignal",
+      "c_header": "signal.h",
+      "name": "SIG_DFL",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.7:table22",
+        "cpp03:18.7:p2"
+      ],
+      "inherited_locator": "C90 7.7",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "ABI_binding",
+      "guarantee": "Distinct handler-compatible constant expressions; not ordinary integer constants or portable guessed function pointers.",
+      "required_in_if": "no",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "csignal",
+      "c_header": "signal.h",
+      "name": "SIG_ERR",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.7:table22",
+        "cpp03:18.7:p2"
+      ],
+      "inherited_locator": "C90 7.7",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "ABI_binding",
+      "guarantee": "Distinct handler-compatible constant expressions; not ordinary integer constants or portable guessed function pointers.",
+      "required_in_if": "no",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "csignal",
+      "c_header": "signal.h",
+      "name": "SIG_IGN",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.7:table22",
+        "cpp03:18.7:p2"
+      ],
+      "inherited_locator": "C90 7.7",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "ABI_binding",
+      "guarantee": "Distinct handler-compatible constant expressions; not ordinary integer constants or portable guessed function pointers.",
+      "required_in_if": "no",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdarg",
+      "c_header": "stdarg.h",
+      "name": "va_start",
+      "macro_kind": "function",
+      "cpp03_locators": [
+        "cpp03:18.7:table19",
+        "cpp03:18.7:p2",
+        "cpp03:18.7:p3"
+      ],
+      "inherited_locator": "C90 7.8, 7.8.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "ABI_intrinsic",
+      "guarantee": "Macros traverse target-specific va_list state; va_arg second operand is a type, not a value argument. Respect default promotions, va_start last-parameter restrictions, and va_end lifetime. No required va_copy.",
+      "required_in_if": "not_applicable",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdarg",
+      "c_header": "stdarg.h",
+      "name": "va_arg",
+      "macro_kind": "function",
+      "cpp03_locators": [
+        "cpp03:18.7:table19",
+        "cpp03:18.7:p2",
+        "cpp03:18.7:p3"
+      ],
+      "inherited_locator": "C90 7.8, 7.8.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "ABI_intrinsic",
+      "guarantee": "Macros traverse target-specific va_list state; va_arg second operand is a type, not a value argument. Respect default promotions, va_start last-parameter restrictions, and va_end lifetime. No required va_copy.",
+      "required_in_if": "not_applicable",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdarg",
+      "c_header": "stdarg.h",
+      "name": "va_end",
+      "macro_kind": "function",
+      "cpp03_locators": [
+        "cpp03:18.7:table19",
+        "cpp03:18.7:p2",
+        "cpp03:18.7:p3"
+      ],
+      "inherited_locator": "C90 7.8, 7.8.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "ABI_intrinsic",
+      "guarantee": "Macros traverse target-specific va_list state; va_arg second operand is a type, not a value argument. Respect default promotions, va_start last-parameter restrictions, and va_end lifetime. No required va_copy.",
+      "required_in_if": "not_applicable",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstddef",
+      "c_header": "stddef.h",
+      "name": "offsetof",
+      "macro_kind": "function",
+      "cpp03_locators": [
+        "cpp03:18.1:table15",
+        "cpp03:18.1:p3",
+        "cpp03:18.1:p5"
+      ],
+      "inherited_locator": "C90 7.1.6",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "layout_intrinsic",
+      "guarantee": "Integral constant expression of size_t for POD struct/union member byte offset; static-data/function member undefined. Depends on target layout, packing, alignment; bit-field offset is not portable.",
+      "required_in_if": "not_applicable",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "_IOFBF",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "_IOLBF",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "_IONBF",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "BUFSIZ",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "EOF",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "FOPEN_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "FILENAME_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "L_tmpnam",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "SEEK_CUR",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "SEEK_END",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "SEEK_SET",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "TMP_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "stdin",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "runtime_binding",
+      "guarantee": "Macros expanding to FILE-pointer expressions for standard streams. Underlying objects/functions allowed as implementation details; pointer expression is not necessarily an lvalue and not necessarily constant. Do not invent std::stdin or extern FILE* as macro substitute.",
+      "required_in_if": "no",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "stdout",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "runtime_binding",
+      "guarantee": "Macros expanding to FILE-pointer expressions for standard streams. Underlying objects/functions allowed as implementation details; pointer expression is not necessarily an lvalue and not necessarily constant. Do not invent std::stdin or extern FILE* as macro substitute.",
+      "required_in_if": "no",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "stderr",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:27.8.2:p1"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "runtime_binding",
+      "guarantee": "Macros expanding to FILE-pointer expressions for standard streams. Underlying objects/functions allowed as implementation details; pointer expression is not necessarily an lvalue and not necessarily constant. Do not invent std::stdin or extern FILE* as macro substitute.",
+      "required_in_if": "no",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdlib",
+      "c_header": "stdlib.h",
+      "name": "EXIT_FAILURE",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.3:table18",
+        "cpp03:18.3:p2"
+      ],
+      "inherited_locator": "C90 7.10",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant termination status values; EXIT_SUCCESS need not numerically equal 0 although exit(0) also denotes success.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdlib",
+      "c_header": "stdlib.h",
+      "name": "EXIT_SUCCESS",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.3:table18",
+        "cpp03:18.3:p2"
+      ],
+      "inherited_locator": "C90 7.10",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant termination status values; EXIT_SUCCESS need not numerically equal 0 although exit(0) also denotes success.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdlib",
+      "c_header": "stdlib.h",
+      "name": "RAND_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:26.5:p1",
+        "cpp03:26.5:p2"
+      ],
+      "inherited_locator": "C90 7.10, 7.10.2.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Integral constant at least 32767, maximum rand result.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstdlib",
+      "c_header": "stdlib.h",
+      "name": "MB_CUR_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:21.4:table49",
+        "cpp03:21.4:p2"
+      ],
+      "inherited_locator": "C90 7.10",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "runtime_binding",
+      "guarantee": "Positive size_t integer expression, maximum bytes in a multibyte character in current locale, no greater than MB_LEN_MAX; not necessarily constant or lvalue.",
+      "required_in_if": "no",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "ctime",
+      "c_header": "time.h",
+      "name": "CLOCKS_PER_SEC",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.7:table21",
+        "cpp03:18.7:p2"
+      ],
+      "inherited_locator": "C90 7.12.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Expression of clock_t representing clock ticks per second; clock_t is arithmetic, not guaranteed integral. Not necessarily a constant expression; never universally assume POSIX 1000000.",
+      "required_in_if": "not_universally_guaranteed",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cwchar",
+      "c_header": "wchar.h",
+      "name": "WCHAR_MIN",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:21.4:table48",
+        "cpp03:21.4:p2"
+      ],
+      "inherited_locator": "C90 Amendment1 7.16.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Wide-character lower/upper limits, compatible with promoted wchar_t and chosen encoding; do not assume UTF-16/UTF-32, signedness, or host int.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cwchar",
+      "c_header": "wchar.h",
+      "name": "WCHAR_MAX",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:21.4:table48",
+        "cpp03:21.4:p2"
+      ],
+      "inherited_locator": "C90 Amendment1 7.16.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Wide-character lower/upper limits, compatible with promoted wchar_t and chosen encoding; do not assume UTF-16/UTF-32, signedness, or host int.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cwchar",
+      "c_header": "wchar.h",
+      "name": "WEOF",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:21.4:table48",
+        "cpp03:21.4:p2"
+      ],
+      "inherited_locator": "C90 Amendment1 7.16.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "wint_t constant expression distinct from every extended character value; may differ from EOF and need not be negative.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cwctype",
+      "c_header": "wctype.h",
+      "name": "WEOF",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:21.4:table46",
+        "cpp03:21.4:p2"
+      ],
+      "inherited_locator": "C90 Amendment1 7.15.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "wint_t constant expression distinct from every extended character value; may differ from EOF and need not be negative.",
+      "required_in_if": "yes",
+      "support_status": "open",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [],
+      "tests": [],
+      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+    },
+    {
+      "header": "cstddef",
+      "c_header": "stddef.h",
+      "name": "NULL",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.1:table15",
+        "cpp03:18.1:p4"
+      ],
+      "inherited_locator": "C90 7.1.6",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Implementation-defined C++03 null pointer constant: integral constant expression rvalue equal to zero; never C-style ((void*)0), and never C++11 nullptr.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cstdio",
+      "c_header": "stdio.h",
+      "name": "NULL",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:27.8.2:table94",
+        "cpp03:18.1:p4"
+      ],
+      "inherited_locator": "C90 7.9.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Implementation-defined C++03 null pointer constant: integral constant expression rvalue equal to zero; never C-style ((void*)0), and never C++11 nullptr.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cstdlib",
+      "c_header": "stdlib.h",
+      "name": "NULL",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:18.3:p2",
+        "cpp03:18.1:p4"
+      ],
+      "inherited_locator": "C90 7.10",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Implementation-defined C++03 null pointer constant: integral constant expression rvalue equal to zero; never C-style ((void*)0), and never C++11 nullptr.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cstring",
+      "c_header": "string.h",
+      "name": "NULL",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:21.4:table47",
+        "cpp03:18.1:p4"
+      ],
+      "inherited_locator": "C90 7.11.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Implementation-defined C++03 null pointer constant: integral constant expression rvalue equal to zero; never C-style ((void*)0), and never C++11 nullptr.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "ctime",
+      "c_header": "time.h",
+      "name": "NULL",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:20.5:p1",
+        "cpp03:18.1:p4"
+      ],
+      "inherited_locator": "C90 7.12.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Implementation-defined C++03 null pointer constant: integral constant expression rvalue equal to zero; never C-style ((void*)0), and never C++11 nullptr.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "clocale",
+      "c_header": "locale.h",
+      "name": "NULL",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:22.3:table62",
+        "cpp03:18.1:p4"
+      ],
+      "inherited_locator": "C90 7.4",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Implementation-defined C++03 null pointer constant: integral constant expression rvalue equal to zero; never C-style ((void*)0), and never C++11 nullptr.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    },
+    {
+      "header": "cwchar",
+      "c_header": "wchar.h",
+      "name": "NULL",
+      "macro_kind": "object",
+      "cpp03_locators": [
+        "cpp03:21.4:table48",
+        "cpp03:18.1:p4"
+      ],
+      "inherited_locator": "C90 Amendment1 7.16.1",
+      "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
+      "value_source": "target",
+      "guarantee": "Implementation-defined C++03 null pointer constant: integral constant expression rvalue equal to zero; never C-style ((void*)0), and never C++11 nullptr.",
+      "required_in_if": "yes",
+      "support_status": "profile_definition",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/StandardLibraryMacros.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+      ],
+      "support_boundary": "Provided when the corresponding built-in header is included. Explicit target profile, macro provenance and ordinary preprocessing apply; no hidden native headers. Full target runtime and arbitrary floating arithmetic are not claimed."
+    }
+  ],
+  "excluded_mandatory": [
+    "va_copy",
+    "LLONG_MIN",
+    "LLONG_MAX",
+    "ULLONG_MAX",
+    "FLT_EVAL_METHOD",
+    "DECIMAL_DIG",
+    "FLT_DECIMAL_DIG",
+    "DBL_DECIMAL_DIG",
+    "LDBL_DECIMAL_DIG",
+    "FLT_TRUE_MIN",
+    "DBL_TRUE_MIN",
+    "LDBL_TRUE_MIN",
+    "FLT_HAS_SUBNORM",
+    "DBL_HAS_SUBNORM",
+    "LDBL_HAS_SUBNORM",
+    "HUGE_VALF",
+    "HUGE_VALL",
+    "INFINITY",
+    "NAN",
+    "FP_INFINITE",
+    "FP_NAN",
+    "FP_NORMAL",
+    "FP_SUBNORMAL",
+    "FP_ZERO",
+    "FP_FAST_FMA",
+    "math_errhandling",
+    "MATH_ERRNO",
+    "MATH_ERREXCEPT",
+    "SIZE_MAX",
+    "PTRDIFF_MIN",
+    "PTRDIFF_MAX",
+    "WINT_MIN",
+    "WINT_MAX",
+    "SIG_ATOMIC_MIN",
+    "SIG_ATOMIC_MAX",
+    "TIME_UTC"
+  ],
+  "language_not_header_macros": [
+    "and",
+    "and_eq",
+    "bitand",
+    "bitor",
+    "compl",
+    "not",
+    "not_eq",
+    "or",
+    "or_eq",
+    "xor",
+    "xor_eq"
+  ],
+  "notes": [
+    "cctype has no mandatory macros: C functions must be functions in C++ (17.4.1.2/6).",
+    "ciso646 and iso646.h do not define alternative-token macros in C++; keywords/tokens belong to core language.",
+    "NDEBUG is a controlling input and must not be unconditionally supplied by cassert.",
+    "No profile values are inferred from JVM or current host.",
+    "Every implementation row should retain issue92 or a specific open follow-up until full expansion/semantics is proved.",
+    "Stage one supplies 54 header/name obligations (48 unique macros); 48 obligations (47 unique macros) remain open under #92.",
+    "NDEBUG is input to assert selection, not a required header-defined macro. Assert and all ABI/runtime-dependent macros remain open.",
+    "The source-locator census in cpp03-paragraphs/inventory.json retains its separate denominator and hashes."
+  ],
+  "support_scope": "Issue #92 stage one: explicit-profile token definitions only; this inventory is not a claim of complete library or target-ABI conformance."
+}

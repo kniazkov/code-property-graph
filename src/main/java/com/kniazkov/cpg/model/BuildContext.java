@@ -133,7 +133,7 @@ final class BuildContext {
         if (root instanceof Project project) {
             for (var file : project.files()) file.provenance().ifPresent(provenance -> {
                 for (var definition : provenance.unit().definitions()) {
-                    if ((definition.originKind().equals("command-line") || definition.originKind().equals("predefined"))
+                    if ((definition.originKind().equals("command-line") || definition.originKind().equals("predefined") || definition.originKind().equals("library"))
                             && project.externalInput(definition.sourceKey()).isEmpty())
                         throw new IllegalStateException("Preprocessing source outside project: " + definition.sourceKey());
                 }
