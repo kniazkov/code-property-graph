@@ -673,12 +673,27 @@ public final class CppPreprocessor {
                 return;
             }
             if (angle && OPAQUE_HEADERS.contains(header)) {
+                libraryMacros(parent, header, location);
                 recordIncludedHeader(directiveIndex, header, anchorIndex);
                 PreprocessingToken token = new PreprocessingToken(HEADER_NAME, spec, spec, location.value.token().range(), 0, spec.length());
                 output.add(new Work(new ExpandedToken(token, parent, location.value.origins(), location.value.expansionRange())));
                 return;
             }
             throw expandedError(location, "Header not found: " + header, expanded, firstEvent);
+        }
+
+        void libraryMacros(Build.IncludeInstance parent, String header, Work location) {
+            Map<String, String> library;
+            try { library = StandardLibraryMacros.definitions(header, unit.platform()); }
+            catch (IllegalArgumentException error) { throw error(location, error.getMessage()); }
+            for (var entry : library.entrySet()) {
+                String name = entry.getKey();
+                String file = unit.directory().resolve("<cpg-library:" + header + ":" + name + ">").toString();
+                String source = name + " " + entry.getValue();
+                definitionSources.put(file, source);
+                define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                        "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":" + name);
+            }
         }
 
         void recordIncludedHeader(int index, String header, int startToken) {

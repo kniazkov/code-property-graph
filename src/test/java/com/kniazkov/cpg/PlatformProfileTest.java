@@ -27,6 +27,39 @@ class PlatformProfileTest {
         return CppPreprocessor.preprocess(unit(profile), source).tokens().stream()
                 .map(t -> t.token().canonicalSpelling()).reduce("", String::concat);
     }
+    @Test void libraryMacroChoicesRoundTripAndParticipateInVariantIdentity() throws Exception {
+        var baseline = PlatformProfile.defaults();
+        assertEquals(Map.of("float", "binary32", "double", "binary64", "long double", "binary128"), baseline.floatingFormats());
+        var choices = List.of(baseline.toBuilder().floatingFormat("long double", "binary80").build(),
+                baseline.toBuilder().floatingRounds(-1).build(), baseline.toBuilder().maxMultibyteLength(4).build(),
+                baseline.toBuilder().nullPointerConstant("0L").build());
+        for (var profile : choices) {
+            assertEquals(profile, profile.toBuilder().build());
+            assertEquals(profile, PlatformProfile.fromSettings(profile.toSettings()));
+            assertNotEquals(baseline.identityHash(), profile.identityHash());
+            assertNotEquals(unit(baseline).variantId(), unit(profile).variantId());
+        }
+        Path file = temp.resolve("floating.json");
+        Files.writeString(file, "{\"inherits\":\"default\",\"floatingFormats\":{\"long double\":\"binary80\"},\"floatingRounds\":0,\"maxMultibyteLength\":4,\"nullPointerConstant\":\"0L\"}");
+        assertEquals(baseline.toBuilder().floatingFormat("long double", "binary80").floatingRounds(0)
+                .maxMultibyteLength(4).nullPointerConstant("0L").build(), PlatformProfile.read(file));
+        var legacy = new LinkedHashMap<>(baseline.toSettings()); legacy.remove("floatingFormats");
+        assertEquals(Set.of("unknown"), new HashSet<>(PlatformProfile.fromSettings(legacy).floatingFormats().values()),
+                "inherits none must not infer precision from storage widths");
+    }
+    @Test void rejectsIncoherentOrNonCpp03TargetMacroSettings() {
+        assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder().floatingFormat("float", "binary64").build());
+        for (String type : List.of("double", "long double"))
+            assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder().floatingFormat(type, "binary32").build());
+        assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder().floatingFormat("double", "binary32").floatingFormat("float", "binary64").build());
+        assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder().floatingFormat("decimal", "binary32"));
+        assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder().floatingFormat("float", "host").build());
+        assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder().floatingRounds(4).build());
+        assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder().maxMultibyteLength(0).build());
+        assertThrows(IllegalArgumentException.class, () -> PlatformProfile.builder().nullPointerConstant("nullptr").build());
+        assertThrows(IllegalArgumentException.class, () -> PlatformProfile.fromSettings(Map.of("inherits", "default", "floatingFormats", "binary64")));
+        assertThrows(IllegalArgumentException.class, () -> PlatformProfile.fromSettings(Map.of("inherits", "default", "floatingRounds", 1.5)));
+    }
     @Test void documentsDefaultWidthsRangesAndKnownLayout() {
         var profile = PlatformProfile.defaults();
         assertEquals(32, profile.sizeBits("unsigned int").orElseThrow());

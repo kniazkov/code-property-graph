@@ -95,7 +95,7 @@ class CCompatibilityFamiliesTest {
         project.files().getFirst().walk(new NodeVisitor() {
             @Override public void visit(NameExpression name) { names.add(name); }
         });
-        assertEquals(Set.of("EOF", "errno", "CLOCKS_PER_SEC", "INT_MAX", "FLT_RADIX"), names.stream().map(NameExpression::name).collect(java.util.stream.Collectors.toSet()));
+        assertEquals(Set.of("EOF", "errno", "CLOCKS_PER_SEC"), names.stream().map(NameExpression::name).collect(java.util.stream.Collectors.toSet()));
         for (var name : names) assertTrue(name.target().isEmpty(), name.name());
     }
     @Test void cstddefTypesResolveUsingTheSelectedProfile() throws Exception {

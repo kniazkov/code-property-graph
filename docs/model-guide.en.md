@@ -1574,3 +1574,24 @@ lookup accepts using-declarations and inherited class declarations, but a
 using-directive alone does not confer friendship. Copies/re-resolution retain
 snapshot-owned selected bindings. These are tested boundaries, not a complete
 friendship or lookup implementation.
+
+### Library macro settings (#92)
+
+The size table above does not determine floating representation. `floatingFormats`
+is a separate map keyed by `float`, `double`, and `long double`, accepting
+`unknown`, `binary32`, `binary64`, `binary80`, or `binary128`. The default model
+explicitly chooses binary32/binary64/binary128, while `floatingRounds` defaults
+to 1 (nearest). It accepts the C90 codes -1 through 3; -1 means indeterminable.
+`nullPointerConstant` chooses `0` (default) or `0L`; `maxMultibyteLength` explicitly
+supplies `MB_LEN_MAX` (default target value 16), rather than deriving it from
+integer widths or the JVM encoding. These choices are model facts, not a claim
+that a native compiler on the analysis machine uses this ABI.
+
+With `inherits: "none"`, omitted new format choices remain `unknown`, rounding
+is -1, NULL is `0`, and the explicit minimal multibyte bound is 1. Existing complete
+profiles remain readable, but using built-in `<cfloat>` requires all three known
+formats. Formats must fit their storage, preserve nondecreasing precision, and
+meet the C90 minimum precision for each type. Every setting participates in
+profile identity and `toSettings()`/`toBuilder()` round-trips. See the
+[macro inventory and verification](cpp03-library-macros-verification.md) for the
+implemented subset; these facts do not implement arbitrary floating arithmetic.
