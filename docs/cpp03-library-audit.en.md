@@ -357,9 +357,26 @@ binding, separate from prior numeric/null and integer-fact packets. Both header
 spellings retain an object macro and ordinary declarations. The query is an
 unknown scalar rvalue, not a constant locale model. Exact size_t belongs to the
 selected glibc contract, not original C90 wording. The earlier table and counts
-are historical; the current inventory has 15 obligations/14 names open.
+are historical; the stage-five inventory had 15 obligations/14 names open.
 
 Only the explicitly validated glibc-x86_64-lp64-mb16 contract is supplied; naming
 glibc alone does not establish this ABI or enable the query. Complete locale
 conversion semantics and generic scalar-call rvalue diagnostics remain outside
 this packet. #92 and #48 remain open. [Verification](cpp03-mb-cur-max-verification.md).
+
+## Issue #92 continuation: standard streams
+
+The historical missing-stream-macro rows now have an explicit bounded binding
+for stdin/stdout/stderr. Exact self-referential macros and genuine global
+C-linkage FILE* objects share canonical opaque FILE and compatible external
+identity without losing header provenance. The unavailable default and selected
+LP64 contract remain separate from portable C90 expression guarantees.
+
+The current inventory has 90 bounded obligations/84 names and 12 open
+obligations/11 names. Eighteen new unit tests and three GCC/Clang native cases
+passed, including actual CPG materialization and copied/edited/transformed
+sources. Full-suite and exact-head CI completion are separate pending gates.
+No FILE layout, constant addresses/descriptors, complete buffer/position/error/
+close semantics or generic qualified-name diagnostic coverage follows.
+Earlier tables and verification reports retain their historical scope.
+[Evidence and remaining gaps](cpp03-standard-streams-verification.md). #92 and #48 remain open.

@@ -19,12 +19,12 @@ public final class PlatformProfile {
     private static final List<String> SCALARS = List.of("bool", "char", "short", "int", "long",
             "long long", "wchar_t", "float", "double", "long double", "pointer");
     private static final Set<String> SETTINGS = Set.of("inherits", "name", "bitsPerByte", "sizes", "alignments",
-            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness", "floatingFormats", "floatingRounds", "nullPointerConstant", "maxMultibyteLength", "cRuntime", "runtimeIntegerMacros", "mbCurMaxBinding");
+            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness", "floatingFormats", "floatingRounds", "nullPointerConstant", "maxMultibyteLength", "cRuntime", "runtimeIntegerMacros", "mbCurMaxBinding", "standardStreamsBinding");
     private static final PlatformProfile DEFAULT = new Builder(true).build();
     private final Map<String, RuntimeIntegerMacros.Fact> runtimeIntegerMacros;
     private final Map<String, String> floatingFormats;
     private final int floatingRounds, maxMultibyteLength;
-    private final String nullPointerConstant, cRuntime, mbCurMaxBinding;
+    private final String nullPointerConstant, cRuntime, mbCurMaxBinding, standardStreamsBinding;
     private final String name;
     private final int bitsPerByte;
     private final Map<String, Integer> sizes, alignments;
@@ -36,6 +36,7 @@ public final class PlatformProfile {
     private PlatformProfile(Builder b) {
         name = nonempty(b.name, "name"); bitsPerByte = b.bitsPerByte;
         cRuntime = policy(b.cRuntime, "cRuntime", Set.of("unknown", "glibc"));
+        standardStreamsBinding = policy(b.standardStreamsBinding, "standardStreamsBinding", Set.of("unavailable", "glibc-x86_64-lp64"));
         mbCurMaxBinding = policy(b.mbCurMaxBinding, "mbCurMaxBinding", Set.of("unavailable", "glibc-x86_64-lp64-mb16"));
         floatingRounds = b.floatingRounds;
         if (floatingRounds < -1 || floatingRounds > 3) throw invalid("floatingRounds must be -1, 0, 1, 2 or 3");
@@ -94,6 +95,10 @@ public final class PlatformProfile {
                 || sizes.get("int") != 32 || sizes.get("long") != 64 || sizes.get("pointer") != 64
                 || !sizeType.equals("unsigned long") || maxMultibyteLength != 16))
             throw invalid("mbCurMaxBinding glibc-x86_64-lp64-mb16 requires cRuntime=glibc, 8-bit bytes, 32-bit int, 64-bit long/pointer, sizeType=unsigned long and maxMultibyteLength=16");
+        if (!standardStreamsBinding.equals("unavailable") && (!cRuntime.equals("glibc") || bitsPerByte != 8
+                || sizes.get("int") != 32 || sizes.get("long") != 64 || sizes.get("pointer") != 64
+                || !sizeType.equals("unsigned long")))
+            throw invalid("standardStreamsBinding glibc-x86_64-lp64 requires cRuntime=glibc, 8-bit bytes, 32-bit int, 64-bit long/pointer and sizeType=unsigned long");
         sourceEncoding = charset(b.sourceEncoding, "sourceEncoding");
         executionEncoding = charset(b.executionEncoding, "executionEncoding");
         if (!Set.of("UTF-8", "ISO-8859-1", "US-ASCII").contains(executionEncoding))
@@ -131,6 +136,8 @@ public final class PlatformProfile {
     /** Explicit C runtime family selection, never inferred from the target widths or host. */
     public String cRuntime() { return cRuntime; }
     /** Explicit accessor contract only; does not detect or certify the deployment ABI. */
+    /** Explicit external stream-object contract; no FILE layout is implied. */
+    public String standardStreamsBinding() { return standardStreamsBinding; }
     public String mbCurMaxBinding() { return mbCurMaxBinding; }
     public Map<String, RuntimeIntegerMacros.Fact> runtimeIntegerMacros() { return runtimeIntegerMacros; }
     public int bitsPerByte() { return bitsPerByte; }
@@ -209,6 +216,7 @@ public final class PlatformProfile {
         map.put("sizes", sizes);
         map.put("cRuntime", cRuntime);
         map.put("mbCurMaxBinding", mbCurMaxBinding);
+        map.put("standardStreamsBinding", standardStreamsBinding);
         var facts = new LinkedHashMap<String,Object>();
         runtimeIntegerMacros.forEach((key,value) -> facts.put(key,value.settings()));
         map.put("runtimeIntegerMacros", Collections.unmodifiableMap(facts));
@@ -294,6 +302,7 @@ public final class PlatformProfile {
                     string(entry.getValue(), "floatingFormats value"));
         }
         if (settings.containsKey("cRuntime")) b.cRuntime(string(settings.get("cRuntime"), "cRuntime"));
+        if (settings.containsKey("standardStreamsBinding")) b.standardStreamsBinding(string(settings.get("standardStreamsBinding"), "standardStreamsBinding"));
         if (settings.containsKey("mbCurMaxBinding")) b.mbCurMaxBinding(string(settings.get("mbCurMaxBinding"), "mbCurMaxBinding"));
         if (settings.containsKey("runtimeIntegerMacros")) {
             if (!(settings.get("runtimeIntegerMacros") instanceof Map<?,?> facts)) throw invalid("runtimeIntegerMacros must be an object");
@@ -353,7 +362,7 @@ public final class PlatformProfile {
         private final Map<String, String> floatingFormats = new LinkedHashMap<>(Map.of(
                 "float", "unknown", "double", "unknown", "long double", "unknown"));
         private int floatingRounds = -1, maxMultibyteLength = 1;
-        private String nullPointerConstant = "0", cRuntime = "unknown", mbCurMaxBinding = "unavailable";
+        private String nullPointerConstant = "0", cRuntime = "unknown", mbCurMaxBinding = "unavailable", standardStreamsBinding = "unavailable";
         private int bitsPerByte = 8;
         private final Map<String, Integer> sizes = new LinkedHashMap<>(), alignments = new LinkedHashMap<>();
         private boolean charSigned = true;
@@ -374,7 +383,7 @@ public final class PlatformProfile {
         }
         private Builder(PlatformProfile p) {
             runtimeIntegerMacros.putAll(p.runtimeIntegerMacros);
-            cRuntime = p.cRuntime; mbCurMaxBinding = p.mbCurMaxBinding;
+            cRuntime = p.cRuntime; mbCurMaxBinding = p.mbCurMaxBinding; standardStreamsBinding = p.standardStreamsBinding;
             floatingFormats.putAll(p.floatingFormats); floatingRounds = p.floatingRounds;
             maxMultibyteLength = p.maxMultibyteLength; nullPointerConstant = p.nullPointerConstant;
             name = p.name; bitsPerByte = p.bitsPerByte; sizes.putAll(p.sizes); alignments.putAll(p.alignments);
@@ -388,6 +397,7 @@ public final class PlatformProfile {
             runtimeIntegerMacros.put(name, RuntimeIntegerMacros.Fact.parse(type, decimal)); return this;
         }
         public Builder cRuntime(String value) { cRuntime = value; return this; }
+        public Builder standardStreamsBinding(String value) { standardStreamsBinding = value; return this; }
         public Builder mbCurMaxBinding(String value) { mbCurMaxBinding = value; return this; }
         public Builder floatingFormat(String type, String value) {
             if (!floatingFormats.containsKey(type)) throw invalid("unknown floatingFormats type " + type);

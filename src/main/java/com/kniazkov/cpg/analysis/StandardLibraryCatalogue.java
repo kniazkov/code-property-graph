@@ -195,6 +195,11 @@ public final class StandardLibraryCatalogue {
             // The opt-in contract establishes this exact underlying return type.
             if (h.equals("cstdlib") && !profile.mbCurMaxBinding().equals("unavailable"))
                 declarations += "\nextern \"C\" " + size + " __ctype_get_mb_cur_max() throw();";
+            if (h.equals("cstdio") && !profile.standardStreamsBinding().equals("unavailable")) {
+                String fileType = header.endsWith(".h") ? "::FILE" : "std::FILE";
+                declarations += "\nextern \"C\" { extern " + fileType + "* stdin; extern " + fileType
+                        + "* stdout; extern " + fileType + "* stderr; }";
+            }
             return declarations;
         }
         if (StandardLibraryStreams.supports(h)) return ns(StandardLibraryStreams.declarations(h));

@@ -1325,9 +1325,19 @@ public final class NameResolver {
             Set<Declaration> seen = Collections.newSetFromMap(new IdentityHashMap<>());
             return matches.stream().filter(match -> seen.add(match.declaration())).toList();
         }
+        Optional<LibraryExternalObjects.Identity> libraryObjectIdentity(Declaration declaration) {
+            Scope scope=scopes.get(declaration);
+            return LibraryExternalObjects.identity(declaration,scope!=null && scope.parent==null
+                    && !scope.local && !scope.classScope && scope.qualified.isEmpty());
+        }
         Match unique(List<Match> matches) {
             if (matches.stream().anyMatch(Match::ambiguous)) return null;
             if (matches.size() == 1) return matches.getFirst();
+            if (!matches.isEmpty()) {
+                var identity=libraryObjectIdentity(matches.getFirst().declaration());
+                if (identity.isPresent() && matches.stream().allMatch(match ->
+                        libraryObjectIdentity(match.declaration()).equals(identity))) return matches.getLast();
+            }
             if (!matches.isEmpty() && matches.stream().allMatch(m -> m.declaration() instanceof ClassDeclaration cls && (LibraryDeclarations.isLibrary(cls) || cls.templateKind()!=TemplateKind.NONE))
                     && matches.stream().map(m -> entityName(m.declaration())).distinct().count()==1
                     && matches.stream().map(m -> TypeSemantics.profile(scopes.get(m.declaration()).file).stableIdentity()).distinct().count()==1) {
@@ -1786,6 +1796,9 @@ public final class NameResolver {
                 conflicting.add(definition); error(definition, "odr-conflict", "Multiple definitions of " + name(definition)
                         + " in one translation unit or selected build composition");
             }
+            var objectIdentity=libraryObjectIdentity(group.getFirst());
+            boolean sharedLibraryObject=!badType && objectIdentity.isPresent()
+                    && group.stream().allMatch(declaration -> libraryObjectIdentity(declaration).equals(objectIdentity));
             Declaration previous = null;
             for (Declaration declaration : group) {
                 Declaration definition = definitions.size() == 1 ? definitions.getFirst() : null;
@@ -1798,7 +1811,7 @@ public final class NameResolver {
                 // Multiple inline header instances retain the definition in their own TU.
                 if (definition == null && !multiple) definition = definitions.stream()
                         .filter(candidate -> scopes.get(candidate).file == scopes.get(declaration).file).findFirst().orElse(null);
-                editor.declare(declaration, linkages.get(declaration), isDefinition(declaration), LibraryDeclarations.isLibrary(declaration) ? null : previous,
+                editor.declare(declaration, linkages.get(declaration), isDefinition(declaration), LibraryDeclarations.isLibrary(declaration) && !sharedLibraryObject ? null : previous,
                         definition == declaration ? null : definition);
                 previous = declaration;
             }
