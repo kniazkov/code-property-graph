@@ -66,7 +66,7 @@ public final class OverloadResolution {
             // needs no ranking. Identical explicit conversions can also be ranked
             // by the implicit object cv conversion alone.
             var cvBest=candidates.stream().filter(a->a.sequences().stream().allMatch(s->s.knownViable() && s.rank()!=Rank.AMBIGUOUS)
-                    && candidates.stream().allMatch(b->a==b || sameExplicitParameters(a.declaration(),b.declaration()) && sameUnknownSequences(a,b) && better(a,b))).toList();
+                    && candidates.stream().allMatch(b->a==b || (sameExplicitParameters(a.declaration(),b.declaration()) || sameUnknownConstructorParameters(a,b)) && sameUnknownSequences(a,b) && better(a,b))).toList();
             if(cvBest.size()==1)return new Result(CallExpression.Resolution.RESOLVED,Optional.of(cvBest.getFirst().declaration()),viable);
             if(candidates.size()==1 && candidates.getFirst().sequences().stream().allMatch(s->s.knownViable() && s.rank()!=Rank.AMBIGUOUS))
                 return new Result(CallExpression.Resolution.RESOLVED,Optional.of(candidates.getFirst().declaration()),viable);
@@ -76,6 +76,21 @@ public final class OverloadResolution {
         if (best.size() == 1 && best.getFirst().sequences().stream().noneMatch(sequence -> sequence.rank() == Rank.AMBIGUOUS))
             return new Result(CallExpression.Resolution.RESOLVED, Optional.of(best.getFirst().declaration()), viable);
         return new Result(CallExpression.Resolution.AMBIGUOUS, Optional.empty(), viable);
+    }
+    /** Identical guaranteed-viable opaque constructor conversions may tie while
+     * another known argument decides the overload. Unrelated targets stay unknown. */
+    private static boolean sameUnknownConstructorParameters(Candidate a, Candidate b) {
+        if (a.declaration().kind()!=CallableDeclaration.Kind.CONSTRUCTOR
+                || b.declaration().kind()!=CallableDeclaration.Kind.CONSTRUCTOR
+                || a.sequences().size()!=b.sequences().size()) return false;
+        for (int i=0;i<a.sequences().size();i++) {
+            if (a.sequences().get(i).rank()!=Rank.UNKNOWN && b.sequences().get(i).rank()!=Rank.UNKNOWN) continue;
+            if (i>=a.declaration().parameters().size() || i>=b.declaration().parameters().size()) return false;
+            var x=a.declaration().parameters().get(i).type();
+            var y=b.declaration().parameters().get(i).type();
+            if (x.isEmpty() || y.isEmpty() || !x.get().canonicalIdentity().equals(y.get().canonicalIdentity())) return false;
+        }
+        return true;
     }
     private static boolean sameUnknownSequences(Candidate a, Candidate b) {
         if(a.sequences().size()!=b.sequences().size())return false;

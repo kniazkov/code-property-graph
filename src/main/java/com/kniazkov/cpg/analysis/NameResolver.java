@@ -42,11 +42,17 @@ public final class NameResolver {
         // A member-template argument can itself be a selected call (e.g. vector
         // insert(begin()+n, first,last)). Revisit deduction after nested calls bind.
         for(int round=0;round<64;round++) {
-            int before=typed.templateInstances().stream().mapToInt(instance->instance.requests().size()).sum();
+            int before=typed.templateInstances().stream().mapToInt(instance->instance.requests().size()).sum()
+                    +typed.classTemplateInstances().stream().mapToInt(instance->instance.requests().size()).sum();
             List<String> bindingsBefore=expressionBindings(typed);
+            Project withClasses=ClassTemplateSemantics.analyze(typed);
+            if (withClasses.classTemplateInstances().stream().mapToInt(instance->instance.requests().size()).sum()
+                    !=typed.classTemplateInstances().stream().mapToInt(instance->instance.requests().size()).sum())
+                typed=new Engine(withClasses).bindNames();
             var pass=new Engine(typed);
             typed=pass.instantiateTemplates(false);
-            int after=typed.templateInstances().stream().mapToInt(instance->instance.requests().size()).sum();
+            int after=typed.templateInstances().stream().mapToInt(instance->instance.requests().size()).sum()
+                    +typed.classTemplateInstances().stream().mapToInt(instance->instance.requests().size()).sum();
             if(after!=before) typed=new Engine(ClassTemplateSemantics.analyze(typed)).bindNames();
             // One publication exposes the newly instantiated inner expression to
             // the next deduction round. Repeating the entire syntax depth here

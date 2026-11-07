@@ -203,6 +203,41 @@ __cpg_opaque_unspecified_setprecision_result setprecision(int);
 __cpg_opaque_unspecified_setw_result setw(int);
 template<class CharT> __cpg_opaque_unspecified_setfill_result setfill(CharT);
 """ + manipulatorOperators();
+        case "strstream" -> """
+class strstreambuf : public basic_streambuf<char> {
+public:
+explicit strstreambuf(streamsize = 0);
+strstreambuf(void* (*)(size_t), void (*)(void*));
+strstreambuf(char*, streamsize, char* = 0); strstreambuf(const char*, streamsize);
+strstreambuf(signed char*, streamsize, signed char* = 0); strstreambuf(const signed char*, streamsize);
+strstreambuf(unsigned char*, streamsize, unsigned char* = 0); strstreambuf(const unsigned char*, streamsize);
+virtual ~strstreambuf();
+void freeze(bool = true); char* str(); int pcount() const;
+protected:
+virtual int_type overflow(int_type = EOF); virtual int_type pbackfail(int_type = EOF); virtual int_type underflow();
+virtual pos_type seekoff(off_type, ios_base::seekdir, ios_base::openmode = ios_base::in | ios_base::out);
+virtual pos_type seekpos(pos_type, ios_base::openmode = ios_base::in | ios_base::out);
+virtual streambuf* setbuf(char*, streamsize);
+};
+class istrstream : public basic_istream<char> {
+public:
+explicit istrstream(const char*); explicit istrstream(char*);
+istrstream(const char*, streamsize); istrstream(char*, streamsize);
+virtual ~istrstream(); strstreambuf* rdbuf() const; char* str();
+};
+class ostrstream : public basic_ostream<char> {
+public:
+ostrstream(); ostrstream(char*, int, ios_base::openmode = ios_base::out);
+virtual ~ostrstream(); strstreambuf* rdbuf() const; void freeze(bool = true); char* str(); int pcount() const;
+};
+class strstream : public basic_iostream<char> {
+public:
+typedef char char_type; typedef char_traits<char>::int_type int_type;
+typedef char_traits<char>::pos_type pos_type; typedef char_traits<char>::off_type off_type;
+strstream(); strstream(char*, int, ios_base::openmode = ios_base::in | ios_base::out);
+virtual ~strstream(); strstreambuf* rdbuf() const; void freeze(bool = true); int pcount() const; char* str();
+};
+""";
         case "locale" -> locale();
         default -> null;
     }; }
@@ -222,13 +257,14 @@ template<class CharT> __cpg_opaque_unspecified_setfill_result setfill(CharT);
         }
         return declarations.toString();
     }
-    static boolean supports(String h) { return Set.of("iosfwd", "ios", "istream", "ostream", "iostream", "streambuf", "fstream", "sstream", "iomanip", "locale").contains(h); }
+    static boolean supports(String h) { return Set.of("iosfwd", "ios", "istream", "ostream", "iostream", "streambuf", "fstream", "sstream", "strstream", "iomanip", "locale").contains(h); }
     static Set<String> dependencies(String h) { return switch(h) {
         case "iosfwd" -> Set.of("cstddef", "cwchar");
         case "ios" -> Set.of("iosfwd", "exception", "string");
         case "istream", "ostream", "streambuf" -> Set.of("ios");
         case "iostream" -> Set.of("istream", "ostream");
         case "fstream", "sstream" -> Set.of("istream", "ostream", "streambuf");
+        case "strstream" -> Set.of("istream", "ostream", "streambuf", "cstddef", "cstdio");
         case "iomanip" -> Set.of("ios"); case "locale" -> Set.of("string", "iterator", "ctime", "ios"); default -> Set.of(); }; }
     static Set<String> templateNames(String h) {
         var out = new java.util.LinkedHashSet<String>();
@@ -250,11 +286,13 @@ template<class CharT> __cpg_opaque_unspecified_setfill_result setfill(CharT);
             out.addAll(Set.of("streamoff", "streamsize", "streampos", "wstreampos", "char_traits", "allocator"));
             for (String n : "ios streambuf istream ostream iostream filebuf ifstream ofstream fstream stringbuf istringstream ostringstream stringstream".split(" ")) { out.add(n); out.add("w" + n); }
         } else if (h.equals("ios")) out.addAll(Set.of("ios_base", "locale"));
+        else if (h.equals("strstream")) out.addAll(Set.of("strstreambuf", "istrstream", "ostrstream", "strstream"));
         else if (h.equals("locale")) out.addAll(Set.of("locale", "ios_base", "ctype_base", "codecvt_base", "time_base", "money_base", "messages_base"));
 
         return Set.copyOf(out);
     }
     static Set<String> nestedTypeNames(String h) { return switch(h) {
+        case "strstream" -> Set.of("strstream::char_type", "strstream::int_type", "strstream::pos_type", "strstream::off_type");
         case "ios" -> Set.of("ios_base::failure", "ios_base::Init", "ios_base::fmtflags", "ios_base::iostate", "ios_base::openmode", "ios_base::seekdir", "ios_base::event", "ios_base::event_callback");
         case "locale" -> Set.of("locale::facet", "locale::id", "locale::category", "ctype_base::mask", "codecvt_base::result", "time_base::dateorder", "money_base::part", "money_base::pattern", "messages_base::catalog");
         default -> Set.of();
