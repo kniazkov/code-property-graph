@@ -89,6 +89,9 @@ final class PreservedSource {
                     break;
                 }
                 var selectedSpan = selected.before().provenance().orElseThrow();
+                for (var event : selectedSpan.expansions())
+                    if (libraryAssertion(unit, event))
+                        throw unsupported("editing a CPG assert expansion requires re-stringizing its condition; edit the original assertion source instead");
                 for (var event : unit.expansions()) {
                     if (event.parentId() == null && event.startToken() < event.endToken()
                             && selectedSpan.startToken() <= event.startToken() && selectedSpan.endToken() >= event.endToken()
@@ -123,6 +126,20 @@ final class PreservedSource {
         for (String path : originals.keySet()) {
             var edits = reconciled.stream().filter(p -> p.file().equals(path)).toList();
             emitted.put(path, apply(originals.get(path), 0, edits));
+        }
+        // Assertion diagnostics are observable. Keep their original presumed
+        // filename/line when the physical output is moved, instead of weakening
+        // the complete expanded-AST replay comparison below.
+        for (var record : records) for (var event : record.expansions()) {
+            if (!event.name().equals("__FILE__") || event.parentId() == null) continue;
+            var parent = record.expansions().stream().filter(e -> e.id() == event.parentId()).findFirst();
+            if (parent.isEmpty() || !libraryAssertion(record, parent.get())) continue;
+            String path = event.invocation().file();
+            // An existing #line may already supply a stable logical filename.
+            if (event.replacement().size() != 1 || !event.replacement().getFirst().spelling().equals(quote(path))) continue;
+            String original = emitted.get(path);
+            if (original != null && !original.startsWith("#line 1 " + quote(path) + "\n"))
+                emitted.put(path, "#line 1 " + quote(path) + "\n" + original);
         }
         // Re-run the original ordered macro options and include search against only
         // the captured, patched files. Retained calls must still mean the desired AST.
@@ -282,6 +299,20 @@ final class PreservedSource {
         return normalize(project.build());
     }
     private static Project normalize(Project project) { return ConsoleNormalizer.green(NameResolver.resolve(project)); }
+    private static String quote(String text) {
+        var result = new StringBuilder("\"");
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (ch == '\\' || ch == '"') result.append('\\').append(ch);
+            else if (ch < 32 || ch == 127) result.append(String.format(java.util.Locale.ROOT, "\\%03o", (int) ch));
+            else result.append(ch);
+        }
+        return result.append('"').toString();
+    }
+    private static boolean libraryAssertion(Preprocessing unit, Preprocessing.Expansion event) {
+        return event.name().equals("assert") && unit.definitions().stream().anyMatch(d -> d.id() == event.definitionId()
+                && d.name().equals("assert") && d.originKind().equals("library"));
+    }
     private static String render(Node node) { return Source.renderFragment(node, Language.CPP, false); }
 
     private static List<String> commentSignature(SourceFile file) {

@@ -71,7 +71,8 @@ final class ExternalInputs {
             for (var definition : provenance.unit().definitions()) if (definition.originKind().equals("library") && libraryKeys.add(definition.sourceKey())) {
                 String platformKey = "profile:platform:" + provenance.unit().configuration().platform().identityHash();
                 roots.get(platformKey).addInput(ExternalInput.create(definition.sourceKey(), "library-macro",
-                        definition.name() + " " + definition.rawReplacement()));
+                        definition.name() + (definition.functionLike() ? "(" + String.join(",", definition.parameters()) + ")" : "")
+                                + " " + (definition.unavailableReason() == null ? definition.rawReplacement() : "[unavailable: " + definition.unavailableReason() + "]")));
             }
         });
         return List.copyOf(roots.values());

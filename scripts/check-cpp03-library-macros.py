@@ -54,13 +54,17 @@ def check(data, root=ROOT):
             require(locator in records, label + ': missing ledger locator ' + locator)
         require(bool(entry.get('inherited_locator')), label + ': no inherited C locator')
         require(entry.get('macro_kind') in ('object', 'function'), label + ': invalid macro kind')
-        require(entry.get('support_status') in ('profile_definition', 'open'), label + ': invalid support state')
+        require(entry.get('support_status') in ('profile_definition', 'runtime_binding', 'open'), label + ': invalid support state')
         require(bool(entry.get('support_boundary')), label + ': missing support boundary')
         require(bool(re.fullmatch(r'https://github\.com/kniazkov/code-property-graph/issues/[0-9]+', entry.get('remaining_work',''))),
                 label + ': no remaining-work issue')
+        if entry.get('support_status') == 'runtime_binding':
+            binding = entry.get('runtime_binding', {})
+            require(all(binding.get(k) for k in ('profile_setting', 'supported_value', 'unknown_behavior', 'abi_scope')),
+                    label + ': runtime binding needs explicit selection and ABI/unknown boundaries')
         for kind in ('implementation', 'tests'):
             paths = entry.get(kind, [])
-            if entry.get('support_status') == 'profile_definition':
+            if entry.get('support_status') in ('profile_definition', 'runtime_binding'):
                 require(bool(paths), label + ': profile definition needs ' + kind)
             for path in paths:
                 resolved = (root / path).resolve()

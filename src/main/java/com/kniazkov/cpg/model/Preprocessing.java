@@ -43,7 +43,11 @@ public record Preprocessing(String translationUnit, List<Include> includes, List
     }
     /** Executed definition, including definitions which never expand. */
     public record Definition(long id, String name, boolean functionLike, List<String> parameters,
-            String rawReplacement, SourceRange range, long includeId, String originKind, String sourceKey) {
+            String rawReplacement, SourceRange range, long includeId, String originKind, String sourceKey, String unavailableReason) {
+        public Definition(long id, String name, boolean functionLike, List<String> parameters,
+                String rawReplacement, SourceRange range, long includeId, String originKind, String sourceKey) {
+            this(id, name, functionLike, parameters, rawReplacement, range, includeId, originKind, sourceKey, null);
+        }
         public Definition { parameters = List.copyOf(parameters); }
     }
     /** A conditional arm and its original directive/body text. */

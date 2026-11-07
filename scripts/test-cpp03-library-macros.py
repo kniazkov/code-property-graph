@@ -40,6 +40,12 @@ class MacroInventoryTest(unittest.TestCase):
         self.data['entries'][0]['remaining_work'] = ''
         self.assertTrue(checker.check(self.data))
 
+    def test_runtime_binding_without_scope(self):
+        entry = self.data['entries'][0]
+        entry['support_status'] = 'runtime_binding'
+        entry['runtime_binding'] = {}
+        self.assertTrue(checker.check(self.data))
+
     def test_missing_evidence_file(self):
         self.data['entries'][0]['tests'] = ['not-present.java']
         self.assertTrue(checker.check(self.data))
