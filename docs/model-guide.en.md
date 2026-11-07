@@ -1648,8 +1648,10 @@ or build host fills in missing values.
 The validator checks family-specific nonzero/distinct/range constraints. Original
 C90 error selectors need not be positive, and EXIT_SUCCESS need not equal zero.
 Checking a number does not prove runtime exit, locale, signal, random-number or
-I/O semantics. Typed clock/wide/math macros, handler pointers, live errno/streams,
-locale-dependent MB_CUR_MAX, offsetof, varargs and setjmp remain separate work.
+I/O semantics. At this integer-fact stage, runtime bindings and other macros
+remained separate work. Later sections cover errno, MB_CUR_MAX and standard
+streams; typed clock/wide/math macros, handler pointers, offsetof, varargs and
+setjmp remain open.
 See [verification and exact boundaries](cpp03-runtime-integer-macros-verification.md).
 
 Trusted declaration-only strstream parsing may retain an unavailable EOF token
@@ -1699,3 +1701,27 @@ Strict native rejection tests do not constitute CPG diagnostics. This existing
 generic limitation is not hidden by a macro-name exception. The narrow target
 contract still requires a matching deployed ABI and runtime export.
 [Verification and remaining work](cpp03-mb-cur-max-verification.md).
+
+### Explicit standard-stream binding (#92)
+
+`standardStreamsBinding` defaults to `unavailable`. The supported opt-in
+`glibc-x86_64-lp64` requires cRuntime=glibc, 8-bit bytes, 32-bit int, 64-bit
+long/pointers and sizeType=unsigned long. It is independent of MB_LEN_MAX.
+The setting participates in serialization, copying and full profile identity.
+Missing capability allows unused headers/presence checks and diagnoses use;
+actual headers keep precedence. Numeric checks do not discover the deployment ABI.
+
+Self-referential stdin/stdout/stderr macros refer to genuine global extern-C
+FILE* objects. Canonical library::FILE remains opaque, with no layout or
+initializer. LibraryExternalObjects groups only trusted global declaration-only
+C-linkage scalar objects using full stable profile, external name, canonical
+type and linkage. Lookup, previous-declaration chains, demand peers and memory
+roots/accessibility agree while preserving each header occurrence. Local, user,
+static, namespaced, incompatible and profile-distinct objects are not merged
+merely because their names match.
+
+Selected GNU pointer cells are mutable lvalues; C90 only promises FILE-pointer
+expressions. Pointer values and runtime I/O state remain unknown. No std stream
+alias is supplied: std::stdout has no target, but general unresolved
+ScopeMemberExpression diagnosis is incomplete. Strict native rejection does not
+establish a CPG diagnostic. [Verification and limits](cpp03-standard-streams-verification.md).

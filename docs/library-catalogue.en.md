@@ -267,8 +267,8 @@ diagnoses use. The inventory now has 86 bounded obligations (80 names), with
 
 ## Live MB_CUR_MAX query (#92, fifth stage)
 
-The preceding follow-ups describe their respective stages. The current inventory
-adds one bounded locale-query binding: 87 obligations/81 names implemented within
+The preceding follow-ups describe their respective stages. At stage five the inventory
+added one bounded locale-query binding: 87 obligations/81 names implemented within
 explicit limits, 15 obligations/14 names still open. MB_CUR_MAX under cstdlib and
 stdlib.h requires `mbCurMaxBinding: "glibc-x86_64-lp64-mb16"`, alongside glibc,
 8-bit bytes, 32-bit int, 64-bit long/pointers, exact unsigned-long size_t and
@@ -281,3 +281,20 @@ permits unused headers and diagnoses expansion. This caller-selected deployment
 contract is not automatic ABI detection or complete locale semantics. Original
 C90 requires a positive integer expression; exact size_t is the selected glibc
 signature. [Verification and limits](cpp03-mb-cur-max-verification.md).
+
+## Standard-stream objects and macros (#92, sixth stage)
+
+The current inventory has 90 bounded obligations/84 names and 12 open
+obligations/11 names. `standardStreamsBinding: "glibc-x86_64-lp64"` enables
+stdin/stdout/stderr under cstdio/stdio.h. It defaults to unavailable, independently
+of cRuntime. Selection requires glibc, byte8/int32/long64/pointer64 and exact
+unsigned-long size_t; there is no multibyte-bound requirement.
+
+Exact self-referential macros resolve genuine global C-linkage mutable FILE*
+objects. They reuse canonical library::FILE without a layout, initializer or
+invented std alias. Compatible trusted declaration occurrences share external
+identity while retaining header provenance. User/local same names are not merged.
+C90 requires FILE-pointer expressions; mutable cells belong to this glibc binding.
+The target ABI and deployed exports must match. Complete I/O semantics and generic
+unresolved-qualified-name diagnostics remain open. [Executed checks and pending
+merge gates](cpp03-standard-streams-verification.md). #92 and #48 remain open.

@@ -14,6 +14,7 @@ import java.util.*;
  */
 final class CppMemoryFlow {
     private final Map<CallableDeclaration, FunctionFlow> flows = new IdentityHashMap<>();
+    private final Map<Declaration,Declaration> externalObjects;
     private final Map<CallableDeclaration, PlatformProfile> profiles = new IdentityHashMap<>();
     private final Set<Node> normalized = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<Declaration, CallableDeclaration> owners = new IdentityHashMap<>();
@@ -27,6 +28,7 @@ final class CppMemoryFlow {
     private final Set<Declaration> fields = Collections.newSetFromMap(new IdentityHashMap<>());
 
     private CppMemoryFlow(Project project) {
+        externalObjects=LibraryExternalObjects.representatives(project);
         var contexts = SourceContexts.index(project);
         for (var flow : project.flows()) {
             if (SourceContexts.require(contexts, flow.entry()).language() != Language.CPP) continue;
@@ -48,7 +50,9 @@ final class CppMemoryFlow {
         });
         project.walk(new NodeVisitor() {
             @Override public void visit(VariableDeclaration variable) {
-                if (!owners.containsKey(variable) && !fields.contains(variable) && !LibraryDeclarations.isLibrary(variable)) globals.add(variable);
+                if (!owners.containsKey(variable) && !fields.contains(variable)
+                        && (!LibraryDeclarations.isLibrary(variable) || externalObjects.containsKey(variable)))
+                    globals.add((VariableDeclaration)externalObjects.getOrDefault(variable,variable));
             }
         });
         project.dynamicArraySemantics().forEach(op -> normalized.add(op.syntax()));
@@ -128,6 +132,7 @@ final class CppMemoryFlow {
         while(!discover.isEmpty()) {
             Node node=discover.remove(); if(!visited.add(node))continue; discover.addAll(node.children());
             if(node instanceof NameExpression name)name.target().filter(VariableDeclaration.class::isInstance).map(VariableDeclaration.class::cast)
+                .map(variable -> (VariableDeclaration)externalObjects.getOrDefault(variable,variable))
                 .filter(globals::contains).ifPresent(session.accessibleGlobals::add);
             if(node instanceof CallExpression call) { call.target().ifPresent(discover::add); discover.addAll(call.virtualTargets());call.defaultArguments().forEach(a->discover.add(a.expression())); }
             if(node instanceof Expression expression)expression.operatorTarget().ifPresent(discover::add);
@@ -314,6 +319,7 @@ final class CppMemoryFlow {
                 if(node instanceof CallExpression call)call.defaultArguments().forEach(a->coveredReads(a.expression()));
             }
             Loc root(Declaration declaration) {
+                declaration=externalObjects.getOrDefault(declaration,declaration);
                 return new Loc(declaration, "", owners.containsKey(declaration) && !(declaration instanceof VariableDeclaration v && v.modifiers().contains("static")) ? frame : null);
             }
             boolean modeled(Expression expression) {
