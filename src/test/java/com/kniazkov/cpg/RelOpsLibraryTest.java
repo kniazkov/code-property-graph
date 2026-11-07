@@ -58,6 +58,13 @@ class RelOpsLibraryTest {
             assertSame(origin,graph.templateInstances().getFirst().origin()); assertSame(target,graph.templateInstances().getFirst().declaration()); assertTrue(target.body().isEmpty());
             assertEquals(1,graph.templateInstances().size());
         }
+        var edit=new ProjectEditor(p);
+        edit.remove(p.files().getFirst().items().stream().filter(FunctionDeclaration.class::isInstance).findFirst().orElseThrow());
+        var changed=NameResolver.resolve(edit.build());
+        assertFalse(changed.hasErrors(),changed.semanticDiagnostics().toString());owned(changed);
+        assertTrue(changed.templateInstances().isEmpty());
+        assertTrue(changed.librarySources().getFirst().items().isEmpty());
+        assertEquals(1,p.templateInstances().size());
     }
     @Test void explicitUsingAndExplicitTemplateArgumentsResolve() {
         for(String code:List.of("using ::std::rel_ops::operator!=; bool f(Value a,Value b){return a!=b;}","using std::rel_ops::operator!=; bool f(Value a,Value b){return a!=b;}",
