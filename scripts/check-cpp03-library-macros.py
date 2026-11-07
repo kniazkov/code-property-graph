@@ -68,13 +68,25 @@ def check(data, root=ROOT):
                     label + ': runtime binding needs explicit selection and ABI/unknown boundaries')
         if entry.get('support_status') == 'target_fact':
             fact = entry.get('target_fact', {})
-            require(entry['name'] in INTEGER_FACT_NAMES,
-                    label + ': not an implemented integer target fact')
             require(entry.get('macro_kind') == 'object' and entry.get('required_in_if') == 'yes',
                     label + ': integer target fact must retain its object macro and #if contract')
-            require(fact.get('profile_setting') == 'runtimeIntegerMacros' and
-                    fact.get('entry_name') == entry['name'] and fact.get('supported_type') == 'int',
-                    label + ': target fact needs exact profile/name/type selection')
+            if entry['name'] == 'WEOF':
+                require(set(fact) == {'profile_setting', 'entry_name', 'supported_types',
+                                      'character_domain', 'unknown_behavior', 'value_origin'},
+                        label + ': WEOF target fact needs the exact coupled schema')
+                require(entry['header'] in ('cwchar', 'cwctype'),
+                        label + ': WEOF fact belongs only to wide headers')
+                require(fact.get('profile_setting') == 'wideInteger' and
+                        fact.get('entry_name') == 'WEOF' and
+                        fact.get('supported_types') == ['int', 'unsigned int', 'long', 'unsigned long'] and
+                        fact.get('character_domain') == 'nonnegative-wchar',
+                        label + ': WEOF needs exact coupled type/domain selection')
+            else:
+                require(entry['name'] in INTEGER_FACT_NAMES,
+                        label + ': not an implemented integer target fact')
+                require(fact.get('profile_setting') == 'runtimeIntegerMacros' and
+                        fact.get('entry_name') == entry['name'] and fact.get('supported_type') == 'int',
+                        label + ': target fact needs exact profile/name/type selection')
             require(bool(fact.get('unknown_behavior')) and bool(fact.get('value_origin')),
                     label + ': target fact needs missing-value and target-source boundaries')
         for kind in ('implementation', 'tests'):

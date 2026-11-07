@@ -372,7 +372,7 @@ C-linkage FILE* objects share canonical opaque FILE and compatible external
 identity without losing header provenance. The unavailable default and selected
 LP64 contract remain separate from portable C90 expression guarantees.
 
-The current inventory has 90 bounded obligations/84 names and 12 open
+At stage six the inventory had 90 bounded obligations/84 names and 12 open
 obligations/11 names. Eighteen new unit tests and three GCC/Clang native cases
 passed, including actual CPG materialization and copied/edited/transformed
 sources. Full-suite and exact-head CI completion are separate pending gates.
@@ -380,3 +380,25 @@ No FILE layout, constant addresses/descriptors, complete buffer/position/error/
 close semantics or generic qualified-name diagnostic coverage follows.
 Earlier tables and verification reports retain their historical scope.
 [Evidence and remaining gaps](cpp03-standard-streams-verification.md). #92 and #48 remain open.
+
+## Configurable wint_t and WEOF (#92, seventh stage)
+
+The coupled `wideInteger` object supplies `wintType`, decimal-string `weof` and
+`characterDomain: "nonnegative-wchar"`. Missing or empty settings retain opaque
+wint_t and unavailable WEOF; actual headers remain authoritative. The supported
+types are int, unsigned int, long and unsigned long. Both wide header families,
+wide signatures and char_traits use the configured canonical type. No host or
+libc-family fact is inferred.
+
+The selected type must cover the entire nonnegative wchar_t range; WEOF must
+fit that type and lie outside that envelope. This deliberately stronger policy
+is not ISO's character-repertoire requirement. Signed -1 is permitted, including
+when wchar_t can represent it; WEOF need not equal EOF. Type-preserving constant
+expressions support #if. Synthetic profiles do not authorize mismatched native
+wide-library calls or claim a complete repertoire/locale model.
+
+The bounded inventory now has 92 obligations/85 names, with 10 obligations/10
+names open. Focused implementation checks support the two WEOF entries; all four WEOF native cases passed. Expanded
+regression, full-suite and exact-head CI results are separately tracked
+in the [verification report](cpp03-weof-verification.md). Prior stage counts and
+reports remain historical. #92 and #48 remain open.

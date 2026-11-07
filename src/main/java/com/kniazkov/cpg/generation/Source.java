@@ -530,7 +530,9 @@ public final class Source {
         // Express signed minima using two representable operands of the intended type.
         if (number.signum() < 0 && range.isPresent() && number.equals(range.orElseThrow().min()))
             return "((-(" + range.orElseThrow().max() + suffix + ")) - 1" + suffix + ")";
-        return number + suffix;
+        // A synthesized negative literal reparses as unary negation. Match that
+        // canonical rendering so preserved-source replay stays structurally exact.
+        return number.signum() < 0 ? "(-(" + number.negate() + suffix + "))" : number + suffix;
     }
 
     private String conversion(ConversionExpression expression) {
