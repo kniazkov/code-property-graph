@@ -242,3 +242,15 @@ macros are not implied by selecting glibc. Copying and unrelated graph edits are
 covered; editing inside an assertion expansion is deliberately rejected because
 its condition and diagnostic string must be re-derived together. Edit the source
 argument and reparse instead. [Evidence and limits](cpp03-assert-verification.md).
+
+## Explicit runtime integer facts (#92, third stage)
+
+Thirty further object-like macros now accept typed int facts from
+`runtimeIntegerMacros`: error selectors, locale categories, signal numbers,
+stdio constants and EXIT_*/RAND_MAX. Both header spellings, preprocessing #if,
+ordinary typed expressions and provenance use the same explicit values. An
+omitted fact stays unavailable and is diagnosed on expansion; cRuntime alone
+never chooses its value. This brings the bounded inventory to 85 header/name
+obligations (79 names), with 17 obligations (16 names) still open under #92.
+The count does not mean that every profile supplies every value, or that numeric
+macros implement the related runtime functions. [Checks and remaining work](cpp03-runtime-integer-macros-verification.md).

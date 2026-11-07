@@ -50,6 +50,36 @@ class MacroInventoryTest(unittest.TestCase):
         self.data['entries'][0]['tests'] = ['not-present.java']
         self.assertTrue(checker.check(self.data))
 
+    def integer_fact(self):
+        return next(e for e in self.data['entries'] if e['name'] == 'EDOM')
+
+    def test_target_fact_without_selection(self):
+        self.integer_fact()['target_fact']['profile_setting'] = ''
+        self.assertTrue(checker.check(self.data))
+
+    def test_target_fact_without_unknown_boundary(self):
+        self.integer_fact()['target_fact']['unknown_behavior'] = ''
+        self.assertTrue(checker.check(self.data))
+
+    def test_target_fact_without_value_origin(self):
+        self.integer_fact()['target_fact']['value_origin'] = ''
+        self.assertTrue(checker.check(self.data))
+
+    def test_target_fact_wrong_entry_or_type(self):
+        for field, wrong in (('entry_name', 'ERANGE'), ('supported_type', 'long')):
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                entry = next(e for e in data['entries'] if e['name'] == 'EDOM')
+                entry['target_fact'][field] = wrong
+                self.assertTrue(checker.check(data))
+
+    def test_integer_fact_cannot_claim_live_runtime_macro(self):
+        entry = next(e for e in self.data['entries'] if e['name'] == 'errno')
+        entry['support_status'] = 'target_fact'
+        entry['target_fact'] = copy.deepcopy(self.integer_fact()['target_fact'])
+        entry['target_fact']['entry_name'] = 'errno'
+        self.assertTrue(checker.check(self.data))
+
 
 if __name__ == '__main__':
     unittest.main()

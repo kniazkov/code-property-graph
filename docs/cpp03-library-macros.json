@@ -285,12 +285,26 @@
       "value_source": "target",
       "guarantee": "Distinct nonzero integral constant expressions identifying errors and suitable for preprocessing conditionals; positive int values may be selected target facts, not an imported C99 requirement. Do not assume POSIX numbers.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support.",
-      "historical_note": "C90 7.1.4 uses integral constant expressions with distinct nonzero values. The stronger positive-int wording belongs to later C99; this correction relies on indexed original-C90 excerpts, not a fresh full ISO2003 read."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "historical_note": "C90 7.1.4 uses integral constant expressions with distinct nonzero values. The stronger positive-int wording belongs to later C99; this correction relies on indexed original-C90 excerpts, not a fresh full ISO2003 read.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "EDOM",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cerrno",
@@ -306,12 +320,26 @@
       "value_source": "target",
       "guarantee": "Distinct nonzero integral constant expressions identifying errors and suitable for preprocessing conditionals; positive int values may be selected target facts, not an imported C99 requirement. Do not assume POSIX numbers.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support.",
-      "historical_note": "C90 7.1.4 uses integral constant expressions with distinct nonzero values. The stronger positive-int wording belongs to later C99; this correction relies on indexed original-C90 excerpts, not a fresh full ISO2003 read."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "historical_note": "C90 7.1.4 uses integral constant expressions with distinct nonzero values. The stronger positive-int wording belongs to later C99; this correction relies on indexed original-C90 excerpts, not a fresh full ISO2003 read.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "ERANGE",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cerrno",
@@ -327,11 +355,25 @@
       "value_source": "target",
       "guarantee": "Amendment1 adds mandatory encoding error macro; omitted from C++03 table26 but included by inherited contract.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "EILSEQ",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cerrno",
@@ -1447,11 +1489,25 @@
       "value_source": "target",
       "guarantee": "Distinct int constant category selectors; numeric encodings are target library choices.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "LC_ALL",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "clocale",
@@ -1467,11 +1523,25 @@
       "value_source": "target",
       "guarantee": "Distinct int constant category selectors; numeric encodings are target library choices.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "LC_COLLATE",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "clocale",
@@ -1487,11 +1557,25 @@
       "value_source": "target",
       "guarantee": "Distinct int constant category selectors; numeric encodings are target library choices.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "LC_CTYPE",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "clocale",
@@ -1507,11 +1591,25 @@
       "value_source": "target",
       "guarantee": "Distinct int constant category selectors; numeric encodings are target library choices.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "LC_MONETARY",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "clocale",
@@ -1527,11 +1625,25 @@
       "value_source": "target",
       "guarantee": "Distinct int constant category selectors; numeric encodings are target library choices.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "LC_NUMERIC",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "clocale",
@@ -1547,11 +1659,25 @@
       "value_source": "target",
       "guarantee": "Distinct int constant category selectors; numeric encodings are target library choices.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "LC_TIME",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cmath",
@@ -1606,13 +1732,27 @@
       "inherited_locator": "C90 7.7",
       "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
       "value_source": "target",
-      "guarantee": "Distinct positive int signal values, numbers chosen by target runtime.",
+      "guarantee": "Distinct positive integral constant signal values, numbers chosen by the target runtime. The supported int facts are an explicit implementation restriction, not a claim that every historical implementation must use that expression type.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "SIGABRT",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "csignal",
@@ -1626,13 +1766,27 @@
       "inherited_locator": "C90 7.7",
       "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
       "value_source": "target",
-      "guarantee": "Distinct positive int signal values, numbers chosen by target runtime.",
+      "guarantee": "Distinct positive integral constant signal values, numbers chosen by the target runtime. The supported int facts are an explicit implementation restriction, not a claim that every historical implementation must use that expression type.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "SIGFPE",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "csignal",
@@ -1646,13 +1800,27 @@
       "inherited_locator": "C90 7.7",
       "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
       "value_source": "target",
-      "guarantee": "Distinct positive int signal values, numbers chosen by target runtime.",
+      "guarantee": "Distinct positive integral constant signal values, numbers chosen by the target runtime. The supported int facts are an explicit implementation restriction, not a claim that every historical implementation must use that expression type.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "SIGILL",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "csignal",
@@ -1666,13 +1834,27 @@
       "inherited_locator": "C90 7.7",
       "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
       "value_source": "target",
-      "guarantee": "Distinct positive int signal values, numbers chosen by target runtime.",
+      "guarantee": "Distinct positive integral constant signal values, numbers chosen by the target runtime. The supported int facts are an explicit implementation restriction, not a claim that every historical implementation must use that expression type.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "SIGINT",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "csignal",
@@ -1686,13 +1868,27 @@
       "inherited_locator": "C90 7.7",
       "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
       "value_source": "target",
-      "guarantee": "Distinct positive int signal values, numbers chosen by target runtime.",
+      "guarantee": "Distinct positive integral constant signal values, numbers chosen by the target runtime. The supported int facts are an explicit implementation restriction, not a claim that every historical implementation must use that expression type.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "SIGSEGV",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "csignal",
@@ -1706,13 +1902,27 @@
       "inherited_locator": "C90 7.7",
       "visibility": "preprocessing macro; no namespace; same macro contract under both header spellings",
       "value_source": "target",
-      "guarantee": "Distinct positive int signal values, numbers chosen by target runtime.",
+      "guarantee": "Distinct positive integral constant signal values, numbers chosen by the target runtime. The supported int facts are an explicit implementation restriction, not a claim that every historical implementation must use that expression type.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "SIGTERM",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "csignal",
@@ -1872,11 +2082,25 @@
       "value_source": "target",
       "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "_IOFBF",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdio",
@@ -1892,11 +2116,25 @@
       "value_source": "target",
       "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "_IOLBF",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdio",
@@ -1912,11 +2150,25 @@
       "value_source": "target",
       "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "_IONBF",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdio",
@@ -1932,11 +2184,25 @@
       "value_source": "target",
       "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "BUFSIZ",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdio",
@@ -1952,11 +2218,25 @@
       "value_source": "target",
       "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "EOF",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdio",
@@ -1972,11 +2252,25 @@
       "value_source": "target",
       "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "FOPEN_MAX",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdio",
@@ -1992,11 +2286,25 @@
       "value_source": "target",
       "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "FILENAME_MAX",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdio",
@@ -2012,11 +2320,25 @@
       "value_source": "target",
       "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "L_tmpnam",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdio",
@@ -2032,11 +2354,25 @@
       "value_source": "target",
       "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "SEEK_CUR",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdio",
@@ -2052,11 +2388,25 @@
       "value_source": "target",
       "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "SEEK_END",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdio",
@@ -2072,11 +2422,25 @@
       "value_source": "target",
       "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "SEEK_SET",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdio",
@@ -2092,11 +2456,25 @@
       "value_source": "target",
       "guarantee": "Integral constant values from target C runtime. EOF is negative int; buffering modes and seek origins are distinct within their groups; capacities follow C minimum requirements, not host guesses.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "TMP_MAX",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdio",
@@ -2172,11 +2550,25 @@
       "value_source": "target",
       "guarantee": "Integral constant termination status values; EXIT_SUCCESS need not numerically equal 0 although exit(0) also denotes success.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "EXIT_FAILURE",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdlib",
@@ -2192,11 +2584,25 @@
       "value_source": "target",
       "guarantee": "Integral constant termination status values; EXIT_SUCCESS need not numerically equal 0 although exit(0) also denotes success.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "EXIT_SUCCESS",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdlib",
@@ -2212,11 +2618,25 @@
       "value_source": "target",
       "guarantee": "Integral constant at least 32767, maximum rand result.",
       "required_in_if": "yes",
-      "support_status": "open",
+      "support_status": "target_fact",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/RuntimeIntegerMacros.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/parser/RuntimeIntegerMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/RuntimeIntegerMacrosIT.java"
+      ],
+      "support_boundary": "Object-like definitions use explicit typed target facts under both header spellings. This bounded implementation supports int facts only, not every type historically permitted by the inherited C contract. Missing facts remain recorded as unavailable and produce unavailable-library-macro on expansion, including #if; no host, JVM or generic libc values are inferred. Numeric facts alone do not implement the corresponding runtime functions or state.",
+      "target_fact": {
+        "profile_setting": "runtimeIntegerMacros",
+        "entry_name": "RAND_MAX",
+        "supported_type": "int",
+        "unknown_behavior": "An included macro has an unavailable definition when its fact is missing; expansion is diagnosed rather than silently becoming zero. A defined check tests definition presence, not known target value.",
+        "value_origin": "Caller-supplied exact decimal string in a typed target profile. Native test probes explicitly verify the selected test target; production performs no host probing or automatic preset selection."
+      }
     },
     {
       "header": "cstdlib",
@@ -2579,7 +2999,9 @@
     "Every implementation row should retain issue92 or a specific open follow-up until full expansion/semantics is proved.",
     "Stage one supplies 54 header/name obligations (48 unique macros); 48 obligations (47 unique macros) remain open under #92.",
     "The source-locator census in cpp03-paragraphs/inventory.json retains its separate denominator and hashes.",
-    "Stage two adds the assert obligation under an explicit glibc runtime binding (disabled mode is runtime independent): total 55 obligations/49 names supplied within documented bounds; 47 obligations/46 names remain open under #92. NDEBUG is user input, not header-provided."
+    "Stage two adds the assert obligation under an explicit glibc runtime binding (disabled mode is runtime independent): total 55 obligations/49 names supplied within documented bounds; 47 obligations/46 names remain open under #92. NDEBUG is user input, not header-provided.",
+    "Stage three adds 30 explicit typed integer target-fact obligations: 85 obligations/79 names now have bounded implementations, while 17 obligations/16 names remain open. A target-fact implementation is not an available numeric value in a profile that omits that fact.",
+    "Trusted declaration-only catalogue parsing may retain an unavailable EOF token in strstream default arguments with its unavailable metadata. No value is invented; user parsing, including catalogue-looking filenames, and #if evaluation still diagnose missing facts."
   ],
-  "support_scope": "Issue #92 stages one and two: explicit-profile numeric/null token definitions and an explicitly selected assertion runtime binding; not complete library or target-ABI conformance."
+  "support_scope": "Issue #92 stages one through three: explicit-profile numeric/null definitions, selected assertion runtime binding, and 30 typed integer target-fact macros; not complete library or target-ABI conformance."
 }

@@ -13,11 +13,12 @@ public final class CompilationDatabase {
         Path base = database.toAbsolutePath().normalize().getParent();
         List<?> entries;
         try {
-            Object document = Json.parse(Files.readString(database)).toJavaObject();
+            Object document = UniqueKeyJson.parse(Files.readString(database));
             if (!(document instanceof List<?> list)) throw new IllegalArgumentException(database + ": expected an array of compilation entries");
             entries = list;
         }
         catch (com.kniazkov.json.JsonException | ClassCastException e) { throw new IllegalArgumentException(database + ": invalid compilation database", e); }
+        catch (IllegalArgumentException e) { throw new IllegalArgumentException(database + ": " + e.getMessage(), e); }
         List<TranslationUnit> units = new ArrayList<>();
         for (int n = 0; n < entries.size(); n++) {
             String name = database + ": entry " + n;

@@ -98,14 +98,18 @@ class StandardLibraryMacrosTest {
     @Test void implementedInventoryObligationsMatchActualHeaderDefinitions() throws Exception {
         var inventory = (Map<?, ?>) com.kniazkov.json.Json.parse(Path.of("docs/cpp03-library-macros.json").toFile()).toJavaObject();
         var entries = (List<?>) inventory.get("entries");
-        for (var profile : List.of(PlatformProfile.defaults(), PlatformProfile.builder().cRuntime("glibc").build()))
+        for (var profile : List.of(PlatformProfile.defaults(), PlatformProfile.builder().cRuntime("glibc").build(),
+                PlatformProfile.read(Path.of("src/test/resources/runtime-integer-macros/synthetic-profile.json"))))
         for (Object item : (List<?>) inventory.get("headers")) {
             var header = (Map<?, ?>) item;
             String cpp = (String) header.get("header"), c = (String) header.get("c_header");
             var implemented = new HashSet<String>();
+            var targetFacts = new HashSet<String>();
             for (Object record : entries) {
                 var entry = (Map<?, ?>) record;
-                if (cpp.equals(entry.get("header")) && ("profile_definition".equals(entry.get("support_status"))
+                if (cpp.equals(entry.get("header")) && "target_fact".equals(entry.get("support_status"))) targetFacts.add((String)entry.get("name"));
+                if (cpp.equals(entry.get("header")) && ("target_fact".equals(entry.get("support_status")) && profile.runtimeIntegerMacros().containsKey(entry.get("name"))
+                        || "profile_definition".equals(entry.get("support_status"))
                         || "runtime_binding".equals(entry.get("support_status")) && profile.cRuntime().equals("glibc")))
                     assertTrue(implemented.add((String) entry.get("name")), "Duplicate inventory obligation: " + entry);
             }
@@ -114,6 +118,11 @@ class StandardLibraryMacrosTest {
             for (String spelling : List.of(cpp, c)) {
                 var definitions = preprocess("#include <" + spelling + ">\n", profile).definitions().stream()
                         .filter(d -> d.originKind().equals("library") && d.unavailableReason() == null).toList();
+                var targetDefinitions = preprocess("#include <" + spelling + ">\n", profile).definitions().stream()
+                        .filter(d->targetFacts.contains(d.name())).toList();
+                assertEquals(targetFacts, targetDefinitions.stream().map(CppPreprocessor.Definition::name).collect(java.util.stream.Collectors.toSet()), spelling);
+                for (var definition : targetDefinitions)
+                    assertEquals(profile.runtimeIntegerMacros().containsKey(definition.name()), definition.unavailableReason() == null, definition.name());
                 assertEquals(implemented.size(), definitions.size(), spelling);
                 assertEquals(implemented, definitions.stream().map(CppPreprocessor.Definition::name).collect(java.util.stream.Collectors.toSet()), spelling);
             }

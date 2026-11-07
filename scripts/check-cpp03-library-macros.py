@@ -6,6 +6,10 @@ from pathlib import Path
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
+INTEGER_FACT_NAMES = frozenset('''EDOM ERANGE EILSEQ LC_ALL LC_COLLATE LC_CTYPE
+    LC_MONETARY LC_NUMERIC LC_TIME SIGABRT SIGFPE SIGILL SIGINT SIGSEGV SIGTERM
+    _IOFBF _IOLBF _IONBF BUFSIZ EOF FOPEN_MAX FILENAME_MAX L_tmpnam
+    SEEK_CUR SEEK_END SEEK_SET TMP_MAX EXIT_FAILURE EXIT_SUCCESS RAND_MAX'''.split())
 
 
 def check(data, root=ROOT):
@@ -54,7 +58,7 @@ def check(data, root=ROOT):
             require(locator in records, label + ': missing ledger locator ' + locator)
         require(bool(entry.get('inherited_locator')), label + ': no inherited C locator')
         require(entry.get('macro_kind') in ('object', 'function'), label + ': invalid macro kind')
-        require(entry.get('support_status') in ('profile_definition', 'runtime_binding', 'open'), label + ': invalid support state')
+        require(entry.get('support_status') in ('profile_definition', 'runtime_binding', 'target_fact', 'open'), label + ': invalid support state')
         require(bool(entry.get('support_boundary')), label + ': missing support boundary')
         require(bool(re.fullmatch(r'https://github\.com/kniazkov/code-property-graph/issues/[0-9]+', entry.get('remaining_work',''))),
                 label + ': no remaining-work issue')
@@ -62,9 +66,20 @@ def check(data, root=ROOT):
             binding = entry.get('runtime_binding', {})
             require(all(binding.get(k) for k in ('profile_setting', 'supported_value', 'unknown_behavior', 'abi_scope')),
                     label + ': runtime binding needs explicit selection and ABI/unknown boundaries')
+        if entry.get('support_status') == 'target_fact':
+            fact = entry.get('target_fact', {})
+            require(entry['name'] in INTEGER_FACT_NAMES,
+                    label + ': not an implemented integer target fact')
+            require(entry.get('macro_kind') == 'object' and entry.get('required_in_if') == 'yes',
+                    label + ': integer target fact must retain its object macro and #if contract')
+            require(fact.get('profile_setting') == 'runtimeIntegerMacros' and
+                    fact.get('entry_name') == entry['name'] and fact.get('supported_type') == 'int',
+                    label + ': target fact needs exact profile/name/type selection')
+            require(bool(fact.get('unknown_behavior')) and bool(fact.get('value_origin')),
+                    label + ': target fact needs missing-value and target-source boundaries')
         for kind in ('implementation', 'tests'):
             paths = entry.get(kind, [])
-            if entry.get('support_status') in ('profile_definition', 'runtime_binding'):
+            if entry.get('support_status') in ('profile_definition', 'runtime_binding', 'target_fact'):
                 require(bool(paths), label + ': profile definition needs ' + kind)
             for path in paths:
                 resolved = (root / path).resolve()

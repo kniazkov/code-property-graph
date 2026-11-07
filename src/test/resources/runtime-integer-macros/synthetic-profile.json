@@ -1,0 +1,126 @@
+{
+  "inherits": "default",
+  "name": "synthetic-int-facts-not-an-abi",
+  "runtimeIntegerMacros": {
+    "BUFSIZ": {
+      "type": "int",
+      "value": "1024"
+    },
+    "EDOM": {
+      "type": "int",
+      "value": "-33"
+    },
+    "EILSEQ": {
+      "type": "int",
+      "value": "-84"
+    },
+    "EOF": {
+      "type": "int",
+      "value": "-2147483648"
+    },
+    "ERANGE": {
+      "type": "int",
+      "value": "-34"
+    },
+    "EXIT_FAILURE": {
+      "type": "int",
+      "value": "9"
+    },
+    "EXIT_SUCCESS": {
+      "type": "int",
+      "value": "7"
+    },
+    "FILENAME_MAX": {
+      "type": "int",
+      "value": "255"
+    },
+    "FOPEN_MAX": {
+      "type": "int",
+      "value": "12"
+    },
+    "LC_ALL": {
+      "type": "int",
+      "value": "16"
+    },
+    "LC_COLLATE": {
+      "type": "int",
+      "value": "13"
+    },
+    "LC_CTYPE": {
+      "type": "int",
+      "value": "10"
+    },
+    "LC_MONETARY": {
+      "type": "int",
+      "value": "14"
+    },
+    "LC_NUMERIC": {
+      "type": "int",
+      "value": "11"
+    },
+    "LC_TIME": {
+      "type": "int",
+      "value": "12"
+    },
+    "L_tmpnam": {
+      "type": "int",
+      "value": "32"
+    },
+    "RAND_MAX": {
+      "type": "int",
+      "value": "32767"
+    },
+    "SEEK_CUR": {
+      "type": "int",
+      "value": "4"
+    },
+    "SEEK_END": {
+      "type": "int",
+      "value": "5"
+    },
+    "SEEK_SET": {
+      "type": "int",
+      "value": "3"
+    },
+    "SIGABRT": {
+      "type": "int",
+      "value": "26"
+    },
+    "SIGFPE": {
+      "type": "int",
+      "value": "28"
+    },
+    "SIGILL": {
+      "type": "int",
+      "value": "24"
+    },
+    "SIGINT": {
+      "type": "int",
+      "value": "22"
+    },
+    "SIGSEGV": {
+      "type": "int",
+      "value": "31"
+    },
+    "SIGTERM": {
+      "type": "int",
+      "value": "35"
+    },
+    "TMP_MAX": {
+      "type": "int",
+      "value": "100"
+    },
+    "_IOFBF": {
+      "type": "int",
+      "value": "-2147483648"
+    },
+    "_IOLBF": {
+      "type": "int",
+      "value": "-2"
+    },
+    "_IONBF": {
+      "type": "int",
+      "value": "-3"
+    }
+  }
+}
