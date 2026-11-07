@@ -48,3 +48,4 @@ jobs:
             target/mb-cur-max-oracle/
             target/standard-streams-oracle/
             target/weof-runtime-oracle/
+            target/clock-scale-oracle/
