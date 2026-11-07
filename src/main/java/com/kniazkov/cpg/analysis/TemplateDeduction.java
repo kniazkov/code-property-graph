@@ -87,11 +87,28 @@ final class TemplateDeduction {
             }
         });
         CallableDeclaration signature = TemplateSubstitution.signature(origin,substitutions);
+        // C++03 13.5: a non-member overloaded operator requires a class or
+        // enumeration operand. This is a signature rule, not a library body
+        // prerequisite (e.g. EqualityComparable), and also applies to explicit calls.
+        if (origin.name().startsWith("operator") && origin.name().length() > 8
+                && !Character.isJavaIdentifierPart(origin.name().charAt(8)) && origin.name().charAt(8) != ' '
+                && (!(origin instanceof MethodDeclaration) || origin.isFriend())
+                && signature.parameters().stream().flatMap(p -> p.type().stream()).noneMatch(TemplateDeduction::operatorOperand))
+            return Optional.empty();
         if (OverloadResolution.candidate(signature,actual,profile,OverloadResolution.requiredArguments(origin)).isEmpty()) return Optional.empty();
         var arguments=origin.templateParameters().stream().map(p -> values.containsKey(p)
                 ? TemplateSubstitution.typeArgument(values.get(p),p.kind()==TemplateParameterDeclaration.Kind.TEMPLATE?TemplateArgument.Kind.TEMPLATE:TemplateArgument.Kind.TYPE)
                 : TemplateArgument.create().setExpression(((IntegerLiteral)constants.get(p)).edit()).build()).toList();
         return Optional.of(new Result(arguments,substitutions,signature));
+    }
+    private static boolean operatorOperand(TypeNode type) {
+        type = TypeSemantics.unqualified(TypeSemantics.withoutReference(type));
+        return !(type instanceof ArrayType) && ClassSemantics.objectClass(type).isPresent()
+                || type instanceof NamedType named && named.declaration().orElse(null) instanceof EnumDeclaration
+                // An implementation-defined library type may be a class. Do not
+                // reject its portable interface based on a guessed representation.
+                || type instanceof OpaqueLibraryType opaque
+                    && (opaque.category() == OpaqueLibraryType.Category.OBJECT || opaque.category() == OpaqueLibraryType.Category.UNSPECIFIED);
     }
     static Optional<Result> explicit(CallableDeclaration origin,CallableDeclaration request,PlatformProfile profile,Map<ClassDeclaration,ClassDeclaration> classOrigins) {
         var actual=request.parameters().stream().map(parameter -> (Expression)NameExpression.create().setName(parameter.name().isEmpty()?"__argument":parameter.name()).setTarget(parameter.edit()).build()).toList();
