@@ -68,16 +68,16 @@ ordering.
 
 ## Verification
 
-Production/test revision: `cf92c48` (the PR records the corresponding remote head
+Production revision: `cf92c48` (the PR records the corresponding remote head
 and source tree). Fresh executable JAR SHA-256:
 `06357bc884ca08ddf484f1cb42c74df1df377a877983f09d08d6cd4b6520c140`.
 
-The final focused Maven run on 2026-11-07 passed **82 unit tests and two integration
+The final focused Maven run on 2026-11-07 passed **86 unit tests and two integration
 tests**, with zero failures, errors or skips:
 
 ```sh
 mvn -B -DargLine=-Xmx768m \
-  -Dtest=StandardLibraryMacrosTest,PlatformProfileTest,CCompatibilityFamiliesTest,CppPreprocessorTest,MacroSourceTest,ProfileTypeSemanticsTest \
+  -Dtest=JsonExportTest,StandardLibraryMacrosTest,PlatformProfileTest,CCompatibilityFamiliesTest,CppPreprocessorTest,MacroSourceTest,ProfileTypeSemanticsTest \
   -Dit.test=LibraryMacrosIT verify
 ```
 
@@ -106,6 +106,14 @@ by 32-bit long must still promote to int, and double/long double cannot choose
 binary32 precision. Regression tests cover signed/unsigned wchar backing and
 invalid format selections. No unrelated language-limit claim is made.
 
+The first full unit pass found one reviewed JSON fixture still carrying the old
+profile identity. Structural comparison found exactly 37 scalar differences:
+36 occurrences of the profile hash and one stable-identity string gaining the
+four new settings. Only those two explicit text transformations were applied;
+syntax, node IDs, ranges, pass results and predefined values did not change.
+Exact macro-name sets and every supplied inventory/header spelling are also
+cross-checked against the provider, not just counted.
+
 The inventory has seven mutation tests checking omissions, duplicate obligations,
 invalid source locators, unsupported evidence claims and missing follow-up links:
 
@@ -125,7 +133,7 @@ the PR's Checks view. No source-review hash is changed by this implementation.
 NULL, целочисленные и вещественные пределы, WCHAR_MIN/MAX. Значения следуют
 явному профилю цели, а не JVM или ABI машины. Сохраняются происхождение,
 изоляция единиц трансляции, приоритет переданных заголовков, копирование и
-редактирование графа. Целевые 82 модульных и 2 интеграционных теста прошли;
+редактирование графа. Целевые 86 модульных и 2 интеграционных теста прошли;
 полный Maven и CI конкретной опубликованной версии остаются отдельными воротами
 слияния. Нативные запуски доказывают переносимые свойства и сохранение исходника,
 а не совпадение всех чисел произвольного профиля с ABI компилятора.
