@@ -214,7 +214,7 @@ public final class Parser {
         return new Preprocessing(file, includes, tokens, events, result.sources(), unit,
                 result.definitions().stream().map(d -> new Preprocessing.Definition(d.id(), d.name(),
                         d.functionLike(), d.parameters(), d.rawReplacement(), d.range(), d.include().occurrence(),
-                        d.originKind(), externalSourceKey(unit, d))).toList(),
+                        d.originKind(), externalSourceKey(unit, d), d.unavailableReason())).toList(),
                 result.branches().stream().map(b -> new Preprocessing.Branch(b.id(), b.directive(), b.rawSource(),
                         b.range(), b.directiveRange(), b.include().occurrence(), b.parentId(), b.parentActive(),
                         b.evaluated(), b.conditionResult(), b.active(), b.startToken(), b.endToken())).toList(),

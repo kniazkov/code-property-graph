@@ -968,6 +968,7 @@ public final class ProjectJson {
                                 .array("parameters", values -> values.addAll(d.parameters()))
                                 .put("rawReplacement", d.rawReplacement()).put("range", range(d.range()))
                                 .put("includeId", d.includeId()).put("originKind", d.originKind()).put("sourceKey", d.sourceKey());
+                        if (d.unavailableReason() != null) o.put("unavailableReason", d.unavailableReason());
                         project.externalInput(d.sourceKey()).ifPresent(input -> o.put("sourceNodeId", id(input)));
                         o.array("expansionIds", values -> p.expansions().stream().filter(e -> e.definitionId() == d.id()).forEach(e -> values.add(e.id())));
                         o.array("presenceCheckIds", values -> p.presenceChecks().stream().filter(c -> c.definitionId() != null && c.definitionId() == d.id()).forEach(c -> values.add(c.id())));

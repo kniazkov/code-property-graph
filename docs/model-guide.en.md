@@ -1595,3 +1595,19 @@ meet the C90 minimum precision for each type. Every setting participates in
 profile identity and `toSettings()`/`toBuilder()` round-trips. See the
 [macro inventory and verification](cpp03-library-macros-verification.md) for the
 implemented subset; these facts do not implement arbitrary floating arithmetic.
+
+### Assertion runtime selection (#92)
+
+`cRuntime` accepts `"unknown"` (default, including older complete profiles) or
+`"glibc"`. It participates in effective settings, profile identity and build
+variants. The glibc assertion binding requires 8-bit bytes/char, 32-bit int and 32- or 64-bit pointers; those
+checks do not describe a complete architecture ABI. The caller must choose a
+compatible target C calling convention, pointer ABI and actual glibc library
+exporting __assert_fail. LP64 or Linux alone does not select that runtime.
+
+Unknown enabled assertions retain definition/provenance metadata including
+`unavailableReason`; invocation emits `unavailable-library-macro` error JSON and
+blocks generation. NDEBUG-disabled assertions need no runtime. Selected glibc
+uses ordinary resolved C++ calls with conservative effects; this packet does not
+infer a terminal CFG edge merely from the helper's spelling. For source-location
+preservation and graph-edit boundaries see [the assertion report](cpp03-assert-verification.md).
