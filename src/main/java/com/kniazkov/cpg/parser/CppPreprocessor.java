@@ -131,6 +131,15 @@ public final class CppPreprocessor {
         return new Processor(unit, null).run(source);
     }
 
+    /** Trusted declaration catalogues may retain an unavailable default-argument name;
+     * this does not make its value available to user code or directive evaluation. */
+    static Result preprocessLibrary(Build.TranslationUnit unit, String source) {
+        com.kniazkov.cpg.build.CppStandard.require(unit.standard(), unit.source().path().toString());
+        var processor = new Processor(unit, Map.of(unit.source().path().toString(), source), Instant.EPOCH);
+        processor.declarationOnly = true;
+        return processor.run(source);
+    }
+
     /** Replays a captured translation unit without consulting the filesystem, including existence checks. */
     public static Result preprocess(Build.TranslationUnit unit, String source, Map<String, String> sources) {
         com.kniazkov.cpg.build.CppStandard.require(unit.standard(), unit.source().path().toString());
@@ -224,7 +233,7 @@ public final class CppPreprocessor {
         private final List<LogicalLocation> logicalLocations = new ArrayList<>();
         private final List<IncludeState> includeStates = new ArrayList<>();
         private final Instant translationTime;
-        private boolean recovering;
+        private boolean recovering, declarationOnly;
         private static final Set<String> BUILTINS = Set.of("__LINE__", "__FILE__", "__DATE__", "__TIME__", "__cplusplus");
         private long occurrence;
         private long expansions;
@@ -707,6 +716,22 @@ public final class CppPreprocessor {
                             d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(), unavailable));
                 }
             }
+            String canonical = com.kniazkov.cpg.analysis.StandardLibraryCatalogue.canonicalHeader(header);
+            for (String name : com.kniazkov.cpg.build.RuntimeIntegerMacros.namesForHeader(canonical)) {
+                var fact = unit.platform().runtimeIntegerMacros().get(name);
+                String replacement = fact == null ? "" : fact.replacement(unit.platform());
+                String file = unit.directory().resolve("<cpg-library:" + header + ":" + name + ">").toString();
+                String source = name + " " + replacement;
+                definitionSources.put(file, source);
+                define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                        "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":" + name);
+                if (fact == null) {
+                    Definition d = definitions.getLast();
+                    definitions.set(definitions.size() - 1, new Definition(d.id(), d.name(), false, List.of(),
+                            d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(),
+                            "Library macro " + name + " requires an explicit runtimeIntegerMacros." + name + " target fact"));
+                }
+            }
             Map<String, String> library;
             try { library = StandardLibraryMacros.definitions(header, unit.platform()); }
             catch (IllegalArgumentException error) { throw error(location, error.getMessage()); }
@@ -726,10 +751,13 @@ public final class CppPreprocessor {
                     directive.include(), directive.active(), header, startToken));
         }
 
-        List<Work> expandOutput(List<Work> input) { return expand(input, null, recovering); }
+        List<Work> expandOutput(List<Work> input) { return expand(input, null, recovering, declarationOnly); }
         List<Work> expand(List<Work> input) { return expand(input, null); }
         List<Work> expand(List<Work> input, Long context) { return expand(input, context, false); }
         List<Work> expand(List<Work> input, Long context, boolean preservePrefix) {
+            return expand(input, context, preservePrefix, false);
+        }
+        List<Work> expand(List<Work> input, Long context, boolean preservePrefix, boolean catalogueOutput) {
             var work = new ArrayList<>(input);
             int index = 0, firstEvent = events.size();
             try {
@@ -763,6 +791,7 @@ public final class CppPreprocessor {
                         arguments = collected; rawArguments = rawCollected; end = close + 1;
                     }
                     String unavailable = definitions.get((int) macro.id - 1).unavailableReason();
+                    if (unavailable != null && catalogueOutput) { index++; continue; }
                     if (unavailable != null) throw error(invocation, unavailable).withDiagnostic("unavailable-library-macro",
                             unavailable, invocation.value.expansionRange(), List.of(new DiagnosticRelatedRange(
                                     "macro-definition", "Unavailable library macro binding", macro.fullDefinition)),

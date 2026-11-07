@@ -97,7 +97,7 @@ public final class Parser {
     /** Parses trusted declaration-only library syntax with an explicit non-physical provenance role. */
     public static SourceFile.Builder parseLibrary(com.kniazkov.cpg.build.Build.TranslationUnit unit, String source) {
         String file = unit.source().path().toString();
-        var result = CppPreprocessor.preprocess(unit, source, java.util.Map.of(file, source), java.time.Instant.EPOCH);
+        var result = CppPreprocessor.preprocessLibrary(unit, source);
         var provenance = preprocessing(file, result, unit).asLibraryCatalogue();
         var parser = new Parser(file, Language.CPP, parserTokens(result, provenance), provenance);
         var placeholders=java.util.regex.Pattern.compile("__cpg_opaque_(?:arithmetic|integer|object|unspecified)_[A-Za-z0-9_]+").matcher(source);
