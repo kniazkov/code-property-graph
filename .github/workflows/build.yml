@@ -47,3 +47,4 @@ jobs:
             target/errno-runtime-oracle/
             target/mb-cur-max-oracle/
             target/standard-streams-oracle/
+            target/weof-runtime-oracle/
