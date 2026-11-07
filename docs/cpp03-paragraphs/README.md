@@ -93,3 +93,16 @@ not prove that the census atomizes every normative obligation.
 `inventory.json`. Синтетические регрессии не требуют частного PDF и запускаются
 в CI. Исправления извлечения проверены вручную; воспроизводимость реестра не
 доказывает выделение каждой отдельной нормативной обязанности.
+
+## Mandatory library macro inventory (#92)
+
+[`../cpp03-library-macros.json`](../cpp03-library-macros.json) is a separate
+header/name obligation inventory (102 pairs, 95 distinct names), not a change to
+the source-coordinate census in this directory. It preserves the historical C90
+and Amendment 1 boundary, links existing C++03 locators and records open work per
+entry. Run `python3 scripts/test-cpp03-library-macros.py` and
+`python3 scripts/check-cpp03-library-macros.py` from the repository root. These
+checks validate inventory consistency and evidence paths, not all macro semantics.
+
+Отдельный инвентарь обязательных макросов не меняет знаменатель координат
+источника. Состояния реализации и открытые обязательства учитываются отдельно.

@@ -312,3 +312,13 @@ operator templates. Scoped lookup, template selection, lazy ownership and
 original/generated native truth tables have targeted regressions. The catalogue
 still supplies no STL bodies or proof of user-type prerequisites; 20.2.1/10 and
 general acceptance remain bounded gaps. [Verification](cpp03-rel-ops-verification.md).
+
+## Follow-up #92: profile-backed macros, first stage
+
+The historical macro gaps above are partially addressed: CPG now supplies NULL,
+integer limits, explicit-format floating limits and WCHAR_MIN/MAX under both
+header spellings. The [dedicated inventory](cpp03-library-macros.json) separates
+54 supplied header/name obligations from 48 still open under #92. Native macro
+presence is not counted as CPG implementation. The [verification report](cpp03-library-macros-verification.md)
+records target assumptions, exact evidence and remaining ABI/runtime/assert
+work. No complete-library claim or closure of #48 follows from this packet.

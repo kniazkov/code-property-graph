@@ -19,8 +19,11 @@ public final class PlatformProfile {
     private static final List<String> SCALARS = List.of("bool", "char", "short", "int", "long",
             "long long", "wchar_t", "float", "double", "long double", "pointer");
     private static final Set<String> SETTINGS = Set.of("inherits", "name", "bitsPerByte", "sizes", "alignments",
-            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness");
+            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness", "floatingFormats", "floatingRounds", "nullPointerConstant", "maxMultibyteLength");
     private static final PlatformProfile DEFAULT = new Builder(true).build();
+    private final Map<String, String> floatingFormats;
+    private final int floatingRounds, maxMultibyteLength;
+    private final String nullPointerConstant;
     private final String name;
     private final int bitsPerByte;
     private final Map<String, Integer> sizes, alignments;
@@ -31,6 +34,11 @@ public final class PlatformProfile {
 
     private PlatformProfile(Builder b) {
         name = nonempty(b.name, "name"); bitsPerByte = b.bitsPerByte;
+        floatingRounds = b.floatingRounds;
+        if (floatingRounds < -1 || floatingRounds > 3) throw invalid("floatingRounds must be -1, 0, 1, 2 or 3");
+        maxMultibyteLength = b.maxMultibyteLength;
+        if (maxMultibyteLength < 1) throw invalid("maxMultibyteLength must be positive");
+        nullPointerConstant = policy(b.nullPointerConstant, "nullPointerConstant", Set.of("0", "0L"));
         if (bitsPerByte < 8 || bitsPerByte > 4096) throw invalid("bitsPerByte must be between 8 and 4096");
         var normalizedSizes = new LinkedHashMap<String, Integer>();
         var normalizedAlignments = new LinkedHashMap<String, Integer>();
@@ -56,6 +64,20 @@ public final class PlatformProfile {
             throw invalid("integer sizes must satisfy short >= 16, short <= int <= long <= long long, long >= 32");
         if (sizes.get("float") > sizes.get("double") || sizes.get("double") > sizes.get("long double"))
             throw invalid("floating sizes must satisfy float <= double <= long double");
+        var formats = new LinkedHashMap<String, String>();
+        int precedingPrecision = 0;
+        for (String type : List.of("float", "double", "long double")) {
+            String format = policy(b.floatingFormats.get(type), "floatingFormats." + type,
+                    Set.of("unknown", "binary32", "binary64", "binary80", "binary128"));
+            if (!type.equals("float") && format.equals("binary32"))
+                throw invalid("floatingFormats." + type + " must provide at least 10 decimal digits in C++03");
+            int width = format.equals("unknown") ? 0 : Integer.parseInt(format.substring(6));
+            if (width > sizes.get(type)) throw invalid("floatingFormats." + type + " does not fit its storage size");
+            if (width != 0 && precedingPrecision > width) throw invalid("floating formats must have nondecreasing precision");
+            if (width != 0) precedingPrecision = width;
+            formats.put(type, format);
+        }
+        floatingFormats = Collections.unmodifiableMap(formats);
         charSigned = b.charSigned; wcharType = normalizeInteger(nonempty(b.wcharType, "wcharType"));
         if (wcharType.equals("wchar_t") || wcharType.equals("bool") || storageType(wcharType).equals("long long") || !isInteger(wcharType)
                 || !Objects.equals(sizes.get(storageType(wcharType)), sizes.get("wchar_t")))
@@ -90,6 +112,12 @@ public final class PlatformProfile {
     public static Builder builder() { return new Builder(true); }
     public Builder toBuilder() { return new Builder(this); }
     public String name() { return name; }
+    /** Explicit radix-two formats, independent of storage size and the Java runtime. */
+    public Map<String, String> floatingFormats() { return floatingFormats; }
+    /** C90 FLT_ROUNDS choice; -1 means indeterminable, not a guessed host mode. */
+    public int floatingRounds() { return floatingRounds; }
+    public int maxMultibyteLength() { return maxMultibyteLength; }
+    public String nullPointerConstant() { return nullPointerConstant; }
     public int bitsPerByte() { return bitsPerByte; }
     public boolean charSigned() { return charSigned; }
     public String wcharType() { return wcharType; }
@@ -164,6 +192,8 @@ public final class PlatformProfile {
         var map = new LinkedHashMap<String, Object>();
         map.put("inherits", "none"); map.put("name", name); map.put("bitsPerByte", bitsPerByte);
         map.put("sizes", sizes);
+        map.put("floatingFormats", floatingFormats); map.put("floatingRounds", floatingRounds);
+        map.put("nullPointerConstant", nullPointerConstant); map.put("maxMultibyteLength", maxMultibyteLength);
         var allAlignments = new LinkedHashMap<String, Integer>();
         SCALARS.forEach(t -> allAlignments.put(t, alignments.get(t)));
         map.put("alignments", Collections.unmodifiableMap(allAlignments));
@@ -235,6 +265,14 @@ public final class PlatformProfile {
         if (settings.containsKey("bitFieldSignedness")) b.bitFieldSignedness(string(settings.get("bitFieldSignedness"), "bitFieldSignedness"));
         if (settings.containsKey("enumUnderlyingType")) b.enumUnderlyingType(string(settings.get("enumUnderlyingType"), "enumUnderlyingType"));
         if (settings.containsKey("signedIntegerConversion")) b.signedIntegerConversion(string(settings.get("signedIntegerConversion"), "signedIntegerConversion"));
+        if (settings.containsKey("floatingRounds")) b.floatingRounds(integer(settings.get("floatingRounds"), "floatingRounds"));
+        if (settings.containsKey("maxMultibyteLength")) b.maxMultibyteLength(integer(settings.get("maxMultibyteLength"), "maxMultibyteLength"));
+        if (settings.containsKey("nullPointerConstant")) b.nullPointerConstant(string(settings.get("nullPointerConstant"), "nullPointerConstant"));
+        if (settings.containsKey("floatingFormats")) {
+            if (!(settings.get("floatingFormats") instanceof Map<?, ?> formats)) throw invalid("floatingFormats must be an object");
+            for (var entry : formats.entrySet()) b.floatingFormat(string(entry.getKey(), "floatingFormats key"),
+                    string(entry.getValue(), "floatingFormats value"));
+        }
         return b.build();
     }
     private static String policy(String value, String field, Set<String> allowed) {
@@ -280,6 +318,10 @@ public final class PlatformProfile {
 
     public static final class Builder {
         private String name = "custom";
+        private final Map<String, String> floatingFormats = new LinkedHashMap<>(Map.of(
+                "float", "unknown", "double", "unknown", "long double", "unknown"));
+        private int floatingRounds = -1, maxMultibyteLength = 1;
+        private String nullPointerConstant = "0";
         private int bitsPerByte = 8;
         private final Map<String, Integer> sizes = new LinkedHashMap<>(), alignments = new LinkedHashMap<>();
         private boolean charSigned = true;
@@ -291,12 +333,16 @@ public final class PlatformProfile {
         private Builder(boolean defaults) {
             if (defaults) {
                 name = "default-lp64"; aggregateLayout = "sequential";
+                floatingFormats.put("float", "binary32"); floatingFormats.put("double", "binary64");
+                floatingFormats.put("long double", "binary128"); floatingRounds = 1; maxMultibyteLength = 16;
                 fieldAlignment = "natural"; aggregateAlignment = "maximum-field"; tailPadding = "alignment";
                 int[] bits = {8, 8, 16, 32, 64, 64, 32, 32, 64, 128, 64};
                 for (int i = 0; i < bits.length; i++) { sizes.put(SCALARS.get(i), bits[i]); alignments.put(SCALARS.get(i), bits[i]); }
             }
         }
         private Builder(PlatformProfile p) {
+            floatingFormats.putAll(p.floatingFormats); floatingRounds = p.floatingRounds;
+            maxMultibyteLength = p.maxMultibyteLength; nullPointerConstant = p.nullPointerConstant;
             name = p.name; bitsPerByte = p.bitsPerByte; sizes.putAll(p.sizes); alignments.putAll(p.alignments);
             charSigned = p.charSigned; wcharType = p.wcharType; sizeType = p.sizeType; sourceEncoding = p.sourceEncoding;
             executionEncoding = p.executionEncoding; wideExecutionEncoding = p.wideExecutionEncoding; aggregateLayout = p.aggregateLayout;
@@ -304,6 +350,13 @@ public final class PlatformProfile {
             enumUnderlyingType = p.enumUnderlyingType; signedIntegerConversion = p.signedIntegerConversion;
             fieldAlignment = p.fieldAlignment; aggregateAlignment = p.aggregateAlignment; tailPadding = p.tailPadding;
         }
+        public Builder floatingFormat(String type, String value) {
+            if (!floatingFormats.containsKey(type)) throw invalid("unknown floatingFormats type " + type);
+            floatingFormats.put(type, value); return this;
+        }
+        public Builder floatingRounds(int value) { floatingRounds = value; return this; }
+        public Builder maxMultibyteLength(int value) { maxMultibyteLength = value; return this; }
+        public Builder nullPointerConstant(String value) { nullPointerConstant = value; return this; }
         public Builder name(String value) { name = value; return this; }
         public Builder bitsPerByte(int value) { bitsPerByte = value; return this; }
         public Builder sizeBits(String type, int value) { sizes.put(key(type), value); return this; }

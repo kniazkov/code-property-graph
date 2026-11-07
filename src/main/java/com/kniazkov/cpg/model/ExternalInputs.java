@@ -66,6 +66,14 @@ final class ExternalInputs {
                 entry.addInput(argument);
             }
         }
+        var libraryKeys = new HashSet<String>();
+        for (var file : files) file.provenance().ifPresent(provenance -> {
+            for (var definition : provenance.unit().definitions()) if (definition.originKind().equals("library") && libraryKeys.add(definition.sourceKey())) {
+                String platformKey = "profile:platform:" + provenance.unit().configuration().platform().identityHash();
+                roots.get(platformKey).addInput(ExternalInput.create(definition.sourceKey(), "library-macro",
+                        definition.name() + " " + definition.rawReplacement()));
+            }
+        });
         return List.copyOf(roots.values());
     }
 }
