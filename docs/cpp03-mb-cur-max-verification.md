@@ -130,6 +130,46 @@ Three existing paragraph records gain bounded evidence without changing original
 source hashes, coordinates or paragraph hashes. Broader inherited C contracts
 remain partial, not proven by one successful macro binding.
 
+### CI timeout follow-up
+
+The initial head e84c9ddf58baeb531e3fb8a39e3ef13ca05e72cc passed the complete
+local suite (1305 unit + 114 integration tests, 23:48) and all local auxiliary
+checks. Its [first CI attempt](https://github.com/kniazkov/code-property-graph/actions/runs/42385737368)
+passed all units and the new macro tests, but the existing remaining-library
+GREEN CLI exceeded its 45-second harness wait. Later CI stages were skipped;
+that attempt is not reported as a full pass.
+
+Three isolated successful current-JAR executions took 36.87, 36.59 and 36.34
+seconds. The last clean sequential run used 61.13 CPU seconds and peaked at
+1,323,380 KiB RSS, leaving only 8.66 seconds below the wait limit. Output streams
+are redirected to files; no pipe-draining deadlock or deterministic hang was
+reproduced. An older pre-errno artifact took 34.07 seconds, but is not the
+immediate parent and cannot isolate this packet's performance impact.
+
+The test harness now gives only remaining-library GREEN/FOLDED/SVG CLI calls
+a positive finite 90-second execution wait. All other sandboxes retain 45
+seconds. No graph, snapshot, generation or native correctness assertion was
+removed or relaxed. Invalid/nonpositive/overflow durations are rejected. Timeout
+still fails, and timeout/interruption paths forcibly terminate and reap the
+child. The existing post-kill reap remains untimed and interruptible; this is
+not an absolute wall-clock guarantee under pathological process termination.
+
+Focused harness verification passed 5 deterministic unit tests + 7 integration
+tests with zero failures/errors/skips in 2:43; the selected corpus scenario took
+152.7 seconds across its API, CLI and native checks. Independent compilation
+and direct JUnit execution passed the same five harness unit tests. No sleeps
+are used to test deadline/cleanup behavior. Production sources are unchanged
+and the shaded JAR hash remains identical to the macro-focused artifact above.
+
+```sh
+mvn -B -DargLine=-Xmx768m -Dtest=CliSandboxTest \
+  -Dit.test=Cpp03CorpusIT,PackagedCliIT \
+  -Dcpg.cpp03.scenario=remaining-library verify
+```
+
+The full suite and exact-head CI are rerun after this harness-only correction;
+focused success does not replace either merge gate.
+
 ## Remaining scope
 
 The inventory now has 54 profile-definition,
