@@ -66,7 +66,9 @@ errno storage identity, TLS model or context-sensitive error-state summary.
 
 Terminal writes through references are considered possibly externally observable
 unless the reference is proved to bind directly to known local nonstatic, non-extern scalar
-storage. Direct local reference chains remain diagnosable; pointer-backed,
+storage. This exception applies to writes through the reference, not to its local
+binding initialization: an unused reference binding still receives its normal
+unread diagnostic. Direct local reference chains remain diagnosable; pointer-backed,
 call-derived, cast or conditional bindings may lose unread-write precision even
 when they happen to be local. This explicit conservative boundary avoids false
 claims that external stores are dead. The memory analysis separately retains
@@ -75,14 +77,14 @@ constant evaluation; the packet does not add a constant value for errno.
 
 ## Verification
 
-The final focused run on 2026-11-07 passed **195 unit tests and 11 integration
-tests**, with zero failures/errors/skips, in 1:34. Fresh shaded JAR SHA-256:
-`f82ec8710a6c02ec45d5a34ac459c99d548fb702b8d94bde50de2c96c566103b`.
+The final focused run on 2026-11-07 passed **227 unit tests and 11 integration
+tests**, with zero failures/errors/skips, in 2:38. Fresh shaded JAR SHA-256:
+`370a52515844628c3e85aed358dbf8cf3371ec587d5112a3056517e61a2aa3d5`.
 The published revision and final CI link belong to the PR verification section.
 
 ```sh
 mvn -B -DargLine=-Xmx768m \
-  -Dtest=ErrnoRuntimeTest,ObjectMemoryDataFlowTest,LibraryUnknownEffectsTest,UnreadWritesTest,ReferenceBindingDataFlowTest,CallSiteDataFlowTest,ObjectMemoryExportTest,ObjectMemoryValidationTest,StandardLibraryMacrosTest,CCompatibilityFamiliesTest,StandardLibraryCatalogueTest,JsonExportTest,PlatformProfileTest,MacroSourceTest,ExpandedExpressionDataFlowTest,FlowTest \
+  -Dtest=ErrnoRuntimeTest,ContainerFamilyFlowTest,SequenceFlowTest,ObjectMemoryDataFlowTest,LibraryUnknownEffectsTest,UnreadWritesTest,ReferenceBindingDataFlowTest,CallSiteDataFlowTest,ObjectMemoryExportTest,ObjectMemoryValidationTest,StandardLibraryMacrosTest,CCompatibilityFamiliesTest,StandardLibraryCatalogueTest,JsonExportTest,PlatformProfileTest,MacroSourceTest,ExpandedExpressionDataFlowTest,FlowTest \
   -Dit.test=ErrnoRuntimeIT,PackagedCliIT,AssertionRuntimeIT,RuntimeIntegerMacrosIT verify
 python3 scripts/test-cpp03-library-macros.py
 python3 scripts/check-cpp03-library-macros.py
@@ -129,8 +131,13 @@ location has no fabricated declaration, is null-root-safe, and always uses weak
 updates. Four bounded ledger records are updated without changing original source
 hashes. All 5,250 records and macro/source/paragraph validator tests pass.
 
-Full Maven verify and required CI on the exact final PR head remain separate
-merge gates; focused results alone are not represented as a complete pass.
+The first full run exposed two existing container/sequence tests whose unused
+reference-binding warnings had been hidden. The corrected target-write exception
+keeps those tests unchanged and adds separate unused/used errno-reference checks.
+Independent fresh-source review then passed all 68 tests in the two affected
+families, object-memory flow and errno tests. Full Maven verify and required CI on
+the exact final PR head remain separate merge gates; focused results alone are
+not represented as a complete pass.
 
 ## Remaining scope
 

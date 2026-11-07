@@ -43,6 +43,15 @@ class ErrnoRuntimeTest {
    for(var d:nodes(p,DereferenceExpression.class))assertTrue(ConstantEvaluator.evaluate(d,glibc).isEmpty());
   }
  }
+ @Test void unusedReferenceBindingStillWarnsButWritesThroughItRemainObservable(){
+  var unused=analyze("#include <cerrno>\nint f(){int&unused=errno;return 0;}");
+  var binding=nodes(unused,VariableDeclaration.class).stream().filter(v->v.name().equals("unused")).findFirst().orElseThrow();
+  assertTrue(binding.diagnostics().stream().anyMatch(d->d.code().equals(UnreadWrites.CODE)));
+  for(String write:List.of("r=7;","r+=7;","++r;","r++;")) {
+   var used=analyze("#include <cerrno>\nint f(){int&r=errno;"+write+"return 0;}");
+   assertTrue(used.semanticDiagnostics().stream().noneMatch(d->d.code().equals(UnreadWrites.CODE)),()->write+used.semanticDiagnostics());
+  }
+ }
  @Test void sizeofDoesNotEvaluateTheAccessorOrPublishCallEffects(){
   var p=analyze("#include <cerrno>\nint f(){errno=7;return sizeof(errno);}");
   var size=nodes(p,SizeofExpression.class).getFirst();
