@@ -184,6 +184,8 @@ public final class StandardLibraryCatalogue {
         String h=canonicalHeader(header), size=profile.sizeType();
         // Real glibc ABI declaration, not a standard-library function or CPG body.
         // Keep C linkage and global namespace under both header spellings.
+        if (h.equals("cerrno") && profile.cRuntime().equals("glibc"))
+            return "extern \"C\" int* __errno_location() throw();";
         if (h.equals("cassert") && profile.cRuntime().equals("glibc"))
             return "extern \"C\" void __assert_fail(const char*, const char*, unsigned int, const char*) throw();";
         if (StandardLibraryC.supports(h)) { String data = StandardLibraryC.declarations(h); return header.endsWith(".h") ? data : ns(data); }

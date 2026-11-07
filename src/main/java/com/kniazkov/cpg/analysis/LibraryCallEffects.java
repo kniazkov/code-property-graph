@@ -64,6 +64,26 @@ final class LibraryCallEffects {
             else OperatorSemantics.operands(expression).forEach(argument -> roots(argument, out));
         }
     }
+    /** Only a direct binding to known local scalar storage proves that a
+     * reference write cannot be externally observable. Indirect/call/cast and
+     * conditional bindings conservatively escape, even when they might be local. */
+    static boolean possiblyNonlocalReference(VariableDeclaration variable, Set<Declaration> locals,
+            com.kniazkov.cpg.build.PlatformProfile profile) {
+        if (variable.type().map(TypeSemantics::unqualified).filter(ReferenceType.class::isInstance).isEmpty()) return false;
+        Set<Declaration> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        return !variable.initializer().map(value -> directLocalStorage(value, locals, visited, profile)).orElse(false);
+    }
+    private static boolean directLocalStorage(Expression value, Set<Declaration> locals, Set<Declaration> visited,
+            com.kniazkov.cpg.build.PlatformProfile profile) {
+        if (value instanceof ConversionExpression conversion && !conversion.isExplicit())
+            return directLocalStorage(conversion.operand(), locals, visited, profile);
+        if (!(value instanceof NameExpression name) || !(name.target().orElse(null) instanceof VariableDeclaration variable)
+                || !locals.contains(variable) || variable.modifiers().contains("static") || variable.modifiers().contains("extern") || !visited.add(variable)) return false;
+        TypeNode type = variable.type().map(TypeSemantics::unqualified).orElse(null);
+        if (type instanceof ReferenceType)
+            return variable.initializer().map(initial -> directLocalStorage(initial, locals, visited, profile)).orElse(false);
+        return type != null && TypeSemantics.scalar(type, profile);
+    }
     /** Conservative aliases: address-exposed storage and referenced nonlocal data may remain reachable. */
     static Set<Declaration> accessible(CallableDeclaration function, com.kniazkov.cpg.build.PlatformProfile profile) {
         var local = Collections.newSetFromMap(new IdentityHashMap<Node,Boolean>());

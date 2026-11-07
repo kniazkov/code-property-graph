@@ -389,11 +389,28 @@
       "value_source": "runtime_binding",
       "guarantee": "Modifiable int lvalue; storage/binding implementation-defined. Not an invented immutable constant or required extern object declaration.",
       "required_in_if": "no",
-      "support_status": "open",
+      "support_status": "runtime_binding",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java",
+        "src/main/java/com/kniazkov/cpg/analysis/StandardLibraryCatalogue.java",
+        "src/main/java/com/kniazkov/cpg/analysis/CppMemoryFlow.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/analysis/ErrnoRuntimeTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/ErrnoRuntimeIT.java"
+      ],
+      "support_boundary": "Explicit cRuntime=glibc supplies the object-like macro as a mutable int lvalue through the genuine global C-linkage __errno_location accessor. No extern int errno or runtime implementation is invented. Numeric error selectors remain separate target facts. Unknown runtime records an unavailable definition and diagnoses use. Unknown nonlocal memory is modeled conservatively; exact errno/TLS storage identity and interprocedural library error summaries are not claimed.",
+      "runtime_binding": {
+        "profile_setting": "cRuntime",
+        "supported_value": "glibc",
+        "unknown_behavior": "Unused cerrno/errno.h inclusion is allowed; errno expansion reports unavailable-library-macro. defined(errno) indicates modeled macro presence, not a known runtime binding.",
+        "abi_scope": "Genuine global int* __errno_location() throw() with C linkage. Existing glibc selection validates 8-bit bytes/char, 32-bit int and 32/64-bit pointers; caller must choose a matching actual C calling convention, pointer ABI and runtime export. This is not a whole-architecture ABI or exact TLS model."
+      },
+      "supporting_sources": [
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/stdlib/errno.h",
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/csu/errno-loc.c"
+      ]
     },
     {
       "header": "climits",
@@ -3001,7 +3018,8 @@
     "The source-locator census in cpp03-paragraphs/inventory.json retains its separate denominator and hashes.",
     "Stage two adds the assert obligation under an explicit glibc runtime binding (disabled mode is runtime independent): total 55 obligations/49 names supplied within documented bounds; 47 obligations/46 names remain open under #92. NDEBUG is user input, not header-provided.",
     "Stage three adds 30 explicit typed integer target-fact obligations: 85 obligations/79 names now have bounded implementations, while 17 obligations/16 names remain open. A target-fact implementation is not an available numeric value in a profile that omits that fact.",
-    "Trusted declaration-only catalogue parsing may retain an unavailable EOF token in strstream default arguments with its unavailable metadata. No value is invented; user parsing, including catalogue-looking filenames, and #if evaluation still diagnose missing facts."
+    "Trusted declaration-only catalogue parsing may retain an unavailable EOF token in strstream default arguments with its unavailable metadata. No value is invented; user parsing, including catalogue-looking filenames, and #if evaluation still diagnose missing facts.",
+    "Stage four adds the errno runtime-binding obligation: 86 obligations/80 names have bounded implementations, while 16 obligations/15 names remain open. Runtime binding does not establish numeric error-selector values, exact TLS identity or complete library error-state summaries."
   ],
-  "support_scope": "Issue #92 stages one through three: explicit-profile numeric/null definitions, selected assertion runtime binding, and 30 typed integer target-fact macros; not complete library or target-ABI conformance."
+  "support_scope": "Issue #92 stages one through four: explicit-profile numeric/null definitions, selected assertion and errno runtime bindings, and 30 typed integer target-fact macros; not complete library or target-ABI conformance."
 }

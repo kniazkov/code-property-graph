@@ -341,3 +341,11 @@ locale changes, signal delivery, standard streams, random generation or process
 termination. The updated inventory separates 54 profile definitions, one assert
 runtime binding, 30 target-fact obligations and 17 still-open obligations.
 [Verification and target assumptions](cpp03-runtime-integer-macros-verification.md).
+
+## Issue #92 continuation: mutable errno
+
+The historical absent-errno row now has an explicit glibc runtime binding through
+its genuine accessor and an object-like mutable-lvalue macro. Error-number facts
+remain separately selected. Unknown runtime is diagnosed on use, not replaced
+with an invented global int or zero. Exact TLS identity and complete library
+error-state semantics remain beyond this bounded packet. [Checks](cpp03-errno-verification.md).
