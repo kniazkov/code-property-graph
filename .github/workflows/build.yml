@@ -44,3 +44,4 @@ jobs:
             target/cpg-*.jar
             target/demo/
             target/runtime-integer-oracle/
+            target/errno-runtime-oracle/

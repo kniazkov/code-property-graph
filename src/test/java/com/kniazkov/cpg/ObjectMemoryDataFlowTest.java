@@ -83,6 +83,54 @@ class ObjectMemoryDataFlowTest {
             assertTrue(definitions(f,returned(f)).contains(nodes(f.entry(),AssignmentExpression.class).getFirst()),text);
         }
     }
+    @Test void rootlessOpaqueResultsShareConservativeNonlocalStorage() {
+        for(String body:List.of("*cell()=7;return *other();", "int*p=cell();*p=7;return *other();",
+                "int&r=*cell();r=7;return *other();", "int&r=ref();r=7;return ref();",
+                "int&r=*cell();int&s=r;s=7;update();return r;")) {
+            var p=UnreadWrites.analyze(analyze("int*cell();int*other();int&ref();void update();int f(){"+body+"}"));
+            var f=flow(p,"f");
+            assertTrue(definitions(f,returned(f)).contains(nodes(f.entry(),AssignmentExpression.class).getFirst()),body);
+            assertTrue(p.semanticDiagnostics().stream().noneMatch(d->d.code().equals(UnreadWrites.CODE)),()->body+p.semanticDiagnostics());
+        }
+    }
+    @Test void mixedKnownAndOpaqueVirtualReturnsRetainUnknownStorage() {
+        var p=analyze("int*cell(); int local; struct Base{virtual int*get();}; struct Known:Base{int*get(){return &local;}}; struct Opaque:Base{int*get();}; int f(Base&b){int*p=b.get();*p=7;return *cell();}");
+        var f=flow(p,"f");
+        var dispatch=nodes(f.entry(),CallExpression.class).stream().filter(CallExpression::isVirtualDispatch).findFirst().orElseThrow();
+        assertTrue(dispatch.virtualTargets().size()>1);
+        assertTrue(definitions(f,returned(f)).contains(nodes(f.entry(),AssignmentExpression.class).getFirst()));
+    }
+    @Test void mixedDispatchReadsWritesMadeThroughOtherUnknownAccessor() {
+        var p=analyze("int*cell();struct B{virtual int*get();};struct D:B{int x;int*get(){return &x;}};int f(B&b){*cell()=7;return *b.get();}");
+        var f=flow(p,"f");
+        assertTrue(definitions(f,returned(f)).contains(nodes(f.entry(),AssignmentExpression.class).getFirst()));
+    }
+    @Test void reassignedPointersAndIndirectCallsDoNotMakeExternalReferenceWritesDead() {
+        for(String code:List.of("int*cell();int f(){int*p=0;p=cell();int&r=*p;r=7;return 0;}",
+                "int f(int*(*fn)()){int&r=*fn();r=7;return 0;}")) {
+            var p=UnreadWrites.analyze(analyze(code));
+            var assignments=nodes(p,AssignmentExpression.class);
+            assertTrue(assignments.getLast().diagnostics().stream().noneMatch(d->d.code().equals(UnreadWrites.CODE)));
+        }
+    }
+    @Test void blockExternAndIndirectReferenceResultsRemainExternallyObservable() {
+        for(String code:List.of("int f(){extern int x;int&r=x;r=7;return 0;}",
+                "int f(int&(*fn)()){int&r=fn();r=7;return 0;}",
+                "struct S{int*p;};int f(S&s){int&r=*s.p;r=7;return 0;}")) {
+            var p=UnreadWrites.analyze(analyze(code));
+            assertTrue(nodes(p,AssignmentExpression.class).getLast().diagnostics().stream().noneMatch(d->d.code().equals(UnreadWrites.CODE)));
+        }
+    }
+    @Test void directLocalReferenceStillReportsUnreadWrite() {
+        var p=UnreadWrites.analyze(analyze("int f(){int local=0;int&r=local;r=7;return 0;}"));
+        assertTrue(nodes(p,AssignmentExpression.class).getFirst().diagnostics().stream().anyMatch(d->d.code().equals(UnreadWrites.CODE)));
+    }
+    @Test void terminalWriteThroughOpaqueReferenceIsExternallyObservable() {
+        for(String body:List.of("int&r=*cell();r=7;return 0;", "int&r=*cell();int&s=r;s=7;return 0;", "int*p=cell();int&r=*p;r=7;return 0;")) {
+            var p=UnreadWrites.analyze(analyze("int*cell();int f(){"+body+"}"));
+            assertTrue(p.semanticDiagnostics().stream().noneMatch(d->d.code().equals(UnreadWrites.CODE)),()->body+p.semanticDiagnostics());
+        }
+    }
     @Test void indirectPointerResultRetainsPointeeAliases() {
         var f=flow(analyze("int f(int*(*fn)(int*)){int x=1;int*p=fn(&x);*p=7;return x;}"),"f");
         assertTrue(definitions(f,returned(f)).contains(nodes(f.entry(),AssignmentExpression.class).getFirst()));

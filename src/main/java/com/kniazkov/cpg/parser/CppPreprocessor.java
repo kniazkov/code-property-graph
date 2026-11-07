@@ -717,6 +717,20 @@ public final class CppPreprocessor {
                 }
             }
             String canonical = com.kniazkov.cpg.analysis.StandardLibraryCatalogue.canonicalHeader(header);
+            if (canonical.equals("cerrno")) {
+                boolean available = unit.platform().cRuntime().equals("glibc");
+                String file = unit.directory().resolve("<cpg-library:" + header + ":errno>").toString();
+                String source = "errno " + (available ? "(*::__errno_location())" : "");
+                definitionSources.put(file, source);
+                define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                        "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":errno");
+                if (!available) {
+                    Definition d = definitions.getLast();
+                    definitions.set(definitions.size() - 1, new Definition(d.id(), d.name(), false, List.of(),
+                            d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(),
+                            "Library macro errno requires an explicitly selected supported C runtime (cRuntime=glibc)"));
+                }
+            }
             for (String name : com.kniazkov.cpg.build.RuntimeIntegerMacros.namesForHeader(canonical)) {
                 var fact = unit.platform().runtimeIntegerMacros().get(name);
                 String replacement = fact == null ? "" : fact.replacement(unit.platform());

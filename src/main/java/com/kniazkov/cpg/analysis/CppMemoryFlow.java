@@ -188,6 +188,10 @@ final class CppMemoryFlow {
         }
         boolean exact() { return !path.contains("?") && !path.contains("*"); }
     }
+    // Analysis-only storage, never an AST declaration. Different opaque results may
+    // denote the same inaccessible nonlocal cell. The wildcard path forces weak
+    // updates; known address-exposed roots remain additional alias candidates.
+    private static final Loc UNKNOWN_NONLOCAL = new Loc(null, "?", null);
     private record Source(Node node, CallExpression call) { }
     private static final class State {
         final Map<Loc, Set<Source>> defs = new LinkedHashMap<>();
@@ -555,6 +559,7 @@ final class CppMemoryFlow {
              * Only written CallExpression invocations publish precise body contexts. */
             void opaqueUserEffect(Node producer,Collection<Expression> arguments,State state) {
                 var exposed=new LinkedHashSet<Loc>(state.escaped);
+                exposed.add(UNKNOWN_NONLOCAL);
                 for(VariableDeclaration global:accessibleGlobals)exposed.add(new Loc(global,"",null));
                 if(producer instanceof VariableDeclaration variable)exposed.add(root(variable));
                 for(Expression argument:arguments) {
@@ -734,9 +739,11 @@ final class CppMemoryFlow {
                 List<CallableDeclaration> targets = call.isVirtualDispatch() ? call.virtualTargets() : call.target().map(List::of).orElse(List.of());
                 State normal=null, thrown=null;
                 Set<Loc> returnLocations = new LinkedHashSet<>();
+                boolean opaqueReturn = targets.isEmpty() || call.isVirtualDispatch() && !call.virtualTargetsComplete();
                 for (CallableDeclaration target : targets) {
                     FunctionFlow body=flows.get(target);
                     if (body == null || !body.complete() || LibraryCallEffects.unknown(target)) {
+                        opaqueReturn = true;
                         State external=external(call,target,arguments,state); if(normal==null)normal=external;else normal.merge(external);
                         if(thrown==null)thrown=external.copy();else thrown.merge(external); continue;
                     }
@@ -784,9 +791,11 @@ final class CppMemoryFlow {
                 if(normal!=null)state.replace(normal); else this.normal=false;
                 // Preserve throwing-only writes solely on exceptional successors.
                 if(thrown!=null) { if(exceptional==null)exceptional=thrown;else exceptional.merge(thrown); }
-                if (returnLocations.isEmpty() && (targets.isEmpty() || targets.stream().anyMatch(t->!flows.containsKey(t)))) {
+                if (opaqueReturn) {
                     TypeNode resultType=call.target().flatMap(CallableDeclaration::returnType).or(()->TypeSemantics.callType(call,profile).map(FunctionType::returnType)).map(TypeSemantics::unqualified).orElse(null);
                     if(resultType instanceof PointerType || resultType instanceof ReferenceType) {
+                        returnLocations.add(UNKNOWN_NONLOCAL);
+                        state.escaped.add(UNKNOWN_NONLOCAL);
                         for(Set<Loc> locations:state.pointers.values())for(Loc location:locations)returnLocations.add(location.child("?"));
                         for(Expression argument:arguments) { for(Loc location:locations(argument,state))returnLocations.add(location.child("?")); for(Loc location:points(argument,state))returnLocations.add(location.child("?")); }
                         for(VariableDeclaration global:accessibleGlobals)returnLocations.add(new Loc(global,"?",null));
@@ -800,6 +809,7 @@ final class CppMemoryFlow {
             State external(CallExpression call, CallableDeclaration target,List<Expression> arguments,State input) {
                 State output=input.copy();
                 var accessible=new LinkedHashSet<Loc>(input.escaped);
+                accessible.add(UNKNOWN_NONLOCAL);
                 for(VariableDeclaration global:accessibleGlobals)accessible.add(new Loc(global,"",null));
                 var exposedQueue=new ArrayDeque<Loc>(accessible);
                 while(!exposedQueue.isEmpty())for(Loc location:input.pointers.getOrDefault(exposedQueue.remove(),Set.of()))if(accessible.add(location))exposedQueue.add(location);
