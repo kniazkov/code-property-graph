@@ -99,6 +99,7 @@ class StandardLibraryMacrosTest {
         var inventory = (Map<?, ?>) com.kniazkov.json.Json.parse(Path.of("docs/cpp03-library-macros.json").toFile()).toJavaObject();
         var entries = (List<?>) inventory.get("entries");
         for (var profile : List.of(PlatformProfile.defaults(), PlatformProfile.builder().cRuntime("glibc").build(),
+                PlatformProfile.builder().cRuntime("glibc").standardStreamsBinding("glibc-x86_64-lp64").build(),
                 PlatformProfile.builder().cRuntime("glibc").mbCurMaxBinding("glibc-x86_64-lp64-mb16").build(),
                 PlatformProfile.read(Path.of("src/test/resources/runtime-integer-macros/synthetic-profile.json"))))
         for (Object item : (List<?>) inventory.get("headers")) {
@@ -111,7 +112,7 @@ class StandardLibraryMacrosTest {
                 if (cpp.equals(entry.get("header")) && "target_fact".equals(entry.get("support_status"))) targetFacts.add((String)entry.get("name"));
                 if (cpp.equals(entry.get("header")) && ("target_fact".equals(entry.get("support_status")) && profile.runtimeIntegerMacros().containsKey(entry.get("name"))
                         || "profile_definition".equals(entry.get("support_status"))
-                        || "runtime_binding".equals(entry.get("support_status")) && (entry.get("name").equals("MB_CUR_MAX") ? !profile.mbCurMaxBinding().equals("unavailable") : profile.cRuntime().equals("glibc"))))
+                        || "runtime_binding".equals(entry.get("support_status")) && (Set.of("stdin", "stdout", "stderr").contains(entry.get("name")) ? !profile.standardStreamsBinding().equals("unavailable") : entry.get("name").equals("MB_CUR_MAX") ? !profile.mbCurMaxBinding().equals("unavailable") : profile.cRuntime().equals("glibc"))))
                     assertTrue(implemented.add((String) entry.get("name")), "Duplicate inventory obligation: " + entry);
             }
             if (cpp.equals("climits")) assertEquals(INTEGER_LIMITS, implemented);

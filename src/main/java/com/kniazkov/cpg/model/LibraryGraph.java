@@ -116,6 +116,11 @@ public final class LibraryGraph {
             instance.walk(new NodeVisitor(){@Override public void visit(Node n){library.add(n);}});
         for(var instance:project.templateInstances()) if(com.kniazkov.cpg.analysis.LibraryDeclarations.isLibrary(instance.origin()))
             instance.walk(new NodeVisitor(){@Override public void visit(Node n){library.add(n);}});
+        // An external object demand retains every compatible header occurrence,
+        // including forward peers not reachable through previousDeclaration.
+        var objectPeers=new IdentityHashMap<Node,List<VariableDeclaration>>();
+        for (var group:com.kniazkov.cpg.analysis.LibraryExternalObjects.groups(project).values())
+            for (var declaration:group) objectPeers.put(declaration,group);
         var keep=Collections.newSetFromMap(new IdentityHashMap<Node,Boolean>());
         var pending=new ArrayDeque<Node>();
         java.util.function.Consumer<Node> demand=n->{if(n!=null && keep.add(n))pending.add(n);};
@@ -123,6 +128,7 @@ public final class LibraryGraph {
         for(Node n:all) if(!library.contains(n) && !(n instanceof StandardLibrary) && n!=project) demand.accept(n);
         while(!pending.isEmpty()) {
             Node n=pending.remove();
+            objectPeers.getOrDefault(n,List.of()).forEach(demand);
             Node owner=parents.get(n); if(owner!=null && owner!=project) demand.accept(owner);
             if(n instanceof ClassTemplateInstance i) { demand.accept(i.origin()); demand.accept(i.selected()); demand.accept(i.source()); }
             else if(n instanceof TemplateInstance i) { demand.accept(i.origin()); demand.accept(i.source()); }

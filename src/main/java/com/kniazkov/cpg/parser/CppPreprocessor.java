@@ -731,6 +731,21 @@ public final class CppPreprocessor {
                             "Library macro errno requires an explicitly selected supported C runtime (cRuntime=glibc)"));
                 }
             }
+            if (canonical.equals("cstdio")) for (String name : List.of("stdin", "stdout", "stderr")) {
+                boolean available = !unit.platform().standardStreamsBinding().equals("unavailable");
+                String file = unit.directory().resolve("<cpg-library:" + header + ":" + name + ">").toString();
+                // Real glibc self-reference preserves qualified and ordinary lookup.
+                String source = name + " " + (available ? name : "");
+                definitionSources.put(file, source);
+                define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                        "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":" + name);
+                if (!available) {
+                    Definition d = definitions.getLast();
+                    definitions.set(definitions.size() - 1, new Definition(d.id(), d.name(), false, List.of(),
+                            d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(),
+                            "Library macro " + name + " requires explicit standardStreamsBinding=glibc-x86_64-lp64"));
+                }
+            }
             if (canonical.equals("cstdlib")) {
                 boolean available = !unit.platform().mbCurMaxBinding().equals("unavailable");
                 String file = unit.directory().resolve("<cpg-library:" + header + ":MB_CUR_MAX>").toString();

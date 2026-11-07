@@ -2507,11 +2507,34 @@
       "value_source": "runtime_binding",
       "guarantee": "Macros expanding to FILE-pointer expressions for standard streams. Underlying objects/functions allowed as implementation details; pointer expression is not necessarily an lvalue and not necessarily constant. Do not invent std::stdin or extern FILE* as macro substitute.",
       "required_in_if": "no",
-      "support_status": "open",
+      "support_status": "runtime_binding",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java",
+        "src/main/java/com/kniazkov/cpg/analysis/StandardLibraryCatalogue.java",
+        "src/main/java/com/kniazkov/cpg/analysis/LibraryExternalObjects.java",
+        "src/main/java/com/kniazkov/cpg/analysis/NameResolver.java",
+        "src/main/java/com/kniazkov/cpg/analysis/CppMemoryFlow.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/analysis/LibraryExternalObjectsTest.java",
+        "src/test/java/com/kniazkov/cpg/analysis/StandardStreamsRuntimeTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/StandardStreamsRuntimeIT.java"
+      ],
+      "support_boundary": "Explicit standardStreamsBinding=glibc-x86_64-lp64 supplies genuine self-referential object macros and global C-linkage extern FILE* declarations using existing canonical library::FILE. Mutable pointer cells are selected glibc behavior, not the portable C90 FILE-pointer-expression guarantee. No FILE layout, initializer, synthetic runtime storage or invented std stream alias is supplied. Compatible trusted catalogue occurrences share external identity only with matched full profile, canonical type, global scope and linkage; each retains its declaration provenance. User/local same-name declarations are not merged. Pointer values and complete stream/I/O state remain unknown. std::stdout has no target, but generic unresolved ScopeMemberExpression diagnostics remain incomplete; native negative rejection must not be reported as CPG diagnosis.",
+      "runtime_binding": {
+        "profile_setting": "standardStreamsBinding",
+        "supported_value": "glibc-x86_64-lp64",
+        "unknown_behavior": "Defaults to unavailable, including with cRuntime=glibc alone. Unused cstdio/stdio.h inclusion and macro-presence checks are allowed; use without the capability reports unavailable-library-macro.",
+        "abi_scope": "Requires cRuntime=glibc, 8-bit bytes, 32-bit int, 64-bit long/pointers and exact sizeType=unsigned long. This caller-selected contract still requires matching deployed x86_64 LP64 C/data-pointer ABI, genuine stdio headers and runtime exports; numeric profile checks are not automatic ABI discovery. No MB_LEN_MAX constraint. Global external objects use canonical FILE* with C linkage, not function exception specifications or std aliases."
+      },
+      "supporting_sources": [
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/libio/stdio.h",
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/libio/stdio.c",
+        "https://sourceware.org/glibc/manual/2.24/html_node/Standard-Streams.html"
+      ],
+      "verification_status": "Executed bounded evidence: 10 LibraryExternalObjectsTest and 8 StandardStreamsRuntimeTest tests passed, plus all three StandardStreamsRuntimeIT cases under GCC/Clang. Native checks cover four header arrangements, original/copied/generated/edited/reparsed/GREEN/FOLDED sources and actual CPG materialization. This is focused evidence, not full-suite or CI completion, complete I/O semantics or a CPG diagnosis of unresolved qualified names."
     },
     {
       "header": "cstdio",
@@ -2527,11 +2550,34 @@
       "value_source": "runtime_binding",
       "guarantee": "Macros expanding to FILE-pointer expressions for standard streams. Underlying objects/functions allowed as implementation details; pointer expression is not necessarily an lvalue and not necessarily constant. Do not invent std::stdin or extern FILE* as macro substitute.",
       "required_in_if": "no",
-      "support_status": "open",
+      "support_status": "runtime_binding",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java",
+        "src/main/java/com/kniazkov/cpg/analysis/StandardLibraryCatalogue.java",
+        "src/main/java/com/kniazkov/cpg/analysis/LibraryExternalObjects.java",
+        "src/main/java/com/kniazkov/cpg/analysis/NameResolver.java",
+        "src/main/java/com/kniazkov/cpg/analysis/CppMemoryFlow.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/analysis/LibraryExternalObjectsTest.java",
+        "src/test/java/com/kniazkov/cpg/analysis/StandardStreamsRuntimeTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/StandardStreamsRuntimeIT.java"
+      ],
+      "support_boundary": "Explicit standardStreamsBinding=glibc-x86_64-lp64 supplies genuine self-referential object macros and global C-linkage extern FILE* declarations using existing canonical library::FILE. Mutable pointer cells are selected glibc behavior, not the portable C90 FILE-pointer-expression guarantee. No FILE layout, initializer, synthetic runtime storage or invented std stream alias is supplied. Compatible trusted catalogue occurrences share external identity only with matched full profile, canonical type, global scope and linkage; each retains its declaration provenance. User/local same-name declarations are not merged. Pointer values and complete stream/I/O state remain unknown. std::stdout has no target, but generic unresolved ScopeMemberExpression diagnostics remain incomplete; native negative rejection must not be reported as CPG diagnosis.",
+      "runtime_binding": {
+        "profile_setting": "standardStreamsBinding",
+        "supported_value": "glibc-x86_64-lp64",
+        "unknown_behavior": "Defaults to unavailable, including with cRuntime=glibc alone. Unused cstdio/stdio.h inclusion and macro-presence checks are allowed; use without the capability reports unavailable-library-macro.",
+        "abi_scope": "Requires cRuntime=glibc, 8-bit bytes, 32-bit int, 64-bit long/pointers and exact sizeType=unsigned long. This caller-selected contract still requires matching deployed x86_64 LP64 C/data-pointer ABI, genuine stdio headers and runtime exports; numeric profile checks are not automatic ABI discovery. No MB_LEN_MAX constraint. Global external objects use canonical FILE* with C linkage, not function exception specifications or std aliases."
+      },
+      "supporting_sources": [
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/libio/stdio.h",
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/libio/stdio.c",
+        "https://sourceware.org/glibc/manual/2.24/html_node/Standard-Streams.html"
+      ],
+      "verification_status": "Executed bounded evidence: 10 LibraryExternalObjectsTest and 8 StandardStreamsRuntimeTest tests passed, plus all three StandardStreamsRuntimeIT cases under GCC/Clang. Native checks cover four header arrangements, original/copied/generated/edited/reparsed/GREEN/FOLDED sources and actual CPG materialization. This is focused evidence, not full-suite or CI completion, complete I/O semantics or a CPG diagnosis of unresolved qualified names."
     },
     {
       "header": "cstdio",
@@ -2547,11 +2593,34 @@
       "value_source": "runtime_binding",
       "guarantee": "Macros expanding to FILE-pointer expressions for standard streams. Underlying objects/functions allowed as implementation details; pointer expression is not necessarily an lvalue and not necessarily constant. Do not invent std::stdin or extern FILE* as macro substitute.",
       "required_in_if": "no",
-      "support_status": "open",
+      "support_status": "runtime_binding",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java",
+        "src/main/java/com/kniazkov/cpg/analysis/StandardLibraryCatalogue.java",
+        "src/main/java/com/kniazkov/cpg/analysis/LibraryExternalObjects.java",
+        "src/main/java/com/kniazkov/cpg/analysis/NameResolver.java",
+        "src/main/java/com/kniazkov/cpg/analysis/CppMemoryFlow.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/analysis/LibraryExternalObjectsTest.java",
+        "src/test/java/com/kniazkov/cpg/analysis/StandardStreamsRuntimeTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/StandardStreamsRuntimeIT.java"
+      ],
+      "support_boundary": "Explicit standardStreamsBinding=glibc-x86_64-lp64 supplies genuine self-referential object macros and global C-linkage extern FILE* declarations using existing canonical library::FILE. Mutable pointer cells are selected glibc behavior, not the portable C90 FILE-pointer-expression guarantee. No FILE layout, initializer, synthetic runtime storage or invented std stream alias is supplied. Compatible trusted catalogue occurrences share external identity only with matched full profile, canonical type, global scope and linkage; each retains its declaration provenance. User/local same-name declarations are not merged. Pointer values and complete stream/I/O state remain unknown. std::stdout has no target, but generic unresolved ScopeMemberExpression diagnostics remain incomplete; native negative rejection must not be reported as CPG diagnosis.",
+      "runtime_binding": {
+        "profile_setting": "standardStreamsBinding",
+        "supported_value": "glibc-x86_64-lp64",
+        "unknown_behavior": "Defaults to unavailable, including with cRuntime=glibc alone. Unused cstdio/stdio.h inclusion and macro-presence checks are allowed; use without the capability reports unavailable-library-macro.",
+        "abi_scope": "Requires cRuntime=glibc, 8-bit bytes, 32-bit int, 64-bit long/pointers and exact sizeType=unsigned long. This caller-selected contract still requires matching deployed x86_64 LP64 C/data-pointer ABI, genuine stdio headers and runtime exports; numeric profile checks are not automatic ABI discovery. No MB_LEN_MAX constraint. Global external objects use canonical FILE* with C linkage, not function exception specifications or std aliases."
+      },
+      "supporting_sources": [
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/libio/stdio.h",
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/libio/stdio.c",
+        "https://sourceware.org/glibc/manual/2.24/html_node/Standard-Streams.html"
+      ],
+      "verification_status": "Executed bounded evidence: 10 LibraryExternalObjectsTest and 8 StandardStreamsRuntimeTest tests passed, plus all three StandardStreamsRuntimeIT cases under GCC/Clang. Native checks cover four header arrangements, original/copied/generated/edited/reparsed/GREEN/FOLDED sources and actual CPG materialization. This is focused evidence, not full-suite or CI completion, complete I/O semantics or a CPG diagnosis of unresolved qualified names."
     },
     {
       "header": "cstdlib",
@@ -3039,7 +3108,8 @@
     "Stage three adds 30 explicit typed integer target-fact obligations: 85 obligations/79 names now have bounded implementations, while 17 obligations/16 names remain open. A target-fact implementation is not an available numeric value in a profile that omits that fact.",
     "Trusted declaration-only catalogue parsing may retain an unavailable EOF token in strstream default arguments with its unavailable metadata. No value is invented; user parsing, including catalogue-looking filenames, and #if evaluation still diagnose missing facts.",
     "Stage four adds the errno runtime-binding obligation: 86 obligations/80 names have bounded implementations, while 16 obligations/15 names remain open. Runtime binding does not establish numeric error-selector values, exact TLS identity or complete library error-state summaries.",
-    "Stage five adds the explicitly selected MB_CUR_MAX live-query obligation: 87 obligations/81 names have bounded implementations, while 15 obligations/14 names remain open. Exact size_t is a selected glibc signature, not original C90 wording. The capability is a narrow caller-selected deployment contract, not inferred from cRuntime alone or proof of complete locale semantics."
+    "Stage five adds the explicitly selected MB_CUR_MAX live-query obligation: 87 obligations/81 names have bounded implementations, while 15 obligations/14 names remain open. Exact size_t is a selected glibc signature, not original C90 wording. The capability is a narrow caller-selected deployment contract, not inferred from cRuntime alone or proof of complete locale semantics.",
+    "Stage six adds three explicitly selected standard-stream runtime-binding obligations: 90 obligations/84 names have bounded implementations, while 12 obligations/11 names remain open. Buckets are 54 profile definitions, 30 target facts, 6 runtime bindings and 12 open obligations. Initial 18 unit tests and all three native stream integration cases passed; full-suite and CI completion are not claimed. Real mutable GNU pointer cells and self-referential macros do not establish portable lvalue guarantees, FILE layout, complete I/O behavior or generic unresolved-qualified-name diagnostics."
   ],
-  "support_scope": "Issue #92 stages one through five: explicit-profile numeric/null definitions, selected assertion, errno and multibyte-limit runtime bindings, and 30 typed integer target-fact macros; not complete library or target-ABI conformance."
+  "support_scope": "Issue #92 stages one through six: explicit-profile numeric/null definitions, selected assertion, errno, multibyte-limit and standard-stream runtime bindings, and 30 typed integer target-fact macros; focused stream unit and native evidence is confirmed, without a full-suite or CI completion claim. Not complete library or target-ABI conformance."
 }
