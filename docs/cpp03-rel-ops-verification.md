@@ -51,16 +51,16 @@ positive catalogue examples.
 
 ## Verification status
 
-Local implementation revision: `c3f1cd1037253e08bb8dc7621fb677f0005761f7`.
+Local production/test revision: `ccbb8fcf584576aa997f4dae8f9e684ec64b47d9`.
 The published PR identifies the corresponding remote head and source tree.
 Fresh executable JAR SHA-256:
 `3ee3e2de44469fadd76cdd88538b35841a21e60cb9df00a862e76c56bfc23ad8`.
 
-The final focused Maven verify passed 17 unit tests and three integration tests,
+The final focused Maven verify passed 22 unit tests and three integration tests,
 with no failures, errors or skips (2026-11-07). The command was:
 
 ```sh
-mvn -B -DargLine=-Xmx768m -Dtest=RelOpsLibraryTest,FunctionTemplateDeclarationTest -Dit.test=RelOpsLibraryIT verify
+mvn -B -DargLine=-Xmx768m -Dtest=RelOpsLibraryTest,RemainingLibraryOverloadsTest,FunctionTemplateDeclarationTest -Dit.test=RelOpsLibraryIT verify
 ```
 
 - `RelOpsLibraryTest` independently compares the complete nested signatures,
@@ -68,7 +68,9 @@ mvn -B -DargLine=-Xmx768m -Dtest=RelOpsLibraryTest,FunctionTemplateDeclarationTe
   arguments, namespace aliases and using-declarations including leading `::`.
 - Include-only and unimported namespaces introduce no operator demand. A single
   demanded declaration stays inside `std::rel_ops`; copied/re-resolved graphs
-  retain owned target/origin references. Local imports do not escape their scope.
+  retain owned target/origin references. Removing the requesting function clears
+  the nested library demand while preserving the original snapshot. Local imports
+  do not escape their scope.
 - Mixed deduction and builtin-only operator specializations are rejected, valid
   enum arguments remain viable, non-template user overloads win, and equivalent
   user templates remain ambiguous. Missing library prerequisites are deliberately
@@ -96,6 +98,11 @@ mvn -B -DargLine=-Xmx768m -Dtest=RelOpsLibraryTest,FunctionTemplateDeclarationTe
   member operator templates, pair/vector and opaque iterator types. The two
   review findings (qualified-call counting and leading-`::` operator using) were
   corrected and independently rechecked.
+
+The first complete unit pass exposed a top-level-only namespace collector in
+`RemainingLibraryOverloadsTest`; it was corrected to recurse through namespaces
+without entering class scopes, preserving exact index equality. The final focused
+run includes this regression. Strict JavaDoc and all 5,250 ledger records pass.
 
 The complete `mvn -B verify` and required CI on the exact published head are
 separate merge gates. Their successful completion must be checked before merge;
