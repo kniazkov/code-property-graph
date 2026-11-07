@@ -600,8 +600,6 @@ public final class Parser {
             declarations.forEach(declaration -> declaration.setFriend(true));
             return declarations;
         }
-        if (conversionFunctionAhead()) return java.util.List.of(conversionFunction(member, local));
-        if (specialMemberAhead(member)) return java.util.List.of(specialMember());
         if (tokens.peek().equals("namespace")) {
             if (member || local) throw tokens.error("Namespace definitions require namespace scope");
             return java.util.List.of(namespace());
@@ -610,6 +608,8 @@ public final class Parser {
             if (member && tokens.peek(1).equals("namespace")) throw tokens.error("A using-directive is not permitted in class scope");
             return java.util.List.of(using());
         }
+        if (conversionFunctionAhead()) return java.util.List.of(conversionFunction(member, local));
+        if (specialMemberAhead(member)) return java.util.List.of(specialMember());
         if (tokens.peek().equals("extern") && tokens.peek(1).startsWith("\"")) {
             if (member || local) throw tokens.error("Language linkage specifications require namespace scope");
             tokens.advance(); String spelling = tokens.peek(); tokens.advance();
@@ -675,6 +675,7 @@ public final class Parser {
             return tokens.span(start, UsingDirective.create().setNamespaceName(name));
         }
         String name = types.qualifiedName();
+        if (name.endsWith("::operator")) name = name.substring(0, name.length() - 8) + types.operatorName();
         if (!name.contains("::")) throw tokens.error("A using-declaration requires a qualified name");
         tokens.expect(";"); types.usingDeclaration(name);
         return tokens.span(start, UsingDeclaration.create().setQualifiedName(name));
