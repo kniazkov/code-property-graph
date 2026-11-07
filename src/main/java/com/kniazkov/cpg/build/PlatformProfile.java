@@ -19,8 +19,9 @@ public final class PlatformProfile {
     private static final List<String> SCALARS = List.of("bool", "char", "short", "int", "long",
             "long long", "wchar_t", "float", "double", "long double", "pointer");
     private static final Set<String> SETTINGS = Set.of("inherits", "name", "bitsPerByte", "sizes", "alignments",
-            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness", "floatingFormats", "floatingRounds", "nullPointerConstant", "maxMultibyteLength", "cRuntime");
+            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness", "floatingFormats", "floatingRounds", "nullPointerConstant", "maxMultibyteLength", "cRuntime", "runtimeIntegerMacros");
     private static final PlatformProfile DEFAULT = new Builder(true).build();
+    private final Map<String, RuntimeIntegerMacros.Fact> runtimeIntegerMacros;
     private final Map<String, String> floatingFormats;
     private final int floatingRounds, maxMultibyteLength;
     private final String nullPointerConstant, cRuntime;
@@ -108,6 +109,7 @@ public final class PlatformProfile {
                 Set.of("int-first", "unsigned-first", "unknown"));
         signedIntegerConversion = policy(b.signedIntegerConversion, "signedIntegerConversion",
                 Set.of("unknown", "twos-complement"));
+        runtimeIntegerMacros = RuntimeIntegerMacros.validate(b.runtimeIntegerMacros, this);
     }
 
     public static PlatformProfile defaults() { return DEFAULT; }
@@ -123,6 +125,7 @@ public final class PlatformProfile {
     public String nullPointerConstant() { return nullPointerConstant; }
     /** Explicit C runtime family selection, never inferred from the target widths or host. */
     public String cRuntime() { return cRuntime; }
+    public Map<String, RuntimeIntegerMacros.Fact> runtimeIntegerMacros() { return runtimeIntegerMacros; }
     public int bitsPerByte() { return bitsPerByte; }
     public boolean charSigned() { return charSigned; }
     public String wcharType() { return wcharType; }
@@ -198,6 +201,9 @@ public final class PlatformProfile {
         map.put("inherits", "none"); map.put("name", name); map.put("bitsPerByte", bitsPerByte);
         map.put("sizes", sizes);
         map.put("cRuntime", cRuntime);
+        var facts = new LinkedHashMap<String,Object>();
+        runtimeIntegerMacros.forEach((key,value) -> facts.put(key,value.settings()));
+        map.put("runtimeIntegerMacros", Collections.unmodifiableMap(facts));
         map.put("floatingFormats", floatingFormats); map.put("floatingRounds", floatingRounds);
         map.put("nullPointerConstant", nullPointerConstant); map.put("maxMultibyteLength", maxMultibyteLength);
         var allAlignments = new LinkedHashMap<String, Integer>();
@@ -229,7 +235,7 @@ public final class PlatformProfile {
 
     public static PlatformProfile read(Path path) throws IOException {
         try {
-            Object value = Json.parse(Files.readString(path)).toJavaObject();
+            Object value = UniqueKeyJson.parse(Files.readString(path));
             if (!(value instanceof Map<?, ?> map)) throw invalid("expected a JSON object");
             return fromSettings(map);
         } catch (com.kniazkov.json.JsonException | RuntimeException ex) { throw new IllegalArgumentException(path + ": " + ex.getMessage(), ex); }
@@ -280,6 +286,15 @@ public final class PlatformProfile {
                     string(entry.getValue(), "floatingFormats value"));
         }
         if (settings.containsKey("cRuntime")) b.cRuntime(string(settings.get("cRuntime"), "cRuntime"));
+        if (settings.containsKey("runtimeIntegerMacros")) {
+            if (!(settings.get("runtimeIntegerMacros") instanceof Map<?,?> facts)) throw invalid("runtimeIntegerMacros must be an object");
+            for (var entry : facts.entrySet()) {
+                String name = string(entry.getKey(), "runtimeIntegerMacros key");
+                if (!(entry.getValue() instanceof Map<?,?> fact) || !fact.keySet().equals(Set.of("type", "value")))
+                    throw invalid("runtimeIntegerMacros." + name + " requires exactly type and value");
+                b.runtimeIntegerMacro(name, string(fact.get("type"), name + ".type"), string(fact.get("value"), name + ".value"));
+            }
+        }
         return b.build();
     }
     private static String policy(String value, String field, Set<String> allowed) {
@@ -325,6 +340,7 @@ public final class PlatformProfile {
 
     public static final class Builder {
         private String name = "custom";
+        private final Map<String, RuntimeIntegerMacros.Fact> runtimeIntegerMacros = new LinkedHashMap<>();
         private final Map<String, String> floatingFormats = new LinkedHashMap<>(Map.of(
                 "float", "unknown", "double", "unknown", "long double", "unknown"));
         private int floatingRounds = -1, maxMultibyteLength = 1;
@@ -348,6 +364,7 @@ public final class PlatformProfile {
             }
         }
         private Builder(PlatformProfile p) {
+            runtimeIntegerMacros.putAll(p.runtimeIntegerMacros);
             cRuntime = p.cRuntime;
             floatingFormats.putAll(p.floatingFormats); floatingRounds = p.floatingRounds;
             maxMultibyteLength = p.maxMultibyteLength; nullPointerConstant = p.nullPointerConstant;
@@ -357,6 +374,9 @@ public final class PlatformProfile {
             bitFieldSignedness = p.bitFieldSignedness;
             enumUnderlyingType = p.enumUnderlyingType; signedIntegerConversion = p.signedIntegerConversion;
             fieldAlignment = p.fieldAlignment; aggregateAlignment = p.aggregateAlignment; tailPadding = p.tailPadding;
+        }
+        public Builder runtimeIntegerMacro(String name, String type, String decimal) {
+            runtimeIntegerMacros.put(name, RuntimeIntegerMacros.Fact.parse(type, decimal)); return this;
         }
         public Builder cRuntime(String value) { cRuntime = value; return this; }
         public Builder floatingFormat(String type, String value) {

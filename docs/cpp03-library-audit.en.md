@@ -331,3 +331,13 @@ boundary for other profiles. This is not a portable implementation of libc or
 proof of every historical expression-type case. Copying and unrelated edits
 are supported; condition edits through the expanded graph are rejected pending
 safe re-stringization. [Verification](cpp03-assert-verification.md).
+
+## Issue #92 continuation: integer target facts
+
+The historical missing-value rows above now have a bounded implementation for
+30 integer object macros. Their types and values come from explicit profile
+facts; missing facts remain unavailable. This does not implement errno storage,
+locale changes, signal delivery, standard streams, random generation or process
+termination. The updated inventory separates 54 profile definitions, one assert
+runtime binding, 30 target-fact obligations and 17 still-open obligations.
+[Verification and target assumptions](cpp03-runtime-integer-macros-verification.md).
