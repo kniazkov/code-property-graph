@@ -717,6 +717,20 @@ public final class CppPreprocessor {
                 }
             }
             String canonical = com.kniazkov.cpg.analysis.StandardLibraryCatalogue.canonicalHeader(header);
+            if (canonical.equals("cstddef")) {
+                var model = unit.platform().offsetof();
+                String file = unit.directory().resolve("<cpg-library:" + header + ":offsetof>").toString();
+                String source = "offsetof(type, member) " + model.map(m -> m.replacement()).orElse("");
+                definitionSources.put(file, source);
+                define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                        "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":offsetof");
+                if (model.isEmpty()) {
+                    Definition d = definitions.getLast();
+                    definitions.set(definitions.size() - 1, new Definition(d.id(), d.name(), d.functionLike(), d.parameters(),
+                            d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(),
+                            "Library macro offsetof requires an explicit offsetof compiler/layout capability"));
+                }
+            }
             if (canonical.equals("cmath")) {
                 var model = unit.platform().hugeVal();
                 String file = unit.directory().resolve("<cpg-library:" + header + ":HUGE_VAL>").toString();

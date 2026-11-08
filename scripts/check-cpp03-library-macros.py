@@ -62,6 +62,22 @@ def check(data, root=ROOT):
         require(bool(entry.get('support_boundary')), label + ': missing support boundary')
         require(bool(re.fullmatch(r'https://github\.com/kniazkov/code-property-graph/issues/[0-9]+', entry.get('remaining_work',''))),
                 label + ': no remaining-work issue')
+        if 'partial_implementation' in entry:
+            partial = entry['partial_implementation']
+            require(entry['name'] == 'offsetof' and entry['header'] == 'cstddef' and
+                    entry.get('support_status') == 'open' and entry.get('macro_kind') == 'function',
+                    label + ': partial subset cannot promote or replace another obligation')
+            require(set(partial) == {'profile_setting', 'emission', 'layout', 'ceiling_field',
+                    'ceiling_min', 'ceiling_max', 'completion', 'unknown_behavior', 'support_boundary'},
+                    label + ': partial subset requires exact closed metadata')
+            for field, value in [('profile_setting', 'offsetof'), ('emission', 'gcc-clang-builtin'),
+                    ('layout', 'x86_64-sysv-lp64-v1'), ('ceiling_field', 'supportedObjectBytes'),
+                    ('ceiling_min', '1'), ('ceiling_max', '2147483647'), ('completion', 'partial_open')]:
+                require(partial.get(field) == value, label + ': invalid partial subset ' + field)
+            require(bool(partial.get('unknown_behavior')) and bool(partial.get('support_boundary')),
+                    label + ': partial subset needs unavailable and remaining-scope boundaries')
+            require(bool(entry.get('implementation')) and bool(entry.get('tests')),
+                    label + ': partial implementation needs evidence paths')
         if entry.get('support_status') == 'runtime_binding':
             binding = entry.get('runtime_binding', {})
             require(all(binding.get(k) for k in ('profile_setting', 'supported_value', 'unknown_behavior', 'abi_scope')),

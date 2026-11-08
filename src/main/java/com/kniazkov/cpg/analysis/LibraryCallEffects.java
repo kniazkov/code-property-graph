@@ -6,6 +6,13 @@ import java.util.*;
 
 final class LibraryCallEffects {
     private LibraryCallEffects() {}
+    /** Visit runtime syntax without treating intrinsic operands as evaluated storage. */
+    static void walkEvaluated(Node node, com.kniazkov.cpg.build.PlatformProfile profile, NodeVisitor visitor) {
+        node.accept(visitor);
+        if (node instanceof OffsetofExpression || node instanceof SizeofExpression
+                || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile)) return;
+        for (Node child : node.children()) walkEvaluated(child, profile, visitor);
+    }
     static boolean unknown(Expression expression) {
         var selected = expression.operatorTarget();
         if (selected.isEmpty() && expression instanceof CallExpression call) selected = call.target();
@@ -92,6 +99,7 @@ final class LibraryCallEffects {
         var unevaluated = Collections.newSetFromMap(new IdentityHashMap<Node,Boolean>());
         function.walk(new NodeVisitor() {
             private void mark(Node root) { root.walk(new NodeVisitor() { @Override public void visit(Node node) { unevaluated.add(node); } }); }
+            @Override public void visit(OffsetofExpression offset) { mark(offset); }
             @Override public void visit(SizeofExpression size) { mark(size); }
             @Override public void visit(TypeidExpression typeid) { if (TypeSemantics.typeidOperandUnevaluated(typeid, profile)) mark(typeid); }
         });

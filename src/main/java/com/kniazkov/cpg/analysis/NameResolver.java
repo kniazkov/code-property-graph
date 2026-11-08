@@ -1538,6 +1538,26 @@ public final class NameResolver {
                             error(expression, "invalid-cast", "Scalar functional conversion requires at most one argument");
                     });
                 }
+                @Override public void visit(OffsetofExpression expression) {
+                    var profile = TypeSemantics.profile(scopes.get(expression).file);
+                    var members = expression.steps().stream().filter(OffsetofExpression.Member.class::isInstance)
+                            .map(OffsetofExpression.Member.class::cast).toList();
+                    members.forEach(member -> editor.bind(member, (VariableDeclaration) null));
+                    var result = integralConstants(profile).offsetofResult(expression);
+                    if (!result.supported()) {
+                        var failure = result.failure().orElseThrow();
+                        boolean unsupported = switch (failure.reason()) {
+                            case UNSUPPORTED_TYPE, UNSUPPORTED_TEMPLATE, UNSUPPORTED_PRAGMA, UNKNOWN_LAYOUT, BIT_FIELD,
+                                    NON_CONSTANT_INDEX, UNKNOWN_ARRAY_BOUND, SUPPORTED_OBJECT_LIMIT, SIZE_NOT_REPRESENTABLE -> true;
+                            default -> false;
+                        };
+                        error(expression, unsupported ? "unsupported-offsetof" : "invalid-offsetof",
+                                "offsetof: " + failure.reason() + ": " + failure.detail());
+                    } else {
+                        var selected = result.value().orElseThrow().members();
+                        for (int i = 0; i < members.size(); i++) editor.bind(members.get(i), selected.get(i));
+                    }
+                }
                 @Override public void visit(SizeofExpression expression) {
                     Scope scope = scopes.get(expression);
                     expression.type().or(() -> expression.operand().flatMap(operand -> TypeSemantics.expressionType(operand,

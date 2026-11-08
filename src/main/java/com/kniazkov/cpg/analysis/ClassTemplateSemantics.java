@@ -159,7 +159,7 @@ public final class ClassTemplateSemantics {
             if (parent instanceof VariableDeclaration variable) return !variable.modifiers().contains("extern");
             if (parent instanceof CallableDeclaration callable) return callable.body().isPresent();
             if (parent instanceof ParameterDeclaration) { current = parent; continue; }
-            if (parent instanceof BaseSpecifier || parent instanceof SizeofExpression) return true;
+            if (parent instanceof BaseSpecifier || parent instanceof SizeofExpression || parent instanceof OffsetofExpression) return true;
             current = parent;
         }
         return true;
@@ -177,6 +177,7 @@ public final class ClassTemplateSemantics {
         };
         java.util.function.Consumer<Node> findCalls = new java.util.function.Consumer<>() {
             @Override public void accept(Node node) {
+                if (node instanceof OffsetofExpression) return;
                 if (node instanceof ClassDeclaration c && !c.templateParameters().isEmpty()
                         || node instanceof CallableDeclaration callable && !callable.templateParameters().isEmpty()) return;
                 if (node instanceof CallExpression call) {
