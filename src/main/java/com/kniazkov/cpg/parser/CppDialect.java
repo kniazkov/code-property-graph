@@ -16,11 +16,11 @@ final class CppDialect {
     private static final Set<String> MODERN_PREFIXES = Set.of("u8", "u", "U", "R", "u8R", "uR", "UR", "LR");
     private CppDialect() {}
 
-    static String violation(List<CppPreprocessor.ExpandedToken> tokens, int index) {
+    static String violation(List<CppPreprocessor.ExpandedToken> tokens, int index, com.kniazkov.cpg.build.PlatformProfile profile) {
         var expanded = tokens.get(index);
         var token = expanded.token();
         String text = token.canonicalSpelling();
-        if (EXTENSIONS.contains(text) || text.startsWith("__builtin_"))
+        if (EXTENSIONS.contains(text) || text.startsWith("__builtin_") && !(text.equals("__builtin_huge_val") && profile.hugeVal().isPresent()))
             return "Compiler extension '" + text + "' is not permitted in C++03";
         if (token.kind() == PreprocessingToken.Kind.OTHER) return "Unsupported character: " + token.spelling();
         if (token.kind() == PreprocessingToken.Kind.PP_NUMBER) {

@@ -46,7 +46,8 @@ public final class Parser {
             var token = expanded.token();
             if (token.kind() == PreprocessingToken.Kind.WHITESPACE || token.kind() == PreprocessingToken.Kind.NEWLINE) continue;
             var range = expanded.expansionRange();
-            String violation = CppDialect.violation(result.tokens(), index);
+            String violation = CppDialect.violation(result.tokens(), index, provenance.configuration() == null
+                    ? com.kniazkov.cpg.build.PlatformProfile.defaults() : provenance.configuration().platform());
             ParseException problem = violation == null ? null : new ParseException(range.file(), range.start().line(), range.start().column(), violation, range);
             if (problem != null) problem = problem.withDiagnostic("cpp03-unsupported", violation + " [token: " + token.spelling() + "]", range,
                     DiagnosticProvenance.related(provenance, index), DiagnosticProvenance.context(provenance, index));
