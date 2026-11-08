@@ -130,7 +130,9 @@ final class CppMemoryFlow {
         Set<Node> visited=Collections.newSetFromMap(new IdentityHashMap<>());
         var discover=new ArrayDeque<Node>();discover.add(flow.entry());
         while(!discover.isEmpty()) {
-            Node node=discover.remove(); if(!visited.add(node))continue; discover.addAll(node.children());
+            Node node=discover.remove(); if(!visited.add(node))continue;
+            if(node instanceof OffsetofExpression)continue;
+            discover.addAll(node.children());
             if(node instanceof NameExpression name)name.target().filter(VariableDeclaration.class::isInstance).map(VariableDeclaration.class::cast)
                 .map(variable -> (VariableDeclaration)externalObjects.getOrDefault(variable,variable))
                 .filter(globals::contains).ifPresent(session.accessibleGlobals::add);
@@ -161,7 +163,7 @@ final class CppMemoryFlow {
                 if(type instanceof ReferenceType)possibleObjects.add(new Loc(parameter,"",null));
                 else if(type instanceof PointerType)possibleObjects.add(new Loc(parameter,"*",null));
             }
-            flow.entry().walk(new NodeVisitor(){@Override public void visit(NameExpression name){
+            LibraryCallEffects.walkEvaluated(flow.entry(), profiles.get(flow.entry()), new NodeVisitor(){@Override public void visit(NameExpression name){
                 name.target().filter(fields::contains).ifPresent(field->possibleObjects.add(new Loc(field,"",null)));
             }});
             for(ParameterDeclaration parameter:flow.entry().parameters()) {
@@ -310,7 +312,7 @@ final class CppMemoryFlow {
                 }
             }
             void coveredReads(Node node) {
-                if(normalized.contains(node)||node instanceof SizeofExpression
+                if(normalized.contains(node)||node instanceof SizeofExpression || node instanceof OffsetofExpression
                     ||node instanceof TypeidExpression t&&TypeSemantics.typeidOperandUnevaluated(t,profile))return;
                 if(node instanceof Expression expression && (expression instanceof NameExpression || expression instanceof MemberExpression
                     ||expression instanceof DereferenceExpression ||expression instanceof IndexExpression
@@ -642,7 +644,7 @@ final class CppMemoryFlow {
             }
             void evaluate(Expression expression, State state) {
                 if (normalized.contains(expression)) { inherit(expression,state); return; }
-                if(expression instanceof SizeofExpression)return;
+                if(expression instanceof SizeofExpression || expression instanceof OffsetofExpression)return;
                 if(expression.operatorTarget().filter(t->!LibraryCallEffects.unknown(t)).isPresent()) {
                     for(Expression operand:OperatorSemantics.operands(expression))evaluate(operand,state);
                     opaqueUserEffect(expression,OperatorSemantics.operands(expression),state);inherit(expression,state);return;

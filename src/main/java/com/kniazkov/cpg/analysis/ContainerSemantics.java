@@ -342,7 +342,7 @@ public final class ContainerSemantics {
         for(var child:node.children())conditionals(child,next,result);
     }
     private static void walk(Node node,NodeVisitor visitor) {
-        if(node instanceof SizeofExpression || node instanceof TypeidExpression) node.accept(visitor);
+        if(node instanceof SizeofExpression || node instanceof OffsetofExpression || node instanceof TypeidExpression) node.accept(visitor);
         else if(node instanceof Expression || node instanceof VariableDeclaration) {for(var child:node.children())walk(child,visitor);node.accept(visitor);}
         else {node.accept(visitor);for(var child:node.children())walk(child,visitor);}
     }

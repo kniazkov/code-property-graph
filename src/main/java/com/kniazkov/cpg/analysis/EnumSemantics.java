@@ -13,13 +13,19 @@ final class EnumSemantics {
 
     static Optional<Map<EnumeratorDeclaration, ConstantEvaluator.Value>> values(EnumDeclaration enumeration,
             PlatformProfile profile, Function<Declaration, Optional<ConstantEvaluator.Value>> outer) {
+        return valuesBefore(enumeration, null, profile, outer);
+    }
+    /** Earlier enumerators have their initializer types inside the same enum definition. */
+    static Optional<Map<EnumeratorDeclaration, ConstantEvaluator.Value>> valuesBefore(EnumDeclaration enumeration,
+            EnumeratorDeclaration stop, PlatformProfile profile, Function<Declaration, Optional<ConstantEvaluator.Value>> outer) {
         var values = new IdentityHashMap<EnumeratorDeclaration, ConstantEvaluator.Value>();
         BigInteger next = BigInteger.ZERO;
         ConstantEvaluator.IntegerType previousType = null;
         for (EnumeratorDeclaration enumerator : enumeration.enumerators()) {
+            if (enumerator == stop) break;
             Optional<ConstantEvaluator.Value> value;
             if (enumerator.value().isPresent()) value = ConstantEvaluator.integralConstant(enumerator.value().get(), profile,
-                    declaration -> Optional.ofNullable(values.get(declaration)).or(() -> outer.apply(declaration)));
+                    ConstantEvaluator.overlay(outer, declaration -> Optional.ofNullable(values.get(declaration)), profile));
             else {
                 value = previousType != null && previousType.contains(next)
                         ? Optional.of(new ConstantEvaluator.Value(next, previousType)) : Optional.empty();

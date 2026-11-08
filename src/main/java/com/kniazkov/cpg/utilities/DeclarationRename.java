@@ -298,6 +298,7 @@ public final class DeclarationRename {
             case CallExpression n -> n.target().orElse(null);
             case NameExpression n -> n.target().orElse(null);
             case MemberExpression n -> n.target().orElse(null);
+            case OffsetofExpression.Member n -> n.target().orElse(null);
             case NamedType n -> n.alias().<Declaration>map(a -> a).orElse(n.declaration().orElse(null));
             case UsingDeclaration n -> n.target().orElse(null);
             case MemberInitializer n -> n.target().orElse(null);
@@ -313,6 +314,7 @@ public final class DeclarationRename {
             case NamespaceDeclaration n -> n.name(); case NamespaceAliasDeclaration n -> n.name();
             case NameExpression n -> n.name();
             case MemberExpression n -> n.member(); case NamedType n -> n.name();
+            case OffsetofExpression.Member n -> n.name();
             case UsingDeclaration n -> n.qualifiedName(); case MemberInitializer n -> n.name();
             default -> "";
         };

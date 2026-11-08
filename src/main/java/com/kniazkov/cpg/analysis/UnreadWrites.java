@@ -87,6 +87,7 @@ public final class UnreadWrites {
                     @Override public void visit(Node node) { unevaluated.add(node); }
                 });
             }
+            @Override public void visit(OffsetofExpression offset) { mark(offset); }
             @Override public void visit(SizeofExpression size) {
                 size.walk(new NodeVisitor() {
                     @Override public void visit(Node node) { unevaluated.add(node); }
@@ -118,7 +119,7 @@ public final class UnreadWrites {
                 if (variable.constructorTarget().filter(LibraryCallEffects::unknown).isPresent()
                         || variable.destructorTarget().filter(LibraryCallEffects::unknown).isPresent()) {
                     escaped.addAll(libraryAccessible);
-                    variable.initializer().ifPresent(value -> value.walk(new NodeVisitor() {
+                    variable.initializer().ifPresent(value -> LibraryCallEffects.walkEvaluated(value, profile, new NodeVisitor() {
                         @Override public void visit(NameExpression use) { escaped.addAll(LibraryCallEffects.roots(use)); }
                     }));
                 }

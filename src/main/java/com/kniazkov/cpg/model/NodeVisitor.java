@@ -77,6 +77,10 @@ public interface NodeVisitor {
     default void visit(FunctionType node) { visit((TypeNode) node); }
     default void visit(MemberPointerType node) { visit((TypeNode) node); }
     default void visit(TypedefDeclaration node) { visit((Declaration) node); }
+    default void visit(OffsetofExpression node) { visit((Expression) node); }
+    default void visit(OffsetofExpression.Step node) { visit((Node) node); }
+    default void visit(OffsetofExpression.Member node) { visit((OffsetofExpression.Step) node); }
+    default void visit(OffsetofExpression.Index node) { visit((OffsetofExpression.Step) node); }
     default void visit(SizeofExpression node) { visit((Expression) node); }
 
     /** Visits a recovery placeholder through the ordinary expression family. */

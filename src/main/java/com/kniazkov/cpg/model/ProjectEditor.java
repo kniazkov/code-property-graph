@@ -162,6 +162,11 @@ public final class ProjectEditor {
 
     public void unbind(NameExpression use) { requireEditable(use); names.put(use, null); }
 
+    private final Map<OffsetofExpression.Member, VariableDeclaration> offsetofMembers = new IdentityHashMap<>();
+    public void bind(OffsetofExpression.Member use, VariableDeclaration target) {
+        requireEditable(use); if (target != null) requireMember(target); offsetofMembers.put(use, target);
+    }
+
     private final Map<MemberInitializer, Declaration> initializerNames = new IdentityHashMap<>();
     public void bind(MemberInitializer use, Declaration target) { requireEditable(use); if (target != null) requireMember(target); initializerNames.put(use, target); }
 
@@ -393,6 +398,10 @@ public final class ProjectEditor {
         names.forEach((use, target) -> {
             var builder = context.edit(use, NameExpression.Builder.class).clearTarget();
             if (target != null) builder.setTarget(context.edge(target, Declaration.class));
+        });
+        offsetofMembers.forEach((use, target) -> {
+            var builder = context.edit(use, OffsetofExpression.Member.Builder.class).clearTarget();
+            if (target != null) builder.setTarget(context.edge(target, VariableDeclaration.class));
         });
         initializerNames.forEach((use, target) -> {
             var builder = context.edit(use, MemberInitializer.Builder.class).clearTarget();

@@ -19,12 +19,13 @@ public final class PlatformProfile {
     private static final List<String> SCALARS = List.of("bool", "char", "short", "int", "long",
             "long long", "wchar_t", "float", "double", "long double", "pointer");
     private static final Set<String> SETTINGS = Set.of("inherits", "name", "bitsPerByte", "sizes", "alignments",
-            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness", "floatingFormats", "floatingRounds", "nullPointerConstant", "maxMultibyteLength", "cRuntime", "runtimeIntegerMacros", "mbCurMaxBinding", "standardStreamsBinding", "signalDispositionBinding", "wideInteger", "clockScale", "hugeVal");
+            "charSigned", "wcharType", "sizeType", "sourceEncoding", "executionEncoding", "wideExecutionEncoding", "aggregateLayout", "fieldAlignment", "aggregateAlignment", "tailPadding", "enumUnderlyingType", "signedIntegerConversion", "bitFieldSignedness", "floatingFormats", "floatingRounds", "nullPointerConstant", "maxMultibyteLength", "cRuntime", "runtimeIntegerMacros", "mbCurMaxBinding", "standardStreamsBinding", "signalDispositionBinding", "wideInteger", "clockScale", "hugeVal", "offsetof");
     private static final PlatformProfile DEFAULT = new Builder(true).build();
     private final Map<String, RuntimeIntegerMacros.Fact> runtimeIntegerMacros;
     private final WideIntegerModel wideInteger;
     private final ClockScaleModel clockScale;
     private final HugeValModel hugeVal;
+    private final OffsetofModel offsetof;
     private final Map<String, String> floatingFormats;
     private final int floatingRounds, maxMultibyteLength;
     private final String nullPointerConstant, cRuntime, mbCurMaxBinding, standardStreamsBinding, signalDispositionBinding;
@@ -129,6 +130,8 @@ public final class PlatformProfile {
         runtimeIntegerMacros = RuntimeIntegerMacros.validate(b.runtimeIntegerMacros, this);
         hugeVal = b.hugeVal;
         if (hugeVal != null) hugeVal.validate(this);
+        offsetof = b.offsetof;
+        if (offsetof != null) offsetof.validate(this);
         clockScale = b.clockScale;
         if (clockScale != null) clockScale.validate(this);
         wideInteger = b.wideInteger;
@@ -154,6 +157,8 @@ public final class PlatformProfile {
     public String standardStreamsBinding() { return standardStreamsBinding; }
     /** Explicit accessor contract only; does not detect or certify the deployment ABI. */
     public String mbCurMaxBinding() { return mbCurMaxBinding; }
+    /** Explicit compiler/layout subset for offsetof, independent of the C runtime. */
+    public Optional<OffsetofModel> offsetof() { return Optional.ofNullable(offsetof); }
     public Optional<HugeValModel> hugeVal() { return Optional.ofNullable(hugeVal); }
     public Optional<ClockScaleModel> clockScale() { return Optional.ofNullable(clockScale); }
     public Optional<WideIntegerModel> wideInteger() { return Optional.ofNullable(wideInteger); }
@@ -237,6 +242,7 @@ public final class PlatformProfile {
         map.put("standardStreamsBinding", standardStreamsBinding);
         map.put("signalDispositionBinding", signalDispositionBinding);
         map.put("hugeVal", hugeVal == null ? Map.of() : hugeVal.settings());
+        map.put("offsetof", offsetof == null ? Map.of() : offsetof.settings());
         map.put("clockScale", clockScale == null ? Map.of() : clockScale.settings());
         map.put("wideInteger", wideInteger == null ? Map.of() : wideInteger.settings());
         var facts = new LinkedHashMap<String,Object>();
@@ -327,6 +333,16 @@ public final class PlatformProfile {
         if (settings.containsKey("signalDispositionBinding")) b.signalDispositionBinding(string(settings.get("signalDispositionBinding"), "signalDispositionBinding"));
         if (settings.containsKey("standardStreamsBinding")) b.standardStreamsBinding(string(settings.get("standardStreamsBinding"), "standardStreamsBinding"));
         if (settings.containsKey("mbCurMaxBinding")) b.mbCurMaxBinding(string(settings.get("mbCurMaxBinding"), "mbCurMaxBinding"));
+        if (settings.containsKey("offsetof")) {
+            if (!(settings.get("offsetof") instanceof Map<?,?> model)) throw invalid("offsetof must be an object");
+            if (model.isEmpty()) b.offsetof = null;
+            else {
+                if (!model.keySet().equals(Set.of("emission", "layout", "supportedObjectBytes")))
+                    throw invalid("offsetof requires exactly emission, layout and supportedObjectBytes");
+                b.offsetof(string(model.get("emission"), "offsetof.emission"), string(model.get("layout"), "offsetof.layout"),
+                        string(model.get("supportedObjectBytes"), "offsetof.supportedObjectBytes"));
+            }
+        }
         if (settings.containsKey("hugeVal")) {
             if (!(settings.get("hugeVal") instanceof Map<?,?> model)) throw invalid("hugeVal must be an object");
             if (model.isEmpty()) b.hugeVal = null;
@@ -413,6 +429,7 @@ public final class PlatformProfile {
         private WideIntegerModel wideInteger;
         private ClockScaleModel clockScale;
         private HugeValModel hugeVal;
+        private OffsetofModel offsetof;
         private final Map<String, String> floatingFormats = new LinkedHashMap<>(Map.of(
                 "float", "unknown", "double", "unknown", "long double", "unknown"));
         private int floatingRounds = -1, maxMultibyteLength = 1;
@@ -440,6 +457,7 @@ public final class PlatformProfile {
             wideInteger = p.wideInteger;
             clockScale = p.clockScale;
             hugeVal = p.hugeVal;
+            offsetof = p.offsetof;
             cRuntime = p.cRuntime; mbCurMaxBinding = p.mbCurMaxBinding; standardStreamsBinding = p.standardStreamsBinding; signalDispositionBinding = p.signalDispositionBinding;
             floatingFormats.putAll(p.floatingFormats); floatingRounds = p.floatingRounds;
             maxMultibyteLength = p.maxMultibyteLength; nullPointerConstant = p.nullPointerConstant;
@@ -453,6 +471,7 @@ public final class PlatformProfile {
         public Builder runtimeIntegerMacro(String name, String type, String decimal) {
             runtimeIntegerMacros.put(name, RuntimeIntegerMacros.Fact.parse(type, decimal)); return this;
         }
+        public Builder offsetof(String emission, String layout, String supportedObjectBytes) { offsetof = OffsetofModel.parse(emission, layout, supportedObjectBytes); return this; }
         public Builder hugeVal(String kind, String emission) { hugeVal = new HugeValModel(kind, emission); return this; }
         public Builder clockScale(String clockType, String expressionType, String value) { clockScale = ClockScaleModel.parse(clockType, expressionType, value); return this; }
         public Builder wideInteger(String type, String decimal, String domain) { wideInteger = WideIntegerModel.parse(type, decimal, domain); return this; }
