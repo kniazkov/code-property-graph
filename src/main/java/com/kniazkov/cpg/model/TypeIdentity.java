@@ -116,6 +116,8 @@ public final class TypeIdentity {
         if (value instanceof BooleanLiteral literal) return "boolean(" + literal.value() + ")";
         if (value instanceof CharacterLiteral literal) return "character(" + literal.cppType() + ":" + literal.value() + ")";
         if (value instanceof FloatingLiteral literal) return "floating(" + literal.cppType() + ":" + literal.value().stripTrailingZeros() + ")";
+        if (value instanceof CompilerIntrinsicExpression intrinsic) return "compiler-intrinsic(" + intrinsic.kind().name()
+                + ":" + intrinsic.cppType() + ":" + intrinsic.emission() + ")";
         if (value instanceof StringLiteral literal) return "string(" + literal.wide() + ":" + literal.codeUnits() + ")";
         if (value instanceof NameExpression name) return "name(" + name.target().map(target -> dependentNames.getOrDefault(target,
                 target.typeIdentity().orElse(name.name()))).orElse(name.name())

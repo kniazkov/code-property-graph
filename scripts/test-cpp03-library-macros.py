@@ -150,6 +150,37 @@ class MacroInventoryTest(unittest.TestCase):
                 del entry['target_fact'][field]
                 self.assertTrue(checker.check(data))
 
+    def test_intrinsic_exact_closed_capability(self):
+        mutations = [('profile_setting', 'cRuntime'), ('kind', 'finite'), ('emission', 'arbitrary'),
+                     ('cpp_type', 'float'), ('required_format', 'binary32'),
+                     ('required_storage_bits', 32), ('required_storage_bits', 64.0),
+                     ('unknown_behavior', ''), ('semantic_boundary', ''), ('value', 'Infinity')]
+        for field, wrong in mutations:
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                row = next(e for e in data['entries'] if e['name'] == 'HUGE_VAL')
+                row['compiler_intrinsic'][field] = wrong
+                self.assertTrue(checker.check(data))
+
+    def test_intrinsic_missing_fields(self):
+        row = next(e for e in self.data['entries'] if e['name'] == 'HUGE_VAL')
+        for field in row['compiler_intrinsic']:
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                entry = next(e for e in data['entries'] if e['name'] == 'HUGE_VAL')
+                del entry['compiler_intrinsic'][field]
+                self.assertTrue(checker.check(data))
+
+    def test_intrinsic_not_integer_fact_or_general_builtin_permission(self):
+        for field, wrong in [('header', 'cstdlib'), ('name', 'HUGE_VALF'),
+                             ('required_in_if', 'yes'), ('macro_kind', 'function'),
+                             ('support_status', 'target_fact')]:
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                row = next(e for e in data['entries'] if e['name'] == 'HUGE_VAL')
+                row[field] = wrong
+                self.assertTrue(checker.check(data))
+
 
 if __name__ == '__main__':
     unittest.main()

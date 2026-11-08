@@ -59,6 +59,7 @@ public interface NodeVisitor {
     default void visit(CompoundAssignmentExpression node) { visit((Expression) node); }
     default void visit(BooleanLiteral node) { visit((Expression) node); }
     default void visit(FloatingLiteral node) { visit((Expression) node); }
+    default void visit(CompilerIntrinsicExpression node) { visit((Expression) node); }
     default void visit(CharacterLiteral node) { visit((Expression) node); }
     default void visit(StringLiteral node) { visit((Expression) node); }
     default void visit(ConversionExpression node) { visit((Expression) node); }

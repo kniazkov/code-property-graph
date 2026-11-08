@@ -58,7 +58,7 @@ def check(data, root=ROOT):
             require(locator in records, label + ': missing ledger locator ' + locator)
         require(bool(entry.get('inherited_locator')), label + ': no inherited C locator')
         require(entry.get('macro_kind') in ('object', 'function'), label + ': invalid macro kind')
-        require(entry.get('support_status') in ('profile_definition', 'runtime_binding', 'target_fact', 'open'), label + ': invalid support state')
+        require(entry.get('support_status') in ('profile_definition', 'runtime_binding', 'target_fact', 'compiler_intrinsic', 'open'), label + ': invalid support state')
         require(bool(entry.get('support_boundary')), label + ': missing support boundary')
         require(bool(re.fullmatch(r'https://github\.com/kniazkov/code-property-graph/issues/[0-9]+', entry.get('remaining_work',''))),
                 label + ': no remaining-work issue')
@@ -66,6 +66,24 @@ def check(data, root=ROOT):
             binding = entry.get('runtime_binding', {})
             require(all(binding.get(k) for k in ('profile_setting', 'supported_value', 'unknown_behavior', 'abi_scope')),
                     label + ': runtime binding needs explicit selection and ABI/unknown boundaries')
+        if entry.get('support_status') == 'compiler_intrinsic':
+            capability = entry.get('compiler_intrinsic', {})
+            require(set(capability) == {'profile_setting', 'kind', 'emission', 'cpp_type',
+                    'required_format', 'required_storage_bits', 'unknown_behavior', 'semantic_boundary'},
+                    label + ': intrinsic needs exact capability schema')
+            require(entry['name'] == 'HUGE_VAL' and entry['header'] == 'cmath' and
+                    entry.get('macro_kind') == 'object' and
+                    entry.get('required_in_if') == 'no_floating_preprocessor_arithmetic',
+                    label + ': unsupported intrinsic macro/header/#if claim')
+            for field, value in [('profile_setting', 'hugeVal'), ('kind', 'positive_infinity'),
+                    ('emission', 'gcc-clang-builtin-huge-val'), ('cpp_type', 'double'),
+                    ('required_format', 'binary64')]:
+                require(capability.get(field) == value, label + ': unsupported capability ' + field)
+            require(type(capability.get('required_storage_bits')) is int and
+                    capability.get('required_storage_bits') == 64,
+                    label + ': intrinsic requires exact 64-bit storage')
+            require(bool(capability.get('unknown_behavior')) and bool(capability.get('semantic_boundary')),
+                    label + ': intrinsic lacks unavailable/semantic boundary')
         if entry.get('support_status') == 'target_fact':
             fact = entry.get('target_fact', {})
             require(entry.get('macro_kind') == 'object' and entry.get('required_in_if') ==
@@ -106,7 +124,7 @@ def check(data, root=ROOT):
                     label + ': target fact needs missing-value and target-source boundaries')
         for kind in ('implementation', 'tests'):
             paths = entry.get(kind, [])
-            if entry.get('support_status') in ('profile_definition', 'runtime_binding', 'target_fact'):
+            if entry.get('support_status') in ('profile_definition', 'runtime_binding', 'target_fact', 'compiler_intrinsic'):
                 require(bool(paths), label + ': profile definition needs ' + kind)
             for path in paths:
                 resolved = (root / path).resolve()

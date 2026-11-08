@@ -70,8 +70,8 @@ final class PreservedSource {
                 throw unsupported("comment catalogue was edited; use the explicit comment-removal utility or canonical Source.render");
             var pairs = new ArrayList<Pair>();
             var changes = new ArrayList<Pair>();
-            diff(baseline.files().get(i), desired.files().get(i), pairs, changes);
             Preprocessing unit = records.get(i);
+            diff(baseline.files().get(i), desired.files().get(i), pairs, changes, unit);
             for (Pair change : changes) {
                 TokenProvenance span = change.before().provenance().orElseThrow(() -> unsupported("edit has no token span"));
                 Pair selected = change;
@@ -116,7 +116,8 @@ final class PreservedSource {
                                 + " in " + range.file() + "; use a narrower replacement");
                 patches.add(new Edit(new Context(i, includeId),
                         new Patch(range.file(), range.start().offset(), range.end().offset(),
-                                retainedComments(unit, range) + Source.renderFragment(selected.after(), Language.CPP, insideBlock(baseline.files().get(i), selected.before(), false)))));
+                                retainedComments(unit, range) + Source.renderFragment(selected.after(), Language.CPP,
+                                        insideBlock(baseline.files().get(i), selected.before(), false), unit))));
             }
         }
         // Include unchanged active occurrences in reconciliation, not just edited
@@ -314,6 +315,7 @@ final class PreservedSource {
                 && d.name().equals("assert") && d.originKind().equals("library"));
     }
     private static String render(Node node) { return Source.renderFragment(node, Language.CPP, false); }
+    private static String render(Node node, Preprocessing context) { return Source.renderFragment(node, Language.CPP, false, context); }
 
     private static List<String> commentSignature(SourceFile file) {
         return file.comments().stream().map(comment -> comment.kind() + "|" + comment.range() + "|" + comment.text()).toList();
@@ -333,7 +335,7 @@ final class PreservedSource {
         return false;
     }
 
-    private static void diff(Node before, Node after, List<Pair> pairs, List<Pair> changes) {
+    private static void diff(Node before, Node after, List<Pair> pairs, List<Pair> changes, Preprocessing context) {
         Pair pair = new Pair(before, after);
         pairs.add(pair);
         if (before instanceof ClassDeclaration declaration && declaration.implicit()
@@ -341,11 +343,11 @@ final class PreservedSource {
                     || !declaration.name().equals(changed.name()) || !declaration.keyword().equals(changed.keyword())
                     || declaration.isDefinition() != changed.isDefinition() || !changed.members().isEmpty()))
             throw unsupported("edit changes an implicit class declaration; edit its written elaborated type together with its declaration");
-        if (render(before).equals(render(after))) return;
+        if (render(before, context).equals(render(after, context))) return;
         // A declarator type can surround its name (int (*name)[3]). Its abstract
         // type rendering cannot replace that noncontiguous written syntax alone.
         // Rewrite the smallest owning declaration and verify replay as usual.
-        if (before instanceof Declaration && after instanceof Declaration && changedType(before, after)) {
+        if (before instanceof Declaration && after instanceof Declaration && changedType(before, after, context)) {
             if (!(before instanceof CallableDeclaration) && !(before instanceof ParameterDeclaration)) {
                 var span = before.provenance().orElseThrow(() -> unsupported("type edit has no declaration token span"));
                 int end = significantEnd(span.unit(), span.startToken(), span.endToken());
@@ -360,17 +362,17 @@ final class PreservedSource {
             changes.add(pair); return;
         }
         int count = changes.size();
-        for (int i = 0; i < oldChildren.size(); i++) diff(oldChildren.get(i), newChildren.get(i), pairs, changes);
+        for (int i = 0; i < oldChildren.size(); i++) diff(oldChildren.get(i), newChildren.get(i), pairs, changes, context);
         if (count == changes.size()) changes.add(pair);
     }
 
     private static List<Node> syntaxChildren(Node node) { return node.children().stream().filter(child -> !(child instanceof Comment)).toList(); }
 
-    private static boolean changedType(Node before, Node after) {
+    private static boolean changedType(Node before, Node after, Preprocessing context) {
         var oldTypes = before.children().stream().filter(TypeNode.class::isInstance).toList();
         var newTypes = after.children().stream().filter(TypeNode.class::isInstance).toList();
         if (oldTypes.size() != newTypes.size()) return true;
-        for (int i = 0; i < oldTypes.size(); i++) if (!render(oldTypes.get(i)).equals(render(newTypes.get(i)))) return true;
+        for (int i = 0; i < oldTypes.size(); i++) if (!render(oldTypes.get(i), context).equals(render(newTypes.get(i), context))) return true;
         return false;
     }
 

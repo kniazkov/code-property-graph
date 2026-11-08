@@ -333,7 +333,30 @@ Original C90 describes arithmetic clock_t and a scale giving the number per
 second of clock() values. It does not impose later C99 exact-clock_t or constant
 wording. The chosen typed-literal subset supports #if without making that a
 universal historical guarantee. clock() remains an opaque runtime call.
-The inventory has 93 bounded obligations/86 names and nine open obligations/
+At stage eight the inventory had 93 bounded obligations/86 names and nine open obligations/
 nine names. Expanded focused acceptance passed 269 units and 28 integration tests; full verification
 and exact-head CI remain separately tracked in the [report](cpp03-clock-scale-verification.md).
 Prior stage counts remain historical. #92 and #48 remain open.
+
+## Explicit HUGE_VAL compiler capability (#92, ninth stage)
+
+`hugeVal: {kind: "positive_infinity", emission: "gcc-clang-builtin-huge-val"}`
+selects a closed double-positive-infinity expression, with explicit binary64
+double format and 64-bit storage. Missing/empty settings remain unavailable;
+libc, host or width alone never enable it. Actual headers retain authority.
+The selected exact zero-argument builtin also reparses directly under this
+capability. Ordinary cmath declarations remain unchanged.
+
+CompilerIntrinsicExpression carries symbolic double/rvalue semantics and JSON,
+not a fabricated libc call, numeric JSON infinity or finite BigDecimal surrogate.
+No general floating evaluator, finite HUGE_VAL policy or complete IEEE arithmetic
+is supplied. Original C90 permits infinity without requiring constant form.
+Assignment/increment and bare-name/declaration/qualified misuse are rejected;
+address of the evaluated rvalue still has the existing generic CPG diagnostic
+gap despite strict native rejection. Integer #if arithmetic is not promised.
+
+Expanded verification passed 432 units and 31 IT, plus eight separate inventory
+units (440 distinct units). The inventory has 94 bounded
+obligations/87 names and eight open obligations/eight names. Full/CI
+results remain separate gates in the [report](cpp03-huge-val-verification.md).
+Earlier counts remain historical; #92 and #48 remain open.

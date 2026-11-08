@@ -723,6 +723,8 @@ public final class ProjectJson {
                     i.spelling().ifPresent(spelling -> obj.put("spelling", spelling)); }
                 case BooleanLiteral i -> obj.put("value", i.value()).put("spelling", i.spelling());
                 case FloatingLiteral i -> obj.put("value", i.value()).put("cppType", i.cppType()).put("spelling", i.spelling());
+                case CompilerIntrinsicExpression i -> obj.put("intrinsic", lower(i.kind())).put("cppType", i.cppType())
+                        .put("emission", i.emission());
                 case CharacterLiteral i -> obj.put("value", i.value()).put("wide", i.wide()).put("cppType", i.cppType()).put("spelling", i.spelling())
                         .put("codeUnitBits", i.codeUnitBits()).put("valueBits", i.valueBits());
                 case StringLiteral i -> obj.array("codeUnits", a -> i.codeUnits().forEach(a::add))

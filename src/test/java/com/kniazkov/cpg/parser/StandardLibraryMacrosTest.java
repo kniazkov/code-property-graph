@@ -100,6 +100,7 @@ class StandardLibraryMacrosTest {
         assertEquals("0U 4294967295U", text(preprocess("#include <wchar.h>\nWCHAR_MIN WCHAR_MAX", unsigned)));
     }
     private static boolean targetFactAvailable(PlatformProfile profile, Object name) {
+        if ("HUGE_VAL".equals(name)) return profile.hugeVal().isPresent();
         if ("CLOCKS_PER_SEC".equals(name)) return profile.clockScale().isPresent();
         return "WEOF".equals(name) ? profile.wideInteger().isPresent() : profile.runtimeIntegerMacros().containsKey(name);
     }
@@ -110,6 +111,7 @@ class StandardLibraryMacrosTest {
                 PlatformProfile.builder().wideInteger("unsigned int","4294967295","nonnegative-wchar").build(),
                 PlatformProfile.builder().wideInteger("int","-1","nonnegative-wchar").build(),
                 PlatformProfile.builder().clockScale("long","long","1000000").build(),
+                PlatformProfile.builder().hugeVal("positive_infinity","gcc-clang-builtin-huge-val").build(),
                 PlatformProfile.builder().clockScale("int","unsigned long","18446744073709551615").build(),
                 PlatformProfile.builder().cRuntime("glibc").standardStreamsBinding("glibc-x86_64-lp64").build(),
                 PlatformProfile.builder().cRuntime("glibc").mbCurMaxBinding("glibc-x86_64-lp64-mb16").build(),
@@ -121,8 +123,9 @@ class StandardLibraryMacrosTest {
             var targetFacts = new HashSet<String>();
             for (Object record : entries) {
                 var entry = (Map<?, ?>) record;
-                if (cpp.equals(entry.get("header")) && "target_fact".equals(entry.get("support_status"))) targetFacts.add((String)entry.get("name"));
+                if (cpp.equals(entry.get("header")) && Set.of("target_fact", "compiler_intrinsic").contains(entry.get("support_status"))) targetFacts.add((String)entry.get("name"));
                 if (cpp.equals(entry.get("header")) && ("target_fact".equals(entry.get("support_status")) && targetFactAvailable(profile, entry.get("name"))
+                        || "compiler_intrinsic".equals(entry.get("support_status")) && targetFactAvailable(profile, entry.get("name"))
                         || "profile_definition".equals(entry.get("support_status"))
                         || "runtime_binding".equals(entry.get("support_status")) && (Set.of("stdin", "stdout", "stderr").contains(entry.get("name")) ? !profile.standardStreamsBinding().equals("unavailable") : entry.get("name").equals("MB_CUR_MAX") ? !profile.mbCurMaxBinding().equals("unavailable") : profile.cRuntime().equals("glibc"))))
                     assertTrue(implemented.add((String) entry.get("name")), "Duplicate inventory obligation: " + entry);

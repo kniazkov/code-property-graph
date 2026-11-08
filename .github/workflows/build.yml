@@ -49,3 +49,4 @@ jobs:
             target/standard-streams-oracle/
             target/weof-runtime-oracle/
             target/clock-scale-oracle/
+            target/huge-val-oracle/
