@@ -3,8 +3,9 @@
 ## Packet status
 
 This packet adds independently selected member-pointer representation facts to
-the bounded offsetof query. The clean gate passed all 1422 unit tests and 15 explicitly selected IT in
-09:54, with zero failures, errors or skips. Independent 11-unit/two-IT checks
+the bounded offsetof query. The corrected clean gate passed all 1422 unit tests
+and 18 explicitly selected IT in 11:15, with zero failures, errors or skips.
+Strstream passed all three IT cases in 128.8 seconds. Independent 11-unit/two-IT checks
 overlap this coverage and are not added to its totals. offsetof remains
 open/partial; inventory totals remain 97 bounded obligations / 90 names and five
 open obligations / five names. #92 and #48 remain open.
@@ -83,7 +84,8 @@ Native artifacts: target/member-pointer-layout-oracle. Test paths:
 - src/test/java/com/kniazkov/cpg/analysis/MemberPointerLayoutTest.java
 - src/test/java/com/kniazkov/cpg/e2e/MemberPointerLayoutIT.java
 
-The clean acceptance command, run from the repository with the configured
+The initial checkpoint below is historical; the corrected checkpoint follows
+in the harness section. Its command, run from the repository with the configured
 Java/Maven and native compiler toolchain, was:
 
 ```sh
@@ -108,11 +110,46 @@ No fresh individual header hashes or runtime version were captured. The
 representation oracle does not certify a libc ABI.
 
 No member-pointer values or calls, giant allocations, or fabricated owner
-layouts are used. Full Maven verification is running and exact-head CI is
-pending; the selected-IT gate is not the full integration suite.
+layouts are used. The selected-IT gate is not the full integration suite.
+Corrective-commit full Maven and exact-head CI gates remain pending.
 
-Чистый прогон прошёл все 1422 unit-теста и 15 явно выбранных IT за 09:54
-без ошибок и пропусков. Независимые 11 unit-тестов и два IT перекрывают этот
+## Harness prerequisite and failed full-run history
+
+The subsequent full local run passed all 1422 units but failed one of 139 IT
+in 37:22: the existing Strstream GREEN/FOLDED CLI fixture exceeded its
+45-second child deadline. That run remains failed. Matched isolated FOLDED
+probes completed in 28.21/27.93 seconds on the current production and
+30.13/29.82 seconds on the verified PR #122 baseline, all with exit 0 and
+byte-identical generated code. These probes show no slowdown in the measured
+cases; they neither identify the precise timeout cause nor establish a full
+suite pass.
+
+The narrowly approved harness correction gives only the GREEN/FOLDED CLI
+children in runtimeSurvivesGreenFoldedCliJsonAndNativeGeneration an explicit
+90-second budget. All assertions, other 45-second child limits and native
+command limits are retained. Production manifest remains unchanged. Independent
+review approved this exact test-only change.
+
+The corrected clean checkpoint passed all 1422 units and 18 explicitly selected
+IT in 11:15, with zero failures, errors or skips. StrstreamLibraryIT passed all
+three cases in 128.8 seconds. The command, run from the repository, was:
+
+```sh
+mvn -o -B clean -Dit.test=StrstreamLibraryIT,MemberPointerLayoutIT,OffsetofRuntimeIT,OffsetofContextsIT,MacroEditingIT,PackagedCliIT -DargLine=-Xmx768m verify
+```
+
+Corrected checkpoint JAR SHA256:
+`3d6d1b6fc118b6c8e98c0cfabd3ad3db311c66b6f13bbf74265df6e6eee1b228`.
+Production manifest remains
+`2cb2cf9a8b43836b8afdd1f9c0884a75595551c95b4448cd433fe10b16e855b6`.
+Earlier overlapping checks are not added to this checkpoint. The failed full
+run remains failed; this selected-IT success does not replace a full rerun.
+Full Maven and new exact-head CI remain pending.
+
+Исправленный чистый прогон прошёл все 1422 unit-теста и 18 явно выбранных IT
+за 11:15; все три Strstream IT прошли за 128,8 секунды
+без ошибок и пропусков. Прежний полный прогон остаётся неуспешным; новый
+полный Maven и CI ещё ожидаются. Независимые 11 unit-тестов и два IT перекрывают этот
 набор и не увеличивают число. Тела владельцев не требуют расчёта
 размещения, но записанные зависимости типов и сигнатур остаются ограниченными.
 Хранение enum, битовые поля и вызовы через указатели на члены не входят в этап.
