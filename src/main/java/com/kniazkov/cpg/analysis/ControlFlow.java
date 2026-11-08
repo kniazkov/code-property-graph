@@ -146,12 +146,12 @@ public final class ControlFlow {
             return new FunctionFlow(fn, exit, edges, List.of());
         }
         boolean containsThrow(Node node) {
-            if (node instanceof SizeofExpression || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile)) return false;
+            if (node instanceof SizeofExpression || node instanceof OffsetofExpression || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile)) return false;
             return node instanceof ThrowExpression || node.children().stream().anyMatch(this::containsThrow);
         }
         boolean unsupportedEvaluation(Node node) {
             if (node instanceof ClassDeclaration || node instanceof CallableDeclaration) return false;
-            if (node instanceof SizeofExpression || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile)) return false;
+            if (node instanceof SizeofExpression || node instanceof OffsetofExpression || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile)) return false;
             if (node instanceof InitializationExpression e && e.form() == InitializationExpression.Form.TEMPORARY && e.type().flatMap(ClassSemantics::objectClass).isPresent()) return true;
             if (node instanceof Expression e && !(e instanceof InitializationExpression initialization && initialization.form() != InitializationExpression.Form.TEMPORARY)
                     && (e instanceof CallExpression || e.semanticInfo().map(info -> info.category() == ValueCategory.RVALUE).orElse(false))
@@ -392,7 +392,7 @@ public final class ControlFlow {
         }
         boolean canThrow(Node node) {
             if (node instanceof ClassDeclaration || node instanceof CallableDeclaration) return false;
-            if (language != Language.CPP || node instanceof SizeofExpression
+            if (language != Language.CPP || node instanceof SizeofExpression || node instanceof OffsetofExpression
                     || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile)) return false;
             if (node instanceof ThrowExpression || node instanceof NewExpression) return true;
             if (node instanceof CallExpression call) {

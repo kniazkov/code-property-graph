@@ -257,7 +257,7 @@ public final class DynamicArraySemantics {
     /** Visit operands before their enclosing operation. C++03 argument order is unspecified,
      * so an effectful argument destroys proofs before the enclosing mutation is described. */
     private static void walkEvaluated(Node node, NodeVisitor visitor) {
-        if (node instanceof SizeofExpression || node instanceof TypeidExpression) {
+        if (node instanceof SizeofExpression || node instanceof OffsetofExpression || node instanceof TypeidExpression) {
             // sizeof is unevaluated; typeid requires RTTI-specific evaluation rules not proven here.
             node.accept(visitor);
         } else if (node instanceof ConditionalExpression || node instanceof LogicalAndExpression || node instanceof LogicalOrExpression) {

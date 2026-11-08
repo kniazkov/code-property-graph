@@ -192,6 +192,7 @@ public final class TypeSemantics {
                 .setElementType(QualifiedType.create().setBaseType(NamedType.create().setName(literal.wide() ? "wchar_t" : "char")).setConst(true))
                 .setBound(IntegerLiteral.create().setValue(literal.codeUnits().size() + 1)).build());
         if (expression instanceof ConversionExpression conversion) return Optional.of(conversion.targetType());
+        if (expression instanceof OffsetofExpression) return profile.offsetof().flatMap(model -> sizeType(profile)).map(TypeSemantics::named);
         if (expression instanceof SizeofExpression) return sizeType(profile).map(TypeSemantics::named);
         if (expression instanceof NewExpression allocation) {
             TypeNode allocated = unqualified(allocation.type());

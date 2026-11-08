@@ -22,7 +22,7 @@ public final class ConstantFolder {
         for (var root : SourceContexts.roots(project)) {
             SourceFile file = root.source();
             if (file.language() == Language.CPP) {
-                foldCpp(root.node(), file, editor);
+                foldCpp(project, root.node(), file, editor);
             } else root.node().walk(new NodeVisitor() {
                 @Override public void visit(Node node) { order.add(node); }
             });
@@ -77,11 +77,105 @@ public final class ConstantFolder {
         return result[0];
     }
 
-    private static void foldCpp(Node root, SourceFile file, ProjectEditor editor) {
+    /** A literal cannot retain a layout dependency. Preserve the intrinsic, its operands,
+     * and values depending on it (including sizeof of an offsetof-sized array) so later
+     * declaration edits still recompute the same syntax. This is not a numeric cache. */
+    private static Set<Node> offsetofDependencies(Project project, Node root, com.kniazkov.cpg.build.PlatformProfile profile) {
+        Set<Node> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<Node> retained = Collections.newSetFromMap(new IdentityHashMap<>());
+        Map<Node, List<Node>> users = new IdentityHashMap<>();
+        var layout = new LayoutDependencies(project, profile, retained);
+        var pending = new ArrayDeque<Node>(); pending.add(root);
+        while (!pending.isEmpty()) {
+            Node node = pending.removeFirst();
+            if (!seen.add(node)) continue;
+            if (node instanceof OffsetofExpression offset) layout.constant(offset);
+            for (Node dependency : java.util.stream.Stream.concat(node.children().stream(), node.references().stream()).toList()) {
+                users.computeIfAbsent(dependency, ignored -> new ArrayList<>()).add(node);
+                pending.addLast(dependency);
+            }
+        }
+        pending.addAll(retained);
+        while (!pending.isEmpty()) for (Node user : users.getOrDefault(pending.removeFirst(), List.of()))
+            if (retained.add(user)) pending.addLast(user);
+        // Retain the complete expression syntax, not just its dependent branch.
+        // For example, folding the sibling conversion in offsetof(S,x)+1 to 1UL
+        // would edit an array declarator enclosing the preserved macro invocation.
+        retained.stream().filter(Expression.class::isInstance).forEach(pending::addLast);
+        seen.clear();
+        while (!pending.isEmpty()) {
+            Node node = pending.removeFirst();
+            if (!seen.add(node)) continue;
+            retained.add(node); pending.addAll(node.children());
+        }
+        return retained;
+    }
+
+    /** The query's representation dependencies, not arbitrary reachable method bodies.
+     * Pointers require only their own representation. A const/enum initializer and every
+     * sizeof dependency retain syntax even if their numeric value was previously known. */
+    private static final class LayoutDependencies {
+        private final com.kniazkov.cpg.build.PlatformProfile profile;
+        private final Set<Node> retained;
+        private final Set<Node> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        private final Map<EnumeratorDeclaration, EnumDeclaration> enums = new IdentityHashMap<>();
+        LayoutDependencies(Project project, com.kniazkov.cpg.build.PlatformProfile profile, Set<Node> retained) {
+            this.profile = profile; this.retained = retained;
+            project.walk(new NodeVisitor() { @Override public void visit(EnumDeclaration owner) {
+                owner.enumerators().forEach(enumerator -> enums.put(enumerator, owner));
+            } });
+        }
+        void constant(Expression expression) {
+            if (!visited.add(expression)) return;
+            expression.walk(new NodeVisitor() { @Override public void visit(Node node) { retained.add(node); } });
+            if (expression instanceof OffsetofExpression offset) {
+                type(offset.type());
+                offset.steps().stream().filter(OffsetofExpression.Index.class::isInstance)
+                        .map(OffsetofExpression.Index.class::cast).forEach(index -> constant(index.expression()));
+            }
+            if (expression instanceof SizeofExpression size)
+                size.type().or(() -> size.operand().flatMap(value -> TypeSemantics.expressionType(value, profile))).ifPresent(this::type);
+            Declaration declaration = expression instanceof NameExpression name ? name.target().orElse(null)
+                    : expression instanceof ScopeMemberExpression member ? member.target().orElse(null) : null;
+            if (declaration instanceof VariableDeclaration variable && variable.type().isPresent()
+                    && TypeSemantics.qualifiers(variable.type().orElseThrow()) == 1)
+                variable.initializer().ifPresent(this::constant);
+            if (declaration instanceof EnumeratorDeclaration enumerator) enumeration(enums.get(enumerator));
+            if (expression instanceof ConversionExpression conversion)
+                EnumSemantics.declaration(conversion.targetType()).ifPresent(this::enumeration);
+            if (expression instanceof InitializationExpression initialization)
+                initialization.type().flatMap(EnumSemantics::declaration).ifPresent(this::enumeration);
+            expression.children().stream().filter(Expression.class::isInstance).map(Expression.class::cast).forEach(this::constant);
+        }
+        private void enumeration(EnumDeclaration owner) {
+            if (owner == null || !visited.add(owner)) return;
+            owner.enumerators().forEach(value -> value.value().ifPresent(this::constant));
+        }
+        private void type(TypeNode type) {
+            if (!visited.add(type)) return;
+            retained.add(type);
+            if (type instanceof QualifiedType qualified) type(qualified.baseType());
+            else if (type instanceof ArrayType array) { type(array.elementType()); array.bound().ifPresent(this::constant); }
+            else if (type instanceof ReferenceType reference) type(reference.referredType());
+            else if (type instanceof NamedType named) {
+                if (named.alias().isPresent()) type(named.alias().orElseThrow().type());
+                else if (named.declaration().orElse(null) instanceof ClassDeclaration owner) {
+                    ClassDeclaration definition = owner.definition().orElse(owner) instanceof ClassDeclaration value ? value : owner;
+                    if (visited.add(definition)) for (Declaration member : definition.members())
+                        if (member instanceof VariableDeclaration field && !field.modifiers().contains("static"))
+                            field.type().ifPresent(this::type);
+                }
+            }
+            // Object and function pointer pointees do not determine pointer storage.
+        }
+    }
+
+    private static void foldCpp(Project project, Node root, SourceFile file, ProjectEditor editor) {
         var profile = TypeSemantics.profile(file);
+        var retained = offsetofDependencies(project, root, profile);
         root.walk(new NodeVisitor() {
             @Override public void visit(Expression expression) {
-                if (expression instanceof IntegerLiteral || expression instanceof BooleanLiteral) return;
+                if (expression instanceof IntegerLiteral || expression instanceof BooleanLiteral || retained.contains(expression)) return;
                 ConstantEvaluator.evaluate(expression, profile).ifPresent(value -> {
                     if (value.type().spelling().equals("bool")) {
                         var literal = BooleanLiteral.create().setValue(value.number().signum() != 0);

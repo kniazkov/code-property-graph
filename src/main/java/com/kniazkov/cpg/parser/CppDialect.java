@@ -20,7 +20,8 @@ final class CppDialect {
         var expanded = tokens.get(index);
         var token = expanded.token();
         String text = token.canonicalSpelling();
-        if (EXTENSIONS.contains(text) || text.startsWith("__builtin_") && !(text.equals("__builtin_huge_val") && profile.hugeVal().isPresent()))
+        if (EXTENSIONS.contains(text) || text.startsWith("__builtin_") && !(text.equals("__builtin_huge_val") && profile.hugeVal().isPresent()
+                || text.equals("__builtin_offsetof") && profile.offsetof().isPresent()))
             return "Compiler extension '" + text + "' is not permitted in C++03";
         if (token.kind() == PreprocessingToken.Kind.OTHER) return "Unsupported character: " + token.spelling();
         if (token.kind() == PreprocessingToken.Kind.PP_NUMBER) {

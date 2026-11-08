@@ -149,6 +149,28 @@ final class ExpressionParser {
     private NodeBuilder<? extends Expression> primary() {
         var start = tokens.start();
         if (java.util.Set.of(";", ")", "]", "}", ",", ":", "<eof>").contains(tokens.peek())) throw tokens.missingExpression();
+        if (language == Language.CPP && tokens.peek().equals("__builtin_offsetof")) {
+            if (tokens.platform().offsetof().isEmpty()) throw tokens.error("offsetof requires selected offsetof capability");
+            tokens.advance(); tokens.expect("(");
+            var result = OffsetofExpression.create().setType(types.abstractType());
+            tokens.expect(",");
+            var memberStart = tokens.start();
+            result.addStep(tokens.span(memberStart, OffsetofExpression.Member.create().setName(tokens.identifier())));
+            while (tokens.peek().equals(".") || tokens.peek().equals("[")) {
+                var stepStart = tokens.start();
+                if (tokens.take(".")) {
+                    var nameStart = tokens.start();
+                    result.addStep(tokens.span(nameStart, OffsetofExpression.Member.create().setName(tokens.identifier())));
+                }
+                else {
+                    tokens.expect("[");
+                    var index = OffsetofExpression.Index.create().setExpression(nestedExpression(2));
+                    tokens.expect("]"); result.addStep(tokens.span(stepStart, index));
+                }
+            }
+            tokens.expect(")");
+            return tokens.span(start, result);
+        }
         if (language == Language.CPP && tokens.peek().equals("__builtin_huge_val")) {
             if (tokens.platform().hugeVal().isEmpty()) throw tokens.error("Compiler intrinsic requires hugeVal capability");
             tokens.advance(); tokens.expect("("); tokens.expect(")");

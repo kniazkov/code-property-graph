@@ -100,6 +100,7 @@ class StandardLibraryMacrosTest {
         assertEquals("0U 4294967295U", text(preprocess("#include <wchar.h>\nWCHAR_MIN WCHAR_MAX", unsigned)));
     }
     private static boolean targetFactAvailable(PlatformProfile profile, Object name) {
+        if ("offsetof".equals(name)) return profile.offsetof().isPresent();
         if ("HUGE_VAL".equals(name)) return profile.hugeVal().isPresent();
         if ("CLOCKS_PER_SEC".equals(name)) return profile.clockScale().isPresent();
         return "WEOF".equals(name) ? profile.wideInteger().isPresent() : profile.runtimeIntegerMacros().containsKey(name);
@@ -107,7 +108,7 @@ class StandardLibraryMacrosTest {
     @Test void implementedInventoryObligationsMatchActualHeaderDefinitions() throws Exception {
         var inventory = (Map<?, ?>) com.kniazkov.json.Json.parse(Path.of("docs/cpp03-library-macros.json").toFile()).toJavaObject();
         var entries = (List<?>) inventory.get("entries");
-        for (var profile : List.of(PlatformProfile.defaults(), PlatformProfile.builder().cRuntime("glibc").build(),
+        for (var profile : List.of(PlatformProfile.builder().offsetof("gcc-clang-builtin", "x86_64-sysv-lp64-v1", "2147483647").build(), PlatformProfile.defaults(), PlatformProfile.builder().cRuntime("glibc").build(),
                 PlatformProfile.builder().wideInteger("unsigned int","4294967295","nonnegative-wchar").build(),
                 PlatformProfile.builder().wideInteger("int","-1","nonnegative-wchar").build(),
                 PlatformProfile.builder().clockScale("long","long","1000000").build(),
@@ -124,6 +125,13 @@ class StandardLibraryMacrosTest {
             var targetFacts = new HashSet<String>();
             for (Object record : entries) {
                 var entry = (Map<?, ?>) record;
+                // Availability for a bounded subset does not close the standards obligation.
+                if (cpp.equals(entry.get("header")) && "offsetof".equals(entry.get("name"))) {
+                    assertEquals("open", entry.get("support_status"));
+                    assertTrue(entry.get("partial_implementation") instanceof Map<?, ?>);
+                    targetFacts.add("offsetof");
+                    if (profile.offsetof().isPresent()) assertTrue(implemented.add("offsetof"));
+                }
                 if (cpp.equals(entry.get("header")) && Set.of("target_fact", "compiler_intrinsic").contains(entry.get("support_status"))) targetFacts.add((String)entry.get("name"));
                 if (cpp.equals(entry.get("header")) && ("target_fact".equals(entry.get("support_status")) && targetFactAvailable(profile, entry.get("name"))
                         || "compiler_intrinsic".equals(entry.get("support_status")) && targetFactAvailable(profile, entry.get("name"))
@@ -151,6 +159,7 @@ class StandardLibraryMacrosTest {
                 + "#include <csetjmp>\n#include <cstddef>\n#include <ciso646>\n", PlatformProfile.defaults());
         var names = result.definitions().stream().map(CppPreprocessor.Definition::name).toList();
         for (String name : List.of("LLONG_MAX", "ULLONG_MAX", "FLT_TRUE_MIN", "FLT_EVAL_METHOD", "DECIMAL_DIG", "FLT_DECIMAL_DIG",
-                "va_start", "va_arg", "va_end", "va_copy", "setjmp", "offsetof", "and", "or", "not")) assertFalse(names.contains(name), name);
+                "va_start", "va_arg", "va_end", "va_copy", "setjmp", "and", "or", "not")) assertFalse(names.contains(name), name);
+        assertTrue(result.definitions().stream().filter(d -> d.name().equals("offsetof")).allMatch(d -> d.unavailableReason() != null));
     }
 }
