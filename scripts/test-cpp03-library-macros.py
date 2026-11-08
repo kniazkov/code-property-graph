@@ -181,6 +181,43 @@ class MacroInventoryTest(unittest.TestCase):
                 row[field] = wrong
                 self.assertTrue(checker.check(data))
 
+    def test_disposition_exact_capability_type_value(self):
+        for name in ('SIG_DFL', 'SIG_IGN', 'SIG_ERR'):
+            for field, value in [('profile_setting', 'cRuntime'), ('supported_value', 'glibc'),
+                    ('handler_type', 'int'), ('sentinel_value', '2'), ('sentinel_value', 0),
+                    ('unknown_behavior', ''), ('abi_scope', ''), ('extra', True)]:
+                with self.subTest(name=name, field=field):
+                    data = copy.deepcopy(self.data)
+                    row = next(e for e in data['entries'] if e['name'] == name)
+                    row['runtime_binding'][field] = value
+                    self.assertTrue(checker.check(data))
+
+    def test_disposition_rejects_missing_fields(self):
+        for name in ('SIG_DFL', 'SIG_IGN', 'SIG_ERR'):
+            row = next(e for e in self.data['entries'] if e['name'] == name)
+            for field in row['runtime_binding']:
+                with self.subTest(name=name, field=field):
+                    data = copy.deepcopy(self.data)
+                    entry = next(e for e in data['entries'] if e['name'] == name)
+                    del entry['runtime_binding'][field]
+                    self.assertTrue(checker.check(data))
+
+    def test_disposition_does_not_become_integer_fact(self):
+        for field, value in [('support_status', 'target_fact'), ('required_in_if', 'yes'),
+                             ('macro_kind', 'function'), ('header', 'cstdio')]:
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                row = next(e for e in data['entries'] if e['name'] == 'SIG_DFL')
+                row[field] = value
+                self.assertTrue(checker.check(data))
+
+    def test_disposition_values_cannot_be_swapped(self):
+        data = copy.deepcopy(self.data)
+        for row in data['entries']:
+            if row['name'] == 'SIG_DFL': row['runtime_binding']['sentinel_value'] = '1'
+            if row['name'] == 'SIG_IGN': row['runtime_binding']['sentinel_value'] = '0'
+        self.assertTrue(checker.check(data))
+
 
 if __name__ == '__main__':
     unittest.main()
