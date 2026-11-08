@@ -5,10 +5,9 @@
 This packet extends the selected offsetof subset to already materialized,
 complete concrete POD template instances and bounded context-local sizeof
 dependencies, including unions. Independent review approved the frozen production
-with 71 unit tests and two native IT, including the unchanged 14 SequenceFlow
-tests. Strict JavaDoc passed on the same manifest. Clean expanded verification passed 444 distinct unit tests and 17 IT in 5:11,
-with zero failures, errors or skips. Full Maven and exact-head CI remain
-separate pending gates.
+with 78 affected unit tests and two native IT. Strict JavaDoc passed on the
+same corrected manifest. A clean run passed all 1411 unit tests and 13 selected IT in 8:50, with zero
+failures, errors or skips. Full Maven and exact-head CI remain separate gates.
 
 The inventory obligation remains open/partial. Totals remain 97 bounded
 obligations / 90 names and five open obligations / five names. #92 and #48 remain
@@ -55,7 +54,10 @@ Identity-preserving parser syntax copying fixes scalar and array typedef
 arguments, including Shape and Shape*. Alias preservation is restricted to
 caller argument aliases
 in derived ClassTemplateInstance syntax, excluding primary-template and
-catalogue placeholders. Generic matching
+catalogue placeholders and aliases whose canonicalType is OpaqueLibraryType.
+Abstract catalogue resolution follows its existing path. This correction
+addresses VectorIteratorResolutionTest.nestedRangeDefaultsAndReverseIteratorKeepPortableTypes,
+which failed on the earlier local full run and initial PR CI. Generic matching
 is unchanged. The regression distinguishes outer int offset 4 from inner long
 offset 8 across copies, reanalysis and FOLDED output; editing the inner long to
 short rebuilds offset 2 while the outer offset remains 4. This is a narrow
@@ -78,7 +80,7 @@ Final tests include analysis/OffsetofContextsTest.java,
 model/ParserSyntaxCopyTest.java and analysis/OffsetofAliasScopeTest.java,
 plus e2e/OffsetofContextsIT.java, all under src/test/java/com/kniazkov/cpg.
 Frozen production manifest SHA256:
-`65f8f3476bfd17fc9f319e9593ffcf44ad1c97b0500caeb2a8b04e19965f20d8`.
+`d488afc7872783ff0db1f157fdcd1dd256189f29f9dfc0f69c9ba636fccfa2ec`.
 
 ## Historical basis
 
@@ -94,22 +96,23 @@ Original reviewed source hash:
 `6314a2a25dad5a7ed43559261767ac51226113a0954aade3d8f24b35b9ff981a`.
 Original paragraph hashes and coordinates remain unchanged.
 
-## Focused execution and native evidence
+## Final checkpoint and native evidence
 
-The clean expanded command passed 444 distinct units and 17 IT in 5:11, with
-zero failures, errors or skips. Independent review passed 71 units and two
-native IT on the same frozen production, including the unchanged 14 SequenceFlow
-tests. Independent and earlier overlapping checks are not added to the expanded
-counts. Strict JavaDoc also passed on this manifest.
+The clean command passed all 1411 unit tests and 13 selected IT in 8:50, with
+zero failures, errors or skips. Independent review passed 78 affected units and
+two native IT on the same corrected manifest. Strict JavaDoc also passed.
+Overlapping earlier checks are not added to these counts. Only the NameResolver
+predicate changed for this correction; existing VectorIteratorResolutionTest
+and SequenceFlow tests were unchanged.
 
 Run from the repository with the configured Java/Maven and GCC/Clang toolchain:
 
 ```sh
-mvn -o -B clean -Dtest=OffsetofAliasScopeTest,DeclaratorTest,ParserSyntaxCopyTest,OffsetofContextsTest,OffsetofRuntimeTest,PodLayoutTest,AggregateLayoutSemanticsTest,InvalidConstantEvaluationTest,TypedConstantFoldingTest,PlatformProfileTest,ProfileTypeSemanticsTest,JsonExportTest,StandardLibraryMacrosTest,MacroSourceTest,SharedSourceRequirementsTest,ClassInitializationSemanticsTest,ClassInitializationParserTest,ClassTemplateSemanticsTest,TemplateTypeIdentityTest,TemplateInstanceTest,TemplateInstantiationExportTest,TemplateInstantiationSemanticsTest,TemplateSyntaxTest,TemplateSpecializationSyntaxTest,TemplateExportTest,TemplateOrderingTest,MemberAddressTemplateDeductionTest,FunctionTemplateDeclarationTest,FlowTest,CallSiteDataFlowTest,ReferenceBindingDataFlowTest,ObjectMemoryDataFlowTest,ExpandedExpressionDataFlowTest,ContainerFamilyFlowTest,SequenceFlowTest,DynamicArrayFlowTest,DynamicArrayAccessFlowTest,LibraryUnknownEffectsTest,UnreadWritesTest,LibraryExternalObjectsTest -Dit.test=OffsetofContextsIT,OffsetofRuntimeIT,PodLayoutIT,PackagedCliIT,MacroEditingIT,LibraryMacrosIT,PlatformDeclaratorsIT -DargLine=-Xmx768m verify
+mvn -o -B clean -Dit.test=OffsetofContextsIT,OffsetofRuntimeIT,MacroEditingIT,PackagedCliIT -DargLine=-Xmx768m verify
 ```
 
 Packaged JAR SHA256:
-`d2fc7f2a7e37114f2b69a8f8c61e1a66cd2f992494ea789d6030d616991490f3`.
+`189b28ea542e1bea3e2a697f3bacc453e9559f13d1e5c29b144a04bfead27910`.
 
 Fresh artifacts under target/offsetof-context-oracle contain 60 records:
 44 matrix records and 16 direct/Shape-alias specialization-reselection records.
@@ -133,8 +136,9 @@ acceptance does not replace these gates. offsetof remains open/partial with
 unchanged support counts and explicit residual implementation work. Original
 source anchors and previous verification reports remain unchanged.
 
-Прошли 444 различных unit-теста и 17 IT за 5:11 без ошибок и пропусков.
-Независимые 71 unit-тест и два IT перекрывают этот набор и не увеличивают число.
+Исправленный снимок прошёл все 1411 unit-тестов и 13 выбранных IT за 8:50
+без ошибок и пропусков. Независимые 78 unit-тестов и два IT перекрывают этот
+набор и не увеличивают число.
 Проверены конкретные POD-инстанцирования, локальный sizeof объединений,
 материализация CPG и реальные правки. Общая поддержка шаблонов и ABI не
 заявляется. offsetof остаётся open/partial: 97 обязательств / 90 имён с
