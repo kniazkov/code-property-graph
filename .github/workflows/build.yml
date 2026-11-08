@@ -51,3 +51,4 @@ jobs:
             target/clock-scale-oracle/
             target/huge-val-oracle/
             target/signal-dispositions-oracle/
+            target/pod-layout-oracle/

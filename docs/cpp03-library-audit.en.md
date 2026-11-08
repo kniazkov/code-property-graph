@@ -461,3 +461,22 @@ open precision gaps; no complete ISO callback or asynchronous runtime model is
 claimed. The inventory has 97 bounded obligations/90 names, five open obligations/
 five names. [Evidence and pending merge gates](cpp03-signal-dispositions-verification.md).
 Prior counts remain historical; #92 and #48 remain open.
+
+## POD/member/layout preparation for offsetof (#92)
+
+Package-private PodLayout now queries conservative POD eligibility, member paths
+and union-aware recursive layout under existing explicit target policies. It
+returns a justified result or typed failure, not a guessed host offset. The
+query is separate from generic aggregate classification and does not broaden
+unrelated sizeof behavior. Enum/member-pointer/template layouts and bounds
+requiring sizeof(union) remain unsupported; valid C++03 cases outside the subset
+are not language errors.
+
+Results exceeding explicit size_t representability return SIZE_NOT_REPRESENTABLE.
+This necessary bound does not certify compiler maximum object sizes.
+Focused checks passed 226 units and five IT, including an independent native
+layout oracle and meaningful field edits. Native host offsetof is not CPG macro
+support. No new macro, builtin, parser or node is enabled; offsetof remains open
+and unavailable. Inventory totals stay 97 bounded obligations/90 names and five
+open obligations/five names. [Evidence and remaining gates](cpp03-offset-layout-verification.md).
+#92 and #48 remain open; previous packet reports retain their historical scope.
