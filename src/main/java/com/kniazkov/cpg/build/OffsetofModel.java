@@ -5,23 +5,35 @@ import java.math.BigInteger;
 import java.util.*;
 
 /** Caller-selected layout contract, not host detection or a compiler allocation guarantee. */
-public record OffsetofModel(String emission, String layout, BigInteger supportedObjectBytes) {
+public record OffsetofModel(String emission, String layout, BigInteger supportedObjectBytes,
+        String memberPointerStorage) {
     private static final BigInteger MAXIMUM = BigInteger.valueOf(2147483647L);
+    /** Existing callers do not opt in to any member-pointer representation. */
+    public OffsetofModel(String emission, String layout, BigInteger supportedObjectBytes) {
+        this(emission, layout, supportedObjectBytes, null);
+    }
     public OffsetofModel {
         if (!"gcc-clang-builtin".equals(emission) || !"x86_64-sysv-lp64-v1".equals(layout))
             throw invalid("requires gcc-clang-builtin emission and x86_64-sysv-lp64-v1 layout");
         if (supportedObjectBytes == null || supportedObjectBytes.signum() <= 0 || supportedObjectBytes.compareTo(MAXIMUM) > 0)
             throw invalid("supportedObjectBytes must be between 1 and 2147483647; this is a supported-subset ceiling, not a compiler maximum");
+        if (memberPointerStorage != null && !memberPointerStorage.equals("itanium-x86_64-lp64-v1"))
+            throw invalid("memberPointerStorage must be itanium-x86_64-lp64-v1 when supplied");
     }
     public static OffsetofModel parse(String emission, String layout, String decimal) {
+        return parse(emission, layout, decimal, null);
+    }
+    public static OffsetofModel parse(String emission, String layout, String decimal, String memberPointerStorage) {
         if (decimal == null || !decimal.matches("[1-9][0-9]*"))
             throw invalid("supportedObjectBytes must be a positive canonical decimal string");
-        return new OffsetofModel(emission, layout, new BigInteger(decimal));
+        return new OffsetofModel(emission, layout, new BigInteger(decimal), memberPointerStorage);
     }
     public Map<String,String> settings() {
         var result = new LinkedHashMap<String,String>();
         result.put("emission", emission); result.put("layout", layout);
         result.put("supportedObjectBytes", supportedObjectBytes.toString());
+        // Absence preserves canonical settings and identity of existing profiles.
+        if (memberPointerStorage != null) result.put("memberPointerStorage", memberPointerStorage);
         return Collections.unmodifiableMap(result);
     }
     void validate(PlatformProfile profile) {

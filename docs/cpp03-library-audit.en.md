@@ -537,3 +537,27 @@ offsetof stays open/partial, with 97 bounded obligations / 90 names and five
 open obligations / five names. The preceding builtin section is historical.
 [Current evidence and gates](cpp03-offsetof-contexts-verification.md).
 #92 and #48 remain open.
+
+
+## Selected member-pointer storage for offsetof (#92, partial)
+
+The optional memberPointerStorage="itanium-x86_64-lp64-v1" setting independently
+selects data-member pointer storage 8/8 bytes and member-function pointer storage
+16/8 bytes (size/alignment). A pointer to a function-pointer data member uses
+8/8. Omission remains unsupported; ordinary-pointer width, glibc and host
+properties do not enable it. No member-pointer value, encoding or call is modeled.
+
+Known incomplete, non-POD or oversized owner bodies and parameter/return class
+bodies need not be laid out or fit the query budget. Written type/signature and
+template syntax must still resolve; its sizeof/constant dependencies remain
+bounded and survive folding. An edit crossing the ceiling is rejected. Owner
+identity alone is not unconditional acceptance. Enum storage and bitfields
+remain outside this packet; original C++03 enum semantics are unchanged.
+
+The clean gate passed all 1422 units and 15 explicitly selected IT in 09:54,
+with zero failures, errors or skips, including 44 fresh native records.
+Independent 11-unit/two-IT checks overlap and are not summed. Full Maven and
+exact-head CI remain separate pending gates. offsetof remains open/partial; totals stay
+97 bounded obligations / 90 names and five open obligations / five names.
+[Current evidence and gates](cpp03-member-pointer-layout-verification.md).
+Previous sections are historical stages. #92 and #48 remain open.

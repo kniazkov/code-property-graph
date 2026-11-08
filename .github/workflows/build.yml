@@ -54,3 +54,4 @@ jobs:
             target/pod-layout-oracle/
             target/offsetof-oracle/
             target/offsetof-context-oracle/
+            target/member-pointer-layout-oracle/
