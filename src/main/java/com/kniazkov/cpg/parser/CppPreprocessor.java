@@ -759,6 +759,21 @@ public final class CppPreprocessor {
                             "Library macro WEOF requires an explicit wideInteger target model"));
                 }
             }
+            if (canonical.equals("csignal")) for (String name : List.of("SIG_DFL", "SIG_IGN", "SIG_ERR")) {
+                boolean available = !unit.platform().signalDispositionBinding().equals("unavailable");
+                String value = name.equals("SIG_DFL") ? "0" : name.equals("SIG_IGN") ? "1" : "-1";
+                String file = unit.directory().resolve("<cpg-library:" + header + ":" + name + ">").toString();
+                String source = name + " " + (available ? "((void (*)(int)) " + value + ")" : "");
+                definitionSources.put(file, source);
+                define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                        "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":" + name);
+                if (!available) {
+                    Definition d = definitions.getLast();
+                    definitions.set(definitions.size() - 1, new Definition(d.id(), d.name(), false, List.of(),
+                            d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(),
+                            "Library macro " + name + " requires explicit signalDispositionBinding=glibc-x86_64-lp64"));
+                }
+            }
             if (canonical.equals("cerrno")) {
                 boolean available = unit.platform().cRuntime().equals("glibc");
                 String file = unit.directory().resolve("<cpg-library:" + header + ":errno>").toString();

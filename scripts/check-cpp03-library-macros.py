@@ -66,6 +66,19 @@ def check(data, root=ROOT):
             binding = entry.get('runtime_binding', {})
             require(all(binding.get(k) for k in ('profile_setting', 'supported_value', 'unknown_behavior', 'abi_scope')),
                     label + ': runtime binding needs explicit selection and ABI/unknown boundaries')
+        if entry['name'] in ('SIG_DFL', 'SIG_IGN', 'SIG_ERR') and entry.get('support_status') != 'open':
+            binding = entry.get('runtime_binding', {})
+            require(entry.get('support_status') == 'runtime_binding' and entry['header'] == 'csignal'
+                    and entry.get('macro_kind') == 'object' and entry.get('required_in_if') == 'no',
+                    label + ': disposition must retain pointer runtime-binding scope')
+            require(set(binding) == {'profile_setting', 'supported_value', 'handler_type',
+                    'sentinel_value', 'unknown_behavior', 'abi_scope'},
+                    label + ': disposition needs exact closed metadata')
+            require(binding.get('profile_setting') == 'signalDispositionBinding' and
+                    binding.get('supported_value') == 'glibc-x86_64-lp64' and
+                    binding.get('handler_type') == 'void (*)(int)' and
+                    binding.get('sentinel_value') == {'SIG_DFL': '0', 'SIG_IGN': '1', 'SIG_ERR': '-1'}[entry['name']],
+                    label + ': incompatible disposition capability/type/value')
         if entry.get('support_status') == 'compiler_intrinsic':
             capability = entry.get('compiler_intrinsic', {})
             require(set(capability) == {'profile_setting', 'kind', 'emission', 'cpp_type',
