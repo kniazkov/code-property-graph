@@ -7,6 +7,7 @@ import com.kniazkov.cpg.model.*;
 import com.kniazkov.cpg.serialization.ProjectJson;
 import com.kniazkov.json.Json;
 import java.nio.file.*;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,9 @@ class StrstreamLibraryIT {
                 assertTrue(call.target().orElseThrow().body().isEmpty());
     }
     @Test void runtimeSurvivesGreenFoldedCliJsonAndNativeGeneration() throws Exception {
-        var cli = new CliSandbox(temp).source("main.cpp", Files.readString(Path.of("src/test/resources/library-catalogue/strstream-runtime.cpp")));
+        // These template-heavy CLI children measure about 30 seconds in isolation;
+        // allow whole-suite runner variation without changing any correctness checks.
+        var cli = new CliSandbox(temp, Duration.ofSeconds(90)).source("main.cpp", Files.readString(Path.of("src/test/resources/library-catalogue/strstream-runtime.cpp")));
         nativePrograms(cli.input);
         for (var stage : List.of(Cpg.Stage.GREEN, Cpg.Stage.FOLDED)) {
             var project = Cpg.read(cli.input, new Cpg.Options(Language.CPP, stage, "c++03"));
