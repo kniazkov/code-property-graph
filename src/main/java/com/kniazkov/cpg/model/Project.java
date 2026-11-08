@@ -805,6 +805,7 @@ public final class Project extends Node {
             @Override public void visit(NamedType type) { type.invalidateTemplateTargets(discarded); }
             @Override public void visit(NameExpression name) { name.invalidateTemplateTargets(discarded); }
             @Override public void visit(MemberExpression member) { member.invalidateTemplateTargets(discarded); }
+            @Override public void visit(OffsetofExpression.Member member) { member.invalidateTemplateTargets(discarded); }
         }));
         templateInstances = List.of(); classTemplateInstances = List.of(); instanceSyntax = null;
         return discarded;

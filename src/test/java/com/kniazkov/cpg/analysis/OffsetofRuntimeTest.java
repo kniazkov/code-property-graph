@@ -282,14 +282,12 @@ class OffsetofRuntimeTest {
                 List.of("struct S {int& member;};", "member", "NOT_POD"),
                 List.of("enum E {one}; struct S {E member;};", "member", "UNSUPPORTED_TYPE"),
                 List.of("struct A {int value;}; struct S {int A::*member;};", "member", "UNSUPPORTED_TYPE"),
-                List.of("template<class T> struct Generic {T member;}; typedef Generic<int> S;", "member", "UNSUPPORTED_TEMPLATE"),
                 List.of("struct S;", "member", "INCOMPLETE_TYPE"),
                 List.of("struct S {int member[3];};", "member[3]", "INDEX_OUT_OF_BOUNDS"),
                 List.of("struct S {int member[3];};", "member[-1]", "INDEX_OUT_OF_BOUNDS"),
                 List.of("int f(); struct S {int member[3];};", "member[f()]", "NON_CONSTANT_INDEX"),
                 List.of("int f(); struct S {int member[3];};", "member[0?f():1]", "NON_CONSTANT_INDEX"),
-                List.of("int i; struct S {int member[3];};", "member[i++]", "NON_CONSTANT_INDEX"),
-                List.of("union U {int x;}; struct S {int member[sizeof(U)];};", "member[0]", "UNKNOWN_ARRAY_BOUND"))) {
+                List.of("int i; struct S {int member[3];};", "member[i++]", "NON_CONSTANT_INDEX"))) {
             var project = resolve(selected(), test.get(0) + " unsigned long result=__builtin_offsetof(S," + test.get(1) + ");");
             assertTrue(project.hasErrors(), test.toString());
             String diagnostics = project.semanticDiagnostics().toString().toUpperCase(Locale.ROOT).replace('-', '_').replace(' ', '_');

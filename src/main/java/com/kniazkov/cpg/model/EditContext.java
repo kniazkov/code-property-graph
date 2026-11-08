@@ -30,6 +30,14 @@ public final class EditContext {
 
     private final Map<Expression, List<ProjectEditor.ConversionStep>> conversions;
 
+    /** A parser occurrence owns new syntax but shares references with its assembly. */
+    static EditContext syntaxCopy(Map<Node, NodeBuilder<?>> external) {
+        var context = new EditContext();
+        context.independentLineage = true;
+        context.builders.putAll(external);
+        return context;
+    }
+
     public EditContext() {
         this(Map.of(), java.util.Set.of());
     }

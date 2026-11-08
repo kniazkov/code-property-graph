@@ -334,14 +334,13 @@ final class TypeParser {
         if (target != null) leaf.setAlias(target);
         if (elaboratedKeyword != null) leaf.setElaboratedKeyword(elaboratedKeyword);
         final String spelling = name, keyword = elaboratedKeyword;
-        final NamedType syntax = leaf.build();
         final TypedefDeclaration.Builder binding = target;
         final boolean c = constant, v = vol;
         // Every declarator owns fresh syntax; alias targets deliberately remain shared references.
         final var range = leaf.build().range();
         final var provenance = leaf.build().provenance();
         Supplier<NodeBuilder<? extends TypeNode>> supplier = () -> {
-            var named = syntax.edit();
+            var named = (NamedType.Builder) leaf.copySyntax();
             if (binding != null) named.setAlias(binding);
             if (keyword != null) named.setElaboratedKeyword(keyword);
             range.ifPresent(named::setRange); provenance.ifPresent(named::setProvenance);
@@ -532,36 +531,10 @@ final class TypeParser {
     }
     @SuppressWarnings("unchecked")
     private NodeBuilder<? extends Expression> copyExpression(NodeBuilder<? extends Expression> expression) {
-        return (NodeBuilder<? extends Expression>) expression.build().edit();
+        return expression.copySyntax();
     }
     private NodeBuilder<? extends TypeNode> copyType(NodeBuilder<? extends TypeNode> type) {
-        if (type instanceof NamedType.Builder name) {
-            var result = name.build().edit();
-            name.alias().ifPresent(result::setAlias); name.declaration().ifPresent(result::setDeclaration);
-            name.elaboratedKeyword().ifPresent(result::setElaboratedKeyword);
-            return result;
-        }
-        if (type instanceof PointerType.Builder pointer) return PointerType.create().setPointee(copyType(pointer.pointee().orElseThrow()));
-        if (type instanceof ReferenceType.Builder reference) return ReferenceType.create().setReferredType(copyType(reference.referredType().orElseThrow()));
-        if (type instanceof QualifiedType.Builder qualified) return QualifiedType.create().setBaseType(copyType(qualified.baseType().orElseThrow())).setConst(qualified.isConst()).setVolatile(qualified.isVolatile());
-        if (type instanceof MemberPointerType.Builder pointer) return MemberPointerType.create().setOwnerType(copyType(pointer.ownerType().orElseThrow())).setPointee(copyType(pointer.pointee().orElseThrow()));
-        if (type instanceof ArrayType.Builder array) {
-            var result = ArrayType.create().setElementType(copyType(array.elementType().orElseThrow()));
-            array.bound().ifPresent(bound -> result.setBound(copyExpression(bound))); return result;
-        }
-        if (type instanceof FunctionType.Builder function) {
-            var result = FunctionType.create().setReturnType(copyType(function.returnType().orElseThrow()))
-                    .setVariadic(function.variadic()).setConst(function.isConst()).setVolatile(function.isVolatile());
-            result.setHasExceptionSpecification(function.hasExceptionSpecification());
-            result.setExceptionTypes(function.exceptionTypes().stream().map(this::copyType).toList());
-            for (var parameter : function.parameters()) {
-                var original = (ParameterDeclaration.Builder) parameter;
-                result.addParameter(ParameterDeclaration.create().setName(original.name().orElse(""))
-                        .setModifiers(original.modifiers()).setType(copyType(original.type().orElseThrow())));
-            }
-            return result;
-        }
-        throw new IllegalArgumentException("Unsupported type syntax " + type.getClass().getName());
+        return type.copySyntax();
     }
 
     /** Dynamic exception specifications are syntax, not part of a C++03 function type identity. */
