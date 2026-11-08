@@ -175,6 +175,11 @@ public final class ConstantFolder {
             if (type instanceof QualifiedType qualified) type(qualified.baseType());
             else if (type instanceof ArrayType array) { type(array.elementType()); array.bound().ifPresent(this::constant); }
             else if (type instanceof ReferenceType reference) type(reference.referredType());
+            else if (type instanceof MemberPointerType pointer) {
+                // Preserve category aliases and written constant dependencies, but
+                // neither owner bodies nor by-value layouts affect this storage.
+                argumentSyntax(pointer.ownerType()); argumentSyntax(pointer.pointee());
+            }
             else if (type instanceof NamedType named) {
                 if (named.alias().isPresent()) type(named.alias().orElseThrow().type());
                 else if (named.declaration().orElse(null) instanceof ClassDeclaration owner) {

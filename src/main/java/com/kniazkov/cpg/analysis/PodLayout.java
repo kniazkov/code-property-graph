@@ -11,7 +11,8 @@ import java.util.function.Function;
  * A deliberately bounded, snapshot-local query under an explicit target layout policy.
  * This neither changes generic sizeof/aggregate semantics nor certifies a compiler ABI.
  * Failure means this query cannot justify a result, not necessarily invalid C++03.
- * Enums, member pointers, unresolved templates and bit-fields remain unsupported. Ordinary methods
+ * Enums, unresolved templates and bit-fields remain unsupported. Member pointers require
+ * their own explicitly selected storage contract. Ordinary methods
  * and static data do not affect the layout; user special members and non-POD subobjects do.
  * No source nodes, implicit declarations, persistent caches or host facts are created.
  * Bounds and indices use the existing ICE evaluator, with declaration values available
@@ -167,8 +168,7 @@ final class PodLayout {
             try {
                 if (type instanceof QualifiedType qualified) return type(qualified.baseType(), checkCompleteness);
                 if (type instanceof ReferenceType) return failure(Reason.NOT_POD, "A reference is not a POD object subobject");
-                if (type instanceof MemberPointerType)
-                    return failure(Reason.UNSUPPORTED_TYPE, "No member-pointer ABI is supported by this query");
+                if (type instanceof MemberPointerType pointer) return memberPointer(pointer);
                 // A pointer's representation does not require its pointee's layout or completeness.
                 if (type instanceof PointerType) return scalar("pointer");
                 if (type instanceof ArrayType array) {
@@ -326,6 +326,55 @@ final class PodLayout {
             if (size.isEmpty() || alignment.isEmpty())
                 return failure(Reason.UNKNOWN_LAYOUT, "Explicit size and alignment are required for " + spelling);
             return layoutValue(BigInteger.valueOf(size.getAsInt()), alignment.getAsInt(), List.of());
+        }
+
+        /** Storage depends on the resolved category, not an owner's object layout,
+         * pointee size, function body or ordinary pointer representation. */
+        private Result<Layout> memberPointer(MemberPointerType pointer) {
+            if (profile.offsetof().map(model -> model.memberPointerStorage() != null).orElse(false) == false)
+                return failure(Reason.UNSUPPORTED_TYPE, "Member-pointer storage requires an explicit offsetof.memberPointerStorage contract");
+            var owner = memberShape(pointer.ownerType());
+            if (!owner.supported()) return propagate(owner);
+            if (!(owner.value().orElseThrow() instanceof NamedType name)
+                    || !(name.declaration().orElse(null) instanceof ClassDeclaration))
+                return failure(Reason.UNSUPPORTED_TYPE, "A member pointer needs a resolved class owner");
+            var pointee = memberShape(pointer.pointee());
+            if (!pointee.supported()) return propagate(pointee);
+            TypeNode category = pointee.value().orElseThrow();
+            if (category instanceof ReferenceType || category instanceof NamedType named
+                    && named.fundamentalKind().orElse(null) == FundamentalKind.VOID)
+                return failure(Reason.UNSUPPORTED_TYPE, "A member pointer needs an object or function member type");
+            if (!resolvedArgumentSyntax(pointer, Collections.newSetFromMap(new IdentityHashMap<>())))
+                return failure(Reason.UNSUPPORTED_TYPE, "Member-pointer owner and member type syntax must be resolved in this snapshot");
+            // Written bounds and template arguments can contain sizeof dependencies.
+            // Check those with the enclosing guards, without traversing owner bodies.
+            if (!argumentSyntax(pointer, Collections.newSetFromMap(new IdentityHashMap<>())))
+                return constantFailure(Reason.UNSUPPORTED_TYPE, "Member-pointer type dependencies are outside the bounded context");
+            if (!(category instanceof FunctionType || category instanceof NamedType || category instanceof PointerType
+                    || category instanceof MemberPointerType || category instanceof ArrayType))
+                return failure(Reason.UNSUPPORTED_TYPE, "No resolved member-pointer storage category");
+            return layoutValue(BigInteger.valueOf(category instanceof FunctionType ? 16 : 8), 64, List.of());
+        }
+        /** Follow only cv/typedef edges, retaining cycle and snapshot guards. Identity
+         * lookup is not by-value layout recursion: the owner can be the enclosing type,
+         * even when a graph reuses that exact TypeNode. */
+        private Result<TypeNode> memberShape(TypeNode type) {
+            Set<TypeNode> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+            while (seen.add(type)) {
+                if (type instanceof QualifiedType qualified) { type = qualified.baseType(); continue; }
+                if (type instanceof NamedType named) {
+                    if (templateName(named)) return failure(Reason.UNSUPPORTED_TEMPLATE, "Member-pointer type is not fully resolved");
+                    if (named.alias().isPresent()) {
+                        TypedefDeclaration alias = named.alias().orElseThrow();
+                        if (!owned(alias)) return failure(Reason.UNSUPPORTED_TYPE, "Member-pointer typedef is outside the supplied snapshot");
+                        type = alias.type(); continue;
+                    }
+                    if (named.declaration().isPresent() && !owned(named.declaration().orElseThrow()))
+                        return failure(Reason.UNSUPPORTED_TYPE, "Member-pointer declaration is outside the supplied snapshot");
+                }
+                return success(type);
+            }
+            return failure(Reason.RECURSIVE_TYPE, "Cyclic member-pointer type or typedef dependency");
         }
 
         private Result<Layout> owner(ClassDeclaration owner) {
