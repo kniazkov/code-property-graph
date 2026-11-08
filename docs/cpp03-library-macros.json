@@ -2171,9 +2171,11 @@
       "tests": [
         "src/test/java/com/kniazkov/cpg/analysis/OffsetofRuntimeTest.java",
         "src/test/java/com/kniazkov/cpg/e2e/OffsetofRuntimeIT.java",
-        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java"
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/analysis/OffsetofContextsTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/OffsetofContextsIT.java"
       ],
-      "support_boundary": "Selected operand-bearing builtin implementation is partial/open. Final focused acceptance passed 325 distinct units and 15 IT, plus an overlapping 8-unit/two-IT provenance rerun. Explicit layout capability, snapshot-owned ICE context and dependency ceiling are required; whole/transitive syntax remains live through folding. Active pragmas/operators except exact once are capability-scoped unsupported cases; inactive directives remain allowed. Non-POD sizeof dependencies and excluded valid POD enum/member-pointer/template/sizeof-union cases remain subset limitations. No support-count promotion or universal compiler-size guarantee; full/CI pending.",
+      "support_boundary": "Selected operand-bearing builtin implementation remains partial/open. The context extension admits selected materialized complete concrete POD template instances and query-local supported union sizeof without changing generic sizeof. Written argument/default and relevant specialization-header dependencies remain live across folding and edits. Final context acceptance passed 444 distinct units and 17 IT, including narrow typedef ownership/alias-binding corrections; previous 325-unit/15-IT evidence describes the earlier builtin stage. Full Maven/CI remain separate pending gates. Explicit layout, snapshot/cycle/ceiling and pragma/operator guards remain required. Unsupported generic instantiation, enum/member-pointer layout and non-POD dependencies remain explicit limits. Counts stay unchanged; #92/#48 remain open.",
       "partial_implementation": {
         "profile_setting": "offsetof",
         "emission": "gcc-clang-builtin",
@@ -2183,7 +2185,7 @@
         "ceiling_max": "2147483647",
         "completion": "partial_open",
         "unknown_behavior": "Missing/empty capability remains unavailable; selected definitions do not count as complete standards support. Actual headers retain authority.",
-        "support_boundary": "Explicit exact scalar size/alignment and natural-layout contract; no cRuntime/floating-format dependency. Ceiling is a software-supported subset and applies across relevant dependencies, not a universal compiler maximum. Valid POD enum/member-pointer/template and sizeof-union-dependent cases remain outside supported helper scope."
+        "support_boundary": "Explicit exact scalar size/alignment and natural-layout contract; no cRuntime/floating-format dependency. Ceiling applies across relevant dependencies and is not a universal compiler maximum. The context extension covers selected materialized complete concrete POD instances and bounded union sizeof, verified by final focused acceptance. Unresolved/dependent/failed/incomplete instances, unsupported generic instantiation and enum/member-pointer/non-POD dependencies remain outside the subset."
       }
     },
     {
