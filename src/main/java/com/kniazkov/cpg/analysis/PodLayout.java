@@ -11,12 +11,12 @@ import java.util.function.Function;
  * A deliberately bounded, snapshot-local query under an explicit target layout policy.
  * This neither changes generic sizeof/aggregate semantics nor certifies a compiler ABI.
  * Failure means this query cannot justify a result, not necessarily invalid C++03.
- * Enums, member pointers, templates and bit-fields remain unsupported. Ordinary methods
+ * Enums, member pointers, unresolved templates and bit-fields remain unsupported. Ordinary methods
  * and static data do not affect the layout; user special members and non-POD subobjects do.
  * No source nodes, implicit declarations, persistent caches or host facts are created.
  * Bounds and indices use the existing ICE evaluator, with declaration values available
- * only when a Project is supplied. In particular, sizeof of a union remains unavailable
- * to that evaluator even though this separate query can describe the union's layout.
+ * only when a Project is supplied. A selected offsetof context evaluates sizeof through
+ * this bounded query; ordinary/context-free sizeof semantics remain unchanged.
  */
 final class PodLayout {
     private PodLayout() {}
@@ -102,6 +102,9 @@ final class PodLayout {
         private final IntegralConstants context;
         private Failure dependencyFailure;
         private final Set<Declaration> declarations;
+        private final Map<ClassDeclaration, ClassTemplateInstance> concreteTemplates = new IdentityHashMap<>();
+        private final Map<ClassDeclaration, List<ClassDeclaration>> selectionHeaders;
+        private final Set<ClassDeclaration> activeTemplateArguments = Collections.newSetFromMap(new IdentityHashMap<>());
         private final Map<EnumeratorDeclaration, EnumDeclaration> enumOwners = new IdentityHashMap<>();
         private final Set<TypeNode> activeTypes;
         private final List<ClassDeclaration> activeClasses;
@@ -112,8 +115,14 @@ final class PodLayout {
         Query(Project project, PlatformProfile profile, IntegralConstants constants, BigInteger ceiling) {
             this.profile = Objects.requireNonNull(profile); this.ceiling = ceiling;
             this.constants = constants; this.context = constants;
+            selectionHeaders = project == null ? Map.of() : ClassTemplateSemantics.layoutSelectionHeaders(project);
             activeTypes = constants.layoutGuards.activeTypes; activeClasses = constants.layoutGuards.activeClasses;
             declarations = project == null ? null : Collections.newSetFromMap(new IdentityHashMap<>());
+            if (project != null) project.classTemplateInstances().forEach(instance -> {
+                if (instance.declaration().isDefinition() && instance.declaration().templateParameters().isEmpty()
+                        && TypeSemantics.profile(instance.source()).equals(profile))
+                    concreteTemplates.put(instance.declaration(), instance);
+            });
             if (project != null) project.walk(new NodeVisitor() {
                 @Override public void visit(Declaration declaration) { declarations.add(declaration); }
                 @Override public void visit(EnumDeclaration enumeration) {
@@ -193,13 +202,110 @@ final class PodLayout {
                     return kind == FundamentalKind.VOID
                             ? failure(Reason.UNSUPPORTED_TYPE, "void has no POD object representation") : scalar(kind.spelling());
                 }
-                if (target instanceof ClassDeclaration owner) return owner(definition(owner));
+                if (target instanceof ClassDeclaration owner) {
+                    ClassTemplateInstance instance = concreteTemplates.get(owner);
+                    if (instance != null) {
+                        var arguments = templateArguments(named, instance);
+                        if (arguments.isPresent()) return new Result<>(Optional.empty(), arguments);
+                    }
+                    return owner(definition(owner));
+                }
                 if (target instanceof EnumDeclaration) return failure(Reason.UNSUPPORTED_TYPE, "Enum field ABI is outside this query's supported subset");
                 return failure(Reason.UNSUPPORTED_TYPE, "No resolved supported object type for " + named.name());
             } finally { activeTypes.remove(type); }
         }
+        /** Instantiation normalizes non-type arguments to literals. Their written
+         * dependencies still belong to the bounded layout and cannot be skipped. */
+        private Optional<Failure> templateArguments(NamedType use, ClassTemplateInstance instance) {
+            if (!activeTemplateArguments.add(instance.declaration()))
+                return Optional.of(new Failure(Reason.RECURSIVE_TYPE, "Recursive concrete template argument dependency"));
+            try {
+                for (ClassDeclaration header : selectionHeaders.getOrDefault(instance.declaration(), List.of(instance.selected())))
+                    for (TemplateArgument argument : header.templateArguments())
+                        if (!headerSyntax(argument, Collections.newSetFromMap(new IdentityHashMap<>())))
+                            return Optional.ofNullable(dependencyFailure).or(() -> Optional.of(new Failure(Reason.UNSUPPORTED_TEMPLATE,
+                                    "Specialization header dependency is not certified by the bounded context")));
+                if (instance.arguments().stream().anyMatch(argument -> !resolvedArgument(argument)))
+                    return Optional.of(new Failure(Reason.UNSUPPORTED_TEMPLATE, "Template arguments are not fully resolved"));
+                List<NamedType> requests = instance.requests().stream().filter(NamedType.class::isInstance)
+                        .map(NamedType.class::cast).toList();
+                if (requests.isEmpty()) return Optional.of(new Failure(Reason.UNSUPPORTED_TEMPLATE, "Concrete template has no written type request"));
+                if (requests.contains(use)) requests = List.of(use);
+                for (NamedType request : requests) {
+                    for (TemplateArgument argument : request.templateArguments()) {
+                        if (!argumentSyntax(argument, Collections.newSetFromMap(new IdentityHashMap<>())))
+                            return Optional.ofNullable(dependencyFailure).or(() -> Optional.of(new Failure(
+                                    Reason.UNSUPPORTED_TEMPLATE, "Template argument dependency is not certified by the bounded context")));
+                    }
+                    for (int i = request.templateArguments().size(); i < instance.arguments().size(); i++) {
+                        if (i >= instance.origin().templateParameters().size())
+                            return Optional.of(new Failure(Reason.UNSUPPORTED_TEMPLATE, "No written default template argument"));
+                        var parameter = instance.origin().templateParameters().get(i);
+                        var argument = parameter.defaultArgument();
+                        if (argument.isEmpty()) return Optional.of(new Failure(Reason.UNSUPPORTED_TEMPLATE,
+                                "Default template argument provenance is not available on the selected primary"));
+                        if (!argumentSyntax(argument.orElseThrow(), Collections.newSetFromMap(new IdentityHashMap<>())))
+                            return Optional.ofNullable(dependencyFailure).or(() -> Optional.of(new Failure(
+                                    Reason.UNSUPPORTED_TEMPLATE, "Default template argument dependency is not certified by the bounded context")));
+                    }
+                }
+                return Optional.empty();
+            } finally { activeTemplateArguments.remove(instance.declaration()); }
+        }
+        /** Type arguments can contain constant syntax too (for example an array
+         * bound selecting a specialization). Follow syntax and typedefs, not object
+         * declarations or pointer-pointee layouts. */
+        private boolean argumentSyntax(Node node, Set<Node> active) {
+            if (!active.add(node)) return false;
+            try {
+                if (node instanceof Expression expression)
+                    return safeConstant(expression, Collections.newSetFromMap(new IdentityHashMap<>()));
+                if (node instanceof NamedType named && named.alias().isPresent()) {
+                    TypedefDeclaration alias = named.alias().orElseThrow();
+                    if (!owned(alias) || !argumentSyntax(alias.type(), active)) return false;
+                }
+                return node.children().stream().allMatch(child -> argumentSyntax(child, active));
+            } finally { active.remove(node); }
+        }
+
+        private boolean headerSyntax(Node node, Set<Node> active) {
+            if (node instanceof Expression && !TypeSemantics.dependent(node)) return argumentSyntax(node, active);
+            if (!active.add(node)) return false;
+            try {
+                if (node instanceof NamedType named && named.alias().isPresent()
+                        && !headerSyntax(named.alias().orElseThrow().type(), active)) return false;
+                return node.children().stream().allMatch(child -> headerSyntax(child, active));
+            } finally { active.remove(node); }
+        }
+
+        private boolean resolvedArgument(TemplateArgument argument) {
+            return resolvedArgumentSyntax(argument, Collections.newSetFromMap(new IdentityHashMap<>()));
+        }
+        /** A materialized argument may still hide a dependent typedef target.
+         * Inspect type syntax and exact alias edges, never class/pointee layout. */
+        private boolean resolvedArgumentSyntax(Node node, Set<Node> active) {
+            if (!active.add(node)) return false;
+            try {
+                if (TypeSemantics.dependent(node)) return false;
+                if (node instanceof NamedType named) {
+                    if (named.fundamentalKind().isEmpty() && named.alias().isEmpty() && named.declaration().isEmpty()) return false;
+                    if (named.alias().isPresent()) {
+                        TypedefDeclaration alias = named.alias().orElseThrow();
+                        if (!owned(alias) || !resolvedArgumentSyntax(alias.type(), active)) return false;
+                        // A namespace qualifier is not an object type. The exact owned
+                        // alias binding establishes its meaning; still check any written
+                        // argument syntax rather than demanding a layout for the qualifier.
+                        return named.templateArguments().stream().allMatch(argument -> resolvedArgumentSyntax(argument, active));
+                    }
+                    if (named.declaration().isPresent() && !owned(named.declaration().orElseThrow())) return false;
+                }
+                return node.children().stream().allMatch(child -> resolvedArgumentSyntax(child, active));
+            } finally { active.remove(node); }
+        }
+
         private boolean templateName(NamedType type) {
-            return type.dependent() || type.hasTemplateArguments() || type.templateKeyword()
+            return type.dependent() || (type.hasTemplateArguments() || type.templateKeyword())
+                    && !concreteTemplates.containsKey(type.declaration().orElse(null))
                     || type.declaration().orElse(null) instanceof TemplateParameterDeclaration
                     || type.qualifier().map(this::templateName).orElse(false);
         }
@@ -230,8 +336,9 @@ final class PodLayout {
             if (!owned(owner)) return failure(Reason.UNSUPPORTED_TYPE, "Class is outside the supplied snapshot");
             if (active(owner)) return failure(Reason.RECURSIVE_TYPE, "Recursive by-value class " + owner.name());
             if (!owner.isDefinition()) return failure(Reason.INCOMPLETE_TYPE, "Class " + owner.name() + " has no definition");
-            if (owner.templateKind() != TemplateKind.NONE || owner.hasTemplateArguments()
+            if ((owner.templateKind() != TemplateKind.NONE || owner.hasTemplateArguments()
                     || !owner.templateParameters().isEmpty() || owner.templateOrigin().isPresent())
+                    && !concreteTemplates.containsKey(owner))
                 return failure(Reason.UNSUPPORTED_TEMPLATE, "Template class layout is outside this query's supported subset");
             if (LibraryDeclarations.isLibrary(owner)) return failure(Reason.UNSUPPORTED_TYPE, "Library declarations do not certify object layout");
             if (!owner.bases().isEmpty()) return failure(Reason.NOT_POD, "A C++03 POD class has no base classes");
@@ -370,6 +477,27 @@ final class PodLayout {
             return type instanceof NamedType named && named.alias().isPresent();
         }
 
+        /** Evaluated only by the active bounded constant context, with the same guards,
+         * object ceiling and lexical values as the enclosing offsetof. */
+        Optional<BigInteger> sizeof(SizeofExpression expression,
+                Function<Declaration, Optional<ConstantEvaluator.Value>> values) {
+            var previous = constants;
+            constants = values;
+            try {
+                var operand = expression.type().or(() -> expression.operand()
+                        .flatMap(value -> TypeSemantics.expressionType(value, profile, values)));
+                if (operand.isEmpty()) return Optional.empty();
+                var result = type(operand.orElseThrow(), true);
+                if (!result.supported()) {
+                    Failure failure = result.failure().orElseThrow();
+                    dependencyFailure = failure.reason() == Reason.NOT_POD
+                            ? new Failure(Reason.UNSUPPORTED_TYPE, "sizeof dependency is outside the supported POD representation subset: " + failure.detail())
+                            : failure;
+                }
+                return result.value().map(Layout::sizeBytes);
+            } finally { constants = previous; }
+        }
+
         private Optional<BigInteger> integer(Expression expression) {
             dependencyFailure = null;
             // Preflight sizeof dependencies through this query's recursion guards before
@@ -404,14 +532,9 @@ final class PodLayout {
                     EnumDeclaration owner = enumOwners.get(enumerator);
                     if (owner == null) return false;
                     if (((ConstantEvaluator.Context) constants).local(enumerator).isPresent()) {
-                        // A lexical enum overlay certifies the earlier initializer's type;
-                        // later enumerators cannot affect it. Still inspect all prefix
-                        // dependencies, including the predecessor of implicit values.
-                        for (EnumeratorDeclaration previous : owner.enumerators()) {
-                            if (!safeEnumerator(previous, active)) return false;
-                            if (previous == enumerator) return true;
-                        }
-                        return false;
+                        // Initializer types inside the enum depend only on used values;
+                        // an implicit value additionally depends on its predecessor.
+                        return safeLexicalEnumerator(enumerator, owner, active);
                     }
                     if (!active.add(owner)) return safeEnumerator(enumerator, active);
                     try {
@@ -429,6 +552,14 @@ final class PodLayout {
             }
             return expression.children().stream().filter(Expression.class::isInstance).map(Expression.class::cast)
                     .allMatch(child -> safeConstant(child, active));
+        }
+        private boolean safeLexicalEnumerator(EnumeratorDeclaration enumerator, EnumDeclaration owner, Set<Declaration> active) {
+            if (!active.add(enumerator)) return false;
+            try {
+                if (enumerator.value().isPresent()) return safeConstant(enumerator.value().orElseThrow(), active);
+                int index = owner.enumerators().indexOf(enumerator);
+                return index == 0 || safeLexicalEnumerator(owner.enumerators().get(index - 1), owner, active);
+            } finally { active.remove(enumerator); }
         }
         private boolean safeEnumerator(EnumeratorDeclaration enumerator, Set<Declaration> active) {
             if (!active.add(enumerator)) return false;
