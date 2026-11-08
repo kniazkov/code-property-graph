@@ -902,7 +902,15 @@ public final class NameResolver {
             project.classTemplateInstances().forEach(instance -> {
                 Set<TypedefDeclaration> argumentAliases = Collections.newSetFromMap(new IdentityHashMap<>());
                 instance.arguments().forEach(argument -> argument.walk(new NodeVisitor() {
-                    @Override public void visit(NamedType type) { type.alias().filter(declarations::contains).filter(alias -> !uninstantiatedAliases.contains(alias)).ifPresent(argumentAliases::add); }
+                    @Override public void visit(NamedType type) {
+                        type.alias().filter(declarations::contains)
+                                .filter(alias -> !uninstantiatedAliases.contains(alias))
+                                // Abstract catalogue types still acquire their concrete
+                                // container semantics during resolution. They are not
+                                // captured concrete caller types, even after substitution.
+                                .filter(alias -> !(alias.type().canonicalType() instanceof OpaqueLibraryType))
+                                .ifPresent(argumentAliases::add);
+                    }
                 }));
                 instance.walk(new NodeVisitor() {
                     @Override public void visit(NamedType type) {

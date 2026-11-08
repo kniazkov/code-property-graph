@@ -1868,11 +1868,13 @@ arguments and dependent defaults that the generic instantiator cannot
 materialize remain prerequisite limitations. Non-POD sizeof dependencies remain
 valid unsupported cases, not blanket language errors.
 
-Clean expanded verification passed 444 distinct units and 17 IT. Independent
-review passed 71 units and two native IT on the same frozen production. Identity-preserving syntax
+The corrected snapshot passed all 1411 unit tests and 13 selected IT in 8:50.
+Independent review passed 78 affected units and two native IT; these overlap
+the clean run. Full Maven and exact-head CI remain separate pending gates. Identity-preserving syntax
 copy fixes template-argument typedef ownership; derived template instances
 retain caller argument aliases, excluding primary-template/catalogue
-placeholders. Dependent or unresolved typedef target chains remain unsupported.
+placeholders and aliases with canonical OpaqueLibraryType targets. Dependent
+or unresolved typedef target chains remain unsupported.
 Array typedef arguments are no longer excluded.
 Qualified member aliases with dependent targets and function-pointer template
 arguments retain existing generic limitations; resolved namespace aliases pass. Independent checks are not added to expanded-suite counts.
