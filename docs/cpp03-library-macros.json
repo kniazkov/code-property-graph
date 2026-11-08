@@ -1978,11 +1978,30 @@
       "value_source": "ABI_binding",
       "guarantee": "Distinct handler-compatible constant expressions; not ordinary integer constants or portable guessed function pointers.",
       "required_in_if": "no",
-      "support_status": "open",
+      "support_status": "runtime_binding",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/analysis/SignalDispositionsRuntimeTest.java",
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/SignalDispositionsRuntimeIT.java"
+      ],
+      "support_boundary": "Existing C-style cast nodes encode selected glibc function-pointer sentinels; no fake function/helper, numeric pointer evaluation or integer target-fact interpretation. Packaged verification passed 14 units and three native integration cases; independent review passed six units and three native cases. These overlap, not additive counts. Expanded verification passed 313 distinct units and 22 IT; final-artifact rerun passed six overlapping units and three IT. Full/CI remain separate gates. Constant distinct handler-compatible expressions are the portable obligation, not universal 0/1/-1 values. No #if, callback CFG, asynchronous state machine or complete signal semantics. Signal/raise remain opaque; selected target ABI must match.",
+      "runtime_binding": {
+        "profile_setting": "signalDispositionBinding",
+        "supported_value": "glibc-x86_64-lp64",
+        "handler_type": "void (*)(int)",
+        "sentinel_value": "0",
+        "unknown_behavior": "Default unavailable, independently of cRuntime; unused headers and presence checks allowed, use diagnoses. Actual headers retain authority.",
+        "abi_scope": "Explicit glibc/byte8/int32/long64/pointer64 sentinel cast contract, without sizeType or MB_LEN_MAX coupling. Structural function-pointer type only: FunctionType language-linkage identity and catalogue signal C++ linkage remain known gaps; not full ISO callback conformance."
+      },
+      "supporting_sources": [
+        "https://www.yodaiken.com/wp-content/uploads/2021/05/ansi-iso-9899-1990-1.pdf",
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/bits/signum-generic.h"
+      ]
     },
     {
       "header": "csignal",
@@ -1998,11 +2017,30 @@
       "value_source": "ABI_binding",
       "guarantee": "Distinct handler-compatible constant expressions; not ordinary integer constants or portable guessed function pointers.",
       "required_in_if": "no",
-      "support_status": "open",
+      "support_status": "runtime_binding",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/analysis/SignalDispositionsRuntimeTest.java",
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/SignalDispositionsRuntimeIT.java"
+      ],
+      "support_boundary": "Existing C-style cast nodes encode selected glibc function-pointer sentinels; no fake function/helper, numeric pointer evaluation or integer target-fact interpretation. Packaged verification passed 14 units and three native integration cases; independent review passed six units and three native cases. These overlap, not additive counts. Expanded verification passed 313 distinct units and 22 IT; final-artifact rerun passed six overlapping units and three IT. Full/CI remain separate gates. Constant distinct handler-compatible expressions are the portable obligation, not universal 0/1/-1 values. No #if, callback CFG, asynchronous state machine or complete signal semantics. Signal/raise remain opaque; selected target ABI must match.",
+      "runtime_binding": {
+        "profile_setting": "signalDispositionBinding",
+        "supported_value": "glibc-x86_64-lp64",
+        "handler_type": "void (*)(int)",
+        "sentinel_value": "-1",
+        "unknown_behavior": "Default unavailable, independently of cRuntime; unused headers and presence checks allowed, use diagnoses. Actual headers retain authority.",
+        "abi_scope": "Explicit glibc/byte8/int32/long64/pointer64 sentinel cast contract, without sizeType or MB_LEN_MAX coupling. Structural function-pointer type only: FunctionType language-linkage identity and catalogue signal C++ linkage remain known gaps; not full ISO callback conformance."
+      },
+      "supporting_sources": [
+        "https://www.yodaiken.com/wp-content/uploads/2021/05/ansi-iso-9899-1990-1.pdf",
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/bits/signum-generic.h"
+      ]
     },
     {
       "header": "csignal",
@@ -2018,11 +2056,30 @@
       "value_source": "ABI_binding",
       "guarantee": "Distinct handler-compatible constant expressions; not ordinary integer constants or portable guessed function pointers.",
       "required_in_if": "no",
-      "support_status": "open",
+      "support_status": "runtime_binding",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/analysis/SignalDispositionsRuntimeTest.java",
+        "src/test/java/com/kniazkov/cpg/parser/StandardLibraryMacrosTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/SignalDispositionsRuntimeIT.java"
+      ],
+      "support_boundary": "Existing C-style cast nodes encode selected glibc function-pointer sentinels; no fake function/helper, numeric pointer evaluation or integer target-fact interpretation. Packaged verification passed 14 units and three native integration cases; independent review passed six units and three native cases. These overlap, not additive counts. Expanded verification passed 313 distinct units and 22 IT; final-artifact rerun passed six overlapping units and three IT. Full/CI remain separate gates. Constant distinct handler-compatible expressions are the portable obligation, not universal 0/1/-1 values. No #if, callback CFG, asynchronous state machine or complete signal semantics. Signal/raise remain opaque; selected target ABI must match.",
+      "runtime_binding": {
+        "profile_setting": "signalDispositionBinding",
+        "supported_value": "glibc-x86_64-lp64",
+        "handler_type": "void (*)(int)",
+        "sentinel_value": "1",
+        "unknown_behavior": "Default unavailable, independently of cRuntime; unused headers and presence checks allowed, use diagnoses. Actual headers retain authority.",
+        "abi_scope": "Explicit glibc/byte8/int32/long64/pointer64 sentinel cast contract, without sizeType or MB_LEN_MAX coupling. Structural function-pointer type only: FunctionType language-linkage identity and catalogue signal C++ linkage remain known gaps; not full ISO callback conformance."
+      },
+      "supporting_sources": [
+        "https://www.yodaiken.com/wp-content/uploads/2021/05/ansi-iso-9899-1990-1.pdf",
+        "https://raw.githubusercontent.com/bminor/glibc/glibc-2.41/bits/signum-generic.h"
+      ]
     },
     {
       "header": "cstdarg",
@@ -3218,7 +3275,8 @@
     "Stage six adds three explicitly selected standard-stream runtime-binding obligations: 90 obligations/84 names have bounded implementations, while 12 obligations/11 names remain open. Buckets are 54 profile definitions, 30 target facts, 6 runtime bindings and 12 open obligations. Initial 18 unit tests and all three native stream integration cases passed; full-suite and CI completion are not claimed. Real mutable GNU pointer cells and self-referential macros do not establish portable lvalue guarantees, FILE layout, complete I/O behavior or generic unresolved-qualified-name diagnostics.",
     "Stage seven adds two WEOF target-fact obligations (one name) through coupled wideInteger settings: 92 bounded obligations/85 names, 10 open obligations/10 names. Buckets: 54 profile definitions, 32 target-fact obligations, six runtime bindings and 10 open entries. The nonnegative-wchar policy is stricter than ISO character-repertoire exclusion. WEOF native acceptance and expanded focused regressions are verified; full-suite and exact-head CI remain separate gates.",
     "Stage eight adds CLOCKS_PER_SEC through independent clockScale type/value facts: 93 bounded obligations/86 names, nine open obligations/nine names. Buckets: 54 profile definitions, 33 target-fact obligations, six runtime bindings and nine open entries. Selected integral literal #if support is separate from the original arithmetic macro obligation. Packaged units/native acceptance passed; expanded focused verification passed; full-suite and exact-head CI remain separate gates.",
-    "Stage nine adds one explicit HUGE_VAL compiler-intrinsic obligation: 94 bounded obligations/87 names, eight open obligations/eight names. Buckets:54 profile definitions,33 target facts,six runtime bindings,one compiler intrinsic,eight open. Focused units/native acceptance passed; expanded focused verification passed; full/CI results remain separate gates. Selected positive infinity is permitted by original C90 but neither required nor a universal constant-expression guarantee."
+    "Stage nine adds one explicit HUGE_VAL compiler-intrinsic obligation: 94 bounded obligations/87 names, eight open obligations/eight names. Buckets:54 profile definitions,33 target facts,six runtime bindings,one compiler intrinsic,eight open. Focused units/native acceptance passed; expanded focused verification passed; full/CI results remain separate gates. Selected positive infinity is permitted by original C90 but neither required nor a universal constant-expression guarantee.",
+    "Stage ten adds three explicit signal-disposition runtime bindings:97 bounded obligations/90 names, five open obligations/five names. Buckets:54 profile definitions,33 target facts,nine runtime bindings,one compiler intrinsic,five open. Packaged units/native acceptance passed; expanded verification passed313 units/22 IT; final-artifact rerun passed; full/CI remain separate gates. Selected pointer sentinels are separate from positive-int signal numbers and do not close function-language-linkage or asynchronous runtime gaps."
   ],
-  "support_scope": "Issue #92 stages one through nine:54 profile definitions,33 target-fact obligations,six runtime bindings and one selected compiler-intrinsic obligation; no complete library, IEEE arithmetic or target-ABI conformance."
+  "support_scope": "Issue #92 stages one through ten:54 profile definitions,33 target facts,nine runtime bindings and one compiler intrinsic; no complete library/ABI conformance. Signal packaged native acceptance passed; expanded verification passed; final-artifact rerun passed; full/CI remain separate gates."
 }

@@ -356,7 +356,26 @@ address of the evaluated rvalue still has the existing generic CPG diagnostic
 gap despite strict native rejection. Integer #if arithmetic is not promised.
 
 Expanded verification passed 432 units and 31 IT, plus eight separate inventory
-units (440 distinct units). The inventory has 94 bounded
+units (440 distinct units). At stage nine the inventory had 94 bounded
 obligations/87 names and eight open obligations/eight names. Full/CI
 results remain separate gates in the [report](cpp03-huge-val-verification.md).
 Earlier counts remain historical; #92 and #48 remain open.
+
+## Explicit signal dispositions (#92, tenth stage)
+
+`signalDispositionBinding: "glibc-x86_64-lp64"` selects SIG_DFL/SIG_IGN/SIG_ERR
+as explicit void(*)(int) casts of 0/1/-1. The unavailable default is independent
+of cRuntime. Selection requires glibc and 8-bit bytes / 32-bit int / 64-bit long and pointers, without
+sizeType or MB_LEN_MAX coupling. Actual headers retain authority. These pointer
+sentinels are separate from positive-int signal-number facts; no fake helper,
+integer pointer evaluation or #if guarantee is introduced.
+
+Expanded verification passed 313 units and 22 integration tests, including actual
+CPG materialization and safe subprocess save/change/restore with no delivery.
+Host typedef-cast SIG_ERR incidentally passes the tested #if; all selected
+explicit function-pointer casts reject it. No preprocessing equivalence is claimed.
+FunctionType language-linkage identity and catalogue signal C++ linkage remain
+open precision gaps; no complete ISO callback or asynchronous runtime model is
+claimed. The inventory has 97 bounded obligations/90 names, five open obligations/
+five names. [Evidence and pending merge gates](cpp03-signal-dispositions-verification.md).
+Prior counts remain historical; #92 and #48 remain open.
