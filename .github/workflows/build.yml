@@ -52,3 +52,4 @@ jobs:
             target/huge-val-oracle/
             target/signal-dispositions-oracle/
             target/pod-layout-oracle/
+            target/offsetof-oracle/

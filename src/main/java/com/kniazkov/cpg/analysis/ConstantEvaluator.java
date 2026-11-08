@@ -15,6 +15,29 @@ final class ConstantEvaluator {
     }
     record Value(BigInteger number, IntegerType type) {}
 
+    /** Carries one snapshot-owned layout/recursion context through lexical enum overlays. */
+    interface Context extends Function<Declaration, Optional<Value>> {
+        IntegralConstants integralContext();
+        default Optional<Value> local(Declaration declaration) { return Optional.empty(); }
+    }
+    private static Context context(Function<Declaration, Optional<Value>> constants, PlatformProfile profile) {
+        if (constants instanceof Context context) return context;
+        var shared = new IntegralConstants(null, profile);
+        return new Context() {
+            @Override public IntegralConstants integralContext() { return shared; }
+            @Override public Optional<Value> apply(Declaration declaration) { return constants.apply(declaration); }
+        };
+    }
+    static Function<Declaration, Optional<Value>> overlay(Function<Declaration, Optional<Value>> outer,
+            Function<Declaration, Optional<Value>> local, PlatformProfile profile) {
+        Context shared = context(outer, profile);
+        return new Context() {
+            @Override public IntegralConstants integralContext() { return shared.integralContext(); }
+            @Override public Optional<Value> local(Declaration declaration) { return local.apply(declaration).or(() -> shared.local(declaration)); }
+            @Override public Optional<Value> apply(Declaration declaration) { return local.apply(declaration).or(() -> shared.apply(declaration)); }
+        };
+    }
+
     static Optional<IntegerType> integerType(String spelling, PlatformProfile profile) {
         var range = profile.integerRange(spelling);
         var width = profile.sizeBits(spelling);
@@ -68,23 +91,26 @@ final class ConstantEvaluator {
 
     static Optional<Value> evaluate(Expression expression, PlatformProfile profile) {
         if (hasSemanticErrors(expression)) return Optional.empty();
-        return evaluate(expression, profile, Collections.newSetFromMap(new IdentityHashMap<>()), ignored -> Optional.empty(), false);
+        return evaluate(expression, profile, Collections.newSetFromMap(new IdentityHashMap<>()), new IntegralConstants(null, profile), false);
     }
     /** Context supplies enum ownership without adding parent edges to immutable nodes. */
     static Optional<Value> evaluate(Expression expression, PlatformProfile profile,
             Function<Declaration, Optional<Value>> constants) {
         if (hasSemanticErrors(expression)) return Optional.empty();
-        return evaluate(expression, profile, Collections.newSetFromMap(new IdentityHashMap<>()), constants, true);
+        return evaluate(expression, profile, Collections.newSetFromMap(new IdentityHashMap<>()), context(constants, profile), true);
     }
     /** Printed 5.19/1 excludes forbidden syntax even in an unevaluated conditional arm.
      * This is intentionally narrower than ordinary folding; sizeof does not inspect its operand. */
     static Optional<Value> integralConstant(Expression expression, PlatformProfile profile,
             Function<Declaration, Optional<Value>> constants) {
-        return integralSyntax(expression, profile, constants) ? evaluate(expression, profile, constants) : Optional.empty();
+        Context shared = context(constants, profile);
+        return integralSyntax(expression, profile, shared) ? evaluate(expression, profile, shared) : Optional.empty();
     }
     private static boolean integralSyntax(Expression expression, PlatformProfile profile,
             Function<Declaration, Optional<Value>> constants) {
         if (OperatorSemantics.mayInvokeUserCode(expression)) return false;
+        if (expression instanceof OffsetofExpression offset)
+            return ((Context) constants).integralContext().offsetof(offset, constants).isPresent();
         if (expression instanceof SizeofExpression || expression instanceof IntegerLiteral
                 || expression instanceof BooleanLiteral || expression instanceof CharacterLiteral) return true;
         Declaration target = expression instanceof NameExpression name ? name.target().orElse(null)
@@ -167,6 +193,8 @@ final class ConstantEvaluator {
                 return evaluate(condition.get().number().signum() != 0 ? conditional.thenExpression()
                         : conditional.elseExpression(), profile, active, constants, integralConstant).flatMap(value -> cast(value.number(), targetType, profile));
             }
+            if (expression instanceof OffsetofExpression offset)
+                return ((Context) constants).integralContext().offsetof(offset, constants);
             if (expression instanceof SizeofExpression sizeof) {
                 var type = TypeSemantics.sizeType(profile).flatMap(name -> integerType(name, profile));
                 return type.flatMap(t -> TypeSemantics.sizeof(sizeof, profile).filter(t::contains).map(value -> new Value(value, t)));

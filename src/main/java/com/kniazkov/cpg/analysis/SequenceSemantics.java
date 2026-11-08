@@ -41,7 +41,7 @@ public final class SequenceSemantics {
                 final Set<Node> locals=Collections.newSetFromMap(new IdentityHashMap<>());
                 @Override public void visit(CallableDeclaration callable) {
                     aliasesKnown=true;reassigned.clear();locals.clear();
-                    callable.walk(new NodeVisitor() {
+                    walk(callable, new NodeVisitor() {
                         @Override public void visit(VariableDeclaration v) {locals.add(v);}
                         @Override public void visit(AssignmentExpression a) {if(written(a.target()) instanceof NameExpression n)n.target().ifPresent(reassigned::add);}
                         @Override public void visit(CallExpression call) {
@@ -271,7 +271,7 @@ public final class SequenceSemantics {
         return found;
     }
     private static void walk(Node node,NodeVisitor visitor) {
-        if(node instanceof SizeofExpression || node instanceof TypeidExpression)node.accept(visitor);
+        if(node instanceof SizeofExpression || node instanceof OffsetofExpression || node instanceof TypeidExpression)node.accept(visitor);
         else if(node instanceof Expression || node instanceof VariableDeclaration){for(var child:node.children())walk(child,visitor);node.accept(visitor);}
         else {node.accept(visitor);for(var child:node.children())walk(child,visitor);}
     }

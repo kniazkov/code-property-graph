@@ -398,3 +398,27 @@ support. No new macro, builtin, parser or node is enabled; offsetof remains open
 and unavailable. Inventory totals stay 97 bounded obligations/90 names and five
 open obligations/five names. [Evidence and remaining gates](cpp03-offset-layout-verification.md).
 #92 and #48 remain open; previous packet reports retain their historical scope.
+
+## Selected offsetof builtin subset (#92, still open)
+
+The explicit `offsetof` object selects emission gcc-clang-builtin, layout
+x86_64-sysv-lp64-v1 and a positive decimal supportedObjectBytes ceiling no larger
+than 2147483647. Missing/empty settings remain unavailable. Exact scalar sizes,
+alignments, size_t and natural-layout policies are checked independently of libc
+and floating formats. The ceiling applies to relevant dependencies and describes
+a software-supported subset, not a universal compiler maximum.
+
+OffsetofExpression owns type/member/index operands. Snapshot-owned ICE queries
+compute validated values while folding preserves the whole expression and its
+transitive layout bounds/const initializers for edits. Selected capability use
+refuses active pragmas and expanded pragma operators except exact pragma once;
+inactive directives remain allowed. Non-POD sizeof dependencies are unsupported
+subset cases rather than invalid owners. No replay guard is weakened.
+
+Focused verification passed 325 units and 15 IT; the final eight-unit/two-IT
+rerun overlaps those counts. Native checks use actual CPG materialization, not
+host macro presence alone. Valid POD enum/member-pointer/template and
+sizeof-union cases remain excluded, so offsetof remains open/partial. Counts
+stay 97 bounded obligations/90 names and five open obligations/five names.
+The preceding preparation section is historical. [Evidence and remaining gates](cpp03-offsetof-builtin-verification.md).
+#92/#48 remain open; full Maven and exact-head CI are separate gates.

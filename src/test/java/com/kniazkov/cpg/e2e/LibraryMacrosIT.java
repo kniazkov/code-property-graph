@@ -63,7 +63,21 @@ class LibraryMacrosIT {
         for (var definition : library) {
             var external = project.externalInput(definition.sourceKey()).orElseThrow();
             assertEquals("library-macro", external.role());
-            assertEquals(definition.name() + " " + definition.rawReplacement(), external.text());
+            String signature = definition.name() + (definition.functionLike()
+                    ? "(" + String.join(",", definition.parameters()) + ")" : "");
+            String body = definition.unavailableReason() == null ? definition.rawReplacement()
+                    : "[unavailable: " + definition.unavailableReason() + "]";
+            assertEquals(signature + " " + body, external.text());
+            if (definition.name().equals("offsetof")) {
+                assertTrue(definition.functionLike());
+                assertEquals(List.of("type", "member"), definition.parameters());
+                assertEquals("Library macro offsetof requires an explicit offsetof compiler/layout capability",
+                        definition.unavailableReason());
+            } else {
+                assertFalse(definition.functionLike(), definition.name());
+                assertNull(definition.unavailableReason(), definition.name());
+                assertEquals(definition.name() + " " + definition.rawReplacement(), external.text());
+            }
             assertTrue(definition.sourceKey().contains(profile.identityHash()));
             assertTrue(definition.range().file().contains("<cpg-library:"));
         }

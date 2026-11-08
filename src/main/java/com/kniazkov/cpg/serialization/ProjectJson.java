@@ -699,6 +699,11 @@ public final class ProjectJson {
                         .put("variadic", t.variadic()).put("const", t.isConst()).put("volatile", t.isVolatile());
                     if (t.hasExceptionSpecification()) obj.put("hasExceptionSpecification", true).put("exceptionTypes", nodes(t.exceptionTypes()));
                 }
+                case OffsetofExpression e -> obj.put("type", node(e.type())).put("steps", nodes(e.steps()));
+                case OffsetofExpression.Member member -> {
+                    obj.put("name", member.name()); member.target().ifPresent(target -> obj.put("targetId", id(target)));
+                }
+                case OffsetofExpression.Index index -> obj.put("expression", node(index.expression()));
                 case SizeofExpression e -> {
                     e.type().ifPresent(t -> obj.put("type", node(t)));
                     e.operand().ifPresent(operand -> obj.put("operand", node(operand)));

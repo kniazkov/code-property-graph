@@ -218,6 +218,43 @@ class MacroInventoryTest(unittest.TestCase):
             if row['name'] == 'SIG_IGN': row['runtime_binding']['sentinel_value'] = '0'
         self.assertTrue(checker.check(data))
 
+    def test_offsetof_partial_metadata_is_closed(self):
+        mutations = [('profile_setting', 'cRuntime'), ('emission', 'arbitrary'),
+                     ('layout', 'native'), ('ceiling_field', 'maxObjectSize'),
+                     ('ceiling_min', '0'), ('ceiling_max', '2147483648'),
+                     ('completion', 'complete'), ('unknown_behavior', ''),
+                     ('support_boundary', ''), ('extra', True)]
+        for field, value in mutations:
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                row = next(e for e in data['entries'] if e['name'] == 'offsetof')
+                row['partial_implementation'][field] = value
+                self.assertTrue(checker.check(data))
+
+    def test_offsetof_partial_missing_fields(self):
+        row = next(e for e in self.data['entries'] if e['name'] == 'offsetof')
+        for field in row['partial_implementation']:
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                entry = next(e for e in data['entries'] if e['name'] == 'offsetof')
+                del entry['partial_implementation'][field]
+                self.assertTrue(checker.check(data))
+
+    def test_offsetof_partial_does_not_count_as_complete(self):
+        for field, value in [('support_status', 'profile_definition'), ('header', 'cstdio'),
+                             ('macro_kind', 'object'), ('implementation', []), ('tests', [])]:
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                row = next(e for e in data['entries'] if e['name'] == 'offsetof')
+                row[field] = value
+                self.assertTrue(checker.check(data))
+
+    def test_partial_metadata_cannot_be_reused_for_other_obligation(self):
+        partial = next(e for e in self.data['entries'] if e['name'] == 'offsetof')['partial_implementation']
+        row = next(e for e in self.data['entries'] if e['name'] == 'setjmp')
+        row['partial_implementation'] = copy.deepcopy(partial)
+        self.assertTrue(checker.check(self.data))
+
 
 if __name__ == '__main__':
     unittest.main()

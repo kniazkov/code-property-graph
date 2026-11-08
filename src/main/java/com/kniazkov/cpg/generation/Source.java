@@ -99,7 +99,7 @@ public final class Source {
                         || n instanceof ScopeMemberExpression || n instanceof PointerMemberExpression
                         || n instanceof NameExpression name && name.name().contains("::")
                         || n instanceof AddressOfExpression || n instanceof DereferenceExpression
-                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CompilerIntrinsicExpression || n instanceof CharacterLiteral || n instanceof StringLiteral
+                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof OffsetofExpression || n instanceof CompilerIntrinsicExpression || n instanceof CharacterLiteral || n instanceof StringLiteral
                         || cppOnlyStatement(n) || n instanceof CommaExpression || n instanceof DotMemberPointerExpression || n instanceof ArrowMemberPointerExpression
                         || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion) || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression
                         || n instanceof ConditionalExpression
@@ -187,7 +187,7 @@ public final class Source {
         if (!implicitIntroductionsMatch(node))
             throw new IllegalArgumentException("Source generation cannot change an implicit class declaration independently of its written elaborated type");
         if (!intrinsicsSupported(node, context, context != null))
-            throw new IllegalArgumentException("Compiler intrinsic emission requires the matching explicit hugeVal platform capability");
+            throw new IllegalArgumentException("Compiler intrinsic emission requires the matching explicit hugeVal or offsetof platform capability");
         node.walk(new NodeVisitor() {
             @Override public void visit(Node n) {
                 if (n instanceof SourceFile file && file.hasErrors())
@@ -205,7 +205,12 @@ public final class Source {
 
     /** The enclosing translation unit, not a moved leaf's original provenance, selects compiler support. */
     private static boolean intrinsicsSupported(Node node, Preprocessing unit, boolean contextSelected) {
+        return intrinsicsSupported(node, unit, contextSelected, !(node instanceof Project)
+                && com.kniazkov.cpg.build.OffsetofSourcePolicy.syntaxViolation(node).isPresent());
+    }
+    private static boolean intrinsicsSupported(Node node, Preprocessing unit, boolean contextSelected, boolean pragmaSyntax) {
         if (node instanceof SourceFile) {
+            pragmaSyntax = com.kniazkov.cpg.build.OffsetofSourcePolicy.syntaxViolation(node).isPresent();
             unit = node.provenance().map(TokenProvenance::unit).orElse(null);
             contextSelected = true;
         } else if (!contextSelected && node.provenance().isPresent()) {
@@ -220,8 +225,14 @@ public final class Source {
                 case DOUBLE_POSITIVE_INFINITY -> capability.orElseThrow().kind().equals("positive_infinity");
             }) return false;
         }
+        if (node instanceof OffsetofExpression) {
+            if (unit == null || unit.configuration() == null) return false;
+            var capability = unit.configuration().platform().offsetof();
+            if (pragmaSyntax || com.kniazkov.cpg.build.OffsetofSourcePolicy.violation(unit).isPresent()) return false;
+            if (capability.isEmpty() || !capability.orElseThrow().emission().equals("gcc-clang-builtin")) return false;
+        }
         for (Node child : node.children())
-            if (!intrinsicsSupported(child, unit, contextSelected)) return false;
+            if (!intrinsicsSupported(child, unit, contextSelected, pragmaSyntax)) return false;
         return true;
     }
 
@@ -319,7 +330,7 @@ public final class Source {
         file.walk(new NodeVisitor() {
             @Override public void visit(Node n) {
                 if (target == Language.JAVA && (n instanceof Expression expression && !expression.operatorCandidates().isEmpty()
-                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof CompilerIntrinsicExpression || n instanceof CharacterLiteral
+                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof OffsetofExpression || n instanceof CompilerIntrinsicExpression || n instanceof CharacterLiteral
                         || n instanceof StringLiteral || cppOnlyStatement(n) || n instanceof CommaExpression || n instanceof DotMemberPointerExpression
                         || n instanceof ArrowMemberPointerExpression || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion)
                         || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression || n instanceof ConditionalExpression
@@ -511,6 +522,9 @@ public final class Source {
             case IntegerLiteral i -> integerLiteral(i);
             case BooleanLiteral b -> Boolean.toString(b.value());
             case FloatingLiteral f -> f.spelling();
+            case OffsetofExpression offset -> offsetof(offset);
+            case OffsetofExpression.Member member -> member.name();
+            case OffsetofExpression.Index index -> "[" + emit(index.expression(), 0) + "]";
             case CompilerIntrinsicExpression intrinsic -> compilerIntrinsic(intrinsic);
             case CharacterLiteral c -> c.spelling();
             case StringLiteral s -> s.spelling();
@@ -535,6 +549,20 @@ public final class Source {
             case BinaryExpression b -> "(" + emit(b.left(), 0) + " " + symbol(b) + " " + emit(b.right(), 0) + ")";
             default -> throw unsupported(n);
         };
+    }
+
+    private String offsetof(OffsetofExpression offset) {
+        if (target != Language.CPP) throw unsupported(offset);
+        var path = new StringBuilder();
+        for (var step : offset.steps()) {
+            if (step instanceof OffsetofExpression.Member member) {
+                if (!path.isEmpty()) path.append('.');
+                path.append(member.name());
+            } else if (step instanceof OffsetofExpression.Index index) {
+                path.append('[').append(emit(index.expression(), 0)).append(']');
+            } else throw unsupported(step);
+        }
+        return "__builtin_offsetof(" + declaration(offset.type(), "") + ", " + path + ")";
     }
 
     private String compilerIntrinsic(CompilerIntrinsicExpression intrinsic) {

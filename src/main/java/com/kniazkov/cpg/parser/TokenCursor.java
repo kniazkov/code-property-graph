@@ -166,7 +166,7 @@ final class TokenCursor {
     /** Consumes an identifier permitted by the supported grammar. */
     String identifier() {
         String name = peek();
-        if (language == Language.CPP && name.equals("__builtin_huge_val")) throw error("Compiler intrinsic is not a declarable or qualified identifier");
+        if (language == Language.CPP && (name.equals("__builtin_huge_val") || name.equals("__builtin_offsetof"))) throw error("Compiler intrinsic is not a declarable or qualified identifier");
         if (!(language == Language.CPP ? CppLexer.isIdentifier(name) : IDENTIFIER.matcher(name).matches()) || reserved(name)) throw error("Expected identifier");
         advance();
         return name;

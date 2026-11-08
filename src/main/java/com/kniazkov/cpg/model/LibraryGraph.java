@@ -50,6 +50,7 @@ public final class LibraryGraph {
                 if (n instanceof NameExpression e) context.edit(e,NameExpression.Builder.class).clearTarget();
                 if (n instanceof MemberExpression e) ((MemberExpression.Builder<?,?>)b).clearTarget();
                 if (n instanceof CallExpression e) context.edit(e,CallExpression.Builder.class).clearTarget().clearVirtualTargets().setDefaultArguments(List.of());
+                if (n instanceof OffsetofExpression.Member e) context.edit(e,OffsetofExpression.Member.Builder.class).clearTarget();
                 if (n instanceof MemberInitializer e) context.edit(e,MemberInitializer.Builder.class).clearTarget();
                 if (n instanceof UsingDirective e) context.edit(e,UsingDirective.Builder.class).clearTarget();
                 if (n instanceof UsingDeclaration e) context.edit(e,UsingDeclaration.Builder.class).clearTarget();

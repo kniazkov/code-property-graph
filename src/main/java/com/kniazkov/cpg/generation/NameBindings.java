@@ -84,6 +84,7 @@ final class NameBindings {
         if (node instanceof NamedType type) return type.alias().map(Declaration.class::cast).orElseGet(() -> type.declaration().orElse(null));
         if (node instanceof NameExpression name) return name.target().orElse(null);
         if (node instanceof MemberExpression member) return member.target().orElse(null);
+        if (node instanceof OffsetofExpression.Member member) return member.target().orElse(null);
         if (node instanceof MemberInitializer initializer) return initializer.target().orElse(null);
         if (node instanceof UsingDirective directive) return directive.target().orElse(null);
         if (node instanceof UsingDeclaration declaration) return declaration.target().orElse(null);
@@ -100,6 +101,7 @@ final class NameBindings {
     }
     private static IllegalArgumentException failure(Node use, String reason, Index index) {
         String written = use instanceof NamedType type ? type.name() : use instanceof NameExpression name ? name.name() : use instanceof MemberExpression member ? member.member()
+                : use instanceof OffsetofExpression.Member member ? member.name()
                 : use instanceof MemberInitializer initializer ? initializer.name()
                 : use instanceof UsingDirective directive ? directive.namespaceName()
                 : use instanceof UsingDeclaration declaration ? declaration.qualifiedName()

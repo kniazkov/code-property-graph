@@ -280,7 +280,7 @@ public final class DataFlow {
         }
         state.write(variable, variable);
         var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
-        variable.initializer().ifPresent(value -> value.walk(new NodeVisitor() {
+        variable.initializer().ifPresent(value -> LibraryCallEffects.walkEvaluated(value, profile, new NodeVisitor() {
             @Override public void visit(NameExpression use) { exposed.addAll(LibraryCallEffects.roots(use)); }
         }));
         opaqueMutation(variable, exposed, state, sink);
@@ -744,8 +744,8 @@ public final class DataFlow {
             });
             constructLibraryObject(declaration, state, sink);
             sink.edge(declaration, condition, Dependency.DEFINITION);
-        } else if (value instanceof SizeofExpression) {
-            // C++03 sizeof does not read or execute any expression in its operand.
+        } else if (value instanceof SizeofExpression || value instanceof OffsetofExpression) {
+            // C++03 sizeof and offsetof operands do not read or execute their expressions.
             return;
         } else if (value instanceof TypeidExpression typeid) {
             if (!TypeSemantics.typeidOperandUnevaluated(typeid, profile)) typeid.operand().ifPresent(operand -> {

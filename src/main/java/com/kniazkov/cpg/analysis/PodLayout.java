@@ -25,7 +25,7 @@ final class PodLayout {
         NOT_POD, INCOMPLETE_TYPE, RECURSIVE_TYPE, UNSUPPORTED_TYPE, UNSUPPORTED_TEMPLATE,
         UNKNOWN_LAYOUT, BIT_FIELD, STATIC_MEMBER, FUNCTION_MEMBER, MISSING_MEMBER,
         INVALID_PATH, NON_CONSTANT_INDEX, INDEX_OUT_OF_BOUNDS, UNKNOWN_ARRAY_BOUND,
-        INVALID_ARRAY_BOUND, SIZE_NOT_REPRESENTABLE
+        INVALID_ARRAY_BOUND, SIZE_NOT_REPRESENTABLE, SUPPORTED_OBJECT_LIMIT, UNSUPPORTED_PRAGMA
     }
     record Failure(Reason reason, String detail) {
         Failure { Objects.requireNonNull(reason); Objects.requireNonNull(detail); }
@@ -79,7 +79,7 @@ final class PodLayout {
     private static <T> Result<T> success(T value) {
         return new Result<>(Optional.of(value), Optional.empty());
     }
-    private static <T> Result<T> failure(Reason reason, String detail) {
+    static <T> Result<T> failure(Reason reason, String detail) {
         return new Result<>(Optional.empty(), Optional.of(new Failure(reason, detail)));
     }
     private static <T> Result<T> propagate(Result<?> result) {
@@ -90,17 +90,29 @@ final class PodLayout {
         return size.add(alignment).subtract(BigInteger.ONE).divide(alignment).multiply(alignment);
     }
 
-    private static final class Query {
+    /** Shared across ordinary and bounded queries in the same constant context. */
+    static final class Guards {
+        final Set<TypeNode> activeTypes = Collections.newSetFromMap(new IdentityHashMap<>());
+        final List<ClassDeclaration> activeClasses = new ArrayList<>();
+    }
+    static final class Query {
         private final PlatformProfile profile;
-        private final Function<Declaration, Optional<ConstantEvaluator.Value>> constants;
+        private Function<Declaration, Optional<ConstantEvaluator.Value>> constants;
+        private final BigInteger ceiling;
+        private final IntegralConstants context;
+        private Failure dependencyFailure;
         private final Set<Declaration> declarations;
         private final Map<EnumeratorDeclaration, EnumDeclaration> enumOwners = new IdentityHashMap<>();
-        private final Set<TypeNode> activeTypes = Collections.newSetFromMap(new IdentityHashMap<>());
-        private final List<ClassDeclaration> activeClasses = new ArrayList<>();
+        private final Set<TypeNode> activeTypes;
+        private final List<ClassDeclaration> activeClasses;
 
         Query(Project project, PlatformProfile profile) {
-            this.profile = Objects.requireNonNull(profile);
-            constants = project == null ? ignored -> Optional.empty() : new IntegralConstants(project, profile);
+            this(project, profile, new IntegralConstants(project, profile), null);
+        }
+        Query(Project project, PlatformProfile profile, IntegralConstants constants, BigInteger ceiling) {
+            this.profile = Objects.requireNonNull(profile); this.ceiling = ceiling;
+            this.constants = constants; this.context = constants;
+            activeTypes = constants.layoutGuards.activeTypes; activeClasses = constants.layoutGuards.activeClasses;
             declarations = project == null ? null : Collections.newSetFromMap(new IdentityHashMap<>());
             if (project != null) project.walk(new NodeVisitor() {
                 @Override public void visit(Declaration declaration) { declarations.add(declaration); }
@@ -120,8 +132,16 @@ final class PodLayout {
             return failure(Reason.SIZE_NOT_REPRESENTABLE,
                     "Object size or offset is not representable in target " + profile.sizeType());
         }
+        private <T> Result<T> unsupportedSize(BigInteger size) {
+            if (!representable(size)) return oversized();
+            return failure(Reason.SUPPORTED_OBJECT_LIMIT, "Layout dependency exceeds offsetof supportedObjectBytes ceiling " + ceiling);
+        }
+        private boolean supportedSize(BigInteger size) { return representable(size) && (ceiling == null || size.compareTo(ceiling) <= 0); }
         private Result<Layout> layoutValue(BigInteger size, int alignment, List<Field> fields) {
-            return representable(size) ? success(new Layout(size, alignment, fields)) : oversized();
+            return supportedSize(size) ? success(new Layout(size, alignment, fields)) : unsupportedSize(size);
+        }
+        private <T> Result<T> constantFailure(Reason reason, String detail) {
+            return dependencyFailure == null ? failure(reason, detail) : new Result<>(Optional.empty(), Optional.of(dependencyFailure));
         }
         private boolean owned(Declaration declaration) {
             return declarations == null || declarations.contains(declaration);
@@ -144,7 +164,7 @@ final class PodLayout {
                 if (type instanceof PointerType) return scalar("pointer");
                 if (type instanceof ArrayType array) {
                     var count = array.bound().flatMap(this::integer);
-                    if (count.isEmpty()) return failure(Reason.UNKNOWN_ARRAY_BOUND,
+                    if (count.isEmpty()) return constantFailure(Reason.UNKNOWN_ARRAY_BOUND,
                             "A fixed array bound is not proven constant under the supplied snapshot context");
                     if (count.get().signum() <= 0) return failure(Reason.INVALID_ARRAY_BOUND, "A fixed array bound must be positive");
                     var element = type(array.elementType(), checkCompleteness);
@@ -203,6 +223,10 @@ final class PodLayout {
         }
 
         private Result<Layout> owner(ClassDeclaration owner) {
+            if (ceiling != null) {
+                var pragma = context.pragmaFailure(owner);
+                if (pragma.isPresent()) return new Result<>(Optional.empty(), pragma);
+            }
             if (!owned(owner)) return failure(Reason.UNSUPPORTED_TYPE, "Class is outside the supplied snapshot");
             if (active(owner)) return failure(Reason.RECURSIVE_TYPE, "Recursive by-value class " + owner.name());
             if (!owner.isDefinition()) return failure(Reason.INCOMPLETE_TYPE, "Class " + owner.name() + " has no definition");
@@ -259,10 +283,10 @@ final class PodLayout {
                     int fieldAlignment = profile.fieldAlignment().equals("packed1") ? profile.bitsPerByte() : value.alignmentBits();
                     alignment = Math.max(alignment, fieldAlignment);
                     BigInteger offset = union ? BigInteger.ZERO : align(size, fieldAlignment, profile);
-                    if (!representable(offset)) return oversized();
+                    if (!supportedSize(offset)) return unsupportedSize(offset);
                     fields.add(new Field(field, offset));
                     size = union ? size.max(value.sizeBytes()) : offset.add(value.sizeBytes());
-                    if (!representable(size)) return oversized();
+                    if (!supportedSize(size)) return unsupportedSize(size);
                 }
                 return layoutValue(align(size.max(BigInteger.ONE), alignment, profile), alignment, fields);
             } finally { activeClasses.removeLast(); }
@@ -278,6 +302,14 @@ final class PodLayout {
             if (parameter instanceof ReferenceType reference) parameter = TypeSemantics.unqualified(reference.referredType());
             return parameter instanceof NamedType named && byValueClass(named)
                     .filter(value -> ClassSemantics.sameClass(owner, value)).isPresent();
+        }
+
+        Result<Offset> offset(TypeNode type, List<Step> path, Function<Declaration, Optional<ConstantEvaluator.Value>> values) {
+            var previous = constants;
+            var previousFailure = dependencyFailure;
+            constants = values; dependencyFailure = null;
+            try { return offset(type, path); }
+            finally { constants = previous; dependencyFailure = previousFailure; }
         }
 
         private Result<Offset> offset(TypeNode type, List<Step> path) {
@@ -314,10 +346,10 @@ final class PodLayout {
                 } else if (step instanceof Index index) {
                     if (!(plain instanceof ArrayType array)) return failure(Reason.INVALID_PATH, "A constant subscript requires an array subobject");
                     var value = integer(index.expression());
-                    if (value.isEmpty()) return failure(Reason.NON_CONSTANT_INDEX,
+                    if (value.isEmpty()) return constantFailure(Reason.NON_CONSTANT_INDEX,
                             "Index is not proven to be an integral constant under the supplied snapshot context");
                     var count = array.bound().flatMap(this::integer);
-                    if (count.isEmpty()) return failure(Reason.UNKNOWN_ARRAY_BOUND, "Array bound is not proven constant under the supplied snapshot context");
+                    if (count.isEmpty()) return constantFailure(Reason.UNKNOWN_ARRAY_BOUND, "Array bound is not proven constant under the supplied snapshot context");
                     if (value.get().signum() < 0 || value.get().compareTo(count.get()) >= 0)
                         return failure(Reason.INDEX_OUT_OF_BOUNDS, "Array index must be nonnegative and less than its bound");
                     checkCompleteness &= !throughAlias(current);
@@ -326,7 +358,7 @@ final class PodLayout {
                     offset = offset.add(element.value().orElseThrow().sizeBytes().multiply(value.get()));
                     current = array.elementType();
                 }
-                if (!representable(offset)) return oversized();
+                if (!supportedSize(offset)) return unsupportedSize(offset);
                 var next = type(current, checkCompleteness);
                 if (!next.supported()) return propagate(next);
                 layout = next.value().orElseThrow();
@@ -339,6 +371,7 @@ final class PodLayout {
         }
 
         private Optional<BigInteger> integer(Expression expression) {
+            dependencyFailure = null;
             // Preflight sizeof dependencies through this query's recursion guards before
             // invoking the shared evaluator, whose generic sizeof starts a fresh traversal.
             if (!safeConstant(expression, Collections.newSetFromMap(new IdentityHashMap<>()))) return Optional.empty();
@@ -347,7 +380,21 @@ final class PodLayout {
         private boolean safeConstant(Expression expression, Set<Declaration> active) {
             if (expression instanceof SizeofExpression size) {
                 var operand = size.type().or(() -> size.operand().flatMap(value -> TypeSemantics.expressionType(value, profile)));
-                return operand.map(value -> type(value, true).supported()).orElse(false);
+                if (operand.isEmpty()) return false;
+                var layout = type(operand.orElseThrow(), true);
+                if (!layout.supported()) {
+                    Failure failure = layout.failure().orElseThrow();
+                    dependencyFailure = failure.reason() == Reason.NOT_POD
+                            ? new Failure(Reason.UNSUPPORTED_TYPE, "sizeof dependency is outside the supported POD representation subset: " + failure.detail())
+                            : failure;
+                }
+                return layout.supported();
+            }
+            if (expression instanceof OffsetofExpression offset) {
+                var context = ((ConstantEvaluator.Context) constants).integralContext();
+                var result = context.offsetofResult(offset, constants);
+                if (!result.supported()) dependencyFailure = result.failure().orElseThrow();
+                return result.supported();
             }
             Declaration target = expression instanceof NameExpression name ? name.target().orElse(null)
                     : expression instanceof ScopeMemberExpression member ? member.target().orElse(null) : null;
@@ -356,6 +403,16 @@ final class PodLayout {
                 if (target instanceof EnumeratorDeclaration enumerator) {
                     EnumDeclaration owner = enumOwners.get(enumerator);
                     if (owner == null) return false;
+                    if (((ConstantEvaluator.Context) constants).local(enumerator).isPresent()) {
+                        // A lexical enum overlay certifies the earlier initializer's type;
+                        // later enumerators cannot affect it. Still inspect all prefix
+                        // dependencies, including the predecessor of implicit values.
+                        for (EnumeratorDeclaration previous : owner.enumerators()) {
+                            if (!safeEnumerator(previous, active)) return false;
+                            if (previous == enumerator) return true;
+                        }
+                        return false;
+                    }
                     if (!active.add(owner)) return safeEnumerator(enumerator, active);
                     try {
                         // Underlying-type evaluation can inspect every enumerator, but
