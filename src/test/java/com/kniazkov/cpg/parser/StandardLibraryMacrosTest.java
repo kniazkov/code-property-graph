@@ -113,6 +113,7 @@ class StandardLibraryMacrosTest {
                 PlatformProfile.builder().clockScale("long","long","1000000").build(),
                 PlatformProfile.builder().hugeVal("positive_infinity","gcc-clang-builtin-huge-val").build(),
                 PlatformProfile.builder().clockScale("int","unsigned long","18446744073709551615").build(),
+                PlatformProfile.builder().cRuntime("glibc").signalDispositionBinding("glibc-x86_64-lp64").build(),
                 PlatformProfile.builder().cRuntime("glibc").standardStreamsBinding("glibc-x86_64-lp64").build(),
                 PlatformProfile.builder().cRuntime("glibc").mbCurMaxBinding("glibc-x86_64-lp64-mb16").build(),
                 PlatformProfile.read(Path.of("src/test/resources/runtime-integer-macros/synthetic-profile.json"))))
@@ -127,7 +128,7 @@ class StandardLibraryMacrosTest {
                 if (cpp.equals(entry.get("header")) && ("target_fact".equals(entry.get("support_status")) && targetFactAvailable(profile, entry.get("name"))
                         || "compiler_intrinsic".equals(entry.get("support_status")) && targetFactAvailable(profile, entry.get("name"))
                         || "profile_definition".equals(entry.get("support_status"))
-                        || "runtime_binding".equals(entry.get("support_status")) && (Set.of("stdin", "stdout", "stderr").contains(entry.get("name")) ? !profile.standardStreamsBinding().equals("unavailable") : entry.get("name").equals("MB_CUR_MAX") ? !profile.mbCurMaxBinding().equals("unavailable") : profile.cRuntime().equals("glibc"))))
+                        || "runtime_binding".equals(entry.get("support_status")) && (Set.of("SIG_DFL", "SIG_IGN", "SIG_ERR").contains(entry.get("name")) ? !profile.signalDispositionBinding().equals("unavailable") : Set.of("stdin", "stdout", "stderr").contains(entry.get("name")) ? !profile.standardStreamsBinding().equals("unavailable") : entry.get("name").equals("MB_CUR_MAX") ? !profile.mbCurMaxBinding().equals("unavailable") : profile.cRuntime().equals("glibc"))))
                     assertTrue(implemented.add((String) entry.get("name")), "Duplicate inventory obligation: " + entry);
             }
             if (cpp.equals("climits")) assertEquals(INTEGER_LIMITS, implemented);

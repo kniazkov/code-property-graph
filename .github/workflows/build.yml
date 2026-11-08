@@ -50,3 +50,4 @@ jobs:
             target/weof-runtime-oracle/
             target/clock-scale-oracle/
             target/huge-val-oracle/
+            target/signal-dispositions-oracle/
