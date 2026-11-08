@@ -1849,3 +1849,36 @@ sizeof-union cases remain excluded, so offsetof remains open/partial. Counts
 stay 97 bounded obligations/90 names and five open obligations/five names.
 The preceding preparation section is historical. [Evidence and remaining gates](cpp03-offsetof-builtin-verification.md).
 #92/#48 remain open; full Maven and exact-head CI are separate gates.
+
+
+## Bounded offsetof contexts (#92, partial)
+
+The current packet extends the selected query to already materialized, complete
+concrete POD template instances and query-local sizeof dependencies, including
+unions. Primary, explicit and partial specialization evidence concerns the
+actual selected concrete instances, not general template support. The existing
+explicit layout capability and ceiling are unchanged; unrelated generic sizeof
+and ABI claims are not broadened.
+
+The implementation preserves written type/non-type arguments, defaults and relevant
+specialization-header dependencies through folding so edits can reselect an
+instance and recheck its budget. Snapshot ownership, cycle and ceiling checks,
+pragma/operator restrictions and source replay remain in force. Named non-type
+arguments and dependent defaults that the generic instantiator cannot
+materialize remain prerequisite limitations. Non-POD sizeof dependencies remain
+valid unsupported cases, not blanket language errors.
+
+The corrected snapshot passed all 1411 unit tests and 13 selected IT in 8:50.
+Independent review passed 78 affected units and two native IT; these overlap
+the clean run. Full Maven and exact-head CI remain separate pending gates. Identity-preserving syntax
+copy fixes template-argument typedef ownership; derived template instances
+retain caller argument aliases, excluding primary-template/catalogue
+placeholders and aliases with canonical OpaqueLibraryType targets. Dependent
+or unresolved typedef target chains remain unsupported.
+Array typedef arguments are no longer excluded.
+Qualified member aliases with dependent targets and function-pointer template
+arguments retain existing generic limitations; resolved namespace aliases pass. Independent checks are not added to expanded-suite counts.
+offsetof stays open/partial, with 97 bounded obligations / 90 names and five
+open obligations / five names. The preceding builtin section is historical.
+[Current evidence and gates](cpp03-offsetof-contexts-verification.md).
+#92 and #48 remain open.

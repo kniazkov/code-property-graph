@@ -48,6 +48,7 @@ public final class OffsetofExpression extends Expression {
         private Member() {}
         public String name() { return name; }
         public Optional<VariableDeclaration> target() { return Optional.ofNullable(target); }
+        void invalidateTemplateTargets(Set<Node> discarded) { if (discarded.contains(target)) target = null; }
         @Override public List<Node> children() { return List.of(); }
         @Override public List<Node> references() { return target == null ? List.of() : List.of(target); }
         @Override public void accept(NodeVisitor visitor) { visitor.visit(this); }

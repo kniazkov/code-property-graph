@@ -16,6 +16,46 @@ final class IntegralConstants implements ConstantEvaluator.Context {
     private final Map<Node, SourceFile> layoutSources = new IdentityHashMap<>();
     final PodLayout.Guards layoutGuards = new PodLayout.Guards();
     private PodLayout.Query offsetQuery;
+    private PodLayout.Query boundedQuery;
+    private final Set<Declaration> activeLocals = Collections.newSetFromMap(new IdentityHashMap<>());
+    boolean boundedLayoutActive() { return boundedQuery != null; }
+    Optional<java.math.BigInteger> boundedSizeof(SizeofExpression expression,
+            Function<Declaration, Optional<ConstantEvaluator.Value>> values) {
+        return boundedQuery.sizeof(expression, values);
+    }
+    /** Lexical enum overlays may predate entry into a bounded query. Recompute their
+     * initializer type/value here; never reuse an unbounded cached numeric result. */
+    Optional<ConstantEvaluator.Value> boundedLocal(Declaration declaration, ConstantEvaluator.Value value) {
+        return !boundedLayoutActive() ? Optional.of(value)
+                : declaration instanceof EnumeratorDeclaration enumerator ? lexicalEnumerator(enumerator) : Optional.empty();
+    }
+    /** Within an enum, only an actually used predecessor is a dependency. In
+     * particular, an explicit initializer does not evaluate unrelated earlier values. */
+    private Optional<ConstantEvaluator.Value> lexicalEnumerator(EnumeratorDeclaration enumerator) {
+        if (!activeLocals.add(enumerator)) return Optional.empty();
+        try {
+            EnumDeclaration owner = owners.get(enumerator);
+            if (owner == null) return Optional.empty();
+            int index = owner.enumerators().indexOf(enumerator);
+            if (enumerator.value().isPresent())
+                return ConstantEvaluator.integralConstant(enumerator.value().orElseThrow(), profile,
+                        ConstantEvaluator.overlay(this, declaration -> declaration instanceof EnumeratorDeclaration earlier
+                                && owners.get(earlier) == owner && owner.enumerators().indexOf(earlier) < index
+                                ? lexicalEnumerator(earlier) : Optional.empty(), profile));
+            var previous = index == 0 ? Optional.<ConstantEvaluator.Value>empty()
+                    : lexicalEnumerator(owner.enumerators().get(index - 1));
+            if (index != 0 && previous.isEmpty()) return Optional.empty();
+            var number = previous.map(value -> value.number().add(java.math.BigInteger.ONE)).orElse(java.math.BigInteger.ZERO);
+            if (previous.isPresent() && previous.orElseThrow().type().contains(number))
+                return Optional.of(new ConstantEvaluator.Value(number, previous.orElseThrow().type()));
+            for (String spelling : List.of("int", "unsigned int", "long", "unsigned long")) {
+                var type = ConstantEvaluator.integerType(spelling, profile);
+                if (type.isPresent() && type.orElseThrow().contains(number))
+                    return Optional.of(new ConstantEvaluator.Value(number, type.orElseThrow()));
+            }
+            return Optional.empty();
+        } finally { activeLocals.remove(enumerator); }
+    }
     @Override public IntegralConstants integralContext() { return this; }
 
     private final Map<EnumeratorDeclaration, EnumDeclaration> owners = new IdentityHashMap<>();
@@ -70,20 +110,24 @@ final class IntegralConstants implements ConstantEvaluator.Context {
         if (pragma.isPresent()) return new PodLayout.Result<>(Optional.empty(), pragma);
         if (!activeOffsets.add(expression))
             return PodLayout.failure(PodLayout.Reason.RECURSIVE_TYPE, "Recursive offsetof constant/layout dependency");
+        if (offsetQuery == null) offsetQuery = new PodLayout.Query(project, profile, this,
+                profile.offsetof().orElseThrow().supportedObjectBytes());
+        PodLayout.Query previousQuery = boundedQuery;
+        boundedQuery = offsetQuery;
         try {
             EnumeratorDeclaration enclosing = offsetEnumerators.get(expression);
             if (values == this && enclosing != null) {
-                var previous = EnumSemantics.valuesBefore(owners.get(enclosing), enclosing, profile, this);
-                if (previous.isEmpty()) return PodLayout.failure(PodLayout.Reason.NON_CONSTANT_INDEX, "Earlier enumerator values are not proven constant");
-                values = ConstantEvaluator.overlay(this, declaration -> Optional.ofNullable(previous.orElseThrow().get(declaration)), profile);
+                EnumDeclaration owner = owners.get(enclosing);
+                int index = owner.enumerators().indexOf(enclosing);
+                values = ConstantEvaluator.overlay(this, declaration -> declaration instanceof EnumeratorDeclaration earlier
+                        && owners.get(earlier) == owner && owner.enumerators().indexOf(earlier) < index
+                        ? lexicalEnumerator(earlier) : Optional.empty(), profile);
             }
-            if (offsetQuery == null) offsetQuery = new PodLayout.Query(project, profile, this,
-                    profile.offsetof().orElseThrow().supportedObjectBytes());
             List<PodLayout.Step> path = expression.steps().stream().map(step -> step instanceof OffsetofExpression.Member member
                     ? (PodLayout.Step) new PodLayout.Member(member.name())
                     : new PodLayout.Index(((OffsetofExpression.Index) step).expression())).toList();
             return offsetQuery.offset(expression.type(), path, values);
-        } finally { activeOffsets.remove(expression); }
+        } finally { boundedQuery = previousQuery; activeOffsets.remove(expression); }
     }
     Optional<ConstantEvaluator.Value> offsetof(OffsetofExpression expression,
             Function<Declaration, Optional<ConstantEvaluator.Value>> values) {
@@ -96,11 +140,11 @@ final class IntegralConstants implements ConstantEvaluator.Context {
     }
     @Override public Optional<ConstantEvaluator.Value> apply(Declaration declaration) {
         if (!declarations.contains(declaration)) return Optional.empty();
-        if (known.containsKey(declaration)) return Optional.of(known.get(declaration));
+        if (!boundedLayoutActive() && known.containsKey(declaration)) return Optional.of(known.get(declaration));
         if (!active.add(declaration)) return Optional.empty();
         try {
             var value = compute(declaration);
-            value.ifPresent(result -> known.put(declaration, result));
+            if (!boundedLayoutActive()) value.ifPresent(result -> known.put(declaration, result));
             return value;
         } finally { active.remove(declaration); }
     }

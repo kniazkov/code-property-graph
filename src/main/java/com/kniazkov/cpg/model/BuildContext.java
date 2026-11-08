@@ -113,6 +113,17 @@ final class BuildContext {
         return node;
     }
 
+    /** Snapshot only to recover typed ownership/reference edges, then reconnect every
+     * external edge by builder identity rather than spelling or source position. */
+    <T extends Node> NodeBuilder<T> copySyntax(NodeBuilder<T> root) {
+        T syntax = build(root);
+        Set<Node> owned = Collections.newSetFromMap(new IdentityHashMap<>());
+        collect(syntax, owned);
+        Map<Node, NodeBuilder<?>> external = new IdentityHashMap<>();
+        nodes.forEach((builder, node) -> { if (!owned.contains(node)) external.put(node, builder); });
+        return EditContext.syntaxCopy(external).copy(syntax);
+    }
+
     /** Copies ordered child builders in the same session and freezes the resulting list. */
     <T extends Node> List<T> copyAll(List<? extends NodeBuilder<? extends T>> builders) {
         List<T> result = new ArrayList<>();

@@ -119,8 +119,13 @@ public final class ConstantFolder {
         private final Set<Node> retained;
         private final Set<Node> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         private final Map<EnumeratorDeclaration, EnumDeclaration> enums = new IdentityHashMap<>();
+        private final Map<ClassDeclaration, ClassTemplateInstance> templates = new IdentityHashMap<>();
+        private final Map<ClassDeclaration, List<ClassDeclaration>> selectionHeaders;
+        private final Set<Node> argumentSyntaxSeen = Collections.newSetFromMap(new IdentityHashMap<>());
         LayoutDependencies(Project project, com.kniazkov.cpg.build.PlatformProfile profile, Set<Node> retained) {
             this.profile = profile; this.retained = retained;
+            selectionHeaders = ClassTemplateSemantics.layoutSelectionHeaders(project);
+            project.classTemplateInstances().forEach(instance -> templates.put(instance.declaration(), instance));
             project.walk(new NodeVisitor() { @Override public void visit(EnumDeclaration owner) {
                 owner.enumerators().forEach(enumerator -> enums.put(enumerator, owner));
             } });
@@ -151,6 +156,19 @@ public final class ConstantFolder {
             if (owner == null || !visited.add(owner)) return;
             owner.enumerators().forEach(value -> value.value().ifPresent(this::constant));
         }
+        /** Preserve constant syntax inside type arguments without treating the
+         * argument's class or pointer pointee as an object-layout dependency. */
+        private void argumentSyntax(Node node) {
+            if (!argumentSyntaxSeen.add(node)) return;
+            if (node instanceof Expression expression) { constant(expression); return; }
+            if (node instanceof NamedType named) named.alias().ifPresent(alias -> argumentSyntax(alias.type()));
+            node.children().forEach(this::argumentSyntax);
+        }
+        private void fields(ClassDeclaration owner) {
+            if (visited.add(owner)) for (Declaration member : owner.members())
+                if (member instanceof VariableDeclaration field && !field.modifiers().contains("static"))
+                    field.type().ifPresent(this::type);
+        }
         private void type(TypeNode type) {
             if (!visited.add(type)) return;
             retained.add(type);
@@ -161,9 +179,20 @@ public final class ConstantFolder {
                 if (named.alias().isPresent()) type(named.alias().orElseThrow().type());
                 else if (named.declaration().orElse(null) instanceof ClassDeclaration owner) {
                     ClassDeclaration definition = owner.definition().orElse(owner) instanceof ClassDeclaration value ? value : owner;
-                    if (visited.add(definition)) for (Declaration member : definition.members())
-                        if (member instanceof VariableDeclaration field && !field.modifiers().contains("static"))
-                            field.type().ifPresent(this::type);
+                    fields(definition);
+                    ClassTemplateInstance instance = templates.get(definition);
+                    if (instance != null) {
+                        // Re-instantiation uses written selected fields and argument syntax,
+                        // not just the current substituted copy. Preserve both dependencies.
+                        fields(instance.selected());
+                        selectionHeaders.getOrDefault(instance.declaration(), List.of(instance.selected()))
+                                .forEach(header -> header.templateArguments().forEach(this::argumentSyntax));
+                        instance.arguments().forEach(this::argumentSyntax);
+                        instance.origin().templateParameters().forEach(parameter -> parameter.defaultArgument().ifPresent(this::argumentSyntax));
+                        instance.requests().stream().filter(NamedType.class::isInstance).map(NamedType.class::cast)
+                                .forEach(request -> request.templateArguments().forEach(this::argumentSyntax));
+                        named.templateArguments().forEach(this::argumentSyntax);
+                    }
                 }
             }
             // Object and function pointer pointees do not determine pointer storage.

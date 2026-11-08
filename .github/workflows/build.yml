@@ -53,3 +53,4 @@ jobs:
             target/signal-dispositions-oracle/
             target/pod-layout-oracle/
             target/offsetof-oracle/
+            target/offsetof-context-oracle/

@@ -888,6 +888,36 @@ public final class NameResolver {
                     editor.bindImport(using, matches.size() == 1 ? matches.getFirst().declaration() : null);
                 }
             }
+            Set<NamedType> instantiatedAliases = Collections.newSetFromMap(new IdentityHashMap<>());
+            // A primary/partial template's aliases are provisional until substitution
+            // (including catalogue iterator aliases), not captured caller bindings.
+            Set<TypedefDeclaration> uninstantiatedAliases = Collections.newSetFromMap(new IdentityHashMap<>());
+            project.walk(new NodeVisitor() {
+                private void collect(Node owner) { owner.walk(new NodeVisitor() {
+                    @Override public void visit(TypedefDeclaration alias) { uninstantiatedAliases.add(alias); }
+                }); }
+                @Override public void visit(ClassDeclaration owner) { if (!owner.templateParameters().isEmpty()) collect(owner); }
+                @Override public void visit(CallableDeclaration owner) { if (!owner.templateParameters().isEmpty()) collect(owner); }
+            });
+            project.classTemplateInstances().forEach(instance -> {
+                Set<TypedefDeclaration> argumentAliases = Collections.newSetFromMap(new IdentityHashMap<>());
+                instance.arguments().forEach(argument -> argument.walk(new NodeVisitor() {
+                    @Override public void visit(NamedType type) {
+                        type.alias().filter(declarations::contains)
+                                .filter(alias -> !uninstantiatedAliases.contains(alias))
+                                // Abstract catalogue types still acquire their concrete
+                                // container semantics during resolution. They are not
+                                // captured concrete caller types, even after substitution.
+                                .filter(alias -> !(alias.type().canonicalType() instanceof OpaqueLibraryType))
+                                .ifPresent(argumentAliases::add);
+                    }
+                }));
+                instance.walk(new NodeVisitor() {
+                    @Override public void visit(NamedType type) {
+                        if (type.alias().filter(argumentAliases::contains).isPresent()) instantiatedAliases.add(type);
+                    }
+                });
+            });
             project.walk(new NodeVisitor() {
                 @Override public void visit(NamedType type) {
                     var matches = lookup(type.name(), scopes.get(type), positions.get(type), new HashSet<>(), type.elaboratedKeyword().isPresent());
@@ -906,7 +936,11 @@ public final class NameResolver {
                         if(instance.requests().contains(type) || type.declaration().orElse(null)==instance.declaration()) match=new Match(instance.declaration(),List.of());
                     // Derived function-typedef signatures retain the typedef's original
                     // scope rather than rebinding its aliases at the new declarator.
-                    if (type.range().isEmpty() && type.provenance().isEmpty() && type.alias().isPresent())
+                    // Concrete argument aliases are bound in the caller's scope before
+                    // substitution. Re-looking up their spelling in the template body
+                    // would change an already selected specialization's meaning.
+                    if ((type.range().isEmpty() && type.provenance().isEmpty() || instantiatedAliases.contains(type))
+                            && type.alias().isPresent())
                         match = new Match(type.alias().orElseThrow(), List.of());
                     if (match != null && !isType(match.declaration())) match = null;
                     if (match != null && match.declaration() instanceof TypedefDeclaration alias && containsNode(alias.type(), type)) match = null;

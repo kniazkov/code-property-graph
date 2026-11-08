@@ -139,6 +139,35 @@ public final class ClassTemplateSemantics {
         }
         return result;
     }
+    /** Visible specialization headers are dependencies of instance selection, even
+     * when a candidate is not selected. Reuse lookup's scope/visibility boundaries;
+     * callers inspect headers only, never unrelated candidate bodies. */
+    static Map<ClassDeclaration, List<ClassDeclaration>> layoutSelectionHeaders(Project project) {
+        if (project.classTemplateInstances().isEmpty()) return Map.of();
+        var declarations = new ArrayList<Located>();
+        var uses = new ArrayList<Use>();
+        for (SourceFile source : project.librarySources()) collect(source, source, "", false, declarations, uses, new int[]{0}, Set.of());
+        for (SourceFile source : project.files()) collect(source, source, "", false, declarations, uses, new int[]{0}, Set.of());
+        for (ClassTemplateInstance instance : project.classTemplateInstances())
+            collect(instance.declaration(), instance.source(), scopeOf(instance.origin(), declarations), false,
+                    declarations, uses, new int[]{Integer.MAX_VALUE / 2}, Set.of());
+        var result = new IdentityHashMap<ClassDeclaration, List<ClassDeclaration>>();
+        for (ClassTemplateInstance instance : project.classTemplateInstances()) {
+            Located origin = declarations.stream().filter(value -> value.declaration() == instance.origin()).findFirst().orElse(null);
+            if (origin == null) { result.put(instance.declaration(), List.of(instance.selected())); continue; }
+            var headers = new LinkedHashSet<ClassDeclaration>();
+            for (Use use : uses) if (instance.requests().contains(use.node()))
+                declarations.stream().filter(value -> value.scope().equals(origin.scope())
+                        && value.declaration().name().equals(origin.declaration().name())
+                        && (value.file() == use.file() && value.position() < use.position()
+                            || LibraryDeclarations.visible(use.file(), value.file())))
+                        .map(Located::declaration).forEach(headers::add);
+            headers.add(instance.selected());
+            result.put(instance.declaration(), List.copyOf(headers));
+        }
+        return result;
+    }
+
     private static void collectDeducible(Node node, List<TemplateParameterDeclaration> parameters, Set<TemplateParameterDeclaration> found) {
         if (node instanceof NamedType type) {
             if (type.qualifier().isPresent()) return;

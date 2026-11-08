@@ -34,7 +34,8 @@ final class ConstantEvaluator {
         return new Context() {
             @Override public IntegralConstants integralContext() { return shared.integralContext(); }
             @Override public Optional<Value> local(Declaration declaration) { return local.apply(declaration).or(() -> shared.local(declaration)); }
-            @Override public Optional<Value> apply(Declaration declaration) { return local.apply(declaration).or(() -> shared.apply(declaration)); }
+            @Override public Optional<Value> apply(Declaration declaration) { return local.apply(declaration).map(value -> shared.integralContext().boundedLocal(declaration, value))
+                        .orElseGet(() -> shared.apply(declaration)); }
         };
     }
 
@@ -197,7 +198,10 @@ final class ConstantEvaluator {
                 return ((Context) constants).integralContext().offsetof(offset, constants);
             if (expression instanceof SizeofExpression sizeof) {
                 var type = TypeSemantics.sizeType(profile).flatMap(name -> integerType(name, profile));
-                return type.flatMap(t -> TypeSemantics.sizeof(sizeof, profile).filter(t::contains).map(value -> new Value(value, t)));
+                var context = ((Context) constants).integralContext();
+                var size = context.boundedLayoutActive() ? context.boundedSizeof(sizeof, constants)
+                        : TypeSemantics.sizeof(sizeof, profile);
+                return type.flatMap(t -> size.filter(t::contains).map(value -> new Value(value, t)));
             }
             if (expression instanceof UnaryExpression unary) {
                 var operand = evaluate(unary.operand(), profile, active, constants, integralConstant);

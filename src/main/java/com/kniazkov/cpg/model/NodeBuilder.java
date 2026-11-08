@@ -107,6 +107,13 @@ public abstract class NodeBuilder<T extends Node> {
         return new BuildContext().build(this);
     }
 
+    /** Copies this builder's owned syntax into fresh builders while retaining exact
+     * external reference targets. Unlike build().edit(), this is suitable for parser
+     * declarator occurrences whose aliases still belong to the enclosing assembly. */
+    public final NodeBuilder<T> copySyntax() {
+        return new BuildContext().copySyntax(this);
+    }
+
     /** Provides the checked conversion for identity-map lookups during cyclic assembly. */
     final Class<T> nodeType() {
         return nodeType;
