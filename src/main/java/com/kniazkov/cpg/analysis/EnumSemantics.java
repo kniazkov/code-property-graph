@@ -6,6 +6,7 @@ import com.kniazkov.cpg.model.*;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.function.Function;
+import java.util.function.BiFunction;
 
 /** Underlying representation and integral promotion are deliberately separate. */
 final class EnumSemantics {
@@ -18,13 +19,21 @@ final class EnumSemantics {
     /** Earlier enumerators have their initializer types inside the same enum definition. */
     static Optional<Map<EnumeratorDeclaration, ConstantEvaluator.Value>> valuesBefore(EnumDeclaration enumeration,
             EnumeratorDeclaration stop, PlatformProfile profile, Function<Declaration, Optional<ConstantEvaluator.Value>> outer) {
+        return valuesBefore(enumeration, stop, profile, outer,
+                (expression, values) -> ConstantEvaluator.integralConstant(expression, profile, values));
+    }
+    /** Bounded clients supply their shared-context admission without changing lexical typing. */
+    static Optional<Map<EnumeratorDeclaration, ConstantEvaluator.Value>> valuesBefore(EnumDeclaration enumeration,
+            EnumeratorDeclaration stop, PlatformProfile profile,
+            Function<Declaration, Optional<ConstantEvaluator.Value>> outer,
+            BiFunction<Expression, Function<Declaration, Optional<ConstantEvaluator.Value>>, Optional<ConstantEvaluator.Value>> evaluate) {
         var values = new IdentityHashMap<EnumeratorDeclaration, ConstantEvaluator.Value>();
         BigInteger next = BigInteger.ZERO;
         ConstantEvaluator.IntegerType previousType = null;
         for (EnumeratorDeclaration enumerator : enumeration.enumerators()) {
             if (enumerator == stop) break;
             Optional<ConstantEvaluator.Value> value;
-            if (enumerator.value().isPresent()) value = ConstantEvaluator.integralConstant(enumerator.value().get(), profile,
+            if (enumerator.value().isPresent()) value = evaluate.apply(enumerator.value().get(),
                     ConstantEvaluator.overlay(outer, declaration -> Optional.ofNullable(values.get(declaration)), profile));
             else {
                 value = previousType != null && previousType.contains(next)
@@ -51,7 +60,11 @@ final class EnumSemantics {
         if (profile.enumUnderlyingType().equals("unknown")) return Optional.empty();
         var values = values(enumeration, profile, outer);
         if (values.isEmpty()) return Optional.empty();
-        var numbers = values.get().values().stream().map(ConstantEvaluator.Value::number).toList();
+        return underlyingValues(values.get().values().stream().map(ConstantEvaluator.Value::number).toList(), profile);
+    }
+    /** Original 7.2 representation choice from already certified initializer values. */
+    static Optional<ConstantEvaluator.IntegerType> underlyingValues(List<BigInteger> numbers, PlatformProfile profile) {
+        if (profile.enumUnderlyingType().equals("unknown")) return Optional.empty();
         if (numbers.isEmpty()) numbers = List.of(BigInteger.ZERO);
         var signed = ConstantEvaluator.integerType("int", profile).orElseThrow();
         var unsigned = ConstantEvaluator.integerType("unsigned int", profile).orElseThrow();
@@ -88,6 +101,32 @@ final class EnumSemantics {
         if (numbers.isEmpty()) return number.signum() == 0;
         BigInteger min = Collections.min(numbers), max = Collections.max(numbers);
         return min.compareTo(number) <= 0 && max.compareTo(number) >= 0;
+    }
+    /** Exact syntax-owned object types for enum dependency tracking. This is not
+     * overload resolution or general expression-type inference, and creates no copies. */
+    static Optional<TypeNode> objectType(Expression expression) {
+        if (expression.operatorTarget().isPresent()) return expression.operatorTarget().orElseThrow().returnType();
+        Declaration target = expression instanceof NameExpression name ? name.target().orElse(null)
+                : expression instanceof MemberExpression member ? member.target().orElse(null) : null;
+        if (target instanceof VariableDeclaration variable) return variable.type();
+        if (target instanceof ParameterDeclaration parameter) return parameter.type();
+        if (expression instanceof CallExpression call) return call.target().flatMap(CallableDeclaration::returnType)
+                .or(() -> objectType(call.callee()).map(type -> TypeSemantics.unqualified(TypeSemantics.withoutReference(type)))
+                        .flatMap(type -> {
+                            if (type instanceof PointerType pointer) type = TypeSemantics.unqualified(pointer.pointee());
+                            return type instanceof FunctionType function ? Optional.of(function.returnType()) : Optional.empty();
+                        }));
+        if (expression instanceof DotMemberPointerExpression || expression instanceof ArrowMemberPointerExpression)
+            return objectType(((BinaryExpression) expression).right()).map(type -> TypeSemantics.unqualified(TypeSemantics.withoutReference(type)))
+                    .flatMap(type -> type instanceof MemberPointerType member ? Optional.of(member.pointee()) : Optional.empty());
+        if (expression instanceof ConversionExpression conversion) return Optional.of(conversion.targetType());
+        if (expression instanceof InitializationExpression initialization) return initialization.type();
+        Expression pointer = expression instanceof IndexExpression index ? index.left()
+                : expression instanceof DereferenceExpression dereference ? dereference.operand() : null;
+        if (pointer != null) return objectType(pointer).map(type -> TypeSemantics.unqualified(TypeSemantics.withoutReference(type)))
+                .flatMap(type -> type instanceof ArrayType array ? Optional.of(array.elementType())
+                        : type instanceof PointerType value ? Optional.of(value.pointee()) : Optional.empty());
+        return Optional.empty();
     }
     static Optional<EnumDeclaration> declaration(TypeNode type) {
         type = TypeSemantics.unqualified(TypeSemantics.withoutReference(type));

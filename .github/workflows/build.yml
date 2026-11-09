@@ -55,3 +55,4 @@ jobs:
             target/offsetof-oracle/
             target/offsetof-context-oracle/
             target/member-pointer-layout-oracle/
+            target/enum-storage-layout-oracle/
