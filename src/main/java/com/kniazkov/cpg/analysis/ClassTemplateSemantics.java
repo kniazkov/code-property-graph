@@ -79,20 +79,21 @@ public final class ClassTemplateSemantics {
             }
             var matches = new ArrayList<Match>();
             var fullPatterns = new IdentityHashMap<ClassDeclaration, String>();
+            var partialPatterns = new IdentityHashMap<ClassDeclaration, List<TemplateArgument>>();
             for (Located candidate : family) {
                 var declaration = candidate.declaration();
                 if (failures.containsKey(declaration)) continue;
                 if (declaration.templateKind() != TemplateKind.FULL_SPECIALIZATION && declaration.templateKind() != TemplateKind.PARTIAL_SPECIALIZATION) continue;
-                // The existing partial matcher has no snapshot constant context.
-                // Do not let a named value in an otherwise viable pattern silently
-                // disappear from consideration and select a different primary.
-                if (declaration.templateKind() == TemplateKind.PARTIAL_SPECIALIZATION
-                        && unsupportedPartialValues(primary, declaration.templateArguments(), profile)) {
-                    failures.put(use.node(), error("unsupported-class-template-arguments",
-                            "Partial-specialization value dependency or parameter conversion remains unsupported for " + primary.name()));
-                    continue usesLoop;
-                }
                 List<TemplateArgument> patternArguments = declaration.templateArguments();
+                if (declaration.templateKind() == TemplateKind.PARTIAL_SPECIALIZATION) {
+                    patternArguments = partialArguments(primary, declaration, profile, constants);
+                    if (patternArguments == null) {
+                        failures.put(use.node(), error("unsupported-class-template-arguments",
+                                "Partial-specialization value dependency or parameter conversion remains unsupported for " + primary.name()));
+                        continue usesLoop;
+                    }
+                    partialPatterns.put(declaration, patternArguments);
+                }
                 if (declaration.templateKind() == TemplateKind.FULL_SPECIALIZATION) {
                     var pattern = completeArguments(primary, family, patternArguments, profile, constants);
                     if (pattern.values() == null) {
@@ -111,13 +112,13 @@ public final class ClassTemplateSemantics {
             if (!full.isEmpty()) matches = new ArrayList<>(full);
             var best = new ArrayList<Match>();
             for (Match candidate : matches) {
-                boolean dominated = matches.stream().anyMatch(other -> other != candidate && moreSpecialized(other.declaration(), candidate.declaration(), profile));
+                boolean dominated = matches.stream().anyMatch(other -> other != candidate && moreSpecialized(other.declaration(), candidate.declaration(), partialPatterns, profile));
                 if (!dominated) best.add(candidate);
             }
             // Repeated declarations of one specialization are not competing candidates.
             var distinct = new LinkedHashMap<String, Match>();
             for (Match match : best) {
-                String pattern = fullPatterns.getOrDefault(match.declaration(), patternIdentity(match.declaration()));
+                String pattern = fullPatterns.getOrDefault(match.declaration(), patternIdentity(match.declaration(), partialPatterns.getOrDefault(match.declaration(), match.declaration().templateArguments()), profile));
                 Match previous = distinct.get(pattern);
                 if (previous == null || !previous.declaration().isDefinition()) distinct.put(pattern, match);
             }
@@ -396,28 +397,35 @@ public final class ClassTemplateSemantics {
             int separator = scope.lastIndexOf("::"); scope = separator < 0 ? "" : scope.substring(0, separator);
         }
     }
-    private static boolean unsupportedPartialValues(ClassDeclaration primary, List<TemplateArgument> arguments, PlatformProfile profile) {
+    /** Normalize only top-level, nondependent integral pattern values. Written
+     * headers remain untouched and remain layout/folding dependencies. Use the
+     * same snapshot values for deduction, ordering and redeclaration identity. */
+    private static List<TemplateArgument> partialArguments(ClassDeclaration primary, ClassDeclaration partial,
+            PlatformProfile profile, IntegralConstants constants) {
+        var result = new ArrayList<TemplateArgument>();
+        var arguments = partial.templateArguments();
+        if (arguments.size() != primary.templateParameters().size()) return null;
         for (int i = 0; i < arguments.size(); i++) {
-            if (i < primary.templateParameters().size()) {
-                var parameter = primary.templateParameters().get(i);
-                TypeNode type = parameter.type().map(TypeNode::canonicalType).map(TypeSemantics::unqualified).orElse(null);
-                // Existing pointer/reference matching compares object identities;
-                // it never needed the numeric initializer of a named object.
-                if (parameter.kind() == TemplateParameterDeclaration.Kind.VALUE) {
-                    if (type instanceof PointerType || type instanceof ReferenceType) continue;
-                    var value = arguments.get(i).expression().flatMap(expression -> ConstantEvaluator.evaluate(expression, profile));
-                    if (value.isPresent()) {
-                        var target = type == null ? Optional.<ConstantEvaluator.IntegerType>empty() : TypeSemantics.integerType(type, profile);
-                        // Actual values are normalized, while the existing partial
-                        // matcher compares written values. For example bool 2
-                        // becomes 1; silently ignoring that pattern is unsound.
-                        if (target.isEmpty() || !target.orElseThrow().contains(value.orElseThrow().number())) return true;
-                    }
-                }
-            }
-            if (namedPatternValue(arguments.get(i), profile)) return true;
+            var argument = arguments.get(i);
+            var parameter = primary.templateParameters().get(i);
+            TypeNode type = parameter.type().map(TypeNode::canonicalType).map(TypeSemantics::unqualified).orElse(null);
+            if (parameter.kind() == TemplateParameterDeclaration.Kind.VALUE) {
+                // Preserve the existing pointer/reference identity matcher.
+                if (type instanceof PointerType || type instanceof ReferenceType) { result.add(argument); continue; }
+                var value = argument.expression().flatMap(constants::evaluate);
+                if (value.isPresent()) {
+                    var target = type == null ? Optional.<ConstantEvaluator.IntegerType>empty() : TypeSemantics.integerType(type, profile);
+                    // Value-changing conversions and dependent parameter types
+                    // still require a separate certification, including bool 2.
+                    var number = value.orElseThrow().number();
+                    if (target.isEmpty() || !target.orElseThrow().contains(number)) return null;
+                    argument = TemplateArgument.create().setExpression(IntegerLiteral.create().setValue(number)
+                            .setCppType(number.signum() < 0 ? "long" : "unsigned long")).build();
+                } else if (namedPatternValue(argument, profile)) return null;
+            } else if (namedPatternValue(argument, profile)) return null;
+            result.add(argument);
         }
-        return false;
+        return List.copyOf(result);
     }
     private static boolean namedPatternValue(Node node, PlatformProfile profile) {
         // Keep already supported expression-local facts such as sizeof(object).
@@ -527,8 +535,11 @@ public final class ClassTemplateSemantics {
         for (int i = 0; i < arguments.size(); i++) if (!matchArgument(patternArguments.get(i), arguments.get(i), pattern.templateParameters(), bindings, profile)) return null;
         return bindings.keySet().containsAll(pattern.templateParameters()) ? bindings : null;
     }
-    private static boolean moreSpecialized(ClassDeclaration a, ClassDeclaration b, PlatformProfile profile) {
-        return deduce(b, a.templateArguments(), profile) != null && deduce(a, b.templateArguments(), profile) == null;
+    private static boolean moreSpecialized(ClassDeclaration a, ClassDeclaration b,
+            Map<ClassDeclaration, List<TemplateArgument>> patterns, PlatformProfile profile) {
+        var aa = patterns.getOrDefault(a, a.templateArguments());
+        var bb = patterns.getOrDefault(b, b.templateArguments());
+        return deduce(b, bb, aa, profile) != null && deduce(a, aa, bb, profile) == null;
     }
     private static TemplateParameterDeclaration parameter(Node node, List<TemplateParameterDeclaration> parameters) {
         Declaration target = node instanceof NamedType n ? n.declaration().orElse(null) : node instanceof NameExpression n ? n.target().orElse(null) : null;
@@ -594,10 +605,16 @@ public final class ClassTemplateSemantics {
         }
         return identity;
     }
-    private static String patternIdentity(ClassDeclaration c) {
+    private static String patternIdentity(ClassDeclaration c, List<TemplateArgument> arguments, PlatformProfile profile) {
         var names = new IdentityHashMap<Declaration, String>();
         for (int i = 0; i < c.templateParameters().size(); i++) names.put(c.templateParameters().get(i), "$" + i);
-        return TypeIdentity.canonicalIdentity(NamedType.create().setName(c.name()).setTemplateArguments(c.templateArguments().stream().map(TemplateArgument::edit).toList()).build(), names);
+        // Do not rebuild the header: ordinary edit/build deliberately clears
+        // bindings, losing parameter alpha-equivalence and typedef identities.
+        return arguments.stream().map(argument -> {
+            if (argument.type().isPresent()) return argument.kind() + ":" + TypeIdentity.canonicalIdentity(argument.type().orElseThrow(), names);
+            var parameter = parameter(argument.expression().orElseThrow(), c.templateParameters());
+            return parameter == null ? argumentIdentity(argument, profile) : "VALUE:" + names.get(parameter);
+        }).reduce((left, right) -> left + "," + right).orElse("");
     }
     private static String argumentIdentity(TemplateArgument argument, PlatformProfile profile) {
         if (argument.type().isPresent()) return argument.kind() + ":" + argument.type().get().canonicalIdentity();

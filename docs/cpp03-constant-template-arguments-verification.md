@@ -1,5 +1,12 @@
 # C++03 #92: named integral class-template arguments
 
+Historical pre-publication checkpoint for [PR #125](https://github.com/kniazkov/code-property-graph/pull/125).
+Its pending-gate wording records that checkpoint, not the current CI state;
+subsequent gate outcomes belong to the PR. The newer bounded partial-pattern
+contract and its independent checks are recorded in
+[the follow-up report](cpp03-partial-constant-template-arguments-verification.md).
+The original results and limitations below are retained as historical evidence.
+
 ## Bounded contract
 
 Class-template argument completion uses snapshot-owned integral-constant facts
