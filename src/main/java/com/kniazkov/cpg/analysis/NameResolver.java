@@ -1581,7 +1581,7 @@ public final class NameResolver {
                     if (!result.supported()) {
                         var failure = result.failure().orElseThrow();
                         boolean unsupported = switch (failure.reason()) {
-                            case UNSUPPORTED_TYPE, UNSUPPORTED_TEMPLATE, UNSUPPORTED_PRAGMA, UNKNOWN_LAYOUT, BIT_FIELD,
+                            case UNSUPPORTED_TYPE, UNSUPPORTED_TEMPLATE, UNSUPPORTED_PRAGMA, UNSUPPORTED_ENUM_SEMANTICS, UNKNOWN_LAYOUT, BIT_FIELD,
                                     NON_CONSTANT_INDEX, UNKNOWN_ARRAY_BOUND, SUPPORTED_OBJECT_LIMIT, SIZE_NOT_REPRESENTABLE -> true;
                             default -> false;
                         };

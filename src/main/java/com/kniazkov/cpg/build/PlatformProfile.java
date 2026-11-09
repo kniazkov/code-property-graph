@@ -338,11 +338,12 @@ public final class PlatformProfile {
             if (model.isEmpty()) b.offsetof = null;
             else {
                 if (!model.keySet().containsAll(Set.of("emission", "layout", "supportedObjectBytes"))
-                        || !Set.of("emission", "layout", "supportedObjectBytes", "memberPointerStorage").containsAll(model.keySet()))
-                    throw invalid("offsetof requires emission, layout and supportedObjectBytes, with optional memberPointerStorage");
+                        || !Set.of("emission", "layout", "supportedObjectBytes", "memberPointerStorage", "enumStorage").containsAll(model.keySet()))
+                    throw invalid("offsetof requires emission, layout and supportedObjectBytes, with optional memberPointerStorage and enumStorage");
                 b.offsetof(string(model.get("emission"), "offsetof.emission"), string(model.get("layout"), "offsetof.layout"),
                         string(model.get("supportedObjectBytes"), "offsetof.supportedObjectBytes"),
-                        model.containsKey("memberPointerStorage") ? string(model.get("memberPointerStorage"), "offsetof.memberPointerStorage") : null);
+                        model.containsKey("memberPointerStorage") ? string(model.get("memberPointerStorage"), "offsetof.memberPointerStorage") : null,
+                        model.containsKey("enumStorage") ? string(model.get("enumStorage"), "offsetof.enumStorage") : null);
             }
         }
         if (settings.containsKey("hugeVal")) {
@@ -476,6 +477,9 @@ public final class PlatformProfile {
         public Builder offsetof(String emission, String layout, String supportedObjectBytes) { offsetof = OffsetofModel.parse(emission, layout, supportedObjectBytes); return this; }
         public Builder offsetof(String emission, String layout, String supportedObjectBytes, String memberPointerStorage) {
             offsetof = OffsetofModel.parse(emission, layout, supportedObjectBytes, memberPointerStorage); return this;
+        }
+        public Builder offsetof(String emission, String layout, String supportedObjectBytes, String memberPointerStorage, String enumStorage) {
+            offsetof = OffsetofModel.parse(emission, layout, supportedObjectBytes, memberPointerStorage, enumStorage); return this;
         }
         public Builder hugeVal(String kind, String emission) { hugeVal = new HugeValModel(kind, emission); return this; }
         public Builder clockScale(String clockType, String expressionType, String value) { clockScale = ClockScaleModel.parse(clockType, expressionType, value); return this; }

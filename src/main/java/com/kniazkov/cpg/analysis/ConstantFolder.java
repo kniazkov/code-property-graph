@@ -143,8 +143,12 @@ public final class ConstantFolder {
             Declaration declaration = expression instanceof NameExpression name ? name.target().orElse(null)
                     : expression instanceof ScopeMemberExpression member ? member.target().orElse(null) : null;
             if (declaration instanceof VariableDeclaration variable && variable.type().isPresent()
-                    && TypeSemantics.qualifiers(variable.type().orElseThrow()) == 1)
+                    && TypeSemantics.qualifiers(variable.type().orElseThrow()) == 1) {
+                type(variable.type().orElseThrow());
                 variable.initializer().ifPresent(this::constant);
+            }
+            if (profile.offsetof().map(model -> model.enumStorage() != null).orElse(false))
+                EnumSemantics.objectType(expression).flatMap(EnumSemantics::declaration).ifPresent(this::enumeration);
             if (declaration instanceof EnumeratorDeclaration enumerator) enumeration(enums.get(enumerator));
             if (expression instanceof ConversionExpression conversion)
                 EnumSemantics.declaration(conversion.targetType()).ifPresent(this::enumeration);
@@ -182,6 +186,7 @@ public final class ConstantFolder {
             }
             else if (type instanceof NamedType named) {
                 if (named.alias().isPresent()) type(named.alias().orElseThrow().type());
+                else if (named.declaration().orElse(null) instanceof EnumDeclaration owner) enumeration(owner);
                 else if (named.declaration().orElse(null) instanceof ClassDeclaration owner) {
                     ClassDeclaration definition = owner.definition().orElse(owner) instanceof ClassDeclaration value ? value : owner;
                     fields(definition);
