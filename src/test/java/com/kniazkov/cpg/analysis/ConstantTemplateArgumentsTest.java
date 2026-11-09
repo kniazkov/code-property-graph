@@ -77,7 +77,7 @@ class ConstantTemplateArgumentsTest {
     }
 
     @Test void nonrepresentableConversionsRemainExplicitlyUnsupported(){
-        for(String[] row:List.of(new String[]{"int","4294967295UL"},new String[]{"unsigned char","256"},new String[]{"unsigned int","-1"})){
+        for(String[] row:List.of(new String[]{"int","4294967295UL"},new String[]{"signed char","128"},new String[]{"short","65535"})){
             var p=resolve("const long n="+row[1]+";template<"+row[0]+" N> struct Box {char tail;};typedef Box<n> Selected;unsigned long result=__builtin_offsetof(Selected,tail);");
             assertTrue(p.semanticDiagnostics().stream().anyMatch(d->d.code().equals("unsupported-class-template-arguments")),p.semanticDiagnostics().toString());
             assertTrue(new IntegralConstants(p,PROFILE).evaluate(variable(p,"result").initializer().orElseThrow()).isEmpty());
@@ -85,7 +85,7 @@ class ConstantTemplateArgumentsTest {
     }
 
     @Test void unsupportedSpecializationCannotSilentlySelectThePrimary(){
-        String source="const int outside=256;template<unsigned char N> struct Box {char data;char tail;};"
+        String source="const int outside=128;template<signed char N> struct Box {char data;char tail;};"
                 +"template<> struct Box<outside> {long data;char tail;};typedef Box<0> Selected;unsigned long result=__builtin_offsetof(Selected,tail);";
         var p=resolve(source);
         assertTrue(p.semanticDiagnostics().stream().anyMatch(d->d.code().equals("unsupported-class-template-arguments")),p.semanticDiagnostics().toString());
@@ -286,6 +286,43 @@ class ConstantTemplateArgumentsTest {
         }
     }
 
+    @Test void unsignedPartialNormalizationRetainsOversizedWrittenDependencies(){
+        var bounded=PlatformProfile.builder().offsetof("gcc-clang-builtin","x86_64-sysv-lp64-v1","16").build();
+        String source="struct Giant {char bytes[16];};const int fixed=sizeof(Giant)*16;"
+                +"template<class T,unsigned char B> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<T,fixed> {long data;char tail;};"
+                +"typedef Box<int,0> Selected;unsigned long result=__builtin_offsetof(Selected,tail);";
+        var original=resolve(bounded,source);healthy(original);
+        var oversized=resolve(bounded,source.replace("bytes[16]","bytes[17]"));
+        assertTrue(oversized.semanticDiagnostics().toString().contains("SUPPORTED_OBJECT_LIMIT"),oversized.semanticDiagnostics().toString());
+        assertTrue(new IntegralConstants(oversized,bounded).evaluate(variable(oversized,"result").initializer().orElseThrow()).isEmpty());
+        for(var p:List.of(original,original.edit().build(),NameResolver.resolve(ConstantFolder.fold(original)))){
+            healthy(p);
+            var editor=new ProjectEditor(p);
+            editor.replace(((ArrayType)variable(p,"bytes").type().orElseThrow()).bound().orElseThrow(),IntegerLiteral.create().setValue(17).build());
+            var changed=NameResolver.resolve(editor.build());
+            assertTrue(changed.semanticDiagnostics().toString().contains("SUPPORTED_OBJECT_LIMIT"),changed.semanticDiagnostics().toString());
+            assertTrue(new IntegralConstants(changed,bounded).evaluate(variable(changed,"result").initializer().orElseThrow()).isEmpty());
+            assertThrows(IllegalArgumentException.class,()->Cpg.sources(changed,Language.CPP));
+        }
+    }
+
+    @Test void unsignedPartialNormalizationDoesNotHideIncompatibleEnumArithmetic(){
+        var compatible=EnumStorageLayoutTest.P;
+        var incompatible=compatible.toBuilder().enumUnderlyingType("unsigned-first").build();
+        String source="enum E{A=1};const int fixed=+A+256;"
+                +"template<class T,unsigned char B> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<T,fixed> {long data;char tail;};"
+                +"typedef Box<int,1> Selected;unsigned long result=__builtin_offsetof(Selected,tail);";
+        healthy(resolve(compatible,source));
+        var original=resolve(incompatible,source);
+        for(var p:List.of(original,NameResolver.resolve(original.edit().build()),NameResolver.resolve(ConstantFolder.fold(original)))){
+            assertTrue(p.semanticDiagnostics().toString().contains("UNSUPPORTED_ENUM_SEMANTICS"),p.semanticDiagnostics().toString());
+            assertTrue(new IntegralConstants(p,incompatible).evaluate(variable(p,"result").initializer().orElseThrow()).isEmpty());
+            assertThrows(IllegalArgumentException.class,()->Cpg.sources(p,Language.CPP));
+        }
+    }
+
     @Test void booleanPartialConversionsDoNotHideAmbiguityOrNonconstantValues(){
         var p=resolve("const int fixed=-7;template<class T,class U,bool B> struct Box {char tail;};"
                 +"template<class T> struct Box<T,int,fixed> {char tail;};"
@@ -299,13 +336,84 @@ class ConstantTemplateArgumentsTest {
     }
 
     @Test void convertedPartialPatternValuesCannotFallThroughToTheWrongPrimary(){
-        for(String[] row:List.of(new String[]{"unsigned char","256","0"},new String[]{"unsigned char","-1","255"})){
+        for(String[] row:List.of(new String[]{"signed char","128","0"},new String[]{"short","65535","-1"})){
             var p=resolve("template<class T,"+row[0]+" N> struct Box {char data;char tail;};"
                     +"template<class T> struct Box<T,"+row[1]+"> {long data;char tail;};"
                     +"typedef Box<int,"+row[2]+"> Selected;unsigned long result=__builtin_offsetof(Selected,tail);");
             assertTrue(p.semanticDiagnostics().stream().anyMatch(d->d.code().equals("unsupported-class-template-arguments")),p.semanticDiagnostics().toString());
             assertTrue(new IntegralConstants(p,PROFILE).evaluate(variable(p,"result").initializer().orElseThrow()).isEmpty());
             assertThrows(IllegalArgumentException.class,()->Cpg.sources(p,Language.CPP));
+        }
+    }
+
+    @Test void unsignedModuloConversionsShareMatchingOrderingAndRedeclarations(){
+        for(String[] row:List.of(new String[]{"unsigned char","-1","255"},new String[]{"unsigned char","512","0"},
+                new String[]{"unsigned short","65538","2"},new String[]{"unsigned int","-1","4294967295UL"},
+                new String[]{"unsigned long","-1","18446744073709551615UL"})){
+            var p=resolve("const long seed="+row[1]+";const long fixed=seed;"
+                    +"template<class T,"+row[0]+" N> struct Box {char data;char tail;};"
+                    +"template<class T> struct Box<T,fixed>;"
+                    +"template<class U> struct Box<U,"+row[2]+"> {short data;char tail;};"
+                    +"template<class T> struct Box<T*,fixed> {long data;char tail;};"
+                    +"typedef Box<int,"+row[2]+"> A;typedef Box<int*,fixed> B;"
+                    +"unsigned long a=__builtin_offsetof(A,tail);unsigned long b=__builtin_offsetof(B,tail);");
+            healthy(p);value(p,"a",2);value(p,"b",8);
+            healthy(NameResolver.resolve(p.edit().build()));
+            healthy(resolve(Cpg.sources(p,Language.CPP).get("main.cpp")));
+        }
+    }
+
+    @Test void unsignedModuloUsesSelectedWidthAndCharSignedness(){
+        for(var profile:List.of(PlatformProfile.builder().sizeBits("short",32).build(),PlatformProfile.builder().charSigned(false).build())){
+            String type=profile.charSigned()?"unsigned short":"char";
+            String maximum=profile.charSigned()?"4294967295UL":"255";
+            var p=resolve(profile,"template<"+type+" N> struct Box {int data;};template<> struct Box<"+maximum+"> {long data;};Box<-1> object;");
+            healthy(p);assertEquals(TemplateKind.FULL_SPECIALIZATION,p.classTemplateInstances().getFirst().selected().templateKind());
+        }
+    }
+
+    @Test void unsignedModuloDoesNotHideAmbiguityOrInvalidInitializers(){
+        var p=resolve("const int fixed=-1;template<class T,class U,unsigned char N> struct Box {};"
+                +"template<class T,class U> struct Box<T*,U,fixed> {};template<class T,class U> struct Box<T,U*,511> {};Box<int*,int*,255> object;");
+        assertTrue(p.hasErrors());
+        for(String declaration:List.of("const int fixed=fixed;","const int fixed=2147483647+1;","const volatile int fixed=-1;","const double fixed=-1.0;")){
+            var bad=resolve(declaration+"template<class T,unsigned char N> struct Box {};template<class T> struct Box<T,fixed> {};Box<int,255> object;");
+            assertTrue(bad.semanticDiagnostics().stream().anyMatch(d->d.code().equals("unsupported-class-template-arguments")),bad.semanticDiagnostics().toString());
+        }
+    }
+
+    @Test void unsignedDefaultsFullSpecializationsAndParameterTypesUseConvertedValues(){
+        var p=resolve("const int seed=-1;template<unsigned char N=seed> struct Box {char data[sizeof(N)];char tail;};"
+                +"template<> struct Box<511> {long data;char tail;};typedef Box<> A;typedef Box<256> B;"
+                +"unsigned long a=__builtin_offsetof(A,tail);unsigned long b=__builtin_offsetof(B,tail);");
+        healthy(p);value(p,"a",8);value(p,"b",1);
+    }
+
+    @Test void wrappedActualAndDefaultBodiesRetainUnsignedValueAndOverloadType(){
+        var p=resolve("int pick(unsigned char n){return 1;}int pick(int n){return 2;}"
+                +"template<unsigned char N=-1> struct Box {int f(){return pick(N);}};Box<> box;int answer=box.f();"
+                +"template<unsigned long N=-1> struct Wide {char data[N>0?sizeof(N):2];char tail;};"
+                +"typedef Wide<> A;typedef Wide<-1> B;unsigned long a=__builtin_offsetof(A,tail);unsigned long b=__builtin_offsetof(B,tail);");
+        healthy(p);value(p,"a",8);value(p,"b",8);
+        var calls=p.classTemplateInstances().stream().flatMap(i->nodes(i.declaration(),CallExpression.class).stream())
+                .filter(c->c.target().map(t->t.name().equals("pick")).orElse(false)).toList();
+        assertFalse(calls.isEmpty());
+        for(var call:calls){
+            var type=call.target().orElseThrow().parameters().getFirst().type().orElseThrow();
+            assertEquals("unsigned char",TypeSemantics.integerType(type,PROFILE).orElseThrow().spelling());
+        }
+    }
+
+    @Test void unsignedPatternHeaderEditsPreserveDependenciesAcrossSnapshots(){
+        var original=resolve("const int seed=-1;const int fixed=seed;template<class T,unsigned char N> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<T,fixed> {long data;char tail;};"
+                +"typedef Box<int,255> A;unsigned long result=__builtin_offsetof(A,tail);");
+        for(var p:List.of(original,original.edit().build(),NameResolver.resolve(ConstantFolder.fold(original)))){
+            healthy(p);value(p,"result",8);
+            var editor=new ProjectEditor(p);editor.replace(variable(p,"seed").initializer().orElseThrow(),IntegerLiteral.create().setValue(256).build());
+            var changed=NameResolver.resolve(editor.build());healthy(changed);value(changed,"result",1);value(p,"result",8);
+            String source=Cpg.sources(changed,Language.CPP).get("main.cpp");assertTrue(source.contains("fixed"));healthy(resolve(source));
+            assertTrue(ProjectJson.encode(changed).toText("  ").contains("OffsetofExpression"));
         }
     }
 

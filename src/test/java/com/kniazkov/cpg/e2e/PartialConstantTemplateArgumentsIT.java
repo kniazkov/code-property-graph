@@ -156,6 +156,45 @@ class PartialConstantTemplateArgumentsIT {
         }
     }
 
+    @Test void unsignedPartialConversionsSurviveStagesAndHeaderEdits() throws Exception {
+        for (String header : List.of("cstddef", "stddef.h")) {
+            String text = program(header)
+                    .replace("const int selected=1;", "const int selected=-1;")
+                    .replace("const int fixed=1;", "const int seed=511;const int fixed=seed;")
+                    .replace("template<class T,int N> struct Box {char data[N];char tail;};",
+                            "template<class T,unsigned char N> struct Box {char data[3];char tail;};")
+                    .replace("template<class T> struct Box<T,pattern::second> {short data;char tail;};",
+                            "template<class T,unsigned char N> struct Other {short data;char tail;};"
+                            + "template<class T> struct Other<T,fixed> {long data;char tail;};")
+                    .replace("typedef Box<int,choice> ByEnum;", "typedef Other<int,0> ByEnum;");
+            Path input = source("unsigned-original", text);
+            verify(input, false);
+            for (var stage : List.of(Cpg.Stage.RESOLVED, Cpg.Stage.GREEN, Cpg.Stage.FOLDED)) {
+                Project project = Cpg.read(input.getParent(), options(stage));
+                for (Project snapshot : List.of(project, project.edit().build(), NameResolver.resolve(project.edit().build()))) {
+                    healthy(snapshot);
+                    String generated = Cpg.sources(snapshot, Language.CPP).get("main.cpp");
+                    assertTrue(generated.contains("fixed"));
+                    verify(source("unsigned-generated-" + stage, generated), false);
+                    var seed = nodes(snapshot.files().getFirst(), VariableDeclaration.class).stream()
+                            .filter(v -> v.name().equals("seed")).findFirst().orElseThrow();
+                    var editor = new ProjectEditor(snapshot);
+                    editor.replace(seed.initializer().orElseThrow(), IntegerLiteral.create().setValue(256).build());
+                    Project edited = NameResolver.resolve(editor.build());
+                    healthy(edited);
+                    verify(source("unsigned-edited-" + stage, Cpg.sources(edited, Language.CPP).get("main.cpp")), true);
+                }
+            }
+            var cli = new CliSandbox(Files.createTempDirectory(temp, "unsigned-cli")).source("main.cpp", text);
+            Path profile = Files.createTempFile(temp, "unsigned-profile", ".json");
+            Files.writeString(profile, Json.serialize(PROFILE.toSettings()));
+            var run = cli.run("cpp", "--stage", "folded", "--cpp-standard", "c++03",
+                    "--platform-profile", profile.toString()).expectStatus(0);
+            assertNotNull(Json.parse(run.work().resolve("snapshot.json").toFile()));
+            verify(run.work().resolve("generated/main.cpp"), false);
+        }
+    }
+
     private void verify(Path source, boolean edited) throws Exception {
         healthy(Cpg.read(source.getParent(), options(Cpg.Stage.RESOLVED)));
         Path expanded = materialize(source);
