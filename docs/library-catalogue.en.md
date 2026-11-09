@@ -479,3 +479,26 @@ exact-head CI remain separate pending gates. offsetof remains open/partial; tota
 97 bounded obligations / 90 names and five open obligations / five names.
 [Current evidence and gates](cpp03-member-pointer-layout-verification.md).
 Previous sections are historical stages. #92 and #48 remain open.
+
+
+## Bounded enum storage for offsetof (#92, partial)
+
+Independent enumStorage="gcc-clang-x86_64-default-enum-v1" selects bounded
+4/4 or 8/8 byte representation after original range-admissibility checks.
+Omission stays unsupported; member-pointer selection does not enable enums.
+Original full-underlying-range promotion and the mixed-range restriction stay
+unchanged. Modern compiler behavior is comparison evidence, not a new rule.
+
+Pure storage and actual arithmetic/type dependencies are separate: the latter
+require original/native promotion agreement. Lexical initializer types and
+conditional enum identity survive bounded evaluation; folding retains actual
+type dependencies without evaluating runtime initializers. Generic type
+semantics are unchanged. Bitfields and residual prerequisites remain outside.
+
+The clean gate passed all 1439 units and 22 selected IT in 19:34, with zero
+failures, errors or skips. Independent 79 assertions and 68 JUnit tests overlap
+and are not summed. Fresh native evidence covers 82 executions and 40 CPG
+materializations. Full Maven and exact-head CI remain separate pending gates.
+Counts stay 97 bounded obligations / 90 names and five open obligations / five
+names. offsetof remains open/partial; #92 and #48 remain open. Previous sections
+are historical. [Current evidence](cpp03-enum-storage-verification.md).

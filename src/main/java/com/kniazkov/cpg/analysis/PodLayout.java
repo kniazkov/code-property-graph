@@ -11,7 +11,8 @@ import java.util.function.Function;
  * A deliberately bounded, snapshot-local query under an explicit target layout policy.
  * This neither changes generic sizeof/aggregate semantics nor certifies a compiler ABI.
  * Failure means this query cannot justify a result, not necessarily invalid C++03.
- * Enums, unresolved templates and bit-fields remain unsupported. Member pointers require
+ * Enums and member pointers require separate explicitly selected storage contracts.
+ * Unresolved templates and bit-fields remain unsupported. Member pointers require
  * their own explicitly selected storage contract. Ordinary methods
  * and static data do not affect the layout; user special members and non-POD subobjects do.
  * No source nodes, implicit declarations, persistent caches or host facts are created.
@@ -26,7 +27,7 @@ final class PodLayout {
         NOT_POD, INCOMPLETE_TYPE, RECURSIVE_TYPE, UNSUPPORTED_TYPE, UNSUPPORTED_TEMPLATE,
         UNKNOWN_LAYOUT, BIT_FIELD, STATIC_MEMBER, FUNCTION_MEMBER, MISSING_MEMBER,
         INVALID_PATH, NON_CONSTANT_INDEX, INDEX_OUT_OF_BOUNDS, UNKNOWN_ARRAY_BOUND,
-        INVALID_ARRAY_BOUND, SIZE_NOT_REPRESENTABLE, SUPPORTED_OBJECT_LIMIT, UNSUPPORTED_PRAGMA
+        INVALID_ARRAY_BOUND, SIZE_NOT_REPRESENTABLE, SUPPORTED_OBJECT_LIMIT, UNSUPPORTED_PRAGMA, UNSUPPORTED_ENUM_SEMANTICS
     }
     record Failure(Reason reason, String detail) {
         Failure { Objects.requireNonNull(reason); Objects.requireNonNull(detail); }
@@ -95,6 +96,7 @@ final class PodLayout {
     static final class Guards {
         final Set<TypeNode> activeTypes = Collections.newSetFromMap(new IdentityHashMap<>());
         final List<ClassDeclaration> activeClasses = new ArrayList<>();
+        final Set<EnumDeclaration> activeEnums = Collections.newSetFromMap(new IdentityHashMap<>());
     }
     static final class Query {
         private final PlatformProfile profile;
@@ -210,7 +212,7 @@ final class PodLayout {
                     }
                     return owner(definition(owner));
                 }
-                if (target instanceof EnumDeclaration) return failure(Reason.UNSUPPORTED_TYPE, "Enum field ABI is outside this query's supported subset");
+                if (target instanceof EnumDeclaration enumeration) return enumLayout(enumeration);
                 return failure(Reason.UNSUPPORTED_TYPE, "No resolved supported object type for " + named.name());
             } finally { activeTypes.remove(type); }
         }
@@ -526,6 +528,211 @@ final class PodLayout {
             return type instanceof NamedType named && named.alias().isPresent();
         }
 
+        private boolean enumSelected() {
+            return profile.offsetof().map(model -> model.enumStorage() != null).orElse(false);
+        }
+        private record EnumFacts(ConstantEvaluator.IntegerType storage,
+                ConstantEvaluator.IntegerType nativePromotion, List<BigInteger> numbers) {}
+        private <T> Result<T> enumFailure(String detail) {
+            return failure(Reason.UNSUPPORTED_ENUM_SEMANTICS, detail);
+        }
+        private Result<EnumFacts> enumFacts(EnumDeclaration owner) {
+            if (!enumSelected()) return failure(Reason.UNSUPPORTED_TYPE, "Enum storage requires explicit offsetof.enumStorage");
+            if (declarations == null || !owned(owner)) return enumFailure("Enum declaration is outside this snapshot");
+            if (!context.layoutGuards.activeEnums.add(owner)) return enumFailure("Recursive enum representation dependency");
+            try {
+                var values = context.inLayout(this, () -> EnumSemantics.valuesBefore(owner, null, profile, constants, this::lexicalValue));
+                if (values.isEmpty()) return constantFailure(Reason.UNSUPPORTED_ENUM_SEMANTICS, "Enum initializer values are not certified in the bounded context");
+                List<BigInteger> numbers = values.orElseThrow().values().stream().map(ConstantEvaluator.Value::number).toList();
+                if (numbers.isEmpty()) numbers = List.of(BigInteger.ZERO);
+                var signed = ConstantEvaluator.integerType("int", profile).orElseThrow();
+                var unsigned = ConstantEvaluator.integerType("unsigned int", profile).orElseThrow();
+                boolean wider = numbers.stream().anyMatch(n -> !signed.contains(n) && !unsigned.contains(n));
+                boolean negative = numbers.stream().anyMatch(n -> n.signum() < 0);
+                ConstantEvaluator.IntegerType storage = null, promotion = null;
+                for (String name : negative ? List.of("int", "long") : List.of("unsigned int", "unsigned long")) {
+                    var candidate = ConstantEvaluator.integerType(name, profile).orElseThrow();
+                    if ((!wider && candidate.bits() > signed.bits()) || !numbers.stream().allMatch(candidate::contains)) continue;
+                    storage = candidate; break;
+                }
+                if (storage == null) return enumFailure("Enum range has no selected representation consistent with original C++03 7.2");
+                for (String name : List.of("int", "unsigned int", "long", "unsigned long")) {
+                    var candidate = ConstantEvaluator.integerType(name, profile).orElseThrow();
+                    if (numbers.stream().allMatch(candidate::contains)) { promotion = candidate; break; }
+                }
+                if (promotion == null) return enumFailure("Enum promotion is outside selected integer types");
+                return success(new EnumFacts(storage, promotion, numbers));
+            } finally { context.layoutGuards.activeEnums.remove(owner); }
+        }
+        private Result<Layout> enumLayout(EnumDeclaration owner) {
+            var facts = enumFacts(owner);
+            return facts.supported() ? scalar(facts.value().orElseThrow().storage().spelling()) : propagate(facts);
+        }
+        private boolean compatibleEnum(EnumDeclaration owner) {
+            var facts = enumFacts(owner);
+            if (!facts.supported()) { dependencyFailure = facts.failure().orElseThrow(); return false; }
+            var value = facts.value().orElseThrow();
+            var original = EnumSemantics.underlyingValues(value.numbers(), profile)
+                    .flatMap(type -> EnumSemantics.promoteUnderlying(type, profile));
+            if (original.isPresent() && original.orElseThrow().equals(value.nativePromotion())) return true;
+            dependencyFailure = new Failure(Reason.UNSUPPORTED_ENUM_SEMANTICS,
+                    "Original C++03 enum promotion is unknown or differs from selected native emission");
+            return false;
+        }
+        private boolean compatibleType(TypeNode type) {
+            return EnumSemantics.declaration(type).map(this::compatibleEnum).orElse(true);
+        }
+        private Declaration target(Expression expression) {
+            return expression instanceof NameExpression name ? name.target().orElse(null)
+                    : expression instanceof ScopeMemberExpression member ? member.target().orElse(null) : null;
+        }
+        /** A known scalar condition or a proven lexical integer fallback. Class
+         * conversion operators are outside this bounded proof; values are not run. */
+        private boolean booleanCondition(Expression expression) {
+            return EnumSemantics.objectType(expression).or(() -> TypeSemantics.expressionType(expression, profile, constants))
+                    .map(type -> TypeSemantics.scalar(type, profile)).orElse(false)
+                    || boundedIntegerType(expression).isPresent();
+        }
+        /** A narrow lexical-initializer fallback, not a replacement type engine. */
+        private Optional<ConstantEvaluator.IntegerType> boundedIntegerType(Expression expression) {
+            Declaration target = target(expression);
+            if (target instanceof EnumeratorDeclaration enumerator) {
+                var local = ((ConstantEvaluator.Context) constants).local(enumerator);
+                if (local.isPresent()) return constants.apply(enumerator).map(ConstantEvaluator.Value::type);
+            }
+            var enumeration = expressionEnum(expression);
+            if (enumeration.isPresent()) {
+                var facts = enumFacts(enumeration.orElseThrow());
+                return facts.value().flatMap(value -> EnumSemantics.underlyingValues(value.numbers(), profile)
+                        .flatMap(type -> EnumSemantics.promoteUnderlying(type, profile)));
+            }
+            if (expression.operatorTarget().isPresent())
+                return EnumSemantics.objectType(expression).flatMap(type -> TypeSemantics.integerType(type, profile));
+            if (expression instanceof ConditionalExpression conditional) {
+                if (!booleanCondition(conditional.condition())) return Optional.empty();
+                var a = boundedIntegerType(conditional.thenExpression());
+                var b = boundedIntegerType(conditional.elseExpression());
+                if (a.isEmpty() || b.isEmpty()) return Optional.empty();
+                return a.equals(b) ? a : ConstantEvaluator.commonType(a.orElseThrow(), b.orElseThrow(), profile);
+            }
+            if (expression instanceof UnaryExpression unary) {
+                if (expression instanceof LogicalNotExpression) return booleanCondition(unary.operand())
+                        ? ConstantEvaluator.integerType("bool", profile) : Optional.empty();
+                if (!(expression instanceof UnaryPlusExpression || expression instanceof NegateExpression || expression instanceof BitwiseNotExpression)) return Optional.empty();
+                return boundedIntegerType(unary.operand()).flatMap(type -> ConstantEvaluator.promote(type, profile));
+            }
+            var known = EnumSemantics.objectType(expression).or(() -> TypeSemantics.expressionType(expression, profile, constants))
+                    .flatMap(type -> TypeSemantics.integerType(type, profile));
+            if (known.isPresent()) return known;
+            if (expression instanceof BinaryExpression binary) {
+                var a = boundedIntegerType(binary.left()); var b = boundedIntegerType(binary.right());
+                if (a.isEmpty() || b.isEmpty()) return Optional.empty();
+                if (binary instanceof ShiftLeftExpression || binary instanceof ShiftRightExpression)
+                    return ConstantEvaluator.promote(a.orElseThrow(), profile);
+                if (binary instanceof EqualExpression || binary instanceof NotEqualExpression || binary instanceof LessExpression
+                        || binary instanceof GreaterExpression || binary instanceof LessOrEqualExpression || binary instanceof GreaterOrEqualExpression
+                        || binary instanceof LogicalAndExpression || binary instanceof LogicalOrExpression)
+                    return ConstantEvaluator.integerType("bool", profile);
+                if (!(binary instanceof AddExpression || binary instanceof SubtractExpression || binary instanceof MultiplyExpression
+                        || binary instanceof DivideExpression || binary instanceof RemainderExpression || binary instanceof BitwiseAndExpression
+                        || binary instanceof BitwiseOrExpression || binary instanceof BitwiseXorExpression)) return Optional.empty();
+                return ConstantEvaluator.commonType(a.orElseThrow(), b.orElseThrow(), profile);
+            }
+            return Optional.empty();
+        }
+        private Optional<TypeNode> boundedExpressionType(Expression expression) {
+            if (!enumSelected()) return TypeSemantics.expressionType(expression, profile, constants);
+            if (expression instanceof LogicalNotExpression && expression.operatorTarget().isEmpty())
+                return boundedIntegerType(expression).map(type -> NamedType.create().setName(type.spelling()).build());
+            if (target(expression) instanceof EnumeratorDeclaration enumerator) {
+                var local = ((ConstantEvaluator.Context) constants).local(enumerator);
+                if (local.isPresent()) return constants.apply(enumerator).map(value -> NamedType.create().setName(value.type().spelling()).build());
+            }
+            if (expression instanceof ConditionalExpression && expressionEnum(expression).isEmpty()) {
+                var integer = boundedIntegerType(expression);
+                if (integer.isPresent()) return integer.map(value -> NamedType.create().setName(value.spelling()).build());
+            }
+            if (expression instanceof UnaryPlusExpression || expression instanceof NegateExpression || expression instanceof BitwiseNotExpression) {
+                var integer = boundedIntegerType(expression);
+                if (integer.isPresent()) return integer.map(value -> NamedType.create().setName(value.spelling()).build());
+            }
+            var exact = EnumSemantics.objectType(expression);
+            if (exact.isPresent()) return exact;
+            var known = TypeSemantics.expressionType(expression, profile, constants);
+            if (known.isPresent()) return known;
+            return boundedIntegerType(expression).map(type -> NamedType.create().setName(type.spelling()).build());
+        }
+        Optional<ConstantEvaluator.Value> lexicalValue(Expression expression,
+                Function<Declaration, Optional<ConstantEvaluator.Value>> values) {
+            var previous = constants; constants = values;
+            try {
+                if (!safeConstant(expression, Collections.newSetFromMap(new IdentityHashMap<>()))) return Optional.empty();
+                var result = context.inLayout(this, () -> ConstantEvaluator.integralConstant(expression, profile, values));
+                if (expression instanceof ConditionalExpression && result.isPresent()) {
+                    var type = boundedIntegerType(expression);
+                    if (type.isPresent() && type.orElseThrow().contains(result.orElseThrow().number()))
+                        return Optional.of(new ConstantEvaluator.Value(result.orElseThrow().number(), type.orElseThrow()));
+                }
+                return result;
+            } finally { constants = previous; }
+        }
+        /** Operand values are not evaluated, but promoted/type-combining syntax must
+         * still agree with emission. A direct enum object has no promotion. */
+        private boolean safeUnevaluated(Expression expression, Set<Declaration> active) {
+            if (!enumSelected()) return true;
+            if (expression instanceof SizeofExpression nested) return safeConstant(nested, active);
+            if (expression instanceof OffsetofExpression offset) return safeConstant(offset, active);
+            for (Node child : expression.children())
+                if (child instanceof Expression operand && !safeUnevaluated(operand, active)) return false;
+            if (expression instanceof LogicalNotExpression logical && expression.operatorTarget().isEmpty()
+                    && !booleanCondition(logical.operand())) return false;
+            // Unevaluated overload resolution can change the selected return type.
+            List<Expression> arguments = expression instanceof CallExpression call ? call.arguments()
+                    : expression.operatorTarget().isPresent() ? expression.children().stream()
+                            .filter(Expression.class::isInstance).map(Expression.class::cast).toList() : List.of();
+            for (Expression argument : arguments) if (!compatibleOperand(argument)) return false;
+            if (expression instanceof NameExpression || expression instanceof ScopeMemberExpression
+                    || expression instanceof AddressOfExpression || expression instanceof DereferenceExpression
+                    || expression instanceof IndexExpression || expression instanceof CallExpression
+                    || expression instanceof MemberExpression || expression instanceof ConversionExpression
+                    || expression instanceof InitializationExpression) return true;
+            if (expression instanceof ConditionalExpression conditional) {
+                if (!booleanCondition(conditional.condition())) return false;
+                if (expressionEnum(conditional).isPresent()) return true;
+            }
+            for (Node child : expression.children())
+                if (child instanceof Expression operand && !compatibleOperand(operand)) return false;
+            return true;
+        }
+        /** Preserve only proven enum identity through same-enum conditionals.
+         * Lexical earlier enumerators instead have their initializer integer types. */
+        private Optional<EnumDeclaration> expressionEnum(Expression expression) {
+            Declaration target = expression instanceof NameExpression name ? name.target().orElse(null)
+                    : expression instanceof ScopeMemberExpression member ? member.target().orElse(null) : null;
+            if (target instanceof EnumeratorDeclaration enumerator)
+                return ((ConstantEvaluator.Context) constants).local(enumerator).isPresent() ? Optional.empty()
+                        : Optional.ofNullable(enumOwners.get(enumerator));
+            var exact = EnumSemantics.objectType(expression).flatMap(EnumSemantics::declaration);
+            if (exact.isPresent()) return exact;
+            if (expression instanceof ConditionalExpression conditional) {
+                var left = expressionEnum(conditional.thenExpression());
+                var right = expressionEnum(conditional.elseExpression());
+                if (left.isPresent() && right.isPresent() && left.orElseThrow() == right.orElseThrow()) return left;
+            }
+            return Optional.empty();
+        }
+        private boolean compatibleOperand(Expression operand) {
+            var enumeration = expressionEnum(operand);
+            if (enumeration.isPresent()) return compatibleEnum(enumeration.orElseThrow());
+            Declaration target = operand instanceof NameExpression name ? name.target().orElse(null)
+                    : operand instanceof ScopeMemberExpression member ? member.target().orElse(null) : null;
+            if (target instanceof EnumeratorDeclaration enumerator
+                    && ((ConstantEvaluator.Context) constants).local(enumerator).isPresent()) return true;
+            var type = boundedExpressionType(operand);
+            if (type.isPresent() && !compatibleType(type.orElseThrow())) return false;
+            return !(target instanceof EnumeratorDeclaration enumerator) || compatibleEnum(enumOwners.get(enumerator));
+        }
+
         /** Evaluated only by the active bounded constant context, with the same guards,
          * object ceiling and lexical values as the enclosing offsetof. */
         Optional<BigInteger> sizeof(SizeofExpression expression,
@@ -533,10 +740,11 @@ final class PodLayout {
             var previous = constants;
             constants = values;
             try {
-                var operand = expression.type().or(() -> expression.operand()
-                        .flatMap(value -> TypeSemantics.expressionType(value, profile, values)));
-                if (operand.isEmpty()) return Optional.empty();
-                var result = type(operand.orElseThrow(), true);
+                if (expression.operand().isPresent() && !safeUnevaluated(expression.operand().orElseThrow(), Collections.newSetFromMap(new IdentityHashMap<>()))) return Optional.empty();
+                var enumeration = expression.operand().flatMap(this::expressionEnum);
+                var operand = expression.type().or(() -> expression.operand().flatMap(this::boundedExpressionType));
+                if (operand.isEmpty() && enumeration.isEmpty()) return Optional.empty();
+                var result = enumeration.isPresent() ? enumLayout(enumeration.orElseThrow()) : type(operand.orElseThrow(), true);
                 if (!result.supported()) {
                     Failure failure = result.failure().orElseThrow();
                     dependencyFailure = failure.reason() == Reason.NOT_POD
@@ -556,16 +764,7 @@ final class PodLayout {
         }
         private boolean safeConstant(Expression expression, Set<Declaration> active) {
             if (expression instanceof SizeofExpression size) {
-                var operand = size.type().or(() -> size.operand().flatMap(value -> TypeSemantics.expressionType(value, profile)));
-                if (operand.isEmpty()) return false;
-                var layout = type(operand.orElseThrow(), true);
-                if (!layout.supported()) {
-                    Failure failure = layout.failure().orElseThrow();
-                    dependencyFailure = failure.reason() == Reason.NOT_POD
-                            ? new Failure(Reason.UNSUPPORTED_TYPE, "sizeof dependency is outside the supported POD representation subset: " + failure.detail())
-                            : failure;
-                }
-                return layout.supported();
+                return sizeof(size, constants).isPresent();
             }
             if (expression instanceof OffsetofExpression offset) {
                 var context = ((ConstantEvaluator.Context) constants).integralContext();
@@ -585,6 +784,7 @@ final class PodLayout {
                         // an implicit value additionally depends on its predecessor.
                         return safeLexicalEnumerator(enumerator, owner, active);
                     }
+                    if (enumSelected()) return compatibleEnum(owner);
                     if (!active.add(owner)) return safeEnumerator(enumerator, active);
                     try {
                         // Underlying-type evaluation can inspect every enumerator, but
@@ -594,11 +794,16 @@ final class PodLayout {
                 }
                 if (!active.add(target)) return false;
                 try {
-                    if (target instanceof VariableDeclaration variable)
+                    if (target instanceof VariableDeclaration variable) {
+                        if (enumSelected() && variable.type().isPresent() && !compatibleType(variable.type().orElseThrow())) return false;
                         return variable.initializer().map(value -> safeConstant(value, active)).orElse(false);
+                    }
                     return false;
                 } finally { active.remove(target); }
             }
+            if (enumSelected() && expression instanceof ConversionExpression conversion && !compatibleType(conversion.targetType())) return false;
+            if (enumSelected() && expression instanceof InitializationExpression initialization
+                    && initialization.type().isPresent() && !compatibleType(initialization.type().orElseThrow())) return false;
             return expression.children().stream().filter(Expression.class::isInstance).map(Expression.class::cast)
                     .allMatch(child -> safeConstant(child, active));
         }
