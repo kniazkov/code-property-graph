@@ -23,6 +23,11 @@ final class IntegralConstants implements ConstantEvaluator.Context {
             Function<Declaration, Optional<ConstantEvaluator.Value>> values) {
         return boundedQuery.sizeof(expression, values);
     }
+    /** Temporarily shares this exact query for representation initializer dependencies. */
+    <T> T inLayout(PodLayout.Query query, java.util.function.Supplier<T> action) {
+        PodLayout.Query previous = boundedQuery; boundedQuery = query;
+        try { return action.get(); } finally { boundedQuery = previous; }
+    }
     /** Lexical enum overlays may predate entry into a bounded query. Recompute their
      * initializer type/value here; never reuse an unbounded cached numeric result. */
     Optional<ConstantEvaluator.Value> boundedLocal(Declaration declaration, ConstantEvaluator.Value value) {
@@ -37,11 +42,14 @@ final class IntegralConstants implements ConstantEvaluator.Context {
             EnumDeclaration owner = owners.get(enumerator);
             if (owner == null) return Optional.empty();
             int index = owner.enumerators().indexOf(enumerator);
-            if (enumerator.value().isPresent())
-                return ConstantEvaluator.integralConstant(enumerator.value().orElseThrow(), profile,
-                        ConstantEvaluator.overlay(this, declaration -> declaration instanceof EnumeratorDeclaration earlier
-                                && owners.get(earlier) == owner && owner.enumerators().indexOf(earlier) < index
-                                ? lexicalEnumerator(earlier) : Optional.empty(), profile));
+            if (enumerator.value().isPresent()) {
+                var lexical = ConstantEvaluator.overlay(this, declaration -> declaration instanceof EnumeratorDeclaration earlier
+                        && owners.get(earlier) == owner && owner.enumerators().indexOf(earlier) < index
+                        ? lexicalEnumerator(earlier) : Optional.empty(), profile);
+                return boundedLayoutActive() && profile.offsetof().map(model -> model.enumStorage() != null).orElse(false)
+                        ? boundedQuery.lexicalValue(enumerator.value().orElseThrow(), lexical)
+                        : ConstantEvaluator.integralConstant(enumerator.value().orElseThrow(), profile, lexical);
+            }
             var previous = index == 0 ? Optional.<ConstantEvaluator.Value>empty()
                     : lexicalEnumerator(owner.enumerators().get(index - 1));
             if (index != 0 && previous.isEmpty()) return Optional.empty();
