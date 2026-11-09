@@ -415,10 +415,13 @@ public final class ClassTemplateSemantics {
                 var value = argument.expression().flatMap(constants::evaluate);
                 if (value.isPresent()) {
                     var target = type == null ? Optional.<ConstantEvaluator.IntegerType>empty() : TypeSemantics.integerType(type, profile);
-                    // Value-changing conversions and dependent parameter types
-                    // still require a separate certification, including bool 2.
+                    // Original C++03 permits integral conversion to bool here.
+                    // Other value-changing conversions remain uncertified.
                     var number = value.orElseThrow().number();
-                    if (target.isEmpty() || !target.orElseThrow().contains(number)) return null;
+                    if (target.isEmpty()) return null;
+                    if (target.orElseThrow().spelling().equals("bool"))
+                        number = number.signum() == 0 ? java.math.BigInteger.ZERO : java.math.BigInteger.ONE;
+                    else if (!target.orElseThrow().contains(number)) return null;
                     argument = TemplateArgument.create().setExpression(IntegerLiteral.create().setValue(number)
                             .setCppType(number.signum() < 0 ? "long" : "unsigned long")).build();
                 } else if (namedPatternValue(argument, profile)) return null;
