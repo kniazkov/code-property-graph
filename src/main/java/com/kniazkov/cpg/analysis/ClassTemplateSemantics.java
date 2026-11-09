@@ -10,6 +10,7 @@ public final class ClassTemplateSemantics {
     private ClassTemplateSemantics() {}
     private record Located(ClassDeclaration declaration, SourceFile file, String scope, int position) {}
     private record Use(Node node, SourceFile file, String scope, String name, List<TemplateArgument> arguments, int position) {}
+    private record CompletedArguments(List<TemplateArgument> values, boolean unsupported) {}
     private record Match(ClassDeclaration declaration, Map<TemplateParameterDeclaration, TemplateArgument> bindings) {}
 
     public static Project analyze(Project project) { return analyze(project, false).recordPass("ClassTemplateSemantics"); }
@@ -60,22 +61,49 @@ public final class ClassTemplateSemantics {
         }
         var known = new HashSet<String>();
         project.classTemplateInstances().forEach(i -> known.add(i.identity()));
-        for (Use use : uses) {
+        var constantContexts = new HashMap<PlatformProfile, IntegralConstants>();
+        usesLoop: for (Use use : uses) {
             if (use.node() instanceof NamedType named && named.declaration().filter(d -> project.classTemplateInstances().stream().anyMatch(i -> i.declaration() == d)).isPresent()) continue;
             List<Located> family = family(use, declarations);
             ClassDeclaration primary = family.stream().map(Located::declaration).filter(c -> c.templateKind() == TemplateKind.PRIMARY).filter(ClassDeclaration::isDefinition).findFirst()
                     .orElseGet(() -> family.stream().map(Located::declaration).filter(c -> c.templateKind() == TemplateKind.PRIMARY).findFirst().orElse(null));
             if (primary == null) continue;
             PlatformProfile profile = TypeSemantics.profile(use.file());
-            var arguments = completeArguments(primary, family, use.arguments(), profile);
-            if (arguments == null) { failures.put(use.node(), error("invalid-class-template-arguments", "Invalid arguments for class template " + primary.name())); continue; }
+            var constants = constantContexts.computeIfAbsent(profile, value -> new IntegralConstants(project, value));
+            var completed = completeArguments(primary, family, use.arguments(), profile, constants);
+            var arguments = completed.values();
+            if (arguments == null) {
+                failures.put(use.node(), error(completed.unsupported() ? "unsupported-class-template-arguments" : "invalid-class-template-arguments",
+                        (completed.unsupported() ? "Integral argument conversion is outside the supported representable subset for " : "Invalid arguments for class template ") + primary.name()));
+                continue;
+            }
             var matches = new ArrayList<Match>();
+            var fullPatterns = new IdentityHashMap<ClassDeclaration, String>();
             for (Located candidate : family) {
                 var declaration = candidate.declaration();
                 if (failures.containsKey(declaration)) continue;
                 if (declaration.templateKind() != TemplateKind.FULL_SPECIALIZATION && declaration.templateKind() != TemplateKind.PARTIAL_SPECIALIZATION) continue;
-                var patternArguments=declaration.templateKind()==TemplateKind.FULL_SPECIALIZATION
-                        ? completeArguments(primary,family,declaration.templateArguments(),profile) : declaration.templateArguments();
+                // The existing partial matcher has no snapshot constant context.
+                // Do not let a named value in an otherwise viable pattern silently
+                // disappear from consideration and select a different primary.
+                if (declaration.templateKind() == TemplateKind.PARTIAL_SPECIALIZATION
+                        && unsupportedPartialValues(primary, declaration.templateArguments(), profile)) {
+                    failures.put(use.node(), error("unsupported-class-template-arguments",
+                            "Partial-specialization value dependency or parameter conversion remains unsupported for " + primary.name()));
+                    continue usesLoop;
+                }
+                List<TemplateArgument> patternArguments = declaration.templateArguments();
+                if (declaration.templateKind() == TemplateKind.FULL_SPECIALIZATION) {
+                    var pattern = completeArguments(primary, family, patternArguments, profile, constants);
+                    if (pattern.values() == null) {
+                        failures.put(use.node(), error("unsupported-class-template-arguments",
+                                "Visible specialization arguments are not certified by the supported integral subset for " + primary.name()));
+                        continue usesLoop;
+                    }
+                    patternArguments = pattern.values();
+                    fullPatterns.put(declaration, patternArguments.stream().map(argument -> argumentIdentity(argument, profile))
+                            .reduce((left, right) -> left + "," + right).orElse(""));
+                }
                 var bindings = patternArguments==null ? null : deduce(declaration, patternArguments, arguments, profile);
                 if (bindings != null) matches.add(new Match(declaration, bindings));
             }
@@ -89,7 +117,7 @@ public final class ClassTemplateSemantics {
             // Repeated declarations of one specialization are not competing candidates.
             var distinct = new LinkedHashMap<String, Match>();
             for (Match match : best) {
-                String pattern = patternIdentity(match.declaration());
+                String pattern = fullPatterns.getOrDefault(match.declaration(), patternIdentity(match.declaration()));
                 Match previous = distinct.get(pattern);
                 if (previous == null || !previous.declaration().isDefinition()) distinct.put(pattern, match);
             }
@@ -127,7 +155,7 @@ public final class ClassTemplateSemantics {
         diagnoseDemandedBodies(project, failures);
         Project result = project;
         // withDiagnostics copies on change, so collect all findings per rule against each current snapshot.
-        for (String code : List.of("ambiguous-class-specialization", "invalid-class-template-arguments", "template-instantiation-limit", "invalid-class-template-substitution", "class-template-body-member", "class-template-body-type", "class-template-body-call", "invalid-class-partial-specialization")) {
+        for (String code : List.of("ambiguous-class-specialization", "invalid-class-template-arguments", "unsupported-class-template-arguments", "template-instantiation-limit", "invalid-class-template-substitution", "class-template-body-member", "class-template-body-type", "class-template-body-call", "invalid-class-partial-specialization")) {
             var originalNodes = new ArrayList<Node>(); project.walk(new NodeVisitor() { @Override public void visit(Node n) { originalNodes.add(n); }});
             var currentNodes = new ArrayList<Node>(); result.walk(new NodeVisitor() { @Override public void visit(Node n) { currentNodes.add(n); }});
             var byNode = new IdentityHashMap<Node, Diagnostic>();
@@ -368,8 +396,39 @@ public final class ClassTemplateSemantics {
             int separator = scope.lastIndexOf("::"); scope = separator < 0 ? "" : scope.substring(0, separator);
         }
     }
-    private static List<TemplateArgument> completeArguments(ClassDeclaration primary, List<Located> family, List<TemplateArgument> written, PlatformProfile profile) {
-        if (written.size() > primary.templateParameters().size()) return null;
+    private static boolean unsupportedPartialValues(ClassDeclaration primary, List<TemplateArgument> arguments, PlatformProfile profile) {
+        for (int i = 0; i < arguments.size(); i++) {
+            if (i < primary.templateParameters().size()) {
+                var parameter = primary.templateParameters().get(i);
+                TypeNode type = parameter.type().map(TypeNode::canonicalType).map(TypeSemantics::unqualified).orElse(null);
+                // Existing pointer/reference matching compares object identities;
+                // it never needed the numeric initializer of a named object.
+                if (parameter.kind() == TemplateParameterDeclaration.Kind.VALUE) {
+                    if (type instanceof PointerType || type instanceof ReferenceType) continue;
+                    var value = arguments.get(i).expression().flatMap(expression -> ConstantEvaluator.evaluate(expression, profile));
+                    if (value.isPresent()) {
+                        var target = type == null ? Optional.<ConstantEvaluator.IntegerType>empty() : TypeSemantics.integerType(type, profile);
+                        // Actual values are normalized, while the existing partial
+                        // matcher compares written values. For example bool 2
+                        // becomes 1; silently ignoring that pattern is unsound.
+                        if (target.isEmpty() || !target.orElseThrow().contains(value.orElseThrow().number())) return true;
+                    }
+                }
+            }
+            if (namedPatternValue(arguments.get(i), profile)) return true;
+        }
+        return false;
+    }
+    private static boolean namedPatternValue(Node node, PlatformProfile profile) {
+        // Keep already supported expression-local facts such as sizeof(object).
+        if (node instanceof Expression expression && ConstantEvaluator.evaluate(expression, profile).isPresent()) return false;
+        Declaration target = node instanceof NameExpression name ? name.target().orElse(null)
+                : node instanceof ScopeMemberExpression member ? member.target().orElse(null) : null;
+        if (target instanceof VariableDeclaration || target instanceof EnumeratorDeclaration) return true;
+        return node.children().stream().anyMatch(child -> namedPatternValue(child, profile));
+    }
+    private static CompletedArguments completeArguments(ClassDeclaration primary, List<Located> family, List<TemplateArgument> written, PlatformProfile profile, IntegralConstants constants) {
+        if (written.size() > primary.templateParameters().size()) return new CompletedArguments(null, false);
         var result = new ArrayList<TemplateArgument>();
         for (int i = 0; i < primary.templateParameters().size(); i++) {
             var parameter = primary.templateParameters().get(i);
@@ -388,32 +447,60 @@ public final class ClassTemplateSemantics {
                     if (value.isPresent()) { argument = substitute(value.get(), local); break; }
                 }
             }
-            if (argument == null) return null;
+            if (argument == null) return new CompletedArguments(null, false);
             if (parameter.kind() == TemplateParameterDeclaration.Kind.VALUE) {
                 Expression expression = argument.expression().orElse(null);
-                if (expression == null) return null;
-                var evaluated = ConstantEvaluator.evaluate(expression, profile);
-                if (evaluated.isPresent()) argument = TemplateArgument.create().setExpression(IntegerLiteral.create().setValue(evaluated.get().number())).build();
+                if (expression == null) return new CompletedArguments(null, false);
+                // Earlier type arguments determine a dependent value parameter's
+                // type (template<class T, T N>). Preserve that existing route.
+                var preceding = bindParameters(primary.templateParameters().subList(0, i), result);
+                TypeNode declared = TypeSemantics.unqualified(substituteType(parameter.type().orElseThrow(), preceding).canonicalType());
+                // A reference argument denotes its object, not the integral value
+                // in that object's initializer. Keep the legacy address/name path.
+                var evaluated = declared instanceof PointerType || declared instanceof ReferenceType
+                        ? ConstantEvaluator.evaluate(expression, profile) : constants.evaluate(expression);
+                if (evaluated.isPresent()) {
+                    // Original C++03 integral promotions/conversions are not the
+                    // later converted-constant-expression rule. This bounded
+                    // implementation certifies representable integral values only;
+                    // other numeric conversions remain unsupported, not invalid.
+                    var target = TypeSemantics.integerType(declared, profile);
+                    if (target.isEmpty()) return new CompletedArguments(null, true);
+                    var number = evaluated.orElseThrow().number();
+                    if (target.orElseThrow().spelling().equals("bool"))
+                        number = number.signum() == 0 ? java.math.BigInteger.ZERO : java.math.BigInteger.ONE;
+                    else if (!target.orElseThrow().contains(number)) return new CompletedArguments(null, true);
+                    var literal = IntegerLiteral.create().setValue(number);
+                    // Keep parameter type in the substituted body: sizeof(N),
+                    // overloads and signedness must not inherit an untyped int.
+                    NodeBuilder<? extends Expression> normalized;
+                    String spelling = target.orElseThrow().spelling();
+                    if (Set.of("int", "unsigned int", "long", "unsigned long").contains(spelling))
+                        normalized = literal.setCppType(spelling);
+                    else if (spelling.equals("bool")) normalized = BooleanLiteral.create().setValue(number.signum() != 0);
+                    else normalized = ConversionExpression.create().setKind(ConversionExpression.Kind.STATIC_CAST)
+                            .setExplicit(true).setTargetType(declared.edit()).setOperand(literal);
+                    argument = TemplateArgument.create().setExpression(normalized).build();
+                }
                 else {
-                    TypeNode declared = parameter.type().orElseThrow().canonicalType();
                     if (!(declared instanceof PointerType || declared instanceof ReferenceType)
-                            || !(expression instanceof AddressOfExpression || expression instanceof NameExpression)) return null;
+                            || !(expression instanceof AddressOfExpression || expression instanceof NameExpression)) return new CompletedArguments(null, false);
                 }
             } else {
                 TypeNode type = argument.type().orElse(null);
-                if (type == null || TypeSemantics.dependent(type)) return null;
+                if (type == null || TypeSemantics.dependent(type)) return new CompletedArguments(null, false);
                 if (parameter.kind() == TemplateParameterDeclaration.Kind.TYPE && type instanceof NamedType name
                         && !name.hasTemplateArguments() && name.declaration().orElse(null) instanceof ClassDeclaration declaration
-                        && declaration.templateKind() == TemplateKind.PRIMARY) return null;
+                        && declaration.templateKind() == TemplateKind.PRIMARY) return new CompletedArguments(null, false);
                 if (parameter.kind() == TemplateParameterDeclaration.Kind.TEMPLATE) {
-                    if (!(type instanceof NamedType named) || !(named.declaration().orElse(null) instanceof ClassDeclaration cls) || cls.templateKind() != TemplateKind.PRIMARY) return null;
-                    if (!compatibleTemplateParameters(parameter.templateParameters(), cls.templateParameters())) return null;
+                    if (!(type instanceof NamedType named) || !(named.declaration().orElse(null) instanceof ClassDeclaration cls) || cls.templateKind() != TemplateKind.PRIMARY) return new CompletedArguments(null, false);
+                    if (!compatibleTemplateParameters(parameter.templateParameters(), cls.templateParameters())) return new CompletedArguments(null, false);
                     argument = TemplateArgument.create().setType(type.edit()).setKind(TemplateArgument.Kind.TEMPLATE).build();
                 }
             }
             result.add(argument);
         }
-        return List.copyOf(result);
+        return new CompletedArguments(List.copyOf(result), false);
     }
     private static boolean compatibleTemplateParameters(List<TemplateParameterDeclaration> expected, List<TemplateParameterDeclaration> actual) {
         if (expected.size() != actual.size()) return false;

@@ -179,13 +179,14 @@ class OffsetofContextsTest {
         }
     }
 
-    @Test void namedNonTypeArgumentsKeepExistingGenericInstantiationBoundaryExplicit() {
+    @Test void namedNonTypeArgumentsUseSnapshotConstantsAndRetainBudgetChecks() {
         for(String declaration:List.of("const unsigned long n=sizeof(Giant)-15;","enum {n=sizeof(Giant)-15};")) {
             String source="struct Giant {char bytes[16];};"+declaration+"template<class T,int N> struct Box {T data[N];char tail;};typedef Box<char,n> Selected;unsigned long result=__builtin_offsetof(Selected,tail);";
             var p=resolve(profile("16"),source);
-            assertTrue(p.semanticDiagnostics().stream().anyMatch(d->d.code().equals("invalid-class-template-arguments")));
-            assertTrue(p.semanticDiagnostics().stream().anyMatch(d->d.code().equals("unsupported-offsetof")));
-            assertTrue(new IntegralConstants(p,profile("16")).evaluate(initializer(p,"result")).isEmpty());
+            healthy(p); assertEquals(BigInteger.ONE,new IntegralConstants(p,profile("16")).evaluate(initializer(p,"result")).orElseThrow().number());
+            var tooSmall=resolve(profile("15"),source);
+            assertTrue(tooSmall.semanticDiagnostics().toString().contains("SUPPORTED_OBJECT_LIMIT"));
+            assertTrue(new IntegralConstants(tooSmall,profile("15")).evaluate(initializer(tooSmall,"result")).isEmpty());
         }
     }
     @Test void unrelatedOversizedEnumAndConstDependenciesDoNotPoisonBoundedQueries() {
