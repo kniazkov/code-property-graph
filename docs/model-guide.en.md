@@ -1956,7 +1956,11 @@ patterns use snapshot facts for matching, ordering and redeclaration identity.
 Written headers and initializer chains remain dependencies, including unselected
 candidates, so edits can reselect after copying or folding. Pointer/reference
 identity matching is unchanged. Nested named patterns, dependent parameter types
-and value-changing partial conversions are not certified by this package.
+and value-changing partial conversions other than integral-to-bool remain uncertified.
+The follow-up bool subset maps zero to false and every nonzero integral value
+to true, consistently for matching, ordering and redeclaration identity.
+Written facts survive copying, folding and edits.
+[Boolean conversion evidence and gates](cpp03-boolean-partial-arguments-verification.md).
 No profile, ABI, macro inventory count or acceptance status is broadened.
 [Current evidence and gates](cpp03-partial-constant-template-arguments-verification.md).
 Earlier sections describe historical package checkpoints. #92 and #48 remain open.
