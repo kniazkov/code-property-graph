@@ -74,7 +74,7 @@ public final class ClassTemplateSemantics {
             var arguments = completed.values();
             if (arguments == null) {
                 failures.put(use.node(), error(completed.unsupported() ? "unsupported-class-template-arguments" : "invalid-class-template-arguments",
-                        (completed.unsupported() ? "Integral argument conversion is outside the supported representable subset for " : "Invalid arguments for class template ") + primary.name()));
+                        (completed.unsupported() ? "Integral argument conversion is outside the supported subset for " : "Invalid arguments for class template ") + primary.name()));
                 continue;
             }
             var matches = new ArrayList<Match>();
@@ -415,13 +415,10 @@ public final class ClassTemplateSemantics {
                 var value = argument.expression().flatMap(constants::evaluate);
                 if (value.isPresent()) {
                     var target = type == null ? Optional.<ConstantEvaluator.IntegerType>empty() : TypeSemantics.integerType(type, profile);
-                    // Original C++03 permits integral conversion to bool here.
-                    // Other value-changing conversions remain uncertified.
-                    var number = value.orElseThrow().number();
                     if (target.isEmpty()) return null;
-                    if (target.orElseThrow().spelling().equals("bool"))
-                        number = number.signum() == 0 ? java.math.BigInteger.ZERO : java.math.BigInteger.ONE;
-                    else if (!target.orElseThrow().contains(number)) return null;
+                    var converted = convertIntegralArgument(value.orElseThrow().number(), target.orElseThrow());
+                    if (converted.isEmpty()) return null;
+                    var number = converted.orElseThrow();
                     argument = TemplateArgument.create().setExpression(IntegerLiteral.create().setValue(number)
                             .setCppType(number.signum() < 0 ? "long" : "unsigned long")).build();
                 } else if (namedPatternValue(argument, profile)) return null;
@@ -429,6 +426,16 @@ public final class ClassTemplateSemantics {
             result.add(argument);
         }
         return List.copyOf(result);
+    }
+    /** Original C++03 unsigned conversion is reduction modulo 2^N, not a
+     * representability check. This consumes an already certified integral fact;
+     * it must not bypass initializer ownership, overflow or layout guards. */
+    private static Optional<java.math.BigInteger> convertIntegralArgument(java.math.BigInteger number,
+            ConstantEvaluator.IntegerType target) {
+        if (target.spelling().equals("bool"))
+            return Optional.of(number.signum() == 0 ? java.math.BigInteger.ZERO : java.math.BigInteger.ONE);
+        if (target.unsigned()) return Optional.of(number.mod(java.math.BigInteger.ONE.shiftLeft(target.bits())));
+        return target.contains(number) ? Optional.of(number) : Optional.empty();
     }
     private static boolean namedPatternValue(Node node, PlatformProfile profile) {
         // Keep already supported expression-local facts such as sizeof(object).
@@ -473,14 +480,13 @@ public final class ClassTemplateSemantics {
                 if (evaluated.isPresent()) {
                     // Original C++03 integral promotions/conversions are not the
                     // later converted-constant-expression rule. This bounded
-                    // implementation certifies representable integral values only;
-                    // other numeric conversions remain unsupported, not invalid.
+                    // implementation also certifies bool and unsigned modulo
+                    // conversions; signed out-of-range results stay unsupported.
                     var target = TypeSemantics.integerType(declared, profile);
                     if (target.isEmpty()) return new CompletedArguments(null, true);
-                    var number = evaluated.orElseThrow().number();
-                    if (target.orElseThrow().spelling().equals("bool"))
-                        number = number.signum() == 0 ? java.math.BigInteger.ZERO : java.math.BigInteger.ONE;
-                    else if (!target.orElseThrow().contains(number)) return new CompletedArguments(null, true);
+                    var converted = convertIntegralArgument(evaluated.orElseThrow().number(), target.orElseThrow());
+                    if (converted.isEmpty()) return new CompletedArguments(null, true);
+                    var number = converted.orElseThrow();
                     var literal = IntegerLiteral.create().setValue(number);
                     // Keep parameter type in the substituted body: sizeof(N),
                     // overloads and signedness must not inherit an untyped int.
