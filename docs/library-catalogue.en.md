@@ -529,7 +529,7 @@ patterns use snapshot facts for matching, ordering and redeclaration identity.
 Written headers and initializer chains remain dependencies, including unselected
 candidates, so edits can reselect after copying or folding. Pointer/reference
 identity matching is unchanged. Nested named patterns, dependent parameter types
-and value-changing partial conversions other than integral-to-bool remain uncertified.
+and signed out-of-range conversions remain uncertified.
 The follow-up bool subset maps zero to false and every nonzero integral value
 to true, consistently for matching, ordering and redeclaration identity.
 Written facts survive copying, folding and edits.
@@ -537,3 +537,15 @@ Written facts survive copying, folding and edits.
 No profile, ABI, macro inventory count or acceptance status is broadened.
 [Current evidence and gates](cpp03-partial-constant-template-arguments-verification.md).
 Earlier sections describe historical package checkpoints. #92 and #48 remain open.
+
+### Unsigned template argument conversions (#92, bounded follow-up)
+
+Certified integral facts now convert to unsigned parameters modulo 2^N using
+the selected profile width. The same conversion serves ordinary arguments,
+defaults, full specializations and top-level partial patterns, including
+matching, ordering and repeated declarations. Bool retains its zero/nonzero
+rule. Signed out-of-range results, nested named patterns and dependent partial
+parameter types remain unsupported. Written initializer/header dependencies,
+cycle/ownership checks, layout ceilings and enum compatibility are unchanged.
+No ABI policy or macro completion count changes; #92 and #48 remain open.
+[Current scope and gates](cpp03-unsigned-template-arguments-verification.md).
