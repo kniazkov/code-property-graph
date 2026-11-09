@@ -2177,9 +2177,11 @@
         "src/test/java/com/kniazkov/cpg/analysis/MemberPointerLayoutTest.java",
         "src/test/java/com/kniazkov/cpg/e2e/MemberPointerLayoutIT.java",
         "src/test/java/com/kniazkov/cpg/analysis/EnumStorageLayoutTest.java",
-        "src/test/java/com/kniazkov/cpg/e2e/EnumStorageLayoutIT.java"
+        "src/test/java/com/kniazkov/cpg/e2e/EnumStorageLayoutIT.java",
+        "src/test/java/com/kniazkov/cpg/analysis/ConstantTemplateArgumentsTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/ConstantTemplateArgumentsIT.java"
       ],
-      "support_boundary": "Selected operand-bearing builtin remains partial/open under explicit target layout, snapshot/cycle/ceiling and pragma/operator guards. Selected complete POD contexts, bounded union sizeof and independently opted-in member-pointer/enum representation are supported subsets. Omission leaves each representation category unsupported. Original enum promotion is unchanged; actual arithmetic/type dependencies require original/native compatibility and lexical/source preservation. The clean gate passed all 1439 units and 22 selected IT; full Maven/CI remain pending. Bitfields, unsupported generic instantiation and unproven semantic dependencies remain limits. Counts stay unchanged; #92/#48 remain open.",
+      "support_boundary": "Selected operand-bearing builtin remains partial/open under explicit target layout, snapshot/cycle/ceiling and pragma/operator guards. Selected complete POD contexts, bounded union sizeof and independently opted-in member-pointer/enum representation are supported subsets. Omission leaves each representation category unsupported. Original enum promotion is unchanged; actual arithmetic/type dependencies require original/native compatibility and lexical/source preservation. The clean gate passed all 1439 units and 22 selected IT; full Maven/CI remain pending. Bitfields, unsupported generic instantiation and unproven semantic dependencies remain limits. Counts stay unchanged; #92/#48 remain open. Resolved named integral class-template arguments and full-specialization values now use snapshot facts and typed representable normalization; written initializer/header dependencies remain bounded. Nonrepresentable conversions and uncertified partial patterns remain unsupported. Current package evidence: docs/cpp03-constant-template-arguments-verification.md.",
       "partial_implementation": {
         "profile_setting": "offsetof",
         "emission": "gcc-clang-builtin",
