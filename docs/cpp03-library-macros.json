@@ -2166,7 +2166,8 @@
         "src/main/java/com/kniazkov/cpg/model/OffsetofExpression.java",
         "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
         "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java",
-        "src/main/java/com/kniazkov/cpg/analysis/PodLayout.java"
+        "src/main/java/com/kniazkov/cpg/analysis/PodLayout.java",
+        "src/main/java/com/kniazkov/cpg/analysis/ClassTemplateSemantics.java"
       ],
       "tests": [
         "src/test/java/com/kniazkov/cpg/analysis/OffsetofRuntimeTest.java",
@@ -2179,9 +2180,10 @@
         "src/test/java/com/kniazkov/cpg/analysis/EnumStorageLayoutTest.java",
         "src/test/java/com/kniazkov/cpg/e2e/EnumStorageLayoutIT.java",
         "src/test/java/com/kniazkov/cpg/analysis/ConstantTemplateArgumentsTest.java",
-        "src/test/java/com/kniazkov/cpg/e2e/ConstantTemplateArgumentsIT.java"
+        "src/test/java/com/kniazkov/cpg/e2e/ConstantTemplateArgumentsIT.java",
+        "src/test/java/com/kniazkov/cpg/e2e/PartialConstantTemplateArgumentsIT.java"
       ],
-      "support_boundary": "Selected operand-bearing builtin remains partial/open under explicit target layout, snapshot/cycle/ceiling and pragma/operator guards. Selected complete POD contexts, bounded union sizeof and independently opted-in member-pointer/enum representation are supported subsets. Omission leaves each representation category unsupported. Original enum promotion is unchanged; actual arithmetic/type dependencies require original/native compatibility and lexical/source preservation. The clean gate passed all 1439 units and 22 selected IT; full Maven/CI remain pending. Bitfields, unsupported generic instantiation and unproven semantic dependencies remain limits. Counts stay unchanged; #92/#48 remain open. Resolved named integral class-template arguments and full-specialization values now use snapshot facts and typed representable normalization; written initializer/header dependencies remain bounded. Nonrepresentable conversions and uncertified partial patterns remain unsupported. Current package evidence: docs/cpp03-constant-template-arguments-verification.md.",
+      "support_boundary": "Selected operand-bearing builtin remains partial/open under explicit target layout, snapshot/cycle/ceiling and pragma/operator guards. Selected complete POD contexts, bounded union sizeof and independently opted-in member-pointer/enum representation are supported subsets. Omission leaves each representation category unsupported. Original enum promotion is unchanged; actual arithmetic/type dependencies require original/native compatibility and lexical/source preservation. Historical enum checkpoint: 1439 units and 22 selected IT; subsequently merged PR #124 passed full CI (https://github.com/kniazkov/code-property-graph/actions/runs/42602393679). PR #125 is the completed named-argument baseline; neither baseline certifies the present package. Bitfields, unsupported generic instantiation and unproven semantic dependencies remain limits. Counts stay unchanged; #92/#48 remain open. Resolved named integral class-template arguments and full-specialization values now use snapshot facts and typed representable normalization; written initializer/header dependencies remain bounded. Top-level nondependent integral partial-pattern values now use the same snapshot normalization for matching, ordering and redeclaration identity. Nonrepresentable/value-changing partial conversions, dependent parameter types and nested named pattern values remain unsupported. Current package evidence: docs/cpp03-partial-constant-template-arguments-verification.md.",
       "partial_implementation": {
         "profile_setting": "offsetof",
         "emission": "gcc-clang-builtin",
@@ -2191,7 +2193,7 @@
         "ceiling_max": "2147483647",
         "completion": "partial_open",
         "unknown_behavior": "Missing/empty capability remains unavailable; selected definitions do not count as complete standards support. Actual headers retain authority.",
-        "support_boundary": "Explicit exact scalar size/alignment and natural-layout contract; no cRuntime/floating-format inference. Ceiling bounds relevant dependencies, not a universal compiler maximum. Optional memberPointerStorage=itanium-x86_64-lp64-v1 selects data/function member-pointer storage 8/8 and 16/8 bytes without runtime pointer-value/call semantics. Optional enumStorage=gcc-clang-x86_64-default-enum-v1 selects originally admissible enum representation independently, retaining original promotion and requiring compatibility for actual arithmetic/type dependencies. Omission remains unsupported. Written dependencies survive folding; runtime initializers are not evaluated. All 1439 units/22 selected IT passed; overlapping reviews are not summed. Full Maven/CI pending; bitfields and residual prerequisites remain open."
+        "support_boundary": "Explicit exact scalar size/alignment and natural-layout contract; no cRuntime/floating-format inference. Ceiling bounds relevant dependencies, not a universal compiler maximum. Optional memberPointerStorage=itanium-x86_64-lp64-v1 selects data/function member-pointer storage 8/8 and 16/8 bytes without runtime pointer-value/call semantics. Optional enumStorage=gcc-clang-x86_64-default-enum-v1 selects originally admissible enum representation independently, retaining original promotion and requiring compatibility for actual arithmetic/type dependencies. Omission remains unsupported. Written dependencies survive folding; runtime initializers are not evaluated. Historical PR #124 checkpoint passed 1439 units/22 selected IT and subsequently full CI42602393679. Current partial-pattern package gates are recorded separately in docs/cpp03-partial-constant-template-arguments-verification.md; bitfields and residual prerequisites remain open."
       }
     },
     {
