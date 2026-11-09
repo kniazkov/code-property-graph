@@ -217,8 +217,89 @@ class ConstantTemplateArgumentsTest {
         assertTrue(p.hasErrors());assertTrue(p.semanticDiagnostics().toString().contains("SUPPORTED_OBJECT_LIMIT"),p.semanticDiagnostics().toString());
     }
 
+    @Test void booleanPartialConversionsShareMatchingOrderingAndRedeclarationIdentity(){
+        for(String value:List.of("2","-7","0")){
+            String converted=value.equals("0")?"false":"true";
+            var p=resolve("const int seed="+value+";const int fixed=seed;enum {same="+value+"};"
+                    +"template<class T,bool B> struct Box {char data;char tail;};"
+                    +"template<class T> struct Box<T,fixed>;"
+                    +"template<class U> struct Box<U,same> {short data;char tail;};"
+                    +"template<class T> struct Box<T*,fixed> {long data;char tail;};"
+                    +"typedef Box<int,"+converted+"> A;typedef Box<int*,"+converted+"> B;"
+                    +"typedef Box<int,!"+converted+"> C;"
+                    +"unsigned long a=__builtin_offsetof(A,tail);unsigned long b=__builtin_offsetof(B,tail);unsigned long c=__builtin_offsetof(C,tail);");
+            healthy(p);value(p,"a",2);value(p,"b",8);value(p,"c",1);
+            healthy(NameResolver.resolve(p.edit().build()));
+            healthy(resolve(Cpg.sources(p,Language.CPP).get("main.cpp")));
+        }
+    }
+
+    @Test void booleanPartialHeaderEditsPreserveNamedDependencies(){
+        var original=resolve("const int seed=-7;const int fixed=seed;"
+                +"template<class T,bool B> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<T,fixed> {long data;char tail;};"
+                +"typedef Box<int,true> A;unsigned long result=__builtin_offsetof(A,tail);");
+        for(var p:List.of(original,original.edit().build(),NameResolver.resolve(ConstantFolder.fold(original)))){
+            healthy(p);value(p,"result",8);
+            assertTrue(nodes(variable(p,"fixed").initializer().orElseThrow(),NameExpression.class).stream().anyMatch(n->n.name().equals("seed")));
+            var editor=new ProjectEditor(p);editor.replace(variable(p,"seed").initializer().orElseThrow(),IntegerLiteral.create().setValue(0).build());
+            var changed=NameResolver.resolve(editor.build());healthy(changed);value(changed,"result",1);value(p,"result",8);
+            healthy(resolve(Cpg.sources(changed,Language.CPP).get("main.cpp")));
+            assertTrue(ProjectJson.encode(changed).toText("  ").contains("OffsetofExpression"));
+        }
+    }
+
+    @Test void booleanPartialNormalizationRetainsOversizedWrittenDependencies(){
+        var bounded=PlatformProfile.builder().offsetof("gcc-clang-builtin","x86_64-sysv-lp64-v1","16").build();
+        String source="struct Giant {char bytes[16];};const int fixed=sizeof(Giant);"
+                +"template<class T,bool B> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<T,fixed> {long data;char tail;};"
+                +"typedef Box<int,true> Selected;unsigned long result=__builtin_offsetof(Selected,tail);";
+        var original=resolve(bounded,source);healthy(original);
+        var oversized=resolve(bounded,source.replace("bytes[16]","bytes[17]"));
+        assertTrue(oversized.semanticDiagnostics().toString().contains("SUPPORTED_OBJECT_LIMIT"),oversized.semanticDiagnostics().toString());
+        assertTrue(new IntegralConstants(oversized,bounded).evaluate(variable(oversized,"result").initializer().orElseThrow()).isEmpty());
+        for(var p:List.of(original,original.edit().build(),NameResolver.resolve(ConstantFolder.fold(original)))){
+            healthy(p);
+            var editor=new ProjectEditor(p);
+            editor.replace(((ArrayType)variable(p,"bytes").type().orElseThrow()).bound().orElseThrow(),IntegerLiteral.create().setValue(17).build());
+            var changed=NameResolver.resolve(editor.build());
+            assertTrue(changed.semanticDiagnostics().toString().contains("SUPPORTED_OBJECT_LIMIT"),changed.semanticDiagnostics().toString());
+            assertTrue(new IntegralConstants(changed,bounded).evaluate(variable(changed,"result").initializer().orElseThrow()).isEmpty());
+            assertThrows(IllegalArgumentException.class,()->Cpg.sources(changed,Language.CPP));
+        }
+    }
+
+    @Test void booleanPartialNormalizationDoesNotHideIncompatibleEnumArithmetic(){
+        var compatible=EnumStorageLayoutTest.P;
+        var incompatible=compatible.toBuilder().enumUnderlyingType("unsigned-first").build();
+        String source="enum E{A=1};const int fixed=+A;"
+                +"template<class T,bool B> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<T,fixed> {long data;char tail;};"
+                +"typedef Box<int,true> Selected;unsigned long result=__builtin_offsetof(Selected,tail);";
+        healthy(resolve(compatible,source));
+        var original=resolve(incompatible,source);
+        for(var p:List.of(original,NameResolver.resolve(original.edit().build()),NameResolver.resolve(ConstantFolder.fold(original)))){
+            assertTrue(p.semanticDiagnostics().toString().contains("UNSUPPORTED_ENUM_SEMANTICS"),p.semanticDiagnostics().toString());
+            assertTrue(new IntegralConstants(p,incompatible).evaluate(variable(p,"result").initializer().orElseThrow()).isEmpty());
+            assertThrows(IllegalArgumentException.class,()->Cpg.sources(p,Language.CPP));
+        }
+    }
+
+    @Test void booleanPartialConversionsDoNotHideAmbiguityOrNonconstantValues(){
+        var p=resolve("const int fixed=-7;template<class T,class U,bool B> struct Box {char tail;};"
+                +"template<class T> struct Box<T,int,fixed> {char tail;};"
+                +"template<class U> struct Box<int,U,2> {char tail;};Box<int,int,true> object;");
+        assertTrue(p.semanticDiagnostics().stream().anyMatch(d->d.code().equals("ambiguous-class-specialization")),p.semanticDiagnostics().toString());
+        for(String declaration:List.of("int fixed=2;","extern const int fixed;","const volatile int fixed=2;","const double fixed=2.0;")){
+            var invalid=resolve(declaration+"template<class T,bool B> struct Box {char tail;};"
+                    +"template<class T> struct Box<T,fixed> {char tail;};Box<int,true> object;");
+            assertTrue(invalid.semanticDiagnostics().stream().anyMatch(d->d.code().equals("unsupported-class-template-arguments")),invalid.semanticDiagnostics().toString());
+        }
+    }
+
     @Test void convertedPartialPatternValuesCannotFallThroughToTheWrongPrimary(){
-        for(String[] row:List.of(new String[]{"bool","2","2"},new String[]{"bool","-1","true"},new String[]{"unsigned char","256","0"})){
+        for(String[] row:List.of(new String[]{"unsigned char","256","0"},new String[]{"unsigned char","-1","255"})){
             var p=resolve("template<class T,"+row[0]+" N> struct Box {char data;char tail;};"
                     +"template<class T> struct Box<T,"+row[1]+"> {long data;char tail;};"
                     +"typedef Box<int,"+row[2]+"> Selected;unsigned long result=__builtin_offsetof(Selected,tail);");
