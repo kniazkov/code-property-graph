@@ -143,11 +143,78 @@ class ConstantTemplateArgumentsTest {
         }
     }
 
-    @Test void namedPartialPatternsCannotFallThroughToTheWrongPrimary(){
+    @Test void namedPartialPatternsSelectTheSpecialization(){
         var p=resolve("const int fixed=1;template<int N,int M> struct Box {char data;char tail;};"
                 +"template<int N> struct Box<N,fixed> {long data;char tail;};typedef Box<2,fixed> Selected;unsigned long result=__builtin_offsetof(Selected,tail);");
-        assertTrue(p.semanticDiagnostics().stream().anyMatch(d->d.code().equals("unsupported-class-template-arguments")),p.semanticDiagnostics().toString());
-        assertTrue(new IntegralConstants(p,PROFILE).evaluate(variable(p,"result").initializer().orElseThrow()).isEmpty());
+        healthy(p);value(p,"result",8);
+    }
+
+    @Test void namedPartialValuesUseSnapshotOrderingAndRedeclarationIdentity(){
+        var p=resolve("namespace api {const int first=2;enum {second=2};}"
+                +"template<class T,int N> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<T,api::first>;"
+                +"template<class U> struct Box<U,api::second> {short data;char tail;};"
+                +"template<class T> struct Box<T*,api::first> {long data;char tail;};"
+                +"typedef Box<int,2> A;typedef Box<int*,2> B;typedef Box<int,3> C;"
+                +"unsigned long a=__builtin_offsetof(A,tail);unsigned long b=__builtin_offsetof(B,tail);unsigned long c=__builtin_offsetof(C,tail);");
+        healthy(p);value(p,"a",2);value(p,"b",8);value(p,"c",1);
+    }
+
+    @Test void editsToPartialHeadersReselectAfterFoldingWithoutErasingNames(){
+        var original=resolve("const int seed=2;const int fixed=seed;"
+                +"template<class T,int N> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<T,fixed> {long data;char tail;};"
+                +"typedef Box<int,2> A;unsigned long result=__builtin_offsetof(A,tail);");
+        for(var p:List.of(original,original.edit().build(),NameResolver.resolve(ConstantFolder.fold(original)))){
+            healthy(p);value(p,"result",8);
+            String before=Cpg.sources(p,Language.CPP).get("main.cpp");assertTrue(before.contains("fixed"));
+            assertTrue(nodes(variable(p,"fixed").initializer().orElseThrow(),NameExpression.class).stream().anyMatch(n->n.name().equals("seed")), before);
+            var editor=new ProjectEditor(p);editor.replace(variable(p,"seed").initializer().orElseThrow(),IntegerLiteral.create().setValue(3).build());
+            var changed=NameResolver.resolve(editor.build());healthy(changed);value(changed,"result",1);value(p,"result",8);
+            healthy(resolve(Cpg.sources(changed,Language.CPP).get("main.cpp")));
+            assertTrue(ProjectJson.encode(changed).toText("  ").contains("OffsetofExpression"));
+        }
+    }
+
+    @Test void competingNamedPartialPatternsRemainAmbiguous(){
+        var p=resolve("const int first=2;enum {second=2};template<class T,class U,int N> struct Box {char tail;};"
+                +"template<class T> struct Box<T,int,first> {char tail;};"
+                +"template<class U> struct Box<int,U,second> {char tail;};Box<int,int,2> object;");
+        assertTrue(p.semanticDiagnostics().stream().anyMatch(d->d.code().equals("ambiguous-class-specialization")),p.semanticDiagnostics().toString());
+    }
+
+    @Test void uncertifiedNamedPartialValuesNeverFallThrough(){
+        for(String declaration:List.of("int fixed=2;","extern const int fixed;","const double fixed=2.0;","const int fixed=fixed;","const volatile int fixed=2;")){
+            var p=resolve(declaration+"template<class T,int N> struct Box {char tail;};"
+                    +"template<class T> struct Box<T,fixed> {long data;char tail;};Box<int,2> object;");
+            assertTrue(p.semanticDiagnostics().stream().anyMatch(d->d.code().equals("unsupported-class-template-arguments")),p.semanticDiagnostics().toString());
+        }
+        var p=resolve("const int fixed=2;template<class T,T N> struct Box {char tail;};"
+                +"template<class T> struct Box<T,fixed> {char tail;};Box<int,2> object;");
+        assertTrue(p.hasErrors(),"Dependent parameter type is not certified by this package");
+    }
+
+    @Test void partialHeaderEditsCanActivatePreviouslyUnselectedCandidates(){
+        var original=resolve("enum {fixed=3};template<class T,int N> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<T,fixed> {long data;char tail;};"
+                +"typedef Box<int,2> A;unsigned long result=__builtin_offsetof(A,tail);");
+        for(var p:List.of(original,NameResolver.resolve(ConstantFolder.fold(original)))){
+            healthy(p);value(p,"result",1);
+            var fixed=nodes(p,EnumeratorDeclaration.class).stream().filter(e->e.name().equals("fixed")).findFirst().orElseThrow();
+            var editor=new ProjectEditor(p);editor.replace(fixed.value().orElseThrow(),IntegerLiteral.create().setValue(2).build());
+            var changed=NameResolver.resolve(editor.build());healthy(changed);value(changed,"result",8);value(p,"result",1);
+        }
+    }
+
+    @Test void namedNestedPatternsAndOversizedHeaderDependenciesRemainGuarded(){
+        var nested=resolve("const int fixed=2;template<class T,int N> struct Key {};template<class T> struct Box {char tail;};"
+                +"template<class T> struct Box<Key<T,fixed> > {long data;char tail;};Box<Key<int,2> > object;");
+        assertTrue(nested.semanticDiagnostics().stream().anyMatch(d->d.code().equals("unsupported-class-template-arguments")),nested.semanticDiagnostics().toString());
+        var limited=PlatformProfile.builder().offsetof("gcc-clang-builtin","x86_64-sysv-lp64-v1","16").build();
+        var p=resolve(limited,"struct Large {char data[32];};const int fixed=sizeof(Large);"
+                +"template<class T,int N> struct Box {char tail;};template<class T> struct Box<T,fixed> {char tail;};"
+                +"typedef Box<int,1> A;unsigned long result=__builtin_offsetof(A,tail);");
+        assertTrue(p.hasErrors());assertTrue(p.semanticDiagnostics().toString().contains("SUPPORTED_OBJECT_LIMIT"),p.semanticDiagnostics().toString());
     }
 
     @Test void convertedPartialPatternValuesCannotFallThroughToTheWrongPrimary(){

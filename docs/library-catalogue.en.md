@@ -506,6 +506,8 @@ are historical. [Current evidence](cpp03-enum-storage-verification.md).
 
 ## Named integral template arguments for offsetof (#92, partial)
 
+Historical PR #125 contract; the following section updates the bounded partial-pattern subset.
+
 Resolved const integral names and enum enumerators can supply representable
 integral class-template arguments and full-specialization values. Snapshot-owned
 facts preserve the declared parameter type; bool conversion remains a truth
@@ -518,3 +520,16 @@ all excluded programs violate original C++03. Original enum promotion, selected
 layout ceilings and optional representation policies remain unchanged. This
 package leaves the five outstanding macro obligations incomplete and does not
 increase the completed macro counts. [Scope and verification](cpp03-constant-template-arguments-verification.md).
+
+
+## Named integral partial-specialization patterns (#92, partial)
+
+Top-level nondependent integral constants and enumerators in partial-specialization
+patterns use snapshot facts for matching, ordering and redeclaration identity.
+Written headers and initializer chains remain dependencies, including unselected
+candidates, so edits can reselect after copying or folding. Pointer/reference
+identity matching is unchanged. Nested named patterns, dependent parameter types
+and value-changing partial conversions are not certified by this package.
+No profile, ABI, macro inventory count or acceptance status is broadened.
+[Current evidence and gates](cpp03-partial-constant-template-arguments-verification.md).
+Earlier sections describe historical package checkpoints. #92 and #48 remain open.
