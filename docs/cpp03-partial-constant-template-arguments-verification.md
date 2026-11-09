@@ -4,6 +4,10 @@ This package extends the named class-template argument work from PR #125 to
 **top-level nondependent integral values in partial-specialization patterns**.
 It does not complete offsetof, #92 or final acceptance #48.
 
+This report records the PR #126 checkpoint. Its bool-conversion exclusion is
+extended by the separate [integral-to-bool follow-up](cpp03-boolean-partial-arguments-verification.md);
+other exclusions and historical test totals below are unchanged.
+
 ## Contract and limits
 
 A snapshot-local IntegralConstants query resolves const names, enumerators and
