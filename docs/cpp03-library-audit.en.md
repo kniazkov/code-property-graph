@@ -584,3 +584,19 @@ materializations. Full Maven and exact-head CI remain separate pending gates.
 Counts stay 97 bounded obligations / 90 names and five open obligations / five
 names. offsetof remains open/partial; #92 and #48 remain open. Previous sections
 are historical. [Current evidence](cpp03-enum-storage-verification.md).
+
+
+## Named integral template arguments for offsetof (#92, partial)
+
+Resolved const integral names and enum enumerators can supply representable
+integral class-template arguments and full-specialization values. Snapshot-owned
+facts preserve the declared parameter type; bool conversion remains a truth
+conversion. Written arguments and initializer chains remain available for
+bounded layout checks and later edits. No new ABI policy is selected.
+
+Nonrepresentable conversions, uncertified specialization patterns and remaining
+template prerequisites are explicit unsupported boundaries, not claims that
+all excluded programs violate original C++03. Original enum promotion, selected
+layout ceilings and optional representation policies remain unchanged. This
+package leaves the five outstanding macro obligations incomplete and does not
+increase the completed macro counts. [Scope and verification](cpp03-constant-template-arguments-verification.md).
