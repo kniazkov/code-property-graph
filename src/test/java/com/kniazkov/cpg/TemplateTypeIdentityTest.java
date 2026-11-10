@@ -29,4 +29,21 @@ class TemplateTypeIdentityTest {
         assertEquals(TypeIdentity.canonicalIdentity(a, Map.of(at, "parameter#0")), TypeIdentity.canonicalIdentity(b, Map.of(bt, "parameter#0")));
         assertNotEquals(TypeIdentity.canonicalIdentity(a, Map.of(at, "parameter#0")), TypeIdentity.canonicalIdentity(b, Map.of(bt, "parameter#1")));
     }
+    @Test void contextualExpressionIdentitiesAreExactAndDoNotChangeSyntax() {
+        var type = NamedType.create().setName("Box").setTemplateArguments(List.of(
+                TemplateArgument.create().setExpression(NameExpression.create().setName("fixed")),
+                TemplateArgument.create().setExpression(NameExpression.create().setName("fixed")))).build();
+        var first = type.templateArguments().getFirst().expression().orElseThrow();
+        var second = type.templateArguments().getLast().expression().orElseThrow();
+        String ordinary = TypeIdentity.canonicalIdentity(type);
+        var values = new IdentityHashMap<Expression, String>(); values.put(first, "certified:2");
+        String contextual = TypeIdentity.canonicalIdentity(type, Map.of(), values);
+        assertTrue(contextual.contains("VALUE(certified:2),VALUE(name(fixed))"), contextual);
+        assertEquals(ordinary, TypeIdentity.canonicalIdentity(type));
+        assertEquals(ordinary, TypeIdentity.canonicalIdentity(type, Map.of(), Map.of()));
+        assertSame(first, type.templateArguments().getFirst().expression().orElseThrow());
+        assertSame(second, type.templateArguments().getLast().expression().orElseThrow());
+        values.put(second, "certified:3");
+        assertNotEquals(contextual, TypeIdentity.canonicalIdentity(type, Map.of(), values));
+    }
 }

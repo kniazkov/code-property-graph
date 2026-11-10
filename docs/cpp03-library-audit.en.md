@@ -642,3 +642,22 @@ and layout/ownership/cycle guards remain unchanged. Nested named patterns,
 still-dependent parameter types and signed out-of-range conversions remain
 unsupported. This does not add an ABI policy or complete another macro; #92 and
 #48 remain open. [Scope and gates](cpp03-concrete-partial-parameter-types-verification.md).
+
+### Nested integral partial-pattern values (#92, bounded follow-up)
+
+Named independent integral values are normalized inside explicitly written
+nested class-template-id arguments of a partial specialization, such as
+`Box<Key<T, fixed> >`. The nested head must bind to a primary class template
+(or a verified instance origin); matching a spelling alone is insufficient.
+A value parameter's integral type must be concrete from that nested pattern's
+own preceding arguments. Actual use-site types never certify a dependent
+pattern. Normalization retains declaration/parameter/typedef identities and
+uses the existing bool, unsigned-modulo and representable-signed rules.
+Written headers and initializer chains remain dependencies after copying,
+folding and edits. Unresolved/dependent/template-template heads, omitted nested
+defaults, still-dependent value parameter types, arithmetic deduction and signed
+out-of-range conversions remain outside this subset. Pointer/reference identity,
+original enum compatibility and layout/cycle/ownership ceilings are unchanged.
+Earlier nested-pattern exclusions describe historical checkpoints. No ABI policy
+or macro completion count changes; #92 and #48 remain open.
+[Scope, tests and gates](cpp03-nested-partial-arguments-verification.md).

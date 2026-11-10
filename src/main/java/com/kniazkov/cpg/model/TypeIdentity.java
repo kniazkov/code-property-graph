@@ -22,7 +22,16 @@ public final class TypeIdentity {
     public static String canonicalIdentity(TypeNode type, Map<? extends Declaration, String> dependentNames) {
         return identity(type, Collections.newSetFromMap(new IdentityHashMap<>()), dependentNames);
     }
-    private static String identity(TypeNode written, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
+    /** Contextual value identities for certified expressions, without copying syntax
+     * or changing declaration bindings. Overrides apply only to exact expression
+     * objects in this query; ordinary canonical identities are unchanged. */
+    public static String canonicalIdentity(TypeNode type, Map<? extends Declaration, String> dependentNames,
+            Map<? extends Expression, String> expressionIdentities) {
+        var identities = new IdentityHashMap<Node, String>();
+        identities.putAll(dependentNames); identities.putAll(expressionIdentities);
+        return identity(type, Collections.newSetFromMap(new IdentityHashMap<>()), identities);
+    }
+    private static String identity(TypeNode written, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
         TypeNode type = canonicalType(written);
         if (!seen.add(type)) throw new IllegalStateException("Cyclic type identity");
         try {
@@ -41,7 +50,7 @@ public final class TypeIdentity {
             };
         } finally { seen.remove(type); }
     }
-    private static String qualified(TypeNode written, boolean c, boolean v, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
+    private static String qualified(TypeNode written, boolean c, boolean v, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
         TypeNode type = canonicalType(written);
         var visited = Collections.newSetFromMap(new IdentityHashMap<TypeNode, Boolean>());
         while (type instanceof QualifiedType q) {
@@ -65,7 +74,7 @@ public final class TypeIdentity {
     public static String parameterIdentity(TypeNode written, Map<? extends Declaration, String> dependentNames) {
         return parameter(written, Collections.newSetFromMap(new IdentityHashMap<>()), dependentNames);
     }
-    private static String parameter(TypeNode written, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
+    private static String parameter(TypeNode written, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
         TypeNode type = canonicalType(written);
         boolean c = false, v = false;
         var visited = Collections.newSetFromMap(new IdentityHashMap<TypeNode, Boolean>());
@@ -79,7 +88,7 @@ public final class TypeIdentity {
         if (type instanceof FunctionType f) return "pointer(" + identity(f, seen, dependentNames) + ")";
         return identity(type, seen, dependentNames);
     }
-    private static String namedIdentity(NamedType type, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
+    private static String namedIdentity(NamedType type, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
         if (type.fundamentalKind().isPresent()) return type.fundamentalKind().orElseThrow().spelling();
         String name = type.declaration().map(declaration -> dependentNames.getOrDefault(declaration,
                 declaration.typeIdentity().orElse(type.name()))).orElse(type.name());
@@ -100,18 +109,19 @@ public final class TypeIdentity {
                 && owner.templateKind() == TemplateKind.NONE && owner.hasTemplateArguments()) return "named(" + name + ")";
         return "named(" + name + arguments(type.templateArguments(), type.hasTemplateArguments(), seen, dependentNames) + ")";
     }
-    private static boolean contextualQualifier(NamedType type, Map<? extends Declaration, String> dependentNames) {
+    private static boolean contextualQualifier(NamedType type, Map<? extends Node, String> dependentNames) {
         return type.hasTemplateArguments() || type.declaration().filter(dependentNames::containsKey).isPresent()
                 || type.qualifier().map(qualifier -> contextualQualifier(qualifier, dependentNames)).orElse(false);
     }
-    private static String arguments(List<TemplateArgument> arguments, boolean present, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
+    private static String arguments(List<TemplateArgument> arguments, boolean present, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
         if (!present) return "";
         return arguments.stream().map(argument -> argument.kind().name() + "(" + argument.type()
                 .map(type -> identity(type, seen, dependentNames)).orElseGet(() -> expression(argument.expression().orElseThrow(), seen, dependentNames)) + ")")
                 .collect(Collectors.joining(",", "<", ">"));
     }
     /** Structural value syntax normalizes bound parameter references by declaration position. */
-    private static String expression(Expression value, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
+    private static String expression(Expression value, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
+        if (dependentNames.containsKey(value)) return dependentNames.get(value);
         if (value instanceof IntegerLiteral literal) return "integer(" + literal.cppType().orElse("int") + ":" + literal.bigValue() + ")";
         if (value instanceof BooleanLiteral literal) return "boolean(" + literal.value() + ")";
         if (value instanceof CharacterLiteral literal) return "character(" + literal.cppType() + ":" + literal.value() + ")";
@@ -137,7 +147,7 @@ public final class TypeIdentity {
             throw new IllegalArgumentException("Unsupported value-argument child " + child.getClass().getName());
         }).collect(Collectors.joining(",", "(", ")"));
     }
-    private static String bound(ArrayType type, Set<TypeNode> seen, Map<? extends Declaration, String> dependentNames) {
+    private static String bound(ArrayType type, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
         return type.bound().map(e -> portableInteger(e).map(Object::toString).orElseGet(() -> expression(e, seen, dependentNames))).orElse("");
     }
     /** Only folds values representable by every C++03 signed int. Target-dependent bounds stay symbolic. */
