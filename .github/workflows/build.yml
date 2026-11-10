@@ -20,6 +20,13 @@ jobs:
         run: python scripts/test-portable-paths.py
       - name: Validate portable tracked paths on Windows
         run: python scripts/check-portable-paths.py
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Test preprocessing and synthetic source paths on Windows
+        run: mvn -B "-Dtest=CppPreprocessorTest,StandardLibraryMacrosTest,AssertionMacrosTest,RuntimeIntegerMacrosTest,DeclaratorTest,JsonExportTest" test
   verify:
     runs-on: ubuntu-latest
     steps:
