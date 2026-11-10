@@ -573,7 +573,7 @@ class ConstantTemplateArgumentsTest {
             assertTrue(p.hasErrors(),type+" "+omittedPattern);
             assertTrue(new IntegralConstants(p,PROFILE).evaluate(variable(p,"result").initializer().orElseThrow()).isEmpty(),type);
         }
-        for(String parameters:List.of("class V=T,V N=2","class V=int,V N=sizeof(T)","int M=2,class V=int,V N=M","class V=signed char,V N=128")){
+        for(String parameters:List.of("class V=T,V N=2","class V=int,V N=sizeof(T)","class V=int,V N=sizeof(V)","int M=2,class V=int,V N=M","class V=signed char,V N=128")){
             var p=resolve("template<class T,"+parameters+"> struct Key {};template<class T> struct Box {char data;char tail;};"
                     +"template<class T> struct Box<Key<T> > {long data;char tail;};typedef Box<Key<int> > A;unsigned long result=__builtin_offsetof(A,tail);");
             assertTrue(p.hasErrors(),parameters);assertTrue(new IntegralConstants(p,PROFILE).evaluate(variable(p,"result").initializer().orElseThrow()).isEmpty(),parameters);
