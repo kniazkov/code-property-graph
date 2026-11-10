@@ -95,3 +95,14 @@ remain separate gates.
 сертифицируют зависимые шаблоны. После сброса среды прежний незавершённый полный
 Maven не считается успешным. Пакет восстановлен; новые проверки фиксируются
 отдельно. Пять обязательств макросов, #92 и #48 остаются открытыми.
+
+## Post-recovery checkpoint
+
+The recovered source passed the focused verify again: 125 unit tests and the
+new native/CLI integration method, zero failures/errors/skips. Its 160 strict
+compiler/run cases comprise 80 GCC, 80 Clang, 80 materializations and 72 edited
+variants. All 160 preserved source hashes were verified again. The new JAR
+SHA256 is `6ae11e81d3edf3b6fff3fec6b0b1b287a01e9f670588d943a9cb4e23bef4312b`. Production source remains byte-identical to the
+historical checkpoint. Full Maven and exact-head CI are separate final gates;
+final outcomes and links are recorded in the pull-request description so that
+recording results does not trigger a documentation-only CI run.
