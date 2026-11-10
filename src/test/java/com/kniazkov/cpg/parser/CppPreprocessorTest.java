@@ -26,6 +26,35 @@ class CppPreprocessorTest {
         Path file = directory.resolve(path); Files.createDirectories(file.getParent()); Files.writeString(file, source); return file;
     }
 
+    @Test void syntheticSourceNamesArePortableAndRemainSeparateFromPhysicalSources() {
+        var build = unit(List.of(), List.of(new Build.MacroOperation(true, "VALUE=7")));
+        var result = CppPreprocessor.preprocess(build, """
+                #include <cassert>
+                #include <cstddef>
+                #include <cmath>
+                #include <ctime>
+                #include <cwchar>
+                #include <cerrno>
+                #include <cstdlib>
+                #include <climits>
+                #include <cfloat>
+                #include <csignal>
+                VALUE __cplusplus
+                """);
+        assertTrue(result.definitions().stream().anyMatch(d -> d.originKind().equals("predefined")));
+        assertTrue(result.definitions().stream().anyMatch(d -> d.originKind().equals("command-line")));
+        assertTrue(result.definitions().stream().anyMatch(d -> d.originKind().equals("library")));
+        for (var definition : result.definitions()) {
+            Path path = Path.of(definition.range().file());
+            String name = path.getFileName().toString();
+            assertTrue(name.startsWith(".cpg-"), name);
+            assertFalse(name.chars().anyMatch(c -> c < 32 || "<>:\"/\\|?*".indexOf(c) >= 0), name);
+            assertNotEquals(build.source().path(), path);
+            assertFalse(result.sources().containsKey(path.toString()));
+            assertFalse(Files.exists(path));
+        }
+    }
+
     @Test void objectFunctionEmptyReplacementUndefAndInvocationDistinction() {
         assertEquals("7 3 ( ( 2 + 1 ) * ( 2 + 1 ) ) F 9", expand("""
                 #define A 7
@@ -122,8 +151,8 @@ class CppPreprocessorTest {
         var value = result.expansions().getFirst();
         var flag = result.expansions().getLast();
         String physical = build.source().path().toString();
-        assertEquals(directory.resolve("<command-line:3>").toString(), value.definition().file());
-        assertEquals(directory.resolve("<command-line:4>").toString(), flag.definition().file());
+        assertEquals(directory.resolve(".cpg-command-line-3").toString(), value.definition().file());
+        assertEquals(directory.resolve(".cpg-command-line-4").toString(), flag.definition().file());
         for (var event : result.expansions()) {
             assertNotEquals(physical, event.definition().file());
             assertEquals(physical, event.invocation().file());
