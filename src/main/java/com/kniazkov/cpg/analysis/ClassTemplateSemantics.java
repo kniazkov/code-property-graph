@@ -397,7 +397,8 @@ public final class ClassTemplateSemantics {
             int separator = scope.lastIndexOf("::"); scope = separator < 0 ? "" : scope.substring(0, separator);
         }
     }
-    /** Normalize only top-level, nondependent integral pattern values. Written
+    /** Normalize top-level integral pattern values whose parameter type is
+     * concrete after substituting preceding pattern arguments. Written
      * headers remain untouched and remain layout/folding dependencies. Use the
      * same snapshot values for deduction, ordering and redeclaration identity. */
     private static List<TemplateArgument> partialArguments(ClassDeclaration primary, ClassDeclaration partial,
@@ -408,7 +409,12 @@ public final class ClassTemplateSemantics {
         for (int i = 0; i < arguments.size(); i++) {
             var argument = arguments.get(i);
             var parameter = primary.templateParameters().get(i);
-            TypeNode type = parameter.type().map(TypeNode::canonicalType).map(TypeSemantics::unqualified).orElse(null);
+            // Only the specialization's own preceding arguments determine its
+            // parameter type. Never substitute the use-site's actual arguments:
+            // a genuinely dependent pattern remains outside this subset.
+            var preceding = bindParameters(primary.templateParameters().subList(0, i), result);
+            TypeNode type = parameter.type().map(t -> substituteType(t, preceding))
+                    .map(TypeNode::canonicalType).map(TypeSemantics::unqualified).orElse(null);
             if (parameter.kind() == TemplateParameterDeclaration.Kind.VALUE) {
                 // Preserve the existing pointer/reference identity matcher.
                 if (type instanceof PointerType || type instanceof ReferenceType) { result.add(argument); continue; }
