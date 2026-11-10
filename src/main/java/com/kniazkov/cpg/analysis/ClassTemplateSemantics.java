@@ -13,9 +13,25 @@ public final class ClassTemplateSemantics {
     private record CompletedArguments(List<TemplateArgument> values, boolean unsupported) {}
     private record PatternValues(Map<TemplateArgument, TemplateArgument> arguments,
             Map<NamedType, ClassDeclaration> heads, Map<NamedType, List<TemplateArgument>> effective,
-            Set<Node> active, List<Located> declarations, List<Use> uses, boolean specializedFamily) {
-        PatternValues(List<Located> declarations, List<Use> uses, boolean specializedFamily) { this(new IdentityHashMap<>(), new IdentityHashMap<>(), new IdentityHashMap<>(), Collections.newSetFromMap(new IdentityHashMap<>()), declarations, uses, specializedFamily); }
+            Set<Node> active, Map<Node, Located> patternLocations, List<Located> declarations, List<Use> uses, boolean specializedFamily) {
+        PatternValues(List<Located> declarations, List<Use> uses, Map<Node, Located> patternLocations,
+                boolean specializedFamily) {
+            this(new IdentityHashMap<>(), new IdentityHashMap<>(), new IdentityHashMap<>(),
+                    Collections.newSetFromMap(new IdentityHashMap<>()), patternLocations,
+                    declarations, uses, specializedFamily);
+        }
     }
+    /** Header syntax has declaration visibility, independently of later concrete uses. */
+    private static Map<Node, Located> patternLocations(List<Located> declarations) {
+        var result = new IdentityHashMap<Node, Located>();
+        for (Located location : declarations)
+            if (location.declaration().templateKind() == TemplateKind.PARTIAL_SPECIALIZATION)
+                location.declaration().templateArguments().forEach(argument -> argument.walk(new NodeVisitor() {
+                    @Override public void visit(Node node) { result.put(node, location); }
+                }));
+        return result;
+    }
+
     private record Match(ClassDeclaration declaration, Map<TemplateParameterDeclaration, TemplateArgument> bindings) {}
 
     public static Project analyze(Project project) { return analyze(project, false).recordPass("ClassTemplateSemantics"); }
@@ -51,6 +67,8 @@ public final class ClassTemplateSemantics {
         for (Located candidate : declarations) if (candidate.declaration().templateKind() == TemplateKind.PARTIAL_SPECIALIZATION) {
             ClassDeclaration partial = candidate.declaration();
             var parameters = partial.templateParameters();
+            if (parameters.stream().anyMatch(parameter -> parameter.defaultArgument().isPresent()))
+                failures.put(partial, error("invalid-class-partial-specialization", "Partial-specialization template parameters cannot have default arguments: " + partial.name()));
             var direct = new ArrayList<TemplateParameterDeclaration>();
             for (TemplateArgument argument : partial.templateArguments()) {
                 Node value = argument.type().map(t -> (Node)t).orElseGet(() -> argument.expression().orElseThrow());
@@ -67,6 +85,7 @@ public final class ClassTemplateSemantics {
         var known = new HashSet<String>();
         project.classTemplateInstances().forEach(i -> known.add(i.identity()));
         var constantContexts = new HashMap<PlatformProfile, IntegralConstants>();
+        var patternLocations = patternLocations(declarations);
         usesLoop: for (Use use : uses) {
             if (use.node() instanceof NamedType named && named.declaration().filter(d -> project.classTemplateInstances().stream().anyMatch(i -> i.declaration() == d)).isPresent()) continue;
             List<Located> family = family(use, declarations);
@@ -85,7 +104,7 @@ public final class ClassTemplateSemantics {
             var matches = new ArrayList<Match>();
             var fullPatterns = new IdentityHashMap<ClassDeclaration, String>();
             var partialPatterns = new IdentityHashMap<ClassDeclaration, List<TemplateArgument>>();
-            var normalized = new PatternValues(declarations, uses, family.stream().anyMatch(candidate ->
+            var normalized = new PatternValues(declarations, uses, patternLocations, family.stream().anyMatch(candidate ->
                     candidate.declaration().templateKind() == TemplateKind.PARTIAL_SPECIALIZATION
                             || candidate.declaration().templateKind() == TemplateKind.FULL_SPECIALIZATION));
             if (!normalizeNestedArguments(arguments, project, profile, constants, normalized, false)) {
@@ -414,10 +433,10 @@ public final class ClassTemplateSemantics {
      * same snapshot values for deduction, ordering and redeclaration identity. */
     private static List<TemplateArgument> partialArguments(ClassDeclaration primary, ClassDeclaration partial, Project project,
             PlatformProfile profile, IntegralConstants constants, PatternValues normalized) {
-        return normalizePatternArguments(primary, partial.templateArguments(), project, profile, constants, normalized, true);
+        return normalizePatternArguments(primary, partial.templateArguments(), project, profile, constants, normalized, true, partial.templateArguments().size());
     }
     private static List<TemplateArgument> normalizePatternArguments(ClassDeclaration primary, List<TemplateArgument> arguments, Project project,
-            PlatformProfile profile, IntegralConstants constants, PatternValues normalized, boolean pattern) {
+            PlatformProfile profile, IntegralConstants constants, PatternValues normalized, boolean pattern, int writtenCount) {
         var result = new ArrayList<TemplateArgument>();
         if (arguments.size() != primary.templateParameters().size()) return null;
         for (int i = 0; i < arguments.size(); i++) {
@@ -441,7 +460,10 @@ public final class ClassTemplateSemantics {
                     argument = integralArgument(converted.orElseThrow(), target.orElseThrow(), type);
                 } else if (namedPatternValue(argument, profile)) return null;
             } else if (!normalizeNestedArguments(List.of(argument), project, profile, constants, normalized, pattern)) return null;
-            normalized.arguments().put(arguments.get(i), argument);
+            // An omitted default node can be shared by several nested heads
+            // with different preceding type arguments. Only written occurrences
+            // belong in this overlay; effective lists own converted defaults.
+            if (i < writtenCount) normalized.arguments().put(arguments.get(i), argument);
             result.add(argument);
         }
         return List.copyOf(result);
@@ -467,24 +489,29 @@ public final class ClassTemplateSemantics {
                         && declaration.templateKind() == TemplateKind.PRIMARY ? declaration : null;
                 if (primary == null) for (ClassTemplateInstance instance : project.classTemplateInstances())
                     if (instance.declaration() == bound) { primary = instance.origin(); break; }
-                if (primary == null || named.qualifier().map(TypeSemantics::dependent).orElse(false))
+                if (primary == null || named.qualifier().map(TypeSemantics::dependent).orElse(false)) {
+                    // Complete symbolic patterns retain their legacy matcher,
+                    // but it does not normalize children. An omitted argument
+                    // anywhere below this head must not silently mismatch and
+                    // select the primary (nor borrow the actual head's defaults).
+                    if (pattern && requiresNestedCompletion(named, project,
+                            Collections.newSetFromMap(new IdentityHashMap<>()))) return false;
                     return !namedPatternValue(named, profile);
+                }
                 List<TemplateArgument> effective = named.templateArguments();
                 if (effective.size() != primary.templateParameters().size()) {
-                    // Only actual arguments may consume defaults. In particular,
-                    // never turn a shortened partial pattern into a new matcher.
-                    if (pattern || effective.size() > primary.templateParameters().size()) return false;
-                    effective = completeNestedActualArguments(named, primary, profile, constants, normalized);
+                    if (effective.size() > primary.templateParameters().size()) return false;
+                    effective = completeNestedArguments(named, primary, profile, constants, normalized, pattern);
                     if (effective == null) {
                         // Unrelated primaries historically accept nested type,
                         // template and dependent defaults through the ordinary
                         // instantiation route. Preserve that route, but never
                         // let uncertified completion select a specialization.
-                        return !normalized.specializedFamily() && !namedPatternValue(named, profile);
+                        return !pattern && !normalized.specializedFamily() && !namedPatternValue(named, profile);
                     }
                 }
                 normalized.heads().put(named, primary);
-                List<TemplateArgument> values = normalizePatternArguments(primary, effective, project, profile, constants, normalized, pattern);
+                List<TemplateArgument> values = normalizePatternArguments(primary, effective, project, profile, constants, normalized, pattern, named.templateArguments().size());
                 if (values == null) return false;
                 normalized.effective().put(named, values);
                 return true;
@@ -495,19 +522,48 @@ public final class ClassTemplateSemantics {
             return true;
         } finally { active.remove(node); }
     }
-    private static List<TemplateArgument> completeNestedActualArguments(NamedType named, ClassDeclaration primary,
-            PlatformProfile profile, IntegralConstants constants, PatternValues normalized) {
+    /** Detect shortened known heads below an unsupported symbolic head without
+     * extending that head's legacy matching route to contextual defaults. */
+    private static boolean requiresNestedCompletion(Node node, Project project, Set<Node> active) {
+        if (!active.add(node)) return true;
+        try {
+            if (node instanceof TypeNode type && type.canonicalType() != type)
+                return requiresNestedCompletion(type.canonicalType(), project, active);
+            if (node instanceof NamedType named && named.hasTemplateArguments()) {
+                Declaration bound = named.declaration().orElse(null);
+                ClassDeclaration primary = bound instanceof ClassDeclaration declaration
+                        && declaration.templateKind() == TemplateKind.PRIMARY ? declaration : null;
+                if (primary == null) for (ClassTemplateInstance instance : project.classTemplateInstances())
+                    if (instance.declaration() == bound) { primary = instance.origin(); break; }
+                int arity = primary != null ? primary.templateParameters().size()
+                        : bound instanceof TemplateParameterDeclaration parameter
+                            && parameter.kind() == TemplateParameterDeclaration.Kind.TEMPLATE
+                                ? parameter.templateParameters().size() : -1;
+                if (named.templateArguments().size() < arity) return true;
+            }
+            return node.children().stream().anyMatch(child -> requiresNestedCompletion(child, project, active));
+        } finally { active.remove(node); }
+    }
+    private static List<TemplateArgument> completeNestedArguments(NamedType named, ClassDeclaration primary,
+            PlatformProfile profile, IntegralConstants constants, PatternValues normalized, boolean pattern) {
         Located header = null;
         for (Located location : normalized.declarations())
             if (location.declaration() == primary) { header = location; break; }
         Use use = null;
         for (Use candidate : normalized.uses())
             if (candidate.node() == named) { use = candidate; break; }
+        // Dependent pattern syntax is not an instantiation request. Its
+        // declaration point, never the later outer use, controls visibility.
+        Located declaration = pattern ? normalized.patternLocations().get(named) : null;
+        SourceFile source = pattern ? declaration == null ? null : declaration.file()
+                : use == null ? null : use.file();
+        int position = pattern ? declaration == null ? -1 : declaration.position()
+                : use == null ? -1 : use.position();
         // A later definition, another redeclaration or a matching
         // spelling cannot supply proof for this exact bound header.
-        if (header == null || use == null || !(header.file() == use.file()
-                && header.position() < use.position()
-                || LibraryDeclarations.visible(use.file(), header.file()))) return null;
+        if (header == null || source == null || !(header.file() == source
+                && header.position() < position
+                || LibraryDeclarations.visible(source, header.file()))) return null;
         var effective = named.templateArguments();
         var completed = new ArrayList<>(effective);
         for (int i = effective.size(); i < primary.templateParameters().size(); i++) {
