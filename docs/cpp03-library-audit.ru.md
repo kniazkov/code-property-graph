@@ -720,3 +720,30 @@ out-of-range остаются вне новой границы. C++03 допус
 specialization запрещены отдельно. Прежние несвязанные default routes сохранены.
 #92/#48 и пять macro obligations открыты; section 11 и ABI policy не изменены.
 [Свежая сверка оригинала, необходимые assertions и отдельные гейты](cpp03-nested-partial-defaults-verification.md).
+
+
+### Вложенные defaults встроенных целых типов (#92, ограниченное продолжение)
+
+Вложенные actual и partial-pattern class-template-id допускают пропуск явно
+записанных независимых defaults встроенных целых типов. Для
+`template<class T, class V=unsigned char, V N=258> struct Key` формы `Key<T>`,
+`Key<T,unsigned char>` и `Key<T,unsigned char,2>` эквивалентны при восьмибитном
+unsigned char выбранного профиля. Включён и чистый type default `class V=int`.
+Тип следующего value parameter определяется собственными предыдущими effective
+arguments, включая эти type defaults; независимое выражение value default
+по-прежнему вычисляется на исходном связанном узле. Cv-идентичность аргумента
+типа сохраняется: проверка целочисленности не склеивает `const int` и
+`volatile int` с `int`.
+
+Требуются точный связанный primary и его видимость в точке actual use или
+объявления partial pattern. Сопоставление, порядок, идентичность повторных
+объявлений, repeated deduction и экземпляров используют contextual effective
+arguments без изменения написанных AST/source/JSON. Зависимости выбранных и
+невыбранных кандидатов остаются под прежними проверками. Этот маршрут не
+добавляет defaults типов typedef/class/enum/pointer/reference/array/function/
+template, зависимые выражения/типы, merged/later defaults, неподдержанные heads,
+signed out-of-range conversions или arithmetic deduction. Это границы
+реализации, не запреты C++03; прежние ordinary routes сохраняются. Ранние
+исключения всех type defaults относятся к историческим пакетам. #92/#48 и пять
+macro obligations остаются открытыми; section 11 и ABI policy не меняются.
+[Контракт, свежая сверка оригинала и отдельные гейты](cpp03-nested-integral-type-defaults-verification.md).

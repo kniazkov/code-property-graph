@@ -454,10 +454,12 @@ class PartialConstantTemplateArgumentsIT {
                 template<class T> struct MultiBox<Multi<T> > {long data;char tail;};
                 template<class T,class U> struct Pair {char data;char tail;};
                 template<class T> struct Pair<T,T> {long data;char tail;};
+                namespace nested {
                 template<class T,class U> struct Both {char data;char tail;};
-                template<class T> struct Both<nested::Key<T,bool>,nested::Key<T,unsigned char> > {long data;char tail;};
+                template<class T> struct Both<Key<T,bool>,Key<T,unsigned char> > {long data;char tail;};
                 template<class T,class U> struct Reverse {char data;char tail;};
-                template<class T> struct Reverse<nested::Key<T,unsigned char>,nested::Key<T,bool> > {long data;char tail;};
+                template<class T> struct Reverse<Key<T,unsigned char>,Key<T,bool> > {long data;char tail;};
+                }
                 typedef nested::Box<nested::Key<int> > ByOmitted;
                 typedef nested::Box<nested::Key<int,unsigned char> > ByType;
                 typedef nested::Box<nested::Key<int,unsigned char,2> > ByExplicit;
@@ -471,8 +473,8 @@ class PartialConstantTemplateArgumentsIT {
                 typedef SignedBox<Signed<int,signed char,-7> > BySigned;
                 typedef MultiBox<Multi<int,unsigned char,2,short,7> > ByMulti;
                 typedef Pair<nested::Key<int>,nested::Key<int,unsigned char,fixed> > ByRepeated;
-                typedef Both<nested::Key<int,bool,true>,nested::Key<int,unsigned char,2> > ByBoth;
-                typedef Reverse<nested::Key<int,unsigned char,2>,nested::Key<int,bool,true> > ByReverse;
+                typedef nested::Both<nested::Key<int,bool,true>,nested::Key<int,unsigned char,2> > ByBoth;
+                typedef nested::Reverse<nested::Key<int,unsigned char,2>,nested::Key<int,bool,true> > ByReverse;
                 """;
         var result = new StringBuilder(declarations);
         for (String alias : TYPE_DEFAULT_ALIASES)
