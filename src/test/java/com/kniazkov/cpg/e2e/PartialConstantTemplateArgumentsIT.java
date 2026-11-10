@@ -236,6 +236,109 @@ class PartialConstantTemplateArgumentsIT {
         }
     }
 
+    @Test void nestedNamedPatternsSurviveStagesAndHeaderEdits() throws Exception {
+        for (String header : List.of("cstddef", "stddef.h")) {
+            String text = program(header)
+                    .replace("const int fixed=1;", "const int seed=1;const int fixed=seed;")
+                    .replace("template<class T,int N> struct Box {char data[N];char tail;};",
+                            "template<class T,int N> struct Key {};"
+                            + "template<class T> struct Box {char data[3];char tail;};")
+                    .replace("Box<T,fixed>", "Box<Key<T,fixed> >")
+                    .replace("Box<T,pattern::second>", "Box<Key<T,pattern::second> >")
+                    .replace("Box<int,selected>", "Box<Key<int,selected> >")
+                    .replace("Box<int,choice>", "Box<Key<int,choice> >");
+            verifyNestedLifecycle(text, "nested-named", 2, true);
+        }
+    }
+
+    @Test void nestedConversionsUseTheirOwnConcretePrecedingTypes() throws Exception {
+        for (String header : List.of("cstddef", "stddef.h")) {
+            for (String kind : List.of("bool", "unsigned", "preceding")) {
+                boolean bool = kind.equals("bool"), preceding = kind.equals("preceding");
+                String key = preceding ? "template<class V,V N,class T> struct Key {};"
+                        : "template<class T," + (bool ? "bool" : "unsigned char") + " N> struct Key {};";
+                String pattern = preceding ? "Key<unsigned char,fixed,T>" : "Key<T,fixed>";
+                String selected = preceding ? "Key<unsigned char,selected,int>" : "Key<int,selected>";
+                String fallback = preceding ? "Key<unsigned char,0,int>" : "Key<int,false>";
+                String text = program(header)
+                        .replace("const int selected=1;", "const int selected=-1;")
+                        .replace("const int fixed=1;", "const int seed=" + (bool ? "-7" : "511") + ";const int fixed=seed;")
+                        .replace("template<class T,int N> struct Box {char data[N];char tail;};",
+                                key + "template<class T> struct Box {char data[3];char tail;};")
+                        .replace("Box<T,fixed>", "Box<" + pattern + " >")
+                        .replace("template<class T> struct Box<T,pattern::second> {short data;char tail;};",
+                                "template<class T> struct Other {short data;char tail;};"
+                                + "template<class T> struct Other<" + pattern + " > {long data;char tail;};")
+                        .replace("Box<int,selected>", "Box<" + selected + " >")
+                        .replace("Box<int,choice>", "Other<" + fallback + " >");
+                verifyNestedLifecycle(text, "nested-" + kind, bool ? 0 : 256, false);
+            }
+        }
+    }
+
+    private void verifyNestedLifecycle(String text, String label, int replacement, boolean editEnum) throws Exception {
+        Path input = source(label, text);
+        verify(input, false);
+        for (var stage : List.of(Cpg.Stage.RESOLVED, Cpg.Stage.GREEN, Cpg.Stage.FOLDED)) {
+            Project project = Cpg.read(input.getParent(), options(stage));
+            for (Project snapshot : List.of(project, project.edit().build(), NameResolver.resolve(project.edit().build()))) {
+                healthy(snapshot);
+                assertNestedSelection(snapshot, false);
+                assertFalse(snapshot.classTemplateInstances().isEmpty());
+                String json = ProjectJson.encode(snapshot).toText("  ");
+                assertNotNull(Json.parse(json));
+                assertTrue(json.contains("OffsetofExpression"));
+                String generated = Cpg.sources(snapshot, Language.CPP).get("main.cpp");
+                assertTrue(generated.contains("fixed") && generated.contains("Key<"), generated);
+                verify(source(label + "-generated-" + stage, generated), false);
+                var editor = new ProjectEditor(snapshot);
+                var seed = nodes(snapshot.files().getFirst(), VariableDeclaration.class).stream()
+                        .filter(v -> v.name().equals("seed")).findFirst().orElseThrow();
+                editor.replace(seed.initializer().orElseThrow(), IntegerLiteral.create().setValue(replacement).build());
+                if (editEnum) {
+                    var second = nodes(snapshot.files().getFirst(), EnumeratorDeclaration.class).stream()
+                            .filter(e -> e.name().equals("second")).findFirst().orElseThrow();
+                    editor.replace(second.value().orElseThrow(), IntegerLiteral.create().setValue(4).build());
+                }
+                Project edited = NameResolver.resolve(editor.build());
+                healthy(edited);
+                assertNestedSelection(edited, true);
+                String changed = Cpg.sources(edited, Language.CPP).get("main.cpp");
+                assertNotEquals(generated, changed);
+                verify(source(label + "-edited-" + stage, changed), true);
+                // A real edit invalidates selection in the new snapshot, not its predecessor.
+                assertNestedSelection(snapshot, false);
+                assertEquals(generated, Cpg.sources(snapshot, Language.CPP).get("main.cpp"));
+                assertEquals(json, ProjectJson.encode(snapshot).toText("  "));
+            }
+        }
+        var cli = new CliSandbox(Files.createTempDirectory(temp, label + "-cli")).source("main.cpp", text);
+        Path profile = Files.createTempFile(temp, label + "-profile", ".json");
+        Files.writeString(profile, Json.serialize(PROFILE.toSettings()));
+        var run = cli.run("cpp", "--stage", "folded", "--cpp-standard", "c++03",
+                "--platform-profile", profile.toString()).expectStatus(0);
+        assertNotNull(Json.parse(run.work().resolve("snapshot.json").toFile()));
+        verify(run.work().resolve("generated/main.cpp"), false);
+    }
+
+    private static void assertNestedSelection(Project project, boolean edited) {
+        for (String name : List.of("ByConst", "ByEnum")) {
+            var alias = nodes(project.files().getFirst(), TypedefDeclaration.class).stream()
+                    .filter(t -> t.name().equals(name)).findFirst().orElseThrow();
+            var type = assertInstanceOf(NamedType.class, alias.type().canonicalType());
+            var declaration = assertInstanceOf(ClassDeclaration.class, type.declaration().orElseThrow());
+            assertTrue(project.classTemplateInstances().stream().anyMatch(i -> i.declaration() == declaration));
+            var data = declaration.members().stream().filter(VariableDeclaration.class::isInstance)
+                    .map(VariableDeclaration.class::cast).filter(v -> v.name().equals("data")).findFirst().orElseThrow();
+            var field = data.type().orElseThrow().canonicalType();
+            if (edited && name.equals("ByConst")) {
+                var array = assertInstanceOf(ArrayType.class, field);
+                assertEquals("char", array.elementType().canonicalIdentity());
+                assertEquals(3, assertInstanceOf(IntegerLiteral.class, array.bound().orElseThrow()).value());
+            } else assertEquals(name.equals("ByConst") || edited ? "long" : "short", field.canonicalIdentity());
+        }
+    }
+
     private void verify(Path source, boolean edited) throws Exception {
         healthy(Cpg.read(source.getParent(), options(Cpg.Stage.RESOLVED)));
         Path expanded = materialize(source);
