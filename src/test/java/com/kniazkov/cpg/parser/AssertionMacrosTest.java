@@ -49,7 +49,7 @@ class AssertionMacrosTest {
         assertTrue(text.contains("\"VALUE + 1\" , \"logical.cpp\" , 72 , 0"), text);
         var event = result.expansions().stream().filter(e -> e.name().equals("assert")).findFirst().orElseThrow();
         assertEquals("stringize", event.operations().getFirst().kind());
-        assertTrue(event.definition().file().contains("cpg-library:cassert:assert:enabled"));
+        assertTrue(event.definition().file().contains(".cpg-library-cassert-assert-enabled"));
     }
     @Test void suppliedHeadersRemainAuthoritative() throws Exception {
         Files.writeString(directory.resolve("cassert"), "#define assert(e) 17\n");
