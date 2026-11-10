@@ -629,3 +629,16 @@ parameter types remain unsupported. Written initializer/header dependencies,
 cycle/ownership checks, layout ceilings and enum compatibility are unchanged.
 No ABI policy or macro completion count changes; #92 and #48 remain open.
 [Current scope and gates](cpp03-unsigned-template-arguments-verification.md).
+
+### Concrete partial-specialization parameter types (#92, bounded follow-up)
+
+A top-level non-type pattern parameter may now use an integral type made concrete
+by the specialization's own preceding type arguments, for example
+`template<class T, T N, class U>` specialized as `<unsigned char, fixed, U>`.
+The same snapshot conversion serves matching, ordering and redeclaration
+identity. Use-site actual types never certify a still-dependent pattern.
+Written facts, typed bodies, pointer/reference identity, original enum semantics
+and layout/ownership/cycle guards remain unchanged. Nested named patterns,
+still-dependent parameter types and signed out-of-range conversions remain
+unsupported. This does not add an ABI policy or complete another macro; #92 and
+#48 remain open. [Scope and gates](cpp03-concrete-partial-parameter-types-verification.md).
