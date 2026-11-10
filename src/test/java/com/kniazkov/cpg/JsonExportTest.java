@@ -26,7 +26,7 @@ class JsonExportTest {
         for (String name : java.util.stream.Stream.concat(java.util.stream.Stream.of("__cplusplus", "__FILE__", "__LINE__", "__DATE__", "__TIME__"),
                 com.kniazkov.cpg.build.PlatformProfile.defaults().predefinedMacros().keySet().stream()).toList())
             fixture = fixture.replace(Json.serialize("PREDEFINED_" + name),
-                    Json.serialize(dir.resolve("<predefined:" + name + ">").toString()));
+                    Json.serialize(dir.resolve(".cpg-predefined-" + name).toString()));
         var expected = Json.parse(fixture.replace("\"FILE_PATH\"", Json.serialize(file.toString()))
                 .replace("\"CONFIG_KEY\"", Json.serialize("java-api:" + project.files().getFirst().variantId().orElseThrow()))
                 .replace("\"PLATFORM_KEY\"", Json.serialize("java-api:" + project.files().getFirst().variantId().orElseThrow() + ":platform")));

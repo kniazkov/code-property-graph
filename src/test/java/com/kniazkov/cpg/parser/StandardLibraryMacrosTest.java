@@ -43,7 +43,7 @@ class StandardLibraryMacrosTest {
             assertEquals(INTEGER_LIMITS.size(), definitions.size());
             assertEquals(INTEGER_LIMITS, definitions.stream().map(CppPreprocessor.Definition::name).collect(java.util.stream.Collectors.toSet()));
             assertTrue(definitions.stream().allMatch(d -> d.sourceKey().contains(profile.identityHash())));
-            assertTrue(result.expansions().stream().allMatch(e -> e.definition().file().contains("<cpg-library:" + header)));
+            assertTrue(result.expansions().stream().allMatch(e -> e.definition().file().contains(".cpg-library-" + header)));
             assertEquals(Set.of(directory.resolve("main.cpp").toString()), result.sources().keySet(), "No host or fake physical headers");
         }
     }

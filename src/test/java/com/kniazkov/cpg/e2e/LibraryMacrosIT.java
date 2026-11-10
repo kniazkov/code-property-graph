@@ -79,7 +79,7 @@ class LibraryMacrosIT {
                 assertEquals(definition.name() + " " + definition.rawReplacement(), external.text());
             }
             assertTrue(definition.sourceKey().contains(profile.identityHash()));
-            assertTrue(definition.range().file().contains("<cpg-library:"));
+            assertTrue(definition.range().file().contains(".cpg-library-"));
         }
         assertTrue(preprocessing.expansions().stream().anyMatch(e -> e.name().equals("INT_MAX")));
         assertTrue(preprocessing.expansions().stream().anyMatch(e -> e.name().equals("LDBL_EPSILON")));
