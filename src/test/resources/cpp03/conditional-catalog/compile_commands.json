@@ -13,13 +13,13 @@
   },
   {
     "directory": "sources",
-    "file": "aux.cpp",
+    "file": "auxiliary.cpp",
     "arguments": [
       "g++",
       "-std=c++03",
       "-DOTHER_UNUSED=5",
       "-c",
-      "aux.cpp"
+      "auxiliary.cpp"
     ]
   }
 ]

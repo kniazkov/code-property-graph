@@ -1,7 +1,7 @@
 # Conditional branches and macro catalog / Условные ветви и каталог макросов
 
 The compilation database imports `main.cpp` with `-DDEBUG=0` and an unused
-external definition, and `aux.cpp` with a separate unused definition. The header
+external definition, and `auxiliary.cpp` with a separate unused definition. The header
 has unused object/function macros and the initial `SWITCH_VALUE`. Two value
 expansions straddle `#undef`/`#define` and must refer to different definition IDs.
 
