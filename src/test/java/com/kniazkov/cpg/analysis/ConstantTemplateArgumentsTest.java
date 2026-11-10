@@ -337,11 +337,173 @@ class ConstantTemplateArgumentsTest {
         }
     }
 
-    @Test void omittedNestedActualDefaultsDoNotSilentlySelectThePrimary(){
-        var p=resolve("const int fixed=2;template<class T,int N=2> struct Key {};template<class T> struct Box {char data;char tail;};"
+    @Test void omittedNestedActualDefaultsSelectThePartialAndShareExplicitIdentity(){
+        var original=resolve("const int fixed=2;template<class T,int N=2> struct Key {};template<class T> struct Box {char data;char tail;};"
                 +"template<class T> struct Box<Key<T,fixed> > {long data;char tail;};"
+                +"typedef Box<Key<int> > A;typedef Box<Key<int,2> > B;typedef Box<Key<int,3> > C;"
+                +"unsigned long a=__builtin_offsetof(A,tail);unsigned long b=__builtin_offsetof(B,tail);unsigned long c=__builtin_offsetof(C,tail);");
+        for(var p:List.of(original,original.edit().build(),NameResolver.resolve(original.edit().build()),TypeNormalizer.green(original),NameResolver.resolve(ConstantFolder.fold(original)))){
+            healthy(p);value(p,"a",8);value(p,"b",8);value(p,"c",1);
+            var outer=p.classTemplateInstances().stream().filter(i->i.origin().name().equals("Box")).toList();
+            assertEquals(2,outer.size(),"Omitted and explicit defaults must not create duplicate outer instances");
+            assertEquals(1,outer.stream().filter(i->i.selected().templateKind()==TemplateKind.PARTIAL_SPECIALIZATION).count());
+        }
+        var reparsed=resolve(Cpg.sources(original,Language.CPP).get("main.cpp"));healthy(reparsed);value(reparsed,"a",8);value(reparsed,"b",8);value(reparsed,"c",1);
+    }
+
+    @Test void nestedActualDefaultsUseLiteralNamedEnumAndConvertedValues(){
+        for(String[] row:List.of(new String[]{"int","2","2"},new String[]{"int","fixed","2"},
+                new String[]{"int","enumerated","2"},new String[]{"bool","-7","true"},
+                new String[]{"unsigned char","258","2"},new String[]{"signed char","127","127"})){
+            var p=resolve("const int seed=2;const int fixed=seed;enum {enumerated=2};"
+                    +"template<class T,"+row[0]+" N="+row[1]+"> struct Key {};template<class T> struct Box {char data;char tail;};"
+                    +"template<class T> struct Box<Key<T,"+row[2]+"> > {long data;char tail;};"
+                    +"typedef Box<Key<int> > A;unsigned long result=__builtin_offsetof(A,tail);");
+            healthy(p);value(p,"result",8);
+        }
+        var p=resolve("const int fixed=258;template<class T,class V,V N=fixed> struct Key {};template<class T> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<Key<T,unsigned char,2> > {long data;char tail;};"
+                +"typedef Box<Key<int,unsigned char> > A;unsigned long result=__builtin_offsetof(A,tail);");
+        healthy(p);value(p,"result",8);
+    }
+
+    @Test void nestedActualDefaultEditsReselectWithoutMutatingSnapshotsOrWrittenSyntax(){
+        var original=resolve("const int seed=2;const int fixed=seed;template<class T,int N=fixed> struct Key {};"
+                +"template<class T> struct Box {char data;char tail;};template<class T> struct Box<Key<T,2> > {long data;char tail;};"
                 +"typedef Box<Key<int> > A;unsigned long result=__builtin_offsetof(A,tail);");
+        for(var p:List.of(original,original.edit().build(),NameResolver.resolve(original.edit().build()),TypeNormalizer.green(original),NameResolver.resolve(ConstantFolder.fold(TypeNormalizer.green(original))))){
+            healthy(p);value(p,"result",8);
+            String before=Cpg.sources(p,Language.CPP).get("main.cpp"),json=ProjectJson.encode(p).toText("  ");
+            assertTrue(before.contains("fixed"));
+            assertTrue(nodes(variable(p,"fixed").initializer().orElseThrow(),NameExpression.class).stream().anyMatch(n->n.name().equals("seed")));
+            var editor=new ProjectEditor(p);editor.replace(variable(p,"seed").initializer().orElseThrow(),IntegerLiteral.create().setValue(3).build());
+            var changed=NameResolver.resolve(editor.build());healthy(changed);value(changed,"result",1);
+            editor=new ProjectEditor(changed);editor.replace(variable(changed,"seed").initializer().orElseThrow(),IntegerLiteral.create().setValue(2).build());
+            var restored=NameResolver.resolve(editor.build());healthy(restored);value(restored,"result",8);
+            value(p,"result",8);value(changed,"result",1);
+            assertEquals(before,Cpg.sources(p,Language.CPP).get("main.cpp"));assertEquals(json,ProjectJson.encode(p).toText("  "));
+            var reparsed=resolve(Cpg.sources(changed,Language.CPP).get("main.cpp"));healthy(reparsed);value(reparsed,"result",1);
+        }
+    }
+
+    @Test void nestedActualDefaultsShareRepeatedDeductionButNotUnequalValuesOrNamespaceHeads(){
+        String prefix="template<class T,int N=2> struct Key {};namespace other {template<class T,int N=2> struct Key {};}"
+                +"template<class A,class B,class C> struct Box {char data;char tail;};"
+                +"template<class T,class U> struct Box<T,T,Key<U,2> > {long data;char tail;};";
+        var original=resolve(prefix+"typedef Box<Key<int>,Key<int,2>,Key<int> > A;"
+                +"typedef Box<Key<int>,Key<int,3>,Key<int> > B;typedef Box<Key<int>,other::Key<int>,Key<int> > C;"
+                +"unsigned long a=__builtin_offsetof(A,tail);unsigned long b=__builtin_offsetof(B,tail);unsigned long c=__builtin_offsetof(C,tail);");
+        for(var p:List.of(original,original.edit().build(),NameResolver.resolve(original.edit().build()),TypeNormalizer.green(original),NameResolver.resolve(ConstantFolder.fold(original)))){
+            healthy(p);value(p,"a",8);value(p,"b",1);value(p,"c",1);
+        }
+    }
+
+    @Test void uncertifiedNestedActualDefaultsNeverFallThroughToPrimaryLayout(){
+        for(String declaration:List.of("int fixed=2;","extern const int fixed;","const int fixed=fixed;","const volatile int fixed=2;","int f();const int fixed=f();","const double fixed=2.0;")){
+            var p=resolve(declaration+"template<class T,int N=fixed> struct Key {};template<class T> struct Box {char data;char tail;};"
+                    +"template<class T> struct Box<Key<T,2> > {long data;char tail;};typedef Box<Key<int> > A;unsigned long result=__builtin_offsetof(A,tail);");
+            assertTrue(p.hasErrors(),declaration);
+            assertTrue(new IntegralConstants(p,PROFILE).evaluate(variable(p,"result").initializer().orElseThrow()).isEmpty(),declaration);
+        }
+        for(String key:List.of("template<class T,signed char N=128> struct Key {};",
+                "template<class T,int N=sizeof(T)> struct Key {};",
+                "template<class T,class U=int> struct Key {};")){
+            String pattern=key.contains("class U")?"Key<T,int>":"Key<T,2>";
+            var p=resolve(key+"template<class T> struct Box {char data;char tail;};template<class T> struct Box<"+pattern+" > {long data;char tail;};"
+                    +"typedef Box<Key<int> > A;unsigned long result=__builtin_offsetof(A,tail);");
+            assertTrue(p.hasErrors(),key);assertTrue(new IntegralConstants(p,PROFILE).evaluate(variable(p,"result").initializer().orElseThrow()).isEmpty(),key);
+        }
+    }
+
+    @Test void nestedActualDefaultsDoNotBorrowLaterOrMergedHeaders(){
+        String box="template<class T> struct Box {char data;char tail;};template<class T> struct Box<Key<T,2> > {long data;char tail;};";
+        for(String source:List.of(
+                "template<class T,int N> struct Key;"+box+"typedef Box<Key<int> > A;template<class T,int N=2> struct Key {};",
+                "template<class T,int N> struct Key {};"+box+"typedef Box<Key<int> > A;template<class T,int N=2> struct Key;",
+                "template<class T,int N=2> struct Key;template<class T,int N> struct Key {};"+box+"typedef Box<Key<int> > A;",
+                "template<class T,int N=fixed> struct Key {};const int fixed=2;"+box+"typedef Box<Key<int> > A;")){
+            var p=resolve(source+"unsigned long result=__builtin_offsetof(A,tail);");
+            assertTrue(p.hasErrors(),source);
+            assertTrue(new IntegralConstants(p,PROFILE).evaluate(variable(p,"result").initializer().orElseThrow()).isEmpty(),source);
+        }
+    }
+
+    @Test void unspecializedFamiliesRetainLegacyNestedTypeDefaults(){
+        String key="template<class T,class U=int> struct Key {};";
+        var plain=resolve(key+"template<class T> struct Box {char data;char tail;};"
+                +"typedef Box<Key<int> > A;unsigned long result=__builtin_offsetof(A,tail);");
+        healthy(plain);value(plain,"result",1);
+        for(String specialization:List.of("template<class T> struct Box<Key<T,int> > {long data;char tail;};",
+                "template<> struct Box<Key<int,int> > {long data;char tail;};")){
+            var p=resolve(key+"template<class T> struct Box {char data;char tail;};"+specialization
+                    +"typedef Box<Key<int> > A;unsigned long result=__builtin_offsetof(A,tail);");
+            assertTrue(p.hasErrors());assertTrue(new IntegralConstants(p,PROFILE).evaluate(variable(p,"result").initializer().orElseThrow()).isEmpty());
+        }
+    }
+
+    @Test void fullSpecializationNestedDefaultsRetainSelectedAndUnselectedHeaderDependencies(){
+        var bounded=PROFILE.toBuilder().offsetof("gcc-clang-builtin","x86_64-sysv-lp64-v1","16").build();
+        for(String actual:List.of("true","false")){
+            var original=resolve(bounded,"struct Giant {char bytes[16];};const int seed=sizeof(Giant);const int fixed=seed;"
+                    +"template<class T,bool N=fixed> struct Key {};template<class T> struct Box {char data;char tail;};"
+                    +"template<> struct Box<Key<int> > {long data;char tail;};typedef Box<Key<int,"+actual+"> > A;unsigned long result=__builtin_offsetof(A,tail);");
+            healthy(original);
+            for(var p:List.of(original,original.edit().build(),NameResolver.resolve(original.edit().build()),TypeNormalizer.green(original),NameResolver.resolve(ConstantFolder.fold(TypeNormalizer.green(original))))){
+                assertEquals(BigInteger.valueOf(actual.equals("true")?8:1),new IntegralConstants(p,bounded).evaluate(variable(p,"result").initializer().orElseThrow()).orElseThrow().number());
+                String before=Cpg.sources(p,Language.CPP).get("main.cpp"),json=ProjectJson.encode(p).toText("  ");
+                var editor=new ProjectEditor(p);editor.replace(((ArrayType)variable(p,"bytes").type().orElseThrow()).bound().orElseThrow(),IntegerLiteral.create().setValue(17).build());
+                var changed=NameResolver.resolve(editor.build());
+                assertTrue(changed.semanticDiagnostics().toString().contains("SUPPORTED_OBJECT_LIMIT"),changed.semanticDiagnostics().toString());
+                assertTrue(new IntegralConstants(changed,bounded).evaluate(variable(changed,"result").initializer().orElseThrow()).isEmpty());
+                assertThrows(IllegalArgumentException.class,()->Cpg.sources(changed,Language.CPP));
+                assertEquals(before,Cpg.sources(p,Language.CPP).get("main.cpp"));assertEquals(json,ProjectJson.encode(p).toText("  "));
+            }
+        }
+    }
+
+    @Test void multipleNestedDefaultsKeepPerUseConversionsIndependentOfRequestOrder(){
+        String prefix="const int fixed=258;template<class T,class V,V N=fixed,int M=2> struct Key {};"
+                +"template<class T> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<Key<T,unsigned char,2,2> > {long data;char tail;};"
+                +"template<class T> struct Box<Key<T,int,258,2> > {short data;char tail;};";
+        String omitted="typedef Box<Key<int,unsigned char> > A;typedef Box<Key<int,int> > B;";
+        String explicit="typedef Box<Key<int,unsigned char,2,2> > C;typedef Box<Key<int,int,258,2> > D;";
+        for(String declarations:List.of(omitted+explicit,explicit+omitted)){
+            var original=resolve(prefix+declarations+"unsigned long a=__builtin_offsetof(A,tail);unsigned long b=__builtin_offsetof(B,tail);"
+                    +"unsigned long c=__builtin_offsetof(C,tail);unsigned long d=__builtin_offsetof(D,tail);");
+            for(var p:List.of(original,original.edit().build(),NameResolver.resolve(original.edit().build()),TypeNormalizer.green(original),NameResolver.resolve(ConstantFolder.fold(original)))){
+                healthy(p);value(p,"a",8);value(p,"b",2);value(p,"c",8);value(p,"d",2);
+                assertEquals(2,p.classTemplateInstances().stream().filter(i->i.origin().name().equals("Box")).count());
+            }
+            var reparsed=resolve(Cpg.sources(original,Language.CPP).get("main.cpp"));healthy(reparsed);value(reparsed,"a",8);value(reparsed,"b",2);value(reparsed,"c",8);value(reparsed,"d",2);
+        }
+    }
+
+    @Test void nestedDefaultsDoNotCompleteOmittedPartialPatterns(){
+        var p=resolve("template<class T,int N=2> struct Key {};template<class T> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<Key<T> > {long data;char tail;};typedef Box<Key<int,2> > A;unsigned long result=__builtin_offsetof(A,tail);");
         assertTrue(p.hasErrors());assertTrue(new IntegralConstants(p,PROFILE).evaluate(variable(p,"result").initializer().orElseThrow()).isEmpty());
+    }
+
+    @Test void nestedDefaultLayoutDependenciesSurviveSmallConvertedValuesAndEdits(){
+        var bounded=PROFILE.toBuilder().offsetof("gcc-clang-builtin","x86_64-sysv-lp64-v1","16").build();
+        String source="struct Giant {char bytes[16];};const int seed=sizeof(Giant);const int fixed=seed;"
+                +"template<class T,bool N=fixed> struct Key {};template<class T> struct Box {char data;char tail;};"
+                +"template<class T> struct Box<Key<T,true> > {long data;char tail;};typedef Box<Key<int> > A;unsigned long result=__builtin_offsetof(A,tail);";
+        var original=resolve(bounded,source);healthy(original);
+        for(var p:List.of(original,original.edit().build(),NameResolver.resolve(ConstantFolder.fold(TypeNormalizer.green(original))))){
+            assertEquals(BigInteger.valueOf(8),new IntegralConstants(p,bounded).evaluate(variable(p,"result").initializer().orElseThrow()).orElseThrow().number());
+            var editor=new ProjectEditor(p);editor.replace(((ArrayType)variable(p,"bytes").type().orElseThrow()).bound().orElseThrow(),IntegerLiteral.create().setValue(17).build());
+            var changed=NameResolver.resolve(editor.build());
+            assertTrue(changed.semanticDiagnostics().toString().contains("SUPPORTED_OBJECT_LIMIT"),changed.semanticDiagnostics().toString());
+            assertTrue(new IntegralConstants(changed,bounded).evaluate(variable(changed,"result").initializer().orElseThrow()).isEmpty());
+        }
+        source=source.replace("struct Giant {char bytes[16];};const int seed=sizeof(Giant);","enum E{enumerated=2};const int seed=+enumerated;");
+        var good=resolve(EnumStorageLayoutTest.P,source);healthy(good);
+        var incompatible=EnumStorageLayoutTest.P.toBuilder().enumUnderlyingType("unsigned-first").build();
+        var bad=resolve(incompatible,source);
+        assertTrue(bad.semanticDiagnostics().toString().contains("UNSUPPORTED_ENUM_SEMANTICS"),bad.semanticDiagnostics().toString());
+        assertTrue(new IntegralConstants(bad,incompatible).evaluate(variable(bad,"result").initializer().orElseThrow()).isEmpty());
     }
 
     @Test void nestedDeducedValuesRetainTheirDeclaredParameterType(){

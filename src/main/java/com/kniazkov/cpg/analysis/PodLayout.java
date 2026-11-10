@@ -262,16 +262,41 @@ final class PodLayout {
             try {
                 if (node instanceof Expression expression)
                     return safeConstant(expression, Collections.newSetFromMap(new IdentityHashMap<>()));
-                if (node instanceof NamedType named && named.alias().isPresent()) {
-                    TypedefDeclaration alias = named.alias().orElseThrow();
-                    if (!owned(alias) || !argumentSyntax(alias.type(), active)) return false;
+                if (node instanceof NamedType named) {
+                    if (named.alias().isPresent()) {
+                        TypedefDeclaration alias = named.alias().orElseThrow();
+                        if (!owned(alias) || !argumentSyntax(alias.type(), active)) return false;
+                    }
+                    // A nested actual template-id retains its written (possibly
+                    // shortened) argument list. Selection's read-only completion
+                    // must not erase the original default's sizeof/enum/const
+                    // dependencies from this bounded layout query.
+                    if (named.hasTemplateArguments()) {
+                        Declaration bound = named.declaration().orElse(null);
+                        ClassTemplateInstance instance = concreteTemplates.get(bound);
+                        ClassDeclaration primary = instance == null
+                                ? bound instanceof ClassDeclaration declaration
+                                    && declaration.templateKind() == TemplateKind.PRIMARY ? declaration : null
+                                : instance.origin();
+                        if (primary != null) {
+                            if (!owned(primary)) return false;
+                            for (int i = named.templateArguments().size(); i < primary.templateParameters().size(); i++) {
+                                var argument = primary.templateParameters().get(i).defaultArgument();
+                                if (argument.isEmpty() || !argumentSyntax(argument.orElseThrow(), active)) return false;
+                            }
+                        }
+                    }
                 }
                 return node.children().stream().allMatch(child -> argumentSyntax(child, active));
             } finally { active.remove(node); }
         }
 
         private boolean headerSyntax(Node node, Set<Node> active) {
-            if (node instanceof Expression && !TypeSemantics.dependent(node)) return argumentSyntax(node, active);
+            // A nondependent full-specialization type can hide omitted defaults.
+            // Validate their written dependencies just as for actual arguments,
+            // even when this visible specialization is not the selected one.
+            if ((node instanceof Expression || node instanceof NamedType) && !TypeSemantics.dependent(node))
+                return argumentSyntax(node, active);
             if (!active.add(node)) return false;
             try {
                 if (node instanceof NamedType named && named.alias().isPresent()
@@ -300,6 +325,12 @@ final class PodLayout {
                         return named.templateArguments().stream().allMatch(argument -> resolvedArgumentSyntax(argument, active));
                     }
                     if (named.declaration().isPresent() && !owned(named.declaration().orElseThrow())) return false;
+                    // A bound concrete class establishes its head identity even
+                    // when its qualifier is a namespace rather than an object
+                    // type. Dependent syntax was rejected above; still validate
+                    // every written argument instead of traversing that qualifier.
+                    if (named.declaration().orElse(null) instanceof ClassDeclaration)
+                        return named.templateArguments().stream().allMatch(argument -> resolvedArgumentSyntax(argument, active));
                 }
                 return node.children().stream().allMatch(child -> resolvedArgumentSyntax(child, active));
             } finally { active.remove(node); }
