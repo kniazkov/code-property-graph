@@ -165,7 +165,23 @@ public final class ConstantFolder {
         private void argumentSyntax(Node node) {
             if (!argumentSyntaxSeen.add(node)) return;
             if (node instanceof Expression expression) { constant(expression); return; }
-            if (node instanceof NamedType named) named.alias().ifPresent(alias -> argumentSyntax(alias.type()));
+            if (node instanceof NamedType named) {
+                named.alias().ifPresent(alias -> argumentSyntax(alias.type()));
+                // The actual nested type may omit arguments that selection
+                // completed without changing syntax. Retain those defaults'
+                // original const/sizeof/enum chains before folding any literals.
+                if (named.hasTemplateArguments()) {
+                    Declaration bound = named.declaration().orElse(null);
+                    ClassTemplateInstance instance = templates.get(bound);
+                    ClassDeclaration primary = instance == null
+                            ? bound instanceof ClassDeclaration declaration
+                                && declaration.templateKind() == TemplateKind.PRIMARY ? declaration : null
+                            : instance.origin();
+                    if (primary != null)
+                        for (int i = named.templateArguments().size(); i < primary.templateParameters().size(); i++)
+                            primary.templateParameters().get(i).defaultArgument().ifPresent(this::argumentSyntax);
+                }
+            }
             node.children().forEach(this::argumentSyntax);
         }
         private void fields(ClassDeclaration owner) {
