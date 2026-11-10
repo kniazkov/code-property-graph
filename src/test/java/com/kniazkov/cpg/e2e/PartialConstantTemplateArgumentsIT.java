@@ -276,6 +276,153 @@ class PartialConstantTemplateArgumentsIT {
         }
     }
 
+    @Test void nestedActualIntegralDefaultsSurviveStagesEditsIdentityAndPackagedCli() throws Exception {
+        for (String header : List.of("cstddef", "stddef.h")) {
+            String text = "#include <" + header + ">\n" + """
+                    const int seed=2;
+                    const int fixed=seed;
+                    template<class T,int N=fixed> struct Key {};
+                    template<class T> struct Box {char data;char tail;};
+                    template<class T> struct Box<Key<T,2> > {long data;char tail;};
+                    template<class A,class B> struct Same {char data;char tail;};
+                    template<class T> struct Same<T,T> {long data;char tail;};
+                    typedef Box<Key<int> > ByDefault;
+                    typedef Box<Key<int,fixed> > ByExplicit;
+                    typedef Box<Key<int,3> > ByThree;
+                    typedef Same<Key<int>,Key<int,fixed> > ByRepeated;
+                    unsigned long default_offset=offsetof(ByDefault,tail);
+                    unsigned long explicit_offset=offsetof(ByExplicit,tail);
+                    unsigned long three_offset=offsetof(ByThree,tail);
+                    unsigned long repeated_offset=offsetof(ByRepeated,tail);
+                    enum {extent=offsetof(ByDefault,tail)+1};
+                    char array[extent];
+                    int main(){return 0;}
+                    """;
+            Path input = source("nested-default-original", text);
+            verifyNestedDefaults(input, false);
+            for (var stage : List.of(Cpg.Stage.RESOLVED, Cpg.Stage.GREEN, Cpg.Stage.FOLDED)) {
+                Project project = Cpg.read(input.getParent(), options(stage));
+                for (Project snapshot : List.of(project, project.edit().build(), NameResolver.resolve(project.edit().build()))) {
+                    healthy(snapshot);
+                    assertDefaultIdentity(snapshot, false);
+                    String originalJson = ProjectJson.encode(snapshot).toText("  ");
+                    assertNotNull(Json.parse(originalJson));
+                    String generated = Cpg.sources(snapshot, Language.CPP).get("main.cpp");
+                    assertTrue(generated.replaceAll("\\s+", "").contains("Box<Key<int>>"), generated);
+                    verifyNestedDefaults(source("nested-default-generated-" + stage, generated), false);
+                    Project changed = editDefaultSeed(snapshot, 3);
+                    assertDefaultIdentity(changed, true);
+                    String changedJson = ProjectJson.encode(changed).toText("  ");
+                    String changedSource = Cpg.sources(changed, Language.CPP).get("main.cpp");
+                    assertNotEquals(generated, changedSource);
+                    verifyNestedDefaults(source("nested-default-edited-" + stage, changedSource), true);
+                    Project restored = editDefaultSeed(changed, 2);
+                    assertDefaultIdentity(restored, false);
+                    verifyNestedDefaults(source("nested-default-restored-" + stage,
+                            Cpg.sources(restored, Language.CPP).get("main.cpp")), false);
+                    assertDefaultIdentity(snapshot, false);
+                    assertEquals(generated, Cpg.sources(snapshot, Language.CPP).get("main.cpp"));
+                    assertEquals(originalJson, ProjectJson.encode(snapshot).toText("  "));
+                    assertDefaultIdentity(changed, true);
+                    assertEquals(changedSource, Cpg.sources(changed, Language.CPP).get("main.cpp"));
+                    assertEquals(changedJson, ProjectJson.encode(changed).toText("  "));
+                }
+            }
+            var cli = new CliSandbox(Files.createTempDirectory(temp, "nested-default-cli")).source("main.cpp", text);
+            Path profile = Files.createTempFile(temp, "nested-default-profile", ".json");
+            Files.writeString(profile, Json.serialize(PROFILE.toSettings()));
+            var run = cli.run("cpp", "--stage", "folded", "--cpp-standard", "c++03",
+                    "--platform-profile", profile.toString()).expectStatus(0);
+            assertNotNull(Json.parse(run.work().resolve("snapshot.json").toFile()));
+            verifyNestedDefaults(run.work().resolve("generated/main.cpp"), false);
+        }
+    }
+
+    private static Project editDefaultSeed(Project snapshot, int value) {
+        var seed = nodes(snapshot.files().getFirst(), VariableDeclaration.class).stream()
+                .filter(v -> v.name().equals("seed")).findFirst().orElseThrow();
+        var editor = new ProjectEditor(snapshot);
+        editor.replace(seed.initializer().orElseThrow(), IntegerLiteral.create().setValue(value).build());
+        Project result = NameResolver.resolve(editor.build());
+        healthy(result);
+        return result;
+    }
+
+    private static void assertDefaultIdentity(Project project, boolean edited) {
+        var targets = new LinkedHashMap<String, ClassDeclaration>();
+        for (String name : List.of("ByDefault", "ByExplicit", "ByThree", "ByRepeated")) {
+            var alias = nodes(project.files().getFirst(), TypedefDeclaration.class).stream()
+                    .filter(t -> t.name().equals(name)).findFirst().orElseThrow();
+            var type = assertInstanceOf(NamedType.class, alias.type().canonicalType());
+            var declaration = assertInstanceOf(ClassDeclaration.class, type.declaration().orElseThrow());
+            targets.put(name, declaration);
+            var instance = project.classTemplateInstances().stream()
+                    .filter(i -> i.declaration() == declaration).findFirst().orElseThrow();
+            boolean partial = name.equals("ByRepeated") || !name.equals("ByThree") && !edited;
+            assertEquals(partial ? TemplateKind.PARTIAL_SPECIALIZATION : TemplateKind.PRIMARY,
+                    instance.selected().templateKind(), name);
+        }
+        assertSame(targets.get("ByDefault"), targets.get("ByExplicit"));
+        if (edited) assertSame(targets.get("ByDefault"), targets.get("ByThree"));
+        else assertNotSame(targets.get("ByDefault"), targets.get("ByThree"));
+    }
+
+    private void verifyNestedDefaults(Path source, boolean edited) throws Exception {
+        Project reparsed = Cpg.read(source.getParent(), options(Cpg.Stage.RESOLVED));
+        healthy(reparsed);
+        assertDefaultIdentity(reparsed, edited);
+        Path expanded = materialize(source);
+        Project materialized = Cpg.read(expanded.getParent(), options(Cpg.Stage.RESOLVED));
+        healthy(materialized);
+        assertDefaultIdentity(materialized, edited);
+        for (Path tested : List.of(source, expanded)) for (String compiler : List.of("g++", "clang++")) {
+            Path work = Files.createTempDirectory(temp, "nested-default-native");
+            Path wrapper = work.resolve("wrapper.cpp"), binary = work.resolve("probe");
+            Files.writeString(wrapper, """
+                    #include <cstddef>
+                    #include <climits>
+                    #include <cstdio>
+                    #if !defined(__x86_64__) || !defined(__LP64__)
+                    #error selected target mismatch
+                    #endif
+                    #define main tested_main
+                    #include "%s"
+                    #undef main
+                    typedef char default_ice[(__builtin_offsetof(ByDefault,tail)==%d)?1:-1];
+                    typedef char explicit_ice[(__builtin_offsetof(ByExplicit,tail)==%d)?1:-1];
+                    typedef char three_ice[(__builtin_offsetof(ByThree,tail)==1)?1:-1];
+                    typedef char repeated_ice[(__builtin_offsetof(ByRepeated,tail)==8)?1:-1];
+                    int same_type(ByDefault*){return 1;}
+                    template<class T> int same_type(T*){return 0;}
+                    int main(){
+                        if(CHAR_BIT!=8 || sizeof(int)!=4 || sizeof(long)!=8 || sizeof(void*)!=8) return 10;
+                        if(default_offset!=%d || explicit_offset!=%d || three_offset!=1 || repeated_offset!=8) return 11;
+                        if(sizeof(array)!=%d || !same_type((ByExplicit*)0)) return 12;
+                        std::printf("default=%%lu explicit=%%lu three=%%lu repeated=%%lu extent=%%lu\\n",
+                            default_offset, explicit_offset, three_offset, repeated_offset, (unsigned long)sizeof(array));
+                        return tested_main();
+                    }
+                    """.formatted(tested.toAbsolutePath().toString().replace("\\", "\\\\").replace("\"", "\\\""),
+                            edited ? 1 : 8, edited ? 1 : 8, edited ? 1 : 8, edited ? 1 : 8, edited ? 2 : 9));
+            List<String> command = List.of(compiler, "-std=c++03", "-pedantic-errors", wrapper.toString(), "-o", binary.toString());
+            success(command, work);
+            String observations = success(List.of(binary.toString()), work);
+            assertEquals(edited ? "default=1 explicit=1 three=1 repeated=8 extent=2\n"
+                    : "default=8 explicit=8 three=1 repeated=8 extent=9\n", observations);
+            Path evidence = Files.createDirectories(Path.of("target/partial-constant-template-arguments-oracle")
+                    .resolve(String.format("defaults-%03d-%s", ++execution, hash(tested).substring(0, 16)))
+                    .resolve(compiler.equals("g++") ? "gcc" : "clang"));
+            Files.writeString(evidence.resolve("tested.cpp"), Files.readString(tested));
+            Files.writeString(evidence.resolve("wrapper.cpp"), Files.readString(wrapper));
+            Files.writeString(evidence.resolve("observations.txt"), observations);
+            Files.writeString(evidence.resolve("metadata.json"), Json.serialize(Map.of(
+                    "compiler", compiler, "version", success(List.of(compiler, "--version"), work),
+                    "target", success(List.of(compiler, "-dumpmachine"), work), "command", command,
+                    "profile", PROFILE.toSettings(), "sourceSha256", hash(tested),
+                    "materialized", tested.equals(expanded), "edited", edited)));
+        }
+    }
+
     private void verifyNestedLifecycle(String text, String label, int replacement, boolean editEnum) throws Exception {
         Path input = source(label, text);
         verify(input, false);

@@ -46,4 +46,30 @@ class TemplateTypeIdentityTest {
         values.put(second, "certified:3");
         assertNotEquals(contextual, TypeIdentity.canonicalIdentity(type, Map.of(), values));
     }
+    @Test void contextualNestedDefaultsAreExactAndDoNotChangeOrdinaryIdentity() {
+        var omitted = NamedType.create().setName("Key").setTemplateArguments(List.of(
+                TemplateArgument.create().setType(NamedType.create().setName("int")))).build();
+        var explicit = NamedType.create().setName("Key").setTemplateArguments(List.of(
+                TemplateArgument.create().setType(NamedType.create().setName("int")),
+                TemplateArgument.create().setExpression(IntegerLiteral.create().setValue(2)))).build();
+        var primary = ClassDeclaration.create().setName("Key").setTemplateKind(TemplateKind.PRIMARY).build();
+        String ordinary = TypeIdentity.canonicalIdentity(omitted);
+        String ordinaryExplicit = TypeIdentity.canonicalIdentity(explicit);
+        assertNotEquals(ordinary, ordinaryExplicit);
+        var effective = new IdentityHashMap<NamedType, List<TemplateArgument>>();
+        effective.put(omitted, explicit.templateArguments());
+        var heads = new IdentityHashMap<NamedType, ClassDeclaration>();
+        heads.put(omitted, primary); heads.put(explicit, primary);
+        String completed = TypeIdentity.canonicalIdentity(omitted, Map.of(), Map.of(), effective, heads);
+        assertEquals(completed, TypeIdentity.canonicalIdentity(explicit, Map.of(), Map.of(), effective, heads));
+        assertEquals(ordinary, TypeIdentity.canonicalIdentity(omitted));
+        assertEquals(ordinary, TypeIdentity.canonicalIdentity(omitted, Map.of()));
+        assertEquals(ordinary, TypeIdentity.canonicalIdentity(omitted, Map.of(), Map.of()));
+        assertEquals(ordinaryExplicit, TypeIdentity.canonicalIdentity(explicit));
+        var copy = omitted.edit().build();
+        assertEquals(TypeIdentity.canonicalIdentity(copy), TypeIdentity.canonicalIdentity(copy, Map.of(), Map.of(), effective, heads));
+        assertNotEquals(completed, TypeIdentity.canonicalIdentity(copy, Map.of(), Map.of(), effective, heads));
+        assertEquals(1, omitted.templateArguments().size());
+        assertEquals(2, explicit.templateArguments().size());
+    }
 }
