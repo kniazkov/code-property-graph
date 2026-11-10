@@ -64,7 +64,7 @@ class ConditionalCatalogIT {
         var builtin = definition(p, "__cplusplus");
         assertOwner(project, builtin, null, List.of("language-profile", "predefined-macro"));
         assertTrue(p.expansions().stream().anyMatch(e -> e.definitionId() == builtin.id()));
-        var aux = project.files().stream().filter(f -> f.path().equals("aux.cpp")).findFirst().orElseThrow().provenance().orElseThrow().unit();
+        var aux = project.files().stream().filter(f -> f.path().equals("auxiliary.cpp")).findFirst().orElseThrow().provenance().orElseThrow().unit();
         assertTrue(aux.definitions().stream().noneMatch(d -> d.name().equals("DEBUG")));
         assertOwner(project, definition(aux, "OTHER_UNUSED"), "-DOTHER_UNUSED=5",
                 List.of("compilation-database", "compilation-command", "macro-definition-argument"));
