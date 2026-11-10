@@ -25,7 +25,7 @@ class PackagedCliIT {
                         "--json", "snapshot.json", "--out", "generated", "--stage", "resolved").toString()));
         for (String name : java.util.stream.Stream.concat(java.util.stream.Stream.of("__cplusplus", "__FILE__", "__LINE__", "__DATE__", "__TIME__"),
                 com.kniazkov.cpg.build.PlatformProfile.defaults().predefinedMacros().keySet().stream()).toList())
-            substitutions.put("PREDEFINED_" + name, cli.input.resolve("<predefined:" + name + ">").toString());
+            substitutions.put("PREDEFINED_" + name, cli.input.resolve(".cpg-predefined-" + name).toString());
         run.snapshot().exactly("/json/return-zero-cli.json", substitutions);
         assertFalse(run.stderr().contains("warning ["), run.stderr());
     }
