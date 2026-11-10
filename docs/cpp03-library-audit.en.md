@@ -661,3 +661,18 @@ original enum compatibility and layout/cycle/ownership ceilings are unchanged.
 Earlier nested-pattern exclusions describe historical checkpoints. No ABI policy
 or macro completion count changes; #92 and #48 remain open.
 [Scope, tests and gates](cpp03-nested-partial-arguments-verification.md).
+
+### Nested actual integral defaults (#92, bounded follow-up)
+
+Nested actual template-ids now complete trailing independent integral value
+defaults from their exact bound primary header visible before use, or verified
+instance origin. Matching and outer instance identity share the same effective
+arguments while written syntax and default dependencies remain intact.
+Literal/const/enumerator defaults support bool, unsigned modulo and representable
+signed conversions; a type may become concrete from its own explicit preceding
+arguments. Partial patterns with omitted nested defaults, merged/later defaults,
+dependent/type/template defaults and unsupported heads stay guarded.
+Earlier omitted-default exclusions describe historical checkpoints.
+No ABI policy, macro count, section 11 audit or completion status changes;
+#92/#48 and the five remaining macro obligations stay open.
+[Contract, assertions and separate gates](cpp03-nested-actual-defaults-verification.md).

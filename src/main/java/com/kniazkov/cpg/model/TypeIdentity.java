@@ -7,6 +7,13 @@ import java.util.stream.Collectors;
 /** Structural identities separate written names and declarators from their meaning. */
 public final class TypeIdentity {
     private TypeIdentity() {}
+    private record Context(Map<? extends Node, String> names,
+            Map<? extends NamedType, ? extends List<TemplateArgument>> arguments,
+            Map<? extends NamedType, ? extends ClassDeclaration> heads) {
+        String get(Node node) { return names.get(node); }
+        String getOrDefault(Node node, String fallback) { return names.getOrDefault(node, fallback); }
+        boolean containsKey(Node node) { return names.containsKey(node); }
+    }
     public static TypeNode canonicalType(TypeNode type) {
         Set<TypeNode> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         while (type instanceof NamedType named && named.alias().isPresent()) {
@@ -20,7 +27,7 @@ public final class TypeIdentity {
     }
     /** Contextual identities for bound dependent types, keyed by declaration rather than spelling. */
     public static String canonicalIdentity(TypeNode type, Map<? extends Declaration, String> dependentNames) {
-        return identity(type, Collections.newSetFromMap(new IdentityHashMap<>()), dependentNames);
+        return identity(type, Collections.newSetFromMap(new IdentityHashMap<>()), new Context(dependentNames, Map.of(), Map.of()));
     }
     /** Contextual value identities for certified expressions, without copying syntax
      * or changing declaration bindings. Overrides apply only to exact expression
@@ -29,9 +36,20 @@ public final class TypeIdentity {
             Map<? extends Expression, String> expressionIdentities) {
         var identities = new IdentityHashMap<Node, String>();
         identities.putAll(dependentNames); identities.putAll(expressionIdentities);
-        return identity(type, Collections.newSetFromMap(new IdentityHashMap<>()), identities);
+        return identity(type, Collections.newSetFromMap(new IdentityHashMap<>()), new Context(identities, Map.of(), Map.of()));
     }
-    private static String identity(TypeNode written, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
+    /** Read-only template-id completion for one certified semantic query. The
+     * exact bound syntax stays intact; ordinary callers retain written identity. */
+    public static String canonicalIdentity(TypeNode type, Map<? extends Declaration, String> dependentNames,
+            Map<? extends Expression, String> expressionIdentities,
+            Map<? extends NamedType, ? extends List<TemplateArgument>> effectiveArguments,
+            Map<? extends NamedType, ? extends ClassDeclaration> templateHeads) {
+        var identities = new IdentityHashMap<Node, String>();
+        identities.putAll(dependentNames); identities.putAll(expressionIdentities);
+        return identity(type, Collections.newSetFromMap(new IdentityHashMap<>()),
+                new Context(identities, effectiveArguments, templateHeads));
+    }
+    private static String identity(TypeNode written, Set<TypeNode> seen, Context dependentNames) {
         TypeNode type = canonicalType(written);
         if (!seen.add(type)) throw new IllegalStateException("Cyclic type identity");
         try {
@@ -50,7 +68,7 @@ public final class TypeIdentity {
             };
         } finally { seen.remove(type); }
     }
-    private static String qualified(TypeNode written, boolean c, boolean v, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
+    private static String qualified(TypeNode written, boolean c, boolean v, Set<TypeNode> seen, Context dependentNames) {
         TypeNode type = canonicalType(written);
         var visited = Collections.newSetFromMap(new IdentityHashMap<TypeNode, Boolean>());
         while (type instanceof QualifiedType q) {
@@ -72,9 +90,9 @@ public final class TypeIdentity {
     }
     /** Parameter adjustment with contextual identities for bound dependent types. */
     public static String parameterIdentity(TypeNode written, Map<? extends Declaration, String> dependentNames) {
-        return parameter(written, Collections.newSetFromMap(new IdentityHashMap<>()), dependentNames);
+        return parameter(written, Collections.newSetFromMap(new IdentityHashMap<>()), new Context(dependentNames, Map.of(), Map.of()));
     }
-    private static String parameter(TypeNode written, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
+    private static String parameter(TypeNode written, Set<TypeNode> seen, Context dependentNames) {
         TypeNode type = canonicalType(written);
         boolean c = false, v = false;
         var visited = Collections.newSetFromMap(new IdentityHashMap<TypeNode, Boolean>());
@@ -88,10 +106,12 @@ public final class TypeIdentity {
         if (type instanceof FunctionType f) return "pointer(" + identity(f, seen, dependentNames) + ")";
         return identity(type, seen, dependentNames);
     }
-    private static String namedIdentity(NamedType type, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
+    private static String namedIdentity(NamedType type, Set<TypeNode> seen, Context dependentNames) {
         if (type.fundamentalKind().isPresent()) return type.fundamentalKind().orElseThrow().spelling();
         String name = type.declaration().map(declaration -> dependentNames.getOrDefault(declaration,
                 declaration.typeIdentity().orElse(type.name()))).orElse(type.name());
+        ClassDeclaration head = dependentNames.heads().get(type);
+        if (head != null) name = head.typeIdentity().orElse(head.name());
         // A resolved member of a concrete template instance has one declaration
         // identity, whether spelled Owner<T>::Member or Member inside that class.
         // Only unresolved/dependent qualifiers need their spelling reconstructed.
@@ -100,27 +120,29 @@ public final class TypeIdentity {
                 && !type.dependent() && type.qualifier().filter(qualifier->!qualifier.dependent()).map(TypeIdentity::canonicalType).filter(NamedType.class::isInstance).map(NamedType.class::cast)
                 .flatMap(NamedType::declaration).filter(ClassDeclaration.class::isInstance).map(ClassDeclaration.class::cast)
                 .filter(owner->owner.templateKind()==TemplateKind.NONE && owner.hasTemplateArguments()).isPresent();
-        if (!concreteMember && type.qualifier().filter(qualifier -> contextualQualifier(qualifier, dependentNames)).isPresent()) {
+        if (head == null && !concreteMember && type.qualifier().filter(qualifier -> contextualQualifier(qualifier, dependentNames)).isPresent()) {
             name = identity(type.qualifier().orElseThrow(), seen, dependentNames) + "::" + type.name().substring(type.name().lastIndexOf("::") + 2);
         }
         // A concrete class-instance declaration already carries normalized actual arguments,
         // including defaults; the written template-id must not append a second identity.
-        if (type.declaration().orElse(null) instanceof ClassDeclaration owner
+        if (!dependentNames.arguments().containsKey(type) && type.declaration().orElse(null) instanceof ClassDeclaration owner
                 && owner.templateKind() == TemplateKind.NONE && owner.hasTemplateArguments()) return "named(" + name + ")";
-        return "named(" + name + arguments(type.templateArguments(), type.hasTemplateArguments(), seen, dependentNames) + ")";
+        List<TemplateArgument> effective = dependentNames.arguments().get(type);
+        return "named(" + name + arguments(effective == null ? type.templateArguments() : effective,
+                type.hasTemplateArguments(), seen, dependentNames) + ")";
     }
-    private static boolean contextualQualifier(NamedType type, Map<? extends Node, String> dependentNames) {
+    private static boolean contextualQualifier(NamedType type, Context dependentNames) {
         return type.hasTemplateArguments() || type.declaration().filter(dependentNames::containsKey).isPresent()
                 || type.qualifier().map(qualifier -> contextualQualifier(qualifier, dependentNames)).orElse(false);
     }
-    private static String arguments(List<TemplateArgument> arguments, boolean present, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
+    private static String arguments(List<TemplateArgument> arguments, boolean present, Set<TypeNode> seen, Context dependentNames) {
         if (!present) return "";
         return arguments.stream().map(argument -> argument.kind().name() + "(" + argument.type()
                 .map(type -> identity(type, seen, dependentNames)).orElseGet(() -> expression(argument.expression().orElseThrow(), seen, dependentNames)) + ")")
                 .collect(Collectors.joining(",", "<", ">"));
     }
     /** Structural value syntax normalizes bound parameter references by declaration position. */
-    private static String expression(Expression value, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
+    private static String expression(Expression value, Set<TypeNode> seen, Context dependentNames) {
         if (dependentNames.containsKey(value)) return dependentNames.get(value);
         if (value instanceof IntegerLiteral literal) return "integer(" + literal.cppType().orElse("int") + ":" + literal.bigValue() + ")";
         if (value instanceof BooleanLiteral literal) return "boolean(" + literal.value() + ")";
@@ -147,7 +169,7 @@ public final class TypeIdentity {
             throw new IllegalArgumentException("Unsupported value-argument child " + child.getClass().getName());
         }).collect(Collectors.joining(",", "(", ")"));
     }
-    private static String bound(ArrayType type, Set<TypeNode> seen, Map<? extends Node, String> dependentNames) {
+    private static String bound(ArrayType type, Set<TypeNode> seen, Context dependentNames) {
         return type.bound().map(e -> portableInteger(e).map(Object::toString).orElseGet(() -> expression(e, seen, dependentNames))).orElse("");
     }
     /** Only folds values representable by every C++03 signed int. Target-dependent bounds stay symbolic. */

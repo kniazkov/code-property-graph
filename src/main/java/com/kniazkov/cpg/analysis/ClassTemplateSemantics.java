@@ -12,8 +12,9 @@ public final class ClassTemplateSemantics {
     private record Use(Node node, SourceFile file, String scope, String name, List<TemplateArgument> arguments, int position) {}
     private record CompletedArguments(List<TemplateArgument> values, boolean unsupported) {}
     private record PatternValues(Map<TemplateArgument, TemplateArgument> arguments,
-            Map<NamedType, ClassDeclaration> heads, Set<Node> active, boolean requireExplicit) {
-        PatternValues(boolean requireExplicit) { this(new IdentityHashMap<>(), new IdentityHashMap<>(), Collections.newSetFromMap(new IdentityHashMap<>()), requireExplicit); }
+            Map<NamedType, ClassDeclaration> heads, Map<NamedType, List<TemplateArgument>> effective,
+            Set<Node> active, List<Located> declarations, List<Use> uses, boolean specializedFamily) {
+        PatternValues(List<Located> declarations, List<Use> uses, boolean specializedFamily) { this(new IdentityHashMap<>(), new IdentityHashMap<>(), new IdentityHashMap<>(), Collections.newSetFromMap(new IdentityHashMap<>()), declarations, uses, specializedFamily); }
     }
     private record Match(ClassDeclaration declaration, Map<TemplateParameterDeclaration, TemplateArgument> bindings) {}
 
@@ -84,11 +85,9 @@ public final class ClassTemplateSemantics {
             var matches = new ArrayList<Match>();
             var fullPatterns = new IdentityHashMap<ClassDeclaration, String>();
             var partialPatterns = new IdentityHashMap<ClassDeclaration, List<TemplateArgument>>();
-            boolean nestedNamedPatterns = family.stream().map(Located::declaration)
-                    .filter(c -> c.templateKind() == TemplateKind.PARTIAL_SPECIALIZATION || c.templateKind() == TemplateKind.FULL_SPECIALIZATION)
-                    .flatMap(c -> c.templateArguments().stream()).filter(a -> a.type().isPresent())
-                    .anyMatch(a -> namedPatternValue(a, profile));
-            var normalized = new PatternValues(nestedNamedPatterns);
+            var normalized = new PatternValues(declarations, uses, family.stream().anyMatch(candidate ->
+                    candidate.declaration().templateKind() == TemplateKind.PARTIAL_SPECIALIZATION
+                            || candidate.declaration().templateKind() == TemplateKind.FULL_SPECIALIZATION));
             if (!normalizeNestedArguments(arguments, project, profile, constants, normalized, false)) {
                 failures.put(use.node(), error("unsupported-class-template-arguments", "Nested integral arguments remain unsupported for " + primary.name()));
                 continue;
@@ -137,7 +136,7 @@ public final class ClassTemplateSemantics {
             if (distinct.size() > 1) { failures.put(use.node(), error("ambiguous-class-specialization", "Ambiguous partial specializations of " + primary.name())); continue; }
             Match selected = distinct.isEmpty() ? new Match(primary, bindParameters(primary.templateParameters(), arguments)) : distinct.values().iterator().next();
             if (!selected.declaration().isDefinition()) continue;
-            String identity = primary.typeIdentity().orElse(qualify(family.getFirst().scope(), primary.name())) + "<" + arguments.stream().map(a -> argumentIdentity(a, profile)).reduce((a,b) -> a + "," + b).orElse("") + ">@" + profile.stableIdentity();
+            String identity = primary.typeIdentity().orElse(qualify(family.getFirst().scope(), primary.name())) + "<" + arguments.stream().map(a -> contextualArgumentIdentity(a, profile, normalized)).reduce((a,b) -> a + "," + b).orElse("") + ">@" + profile.stableIdentity();
             if (!known.contains(identity) && known.size() >= 256) { failures.put(use.node(), error("template-instantiation-limit", "Class-template instantiation limit (256) reached")); continue; }
             known.add(identity);
             requests.add(new ClassTemplateInstances.Request(primary, selected.declaration(), use.node(), use.file(), arguments,
@@ -470,19 +469,61 @@ public final class ClassTemplateSemantics {
                     if (instance.declaration() == bound) { primary = instance.origin(); break; }
                 if (primary == null || named.qualifier().map(TypeSemantics::dependent).orElse(false))
                     return !namedPatternValue(named, profile);
-                // Defaults need their own declaration visibility and substitution
-                // proof. Do not newly certify shortened uses when named nested
-                // patterns affect selection; preserve unrelated existing defaults.
-                if (named.templateArguments().size() != primary.templateParameters().size())
-                    return !normalized.requireExplicit() && !namedPatternValue(named, profile);
+                List<TemplateArgument> effective = named.templateArguments();
+                if (effective.size() != primary.templateParameters().size()) {
+                    // Only actual arguments may consume defaults. In particular,
+                    // never turn a shortened partial pattern into a new matcher.
+                    if (pattern || effective.size() > primary.templateParameters().size()) return false;
+                    effective = completeNestedActualArguments(named, primary, profile, constants, normalized);
+                    if (effective == null) {
+                        // Unrelated primaries historically accept nested type,
+                        // template and dependent defaults through the ordinary
+                        // instantiation route. Preserve that route, but never
+                        // let uncertified completion select a specialization.
+                        return !normalized.specializedFamily() && !namedPatternValue(named, profile);
+                    }
+                }
                 normalized.heads().put(named, primary);
-                return normalizePatternArguments(primary, named.templateArguments(), project, profile, constants, normalized, pattern) != null;
+                List<TemplateArgument> values = normalizePatternArguments(primary, effective, project, profile, constants, normalized, pattern);
+                if (values == null) return false;
+                normalized.effective().put(named, values);
+                return true;
             }
             if (node instanceof Expression) return !pattern || !namedPatternValue(node, profile);
             for (Node child : node.children())
                 if (!normalizeNestedNode(child, project, profile, constants, normalized, active, pattern)) return false;
             return true;
         } finally { active.remove(node); }
+    }
+    private static List<TemplateArgument> completeNestedActualArguments(NamedType named, ClassDeclaration primary,
+            PlatformProfile profile, IntegralConstants constants, PatternValues normalized) {
+        Located header = null;
+        for (Located location : normalized.declarations())
+            if (location.declaration() == primary) { header = location; break; }
+        Use use = null;
+        for (Use candidate : normalized.uses())
+            if (candidate.node() == named) { use = candidate; break; }
+        // A later definition, another redeclaration or a matching
+        // spelling cannot supply proof for this exact bound header.
+        if (header == null || use == null || !(header.file() == use.file()
+                && header.position() < use.position()
+                || LibraryDeclarations.visible(use.file(), header.file()))) return null;
+        var effective = named.templateArguments();
+        var completed = new ArrayList<>(effective);
+        for (int i = effective.size(); i < primary.templateParameters().size(); i++) {
+            var parameter = primary.templateParameters().get(i);
+            TemplateArgument value = parameter.defaultArgument().orElse(null);
+            if (parameter.kind() != TemplateParameterDeclaration.Kind.VALUE || value == null
+                    || value.expression().flatMap(constants::evaluate).isEmpty()) return null;
+            var preceding = bindParameters(primary.templateParameters().subList(0, effective.size()), effective);
+            TypeNode declared = parameter.type().map(type -> substituteType(type, preceding))
+                    .map(TypeNode::canonicalType).map(TypeSemantics::unqualified).orElse(null);
+            if (declared == null || TypeSemantics.integerType(declared, profile).isEmpty()) return null;
+            // Defaults are evaluated on their original bound nodes,
+            // not substituted copies: dependent defaults stay guarded.
+            completed.add(value);
+        }
+        return List.copyOf(completed);
     }
     /** Original C++03 unsigned conversion is reduction modulo 2^N, not a
      * representability check. This consumes an already certified integral fact;
@@ -633,8 +674,8 @@ public final class ClassTemplateSemantics {
             // still pass the structural overlay comparison below.
             if (plainDeducedType(previous, Collections.newSetFromMap(new IdentityHashMap<>()))
                     && plainDeducedType(actual, Collections.newSetFromMap(new IdentityHashMap<>()))
-                    && TypeIdentity.canonicalIdentity(previous, Map.of(), values)
-                            .equals(TypeIdentity.canonicalIdentity(actual, Map.of(), values))) return true;
+                    && TypeIdentity.canonicalIdentity(previous, Map.of(), values, normalized.effective(), normalized.heads())
+                            .equals(TypeIdentity.canonicalIdentity(actual, Map.of(), values, normalized.effective(), normalized.heads()))) return true;
             return matchType(previous, actual, List.of(), new LinkedHashMap<>(), profile, normalized, new IdentityHashMap<>());
         }
         bindings.put(parameter, TemplateArgument.create().setType(actual.edit()).build());
@@ -683,8 +724,10 @@ public final class ClassTemplateSemantics {
                 var head = a.edit(); head.setTemplateArguments(List.of());
                 if (!bind(parameter, TemplateArgument.create().setType(head).setKind(TemplateArgument.Kind.TEMPLATE).build(), bindings, profile)) return false;
             } else if (!sameHead(n, a, normalized)) return false;
-            if (n.templateArguments().size() != a.templateArguments().size()) return false;
-            for (int i = 0; i < n.templateArguments().size(); i++) if (!matchArgument(n.templateArguments().get(i), a.templateArguments().get(i), parameters, bindings, profile, normalized, typeBindings)) return false;
+            var left = normalized.effective().getOrDefault(n, n.templateArguments());
+            var right = normalized.effective().getOrDefault(a, a.templateArguments());
+            if (left.size() != right.size()) return false;
+            for (int i = 0; i < left.size(); i++) if (!matchArgument(left.get(i), right.get(i), parameters, bindings, profile, normalized, typeBindings)) return false;
             return true;
         }
         if (pattern instanceof FunctionType f) {
@@ -722,7 +765,19 @@ public final class ClassTemplateSemantics {
             if (written != value && written.expression().isPresent())
                 values.put(written.expression().orElseThrow(), argumentIdentity(value, profile));
         });
+        // Effective lists contain converted expressions rather than written
+        // expressions. Give both the same value identity in contextual queries.
+        normalized.effective().values().forEach(arguments -> arguments.forEach(argument ->
+                argument.expression().ifPresent(expression -> {
+                    if (ConstantEvaluator.evaluate(expression, profile).isPresent())
+                        values.put(expression, argumentIdentity(argument, profile));
+                })));
         return values;
+    }
+    private static String contextualArgumentIdentity(TemplateArgument argument, PlatformProfile profile, PatternValues normalized) {
+        if (argument.type().isEmpty()) return argumentIdentity(argument, profile);
+        return argument.kind() + ":" + TypeIdentity.canonicalIdentity(argument.type().orElseThrow(), Map.of(),
+                normalizedValueIdentities(normalized, profile), normalized.effective(), normalized.heads());
     }
     private static String patternIdentity(ClassDeclaration c, List<TemplateArgument> arguments, PlatformProfile profile, PatternValues normalized) {
         var values = normalizedValueIdentities(normalized, profile);
@@ -731,7 +786,7 @@ public final class ClassTemplateSemantics {
         // Do not rebuild the header: ordinary edit/build deliberately clears
         // bindings, losing parameter alpha-equivalence and typedef identities.
         return arguments.stream().map(argument -> {
-            if (argument.type().isPresent()) return argument.kind() + ":" + TypeIdentity.canonicalIdentity(argument.type().orElseThrow(), names, values);
+            if (argument.type().isPresent()) return argument.kind() + ":" + TypeIdentity.canonicalIdentity(argument.type().orElseThrow(), names, values, normalized.effective(), normalized.heads());
             var parameter = parameter(argument.expression().orElseThrow(), c.templateParameters());
             return parameter == null ? argumentIdentity(argument, profile) : "VALUE:" + names.get(parameter);
         }).reduce((left, right) -> left + "," + right).orElse("");
