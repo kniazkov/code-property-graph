@@ -299,8 +299,29 @@ final class PodLayout {
                 return argumentSyntax(node, active);
             if (!active.add(node)) return false;
             try {
-                if (node instanceof NamedType named && named.alias().isPresent()
-                        && !headerSyntax(named.alias().orElseThrow().type(), active)) return false;
+                if (node instanceof NamedType named) {
+                    if (named.alias().isPresent()
+                            && !headerSyntax(named.alias().orElseThrow().type(), active)) return false;
+                    // A dependent partial pattern can omit independent defaults.
+                    // Check their original expressions even for unselected
+                    // candidates; normalized bool/unsigned values hide size and
+                    // enum-policy dependencies that remain layout obligations.
+                    if (named.hasTemplateArguments()) {
+                        Declaration bound = named.declaration().orElse(null);
+                        ClassTemplateInstance instance = concreteTemplates.get(bound);
+                        ClassDeclaration primary = instance == null
+                                ? bound instanceof ClassDeclaration declaration
+                                    && declaration.templateKind() == TemplateKind.PRIMARY ? declaration : null
+                                : instance.origin();
+                        if (primary != null) {
+                            if (!owned(primary)) return false;
+                            for (int i = named.templateArguments().size(); i < primary.templateParameters().size(); i++) {
+                                var argument = primary.templateParameters().get(i).defaultArgument();
+                                if (argument.isEmpty() || !argumentSyntax(argument.orElseThrow(), active)) return false;
+                            }
+                        }
+                    }
+                }
                 return node.children().stream().allMatch(child -> headerSyntax(child, active));
             } finally { active.remove(node); }
         }

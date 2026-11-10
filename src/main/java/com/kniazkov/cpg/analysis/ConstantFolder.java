@@ -167,9 +167,10 @@ public final class ConstantFolder {
             if (node instanceof Expression expression) { constant(expression); return; }
             if (node instanceof NamedType named) {
                 named.alias().ifPresent(alias -> argumentSyntax(alias.type()));
-                // The actual nested type may omit arguments that selection
-                // completed without changing syntax. Retain those defaults'
-                // original const/sizeof/enum chains before folding any literals.
+                // Actual types and dependent partial headers may both omit
+                // arguments completed without changing syntax. Retain defaults'
+                // original const/sizeof/enum chains, including unselected headers,
+                // before folding any literals.
                 if (named.hasTemplateArguments()) {
                     Declaration bound = named.declaration().orElse(null);
                     ClassTemplateInstance instance = templates.get(bound);

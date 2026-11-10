@@ -384,3 +384,27 @@ mvn -Dtest=OverloadResolutionTest test
 отделены от исторических проб. Enum/class/bit-field условия, политика signed
 out-of-range, нарушения nested-access и общее исполнение RTTI этим исправлением
 не покрываются. #48 остаётся открытой.
+
+
+### Независимые целые defaults во вложенных partial patterns (#92)
+
+Вложенный primary template-id в частичном pattern может опускать независимые
+целые trailing defaults: например, `Box<Key<T> >` при первичном
+`template<class T, int N=2> struct Key`. Default принадлежит точному связанному
+первичному заголовку (либо проверенному instance origin), видимому в точке
+объявления pattern, а не позднего outer use. Тип value parameter должен быть
+конкретным из собственных предыдущих явно написанных аргументов pattern;
+подстановка actual use не служит доказательством. Общий effective list нужен
+для сопоставления, порядка, повторных объявлений и repeated deduction без
+переписывания исходного синтаксиса. Исходные const/sizeof/enum зависимости всех
+кандидатных partial headers, включая невыбранные, сохраняют layout/folding
+ограничения: преобразование в bool или малое unsigned их не устраняет.
+
+Ранние исключения omitted patterns описывают исторические пакеты. Dependent,
+type/template defaults, слияние defaults повторных объявлений, поздние defaults,
+неразрешённые/dependent/template-template heads, arithmetic deduction и signed
+out-of-range остаются вне новой границы. C++03 допускает слияние defaults,
+но этот subset его не сертифицирует. Defaults в списке параметров самой partial
+specialization запрещены отдельно. Прежние несвязанные default routes сохранены.
+#92/#48 и пять macro obligations открыты; section 11 и ABI policy не изменены.
+[Свежая сверка оригинала, необходимые assertions и отдельные гейты](cpp03-nested-partial-defaults-verification.md).

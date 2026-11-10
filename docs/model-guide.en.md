@@ -2023,3 +2023,26 @@ Earlier omitted-default exclusions describe historical checkpoints.
 No ABI policy, macro count, section 11 audit or completion status changes;
 #92/#48 and the five remaining macro obligations stay open.
 [Contract, assertions and separate gates](cpp03-nested-actual-defaults-verification.md).
+
+
+### Nested partial-pattern integral defaults (#92, bounded follow-up)
+
+A nested primary template-id in a partial pattern may omit trailing independent
+integral defaults, for example `Box<Key<T> >` with `template<class T, int N=2> struct Key`.
+The defaults must belong to the exact bound primary header (or verified instance
+origin) visible at the pattern declaration, not at a later outer use. A value
+parameter type must be concrete from that nested pattern's own preceding
+explicit arguments; actual-use substitution cannot certify it. Matching,
+ordering, redeclaration identity and repeated deduction share effective arguments
+without rewriting source syntax. Original const/sizeof/enum dependencies of all
+candidate partial headers, including unselected ones, remain layout and folding
+guards; conversion to bool or a small unsigned value cannot remove them.
+
+Earlier omitted-pattern exclusions describe historical packages. Dependent,
+type/template and merged/later defaults, unresolved/dependent/template-template
+heads, arithmetic deduction and signed out-of-range conversions remain outside
+this bounded route. Default merging is permitted by C++03 but not certified by
+this implementation subset. Defaults in the specialization's own parameter list
+remain forbidden. Existing unrelated default routes are preserved. #92/#48 and
+all five macro obligations remain open; no section 11 or ABI-policy change.
+[Fresh original-edition review, required assertions and separate execution gates](cpp03-nested-partial-defaults-verification.md).

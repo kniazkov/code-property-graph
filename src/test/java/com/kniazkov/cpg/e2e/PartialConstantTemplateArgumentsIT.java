@@ -338,6 +338,168 @@ class PartialConstantTemplateArgumentsIT {
         }
     }
 
+    @Test void nestedPartialDefaultsSurviveStagesEditsAndPackagedCli() throws Exception {
+        for (String header : List.of("cstddef", "stddef.h")) {
+            String text = "#include <" + header + ">\n" + """
+                    const int seed=2;
+                    const int fixed=seed;
+                    namespace nested {
+                    template<class T,int N=fixed> struct Key {};
+                    template<class T> struct Box {char data;char tail;};
+                    template<class T> struct Box<Key<T> > {long data;char tail;};
+                    template<class T> struct Box<Key<T*> > {short data;char tail;};
+                    }
+                    template<class T,class V,V N=258> struct Converted {};
+                    template<class T> struct ConvertBox {char data;char tail;};
+                    template<class T> struct ConvertBox<Converted<T,unsigned char> > {long data;char tail;};
+                    template<class T,bool N=2> struct Boolean {};
+                    template<class T> struct BoolBox {char data;char tail;};
+                    template<class T> struct BoolBox<Boolean<T> > {long data;char tail;};
+                    enum {second=2};
+                    template<class T,int N=second,unsigned char M=258> struct Multi {};
+                    template<class T> struct MultiBox {char data;char tail;};
+                    template<class T> struct MultiBox<Multi<T> > {long data;char tail;};
+                    template<class T,class U> struct Pair {char data;char tail;};
+                    template<class T> struct Pair<T,T> {long data;char tail;};
+                    typedef nested::Box<nested::Key<int,2> > ByExplicit;
+                    typedef nested::Box<nested::Key<int> > ByOmitted;
+                    typedef nested::Box<nested::Key<int,3> > ByThree;
+                    typedef nested::Box<nested::Key<int*> > ByOrdered;
+                    typedef ConvertBox<Converted<int,unsigned char,2> > ByByte;
+                    typedef BoolBox<Boolean<int,true> > ByBool;
+                    typedef MultiBox<Multi<int,2,2> > ByMulti;
+                    typedef Pair<nested::Key<int>,nested::Key<int,fixed> > ByRepeated;
+                    unsigned long explicit_offset=offsetof(ByExplicit,tail);
+                    unsigned long omitted_offset=offsetof(ByOmitted,tail);
+                    unsigned long three_offset=offsetof(ByThree,tail);
+                    unsigned long ordered_offset=offsetof(ByOrdered,tail);
+                    unsigned long byte_offset=offsetof(ByByte,tail);
+                    unsigned long bool_offset=offsetof(ByBool,tail);
+                    unsigned long multi_offset=offsetof(ByMulti,tail);
+                    unsigned long repeated_offset=offsetof(ByRepeated,tail);
+                    enum {extent=offsetof(ByExplicit,tail)+1};
+                    char array[extent];
+                    int main(){return 0;}
+                    """;
+            Path input = source("partial-default-original", text);
+            verifyPartialDefaults(input, false);
+            for (var stage : List.of(Cpg.Stage.RESOLVED, Cpg.Stage.GREEN, Cpg.Stage.FOLDED)) {
+                Project project = Cpg.read(input.getParent(), options(stage));
+                for (Project snapshot : List.of(project, project.edit().build(), NameResolver.resolve(project.edit().build()))) {
+                    assertPartialDefaultIdentity(snapshot, false);
+                    String originalJson = ProjectJson.encode(snapshot).toText("  ");
+                    assertNotNull(Json.parse(originalJson));
+                    String generated = Cpg.sources(snapshot, Language.CPP).get("main.cpp");
+                    assertTrue(generated.replaceAll("\\s+", "").contains("Box<Key<T>>"), generated);
+                    Path original = source("partial-default-generated-" + stage, generated);
+                    verifyPartialDefaults(original, false);
+                    Project changed = editDefaultSeed(snapshot, 3);
+                    assertPartialDefaultIdentity(changed, true);
+                    String changedJson = ProjectJson.encode(changed).toText("  ");
+                    String changedSource = Cpg.sources(changed, Language.CPP).get("main.cpp");
+                    Path edited = source("partial-default-edited-" + stage, changedSource);
+                    assertNotEquals(hash(original), hash(edited));
+                    verifyPartialDefaults(edited, true);
+                    Project restored = editDefaultSeed(changed, 2);
+                    assertPartialDefaultIdentity(restored, false);
+                    verifyPartialDefaults(source("partial-default-restored-" + stage,
+                            Cpg.sources(restored, Language.CPP).get("main.cpp")), false);
+                    assertPartialDefaultIdentity(snapshot, false);
+                    assertEquals(generated, Cpg.sources(snapshot, Language.CPP).get("main.cpp"));
+                    assertEquals(originalJson, ProjectJson.encode(snapshot).toText("  "));
+                    assertPartialDefaultIdentity(changed, true);
+                    assertEquals(changedSource, Cpg.sources(changed, Language.CPP).get("main.cpp"));
+                    assertEquals(changedJson, ProjectJson.encode(changed).toText("  "));
+                }
+            }
+            var cli = new CliSandbox(Files.createTempDirectory(temp, "partial-default-cli")).source("main.cpp", text);
+            Path profile = Files.createTempFile(temp, "partial-default-profile", ".json");
+            Files.writeString(profile, Json.serialize(PROFILE.toSettings()));
+            var run = cli.run("cpp", "--stage", "folded", "--cpp-standard", "c++03",
+                    "--platform-profile", profile.toString()).expectStatus(0);
+            assertNotNull(Json.parse(run.work().resolve("snapshot.json").toFile()));
+            verifyPartialDefaults(run.work().resolve("generated/main.cpp"), false);
+        }
+    }
+
+    private static void assertPartialDefaultIdentity(Project project, boolean edited) {
+        healthy(project);
+        var targets = new LinkedHashMap<String, ClassDeclaration>();
+        for (String name : List.of("ByExplicit", "ByOmitted", "ByThree", "ByOrdered", "ByByte", "ByBool", "ByMulti", "ByRepeated")) {
+            var alias = nodes(project.files().getFirst(), TypedefDeclaration.class).stream()
+                    .filter(t -> t.name().equals(name)).findFirst().orElseThrow();
+            var type = assertInstanceOf(NamedType.class, alias.type().canonicalType());
+            var declaration = assertInstanceOf(ClassDeclaration.class, type.declaration().orElseThrow());
+            targets.put(name, declaration);
+            var instance = project.classTemplateInstances().stream()
+                    .filter(i -> i.declaration() == declaration).findFirst().orElseThrow();
+            boolean partial = name.equals("ByExplicit") ? !edited : !name.equals("ByThree") || edited;
+            assertEquals(partial ? TemplateKind.PARTIAL_SPECIALIZATION : TemplateKind.PRIMARY,
+                    instance.selected().templateKind(), name);
+            var data = declaration.members().stream().filter(VariableDeclaration.class::isInstance)
+                    .map(VariableDeclaration.class::cast).filter(v -> v.name().equals("data")).findFirst().orElseThrow();
+            assertEquals(!partial ? "char" : name.equals("ByOrdered") ? "short" : "long",
+                    data.type().orElseThrow().canonicalIdentity(), name);
+        }
+        assertSame(targets.get("ByOmitted"), targets.get(edited ? "ByThree" : "ByExplicit"));
+        assertNotSame(targets.get("ByExplicit"), targets.get("ByThree"));
+    }
+
+    private void verifyPartialDefaults(Path source, boolean edited) throws Exception {
+        assertPartialDefaultIdentity(Cpg.read(source.getParent(), options(Cpg.Stage.RESOLVED)), edited);
+        Path expanded = materialize(source);
+        assertPartialDefaultIdentity(Cpg.read(expanded.getParent(), options(Cpg.Stage.RESOLVED)), edited);
+        for (Path tested : List.of(source, expanded)) for (String compiler : List.of("g++", "clang++")) {
+            Path work = Files.createTempDirectory(temp, "partial-default-native");
+            Path wrapper = work.resolve("wrapper.cpp"), binary = work.resolve("probe");
+            int explicit = edited ? 1 : 8, three = edited ? 8 : 1;
+            Files.writeString(wrapper, """
+                    #include <cstddef>
+                    #include <climits>
+                    #include <cstdio>
+                    #if !defined(__x86_64__) || !defined(__LP64__)
+                    #error selected target mismatch
+                    #endif
+                    #define main tested_main
+                    #include "%s"
+                    #undef main
+                    typedef char explicit_ice[(__builtin_offsetof(ByExplicit,tail)==%d)?1:-1];
+                    typedef char omitted_ice[(__builtin_offsetof(ByOmitted,tail)==8)?1:-1];
+                    typedef char three_ice[(__builtin_offsetof(ByThree,tail)==%d)?1:-1];
+                    typedef char ordered_ice[(__builtin_offsetof(ByOrdered,tail)==2)?1:-1];
+                    int same_type(ByOmitted*){return 1;}
+                    template<class T> int same_type(T*){return 0;}
+                    int main(){
+                        if(CHAR_BIT!=8 || sizeof(int)!=4 || sizeof(long)!=8 || sizeof(void*)!=8) return 10;
+                        if(explicit_offset!=%d || omitted_offset!=8 || three_offset!=%d || ordered_offset!=2) return 11;
+                        if(byte_offset!=8 || bool_offset!=8 || multi_offset!=8 || repeated_offset!=8) return 12;
+                        if(sizeof(array)!=%d || !same_type((%s*)0)) return 13;
+                        std::printf("explicit=%%lu omitted=%%lu three=%%lu ordered=%%lu byte=%%lu bool=%%lu multi=%%lu repeated=%%lu extent=%%lu\\n",
+                            explicit_offset,omitted_offset,three_offset,ordered_offset,byte_offset,bool_offset,
+                            multi_offset,repeated_offset,(unsigned long)sizeof(array));
+                        return tested_main();
+                    }
+                    """.formatted(tested.toAbsolutePath().toString().replace("\\", "\\\\").replace("\"", "\\\""),
+                            explicit, three, explicit, three, explicit + 1, edited ? "ByThree" : "ByExplicit"));
+            List<String> command = List.of(compiler, "-std=c++03", "-pedantic-errors", wrapper.toString(), "-o", binary.toString());
+            success(command, work);
+            String observations = success(List.of(binary.toString()), work);
+            assertEquals("explicit=" + explicit + " omitted=8 three=" + three
+                    + " ordered=2 byte=8 bool=8 multi=8 repeated=8 extent=" + (explicit + 1) + "\n", observations);
+            Path evidence = Files.createDirectories(Path.of("target/partial-constant-template-arguments-oracle")
+                    .resolve(String.format("partial-defaults-%03d-%s", ++execution, hash(tested).substring(0, 16)))
+                    .resolve(compiler.equals("g++") ? "gcc" : "clang"));
+            Files.writeString(evidence.resolve("tested.cpp"), Files.readString(tested));
+            Files.writeString(evidence.resolve("wrapper.cpp"), Files.readString(wrapper));
+            Files.writeString(evidence.resolve("observations.txt"), observations);
+            Files.writeString(evidence.resolve("metadata.json"), Json.serialize(Map.of(
+                    "compiler", compiler, "version", success(List.of(compiler, "--version"), work),
+                    "target", success(List.of(compiler, "-dumpmachine"), work), "command", command,
+                    "profile", PROFILE.toSettings(), "sourceSha256", hash(tested),
+                    "materialized", tested.equals(expanded), "edited", edited)));
+        }
+    }
+
     private static Project editDefaultSeed(Project snapshot, int value) {
         var seed = nodes(snapshot.files().getFirst(), VariableDeclaration.class).stream()
                 .filter(v -> v.name().equals("seed")).findFirst().orElseThrow();
