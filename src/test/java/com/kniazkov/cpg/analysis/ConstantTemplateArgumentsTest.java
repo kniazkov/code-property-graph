@@ -258,6 +258,34 @@ class ConstantTemplateArgumentsTest {
         healthy(p);value(p,"a",8);value(p,"b",1);
     }
 
+    @Test void repeatedNestedTypeDeductionsCompareOriginalNormalizedBindings(){
+        String prefix="const int fixed=2;template<class T,int N> struct Key {};";
+        for(String source:List.of(
+                "template<class A,class B> struct Box {char data;char tail;};"
+                    +"template<class T> struct Box<Key<T,fixed>,Key<T,fixed> > {long data;char tail;};"
+                    +"typedef Box<Key<Key<int,fixed>,2>,Key<Key<int,2>,2> > A;"
+                    +"typedef Box<Key<Key<int,fixed>,2>,Key<Key<int,3>,2> > B;",
+                "template<class A,class B,class C> struct Box {char data;char tail;};"
+                    +"template<class T,class U> struct Box<T,T,Key<U,fixed> > {long data;char tail;};"
+                    +"typedef Box<Key<int,fixed>,Key<int,2>,Key<int,2> > A;"
+                    +"typedef Box<Key<int,fixed>,Key<int,3>,Key<int,2> > B;")){
+            var original=resolve(prefix+source+"unsigned long a=__builtin_offsetof(A,tail);unsigned long b=__builtin_offsetof(B,tail);");
+            for(var p:List.of(original,original.edit().build(),NameResolver.resolve(original.edit().build()),NameResolver.resolve(ConstantFolder.fold(original)),resolve(Cpg.sources(original,Language.CPP).get("main.cpp")))){
+                healthy(p);value(p,"a",8);value(p,"b",1);
+            }
+        }
+    }
+
+    @Test void repeatedNestedTypesRetainCanonicalCvAndFunctionParameterIdentities(){
+        for(String[] row:List.of(new String[]{"typedef const int CI;", "const CI", "const int"},
+                new String[]{"typedef void Plain(int);typedef void Qualified(const int);", "Plain", "Qualified"})){
+            var p=resolve("const int fixed=2;"+row[0]+"template<class T,int N> struct Key {};template<class A,class B> struct Box {char data;char tail;};"
+                    +"template<class T> struct Box<Key<T,fixed>,Key<T,fixed> > {long data;char tail;};"
+                    +"typedef Box<Key<"+row[1]+",2>,Key<"+row[2]+",2> > A;unsigned long result=__builtin_offsetof(A,tail);");
+            healthy(p);value(p,"result",8);
+        }
+    }
+
     @Test void nestedValuesUseBoolModuloAndOwnConcretePrecedingTypes(){
         for(String[] row:List.of(new String[]{"bool","-7","true"},new String[]{"unsigned char","258","2"},new String[]{"unsigned short","-1","65535"})){
             var p=resolve("const int fixed="+row[1]+";typedef "+row[0]+" Value;"
