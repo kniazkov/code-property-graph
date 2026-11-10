@@ -312,7 +312,7 @@ public final class CppPreprocessor {
             for (var operation : unit.macros()) {
                 // Build options have their own synthetic text buffers, not offsets
                 // into the physical translation unit. Ordinals include -U options.
-                String optionSource = unit.directory().resolve("<command-line:" + ++operationOrdinal + ">").toString();
+                String optionSource = unit.directory().resolve(".cpg-command-line-" + ++operationOrdinal).toString();
                 String operand = operation.operand();
                 if (operation.define()) {
                     int equals = operand.indexOf('=');
@@ -498,9 +498,11 @@ public final class CppPreprocessor {
             for (int i = first; i < events.size(); i++) events.get(i).anchor = boundary;
             return result;
         }
+        // Synthetic buffers are never read from disk. Their names must still be
+        // portable paths because SourceRange normalizes every source identifier.
         void predefined(Build.IncludeInstance root) {
             for (String name : List.of("__cplusplus", "__FILE__", "__LINE__", "__DATE__", "__TIME__")) {
-                String file = unit.directory().resolve("<predefined:" + name + ">").toString();
+                String file = unit.directory().resolve(".cpg-predefined-" + name).toString();
                 var tokens = wrap(CppLexer.scan(file, name).tokens(), root);
                 SourceRange range = tokens.getFirst().value.token().range();
                 long id = definitions.size() + 1L;
@@ -511,7 +513,7 @@ public final class CppPreprocessor {
             }
             for (var entry : unit.platform().predefinedMacros().entrySet()) {
                 String name = entry.getKey(), value = entry.getValue();
-                String file = unit.directory().resolve("<predefined:" + name + ">").toString();
+                String file = unit.directory().resolve(".cpg-predefined-" + name).toString();
                 String source = name + " " + value;
                 definitionSources.put(file, source);
                 var tokens = wrap(CppLexer.scan(file, source).tokens(), root);
@@ -703,7 +705,7 @@ public final class CppPreprocessor {
                         ? "Enabled assert requires an explicitly selected supported C runtime (cRuntime=glibc)" : null;
                 String replacement = disabled ? "((void)0)" : unavailable != null ? ""
                         : "(static_cast<bool>(expression) ? (void)0 : ::__assert_fail(#expression, __FILE__, __LINE__, 0))";
-                String file = unit.directory().resolve("<cpg-library:" + header + ":assert:" + mode + ">").toString();
+                String file = unit.directory().resolve(".cpg-library-" + header + "-assert-" + mode).toString();
                 String source = "assert(expression) " + replacement;
                 definitionSources.put(file, source);
                 // Unlike ordinary redefinition, every inclusion must reselect assert.
@@ -719,7 +721,7 @@ public final class CppPreprocessor {
             String canonical = com.kniazkov.cpg.analysis.StandardLibraryCatalogue.canonicalHeader(header);
             if (canonical.equals("cstddef")) {
                 var model = unit.platform().offsetof();
-                String file = unit.directory().resolve("<cpg-library:" + header + ":offsetof>").toString();
+                String file = unit.directory().resolve(".cpg-library-" + header + "-offsetof").toString();
                 String source = "offsetof(type, member) " + model.map(m -> m.replacement()).orElse("");
                 definitionSources.put(file, source);
                 define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
@@ -733,7 +735,7 @@ public final class CppPreprocessor {
             }
             if (canonical.equals("cmath")) {
                 var model = unit.platform().hugeVal();
-                String file = unit.directory().resolve("<cpg-library:" + header + ":HUGE_VAL>").toString();
+                String file = unit.directory().resolve(".cpg-library-" + header + "-HUGE_VAL").toString();
                 String source = "HUGE_VAL " + model.map(m -> m.replacement()).orElse("");
                 definitionSources.put(file, source);
                 define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
@@ -747,7 +749,7 @@ public final class CppPreprocessor {
             }
             if (canonical.equals("ctime")) {
                 var model = unit.platform().clockScale();
-                String file = unit.directory().resolve("<cpg-library:" + header + ":CLOCKS_PER_SEC>").toString();
+                String file = unit.directory().resolve(".cpg-library-" + header + "-CLOCKS_PER_SEC").toString();
                 String source = "CLOCKS_PER_SEC " + model.map(m -> m.replacement()).orElse("");
                 definitionSources.put(file, source);
                 define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
@@ -761,7 +763,7 @@ public final class CppPreprocessor {
             }
             if (canonical.equals("cwchar") || canonical.equals("cwctype")) {
                 var model = unit.platform().wideInteger();
-                String file = unit.directory().resolve("<cpg-library:" + header + ":WEOF>").toString();
+                String file = unit.directory().resolve(".cpg-library-" + header + "-WEOF").toString();
                 String source = "WEOF " + model.map(m -> m.replacement(unit.platform())).orElse("");
                 definitionSources.put(file, source);
                 define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
@@ -776,7 +778,7 @@ public final class CppPreprocessor {
             if (canonical.equals("csignal")) for (String name : List.of("SIG_DFL", "SIG_IGN", "SIG_ERR")) {
                 boolean available = !unit.platform().signalDispositionBinding().equals("unavailable");
                 String value = name.equals("SIG_DFL") ? "0" : name.equals("SIG_IGN") ? "1" : "-1";
-                String file = unit.directory().resolve("<cpg-library:" + header + ":" + name + ">").toString();
+                String file = unit.directory().resolve(".cpg-library-" + header + "-" + name).toString();
                 String source = name + " " + (available ? "((void (*)(int)) " + value + ")" : "");
                 definitionSources.put(file, source);
                 define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
@@ -790,7 +792,7 @@ public final class CppPreprocessor {
             }
             if (canonical.equals("cerrno")) {
                 boolean available = unit.platform().cRuntime().equals("glibc");
-                String file = unit.directory().resolve("<cpg-library:" + header + ":errno>").toString();
+                String file = unit.directory().resolve(".cpg-library-" + header + "-errno").toString();
                 String source = "errno " + (available ? "(*::__errno_location())" : "");
                 definitionSources.put(file, source);
                 define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
@@ -804,7 +806,7 @@ public final class CppPreprocessor {
             }
             if (canonical.equals("cstdio")) for (String name : List.of("stdin", "stdout", "stderr")) {
                 boolean available = !unit.platform().standardStreamsBinding().equals("unavailable");
-                String file = unit.directory().resolve("<cpg-library:" + header + ":" + name + ">").toString();
+                String file = unit.directory().resolve(".cpg-library-" + header + "-" + name).toString();
                 // Real glibc self-reference preserves qualified and ordinary lookup.
                 String source = name + " " + (available ? name : "");
                 definitionSources.put(file, source);
@@ -819,7 +821,7 @@ public final class CppPreprocessor {
             }
             if (canonical.equals("cstdlib")) {
                 boolean available = !unit.platform().mbCurMaxBinding().equals("unavailable");
-                String file = unit.directory().resolve("<cpg-library:" + header + ":MB_CUR_MAX>").toString();
+                String file = unit.directory().resolve(".cpg-library-" + header + "-MB_CUR_MAX").toString();
                 String source = "MB_CUR_MAX " + (available ? "(::__ctype_get_mb_cur_max())" : "");
                 definitionSources.put(file, source);
                 define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
@@ -834,7 +836,7 @@ public final class CppPreprocessor {
             for (String name : com.kniazkov.cpg.build.RuntimeIntegerMacros.namesForHeader(canonical)) {
                 var fact = unit.platform().runtimeIntegerMacros().get(name);
                 String replacement = fact == null ? "" : fact.replacement(unit.platform());
-                String file = unit.directory().resolve("<cpg-library:" + header + ":" + name + ">").toString();
+                String file = unit.directory().resolve(".cpg-library-" + header + "-" + name).toString();
                 String source = name + " " + replacement;
                 definitionSources.put(file, source);
                 define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
@@ -851,7 +853,7 @@ public final class CppPreprocessor {
             catch (IllegalArgumentException error) { throw error(location, error.getMessage()); }
             for (var entry : library.entrySet()) {
                 String name = entry.getKey();
-                String file = unit.directory().resolve("<cpg-library:" + header + ":" + name + ">").toString();
+                String file = unit.directory().resolve(".cpg-library-" + header + "-" + name).toString();
                 String source = name + " " + entry.getValue();
                 definitionSources.put(file, source);
                 define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
