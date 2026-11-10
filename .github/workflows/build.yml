@@ -7,10 +7,27 @@ on:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
 jobs:
+  windows-checkout:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Test portable path validator on Windows
+        run: python scripts/test-portable-paths.py
+      - name: Validate portable tracked paths on Windows
+        run: python scripts/check-portable-paths.py
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate portable tracked paths
+        run: |
+          python3 scripts/test-portable-paths.py
+          python3 scripts/check-portable-paths.py
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
