@@ -569,9 +569,21 @@ public final class ClassTemplateSemantics {
         for (int i = effective.size(); i < primary.templateParameters().size(); i++) {
             var parameter = primary.templateParameters().get(i);
             TemplateArgument value = parameter.defaultArgument().orElse(null);
-            if (parameter.kind() != TemplateParameterDeclaration.Kind.VALUE || value == null
+            if (value == null) return null;
+            if (parameter.kind() == TemplateParameterDeclaration.Kind.TYPE) {
+                // Certify the written type-id, not its canonical target: aliases
+                // and dependent defaults are outside this bounded route. Keep
+                // the original qualified argument for type identity.
+                TypeNode written = value.type().orElse(null);
+                while (written instanceof QualifiedType qualified) written = qualified.baseType();
+                if (!(written instanceof NamedType builtin) || builtin.fundamentalKind().isEmpty()
+                        || TypeSemantics.integerType(builtin, profile).isEmpty()) return null;
+                completed.add(value);
+                continue;
+            }
+            if (parameter.kind() != TemplateParameterDeclaration.Kind.VALUE
                     || value.expression().flatMap(constants::evaluate).isEmpty()) return null;
-            var preceding = bindParameters(primary.templateParameters().subList(0, effective.size()), effective);
+            var preceding = bindParameters(primary.templateParameters().subList(0, i), completed);
             TypeNode declared = parameter.type().map(type -> substituteType(type, preceding))
                     .map(TypeNode::canonicalType).map(TypeSemantics::unqualified).orElse(null);
             if (declared == null || TypeSemantics.integerType(declared, profile).isEmpty()) return null;

@@ -407,3 +407,30 @@ this implementation subset. Defaults in the specialization's own parameter list
 remain forbidden. Existing unrelated default routes are preserved. #92/#48 and
 all five macro obligations remain open; no section 11 or ABI-policy change.
 [Fresh original-edition review, required assertions and separate execution gates](cpp03-nested-partial-defaults-verification.md).
+
+
+### Nested builtin integral type defaults (#92, bounded follow-up)
+
+Nested actual and partial-pattern class-template-ids may omit directly written,
+independent builtin integral type defaults. For
+`template<class T, class V=unsigned char, V N=258> struct Key`, `Key<T>`,
+`Key<T,unsigned char>` and `Key<T,unsigned char,2>` are equivalent when the
+selected profile gives unsigned char eight bits. Pure type defaults such as
+`class V=int` are included. A following value parameter obtains its concrete
+type from its own preceding effective arguments, including these type defaults;
+its independent value expression is still evaluated on its original bound node.
+The type argument retains cv identity: `const int` and `volatile int` are not
+collapsed into `int` merely to establish integral eligibility.
+
+The exact bound primary and its visibility at the actual use or partial-pattern
+declaration remain required. Matching, ordering, redeclaration identity,
+repeated deduction and instance identity share contextual effective arguments
+without changing written AST/source/JSON. Original dependencies of selected and
+unselected candidates remain guarded. Typedef, class, enum, pointer, reference,
+array, function and template type defaults are not added by this route, nor are
+dependent expressions/types, merged/later defaults, unsupported heads, signed
+out-of-range conversions or arithmetic deduction. These are implementation
+boundaries, not prohibitions of C++03; existing ordinary routes are preserved.
+Earlier exclusions of all type defaults describe historical packages. #92/#48
+and the five macro obligations remain open; no section 11 or ABI-policy change.
+[Contract, fresh original-edition review and separate execution gates](cpp03-nested-integral-type-defaults-verification.md).
