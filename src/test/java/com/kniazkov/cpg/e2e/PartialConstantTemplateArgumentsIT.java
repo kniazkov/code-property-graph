@@ -564,6 +564,81 @@ class PartialConstantTemplateArgumentsIT {
         }
     }
 
+    private static String typedefDefaultProgram(String header) {
+        return typeDefaultProgram(header)
+                .replace("const int seed=258;", """
+                        typedef int Integer;
+                        namespace cfg {
+                        typedef unsigned char KeyByte;
+                        typedef KeyByte Count;
+                        typedef const Integer ConstInteger;
+                        typedef bool Boolean;
+                        typedef signed char Signed;
+                        typedef unsigned char Byte;
+                        typedef short Short;
+                        }
+                        const int seed=258;
+                        """)
+                .replace("class V=unsigned char,V N=fixed", "class V=cfg::Count,V N=fixed")
+                .replace("class V=int>", "class V=Integer>")
+                .replace("class V=const int>", "class V=cfg::ConstInteger>")
+                .replace("class V=bool,V N=2", "class V=cfg::Boolean,V N=2")
+                .replace("class V=signed char,V N=-7", "class V=cfg::Signed,V N=-7")
+                .replace("class V=unsigned char,V N=258,class W=short", "class V=cfg::Byte,V N=258,class W=cfg::Short");
+    }
+
+    @Test void nestedIntegralTypedefDefaultsSurviveLifecycleAndNativeOracle() throws Exception {
+        for (String header : List.of("cstddef", "stddef.h")) {
+            String text = typedefDefaultProgram(header);
+            verifyTypeDefaults(source("typedef-default-original", text), 0);
+            for (var stage : List.of(Cpg.Stage.RESOLVED, Cpg.Stage.GREEN, Cpg.Stage.FOLDED)) {
+                Path input = source("typedef-default-stage", text);
+                Project project = Cpg.read(input.getParent(), options(stage));
+                for (Project snapshot : List.of(project, project.edit().build(), NameResolver.resolve(project.edit().build()))) {
+                    assertTypeDefaultIdentity(snapshot, 0);
+                    String json = ProjectJson.encode(snapshot).toText("  ");
+                    assertNotNull(Json.parse(json));
+                    String generated = Cpg.sources(snapshot, Language.CPP).get("main.cpp");
+                    assertTrue(generated.replaceAll("\\s+", "").contains("Box<Key<U>>"), generated);
+                    // Compile each stage's source; copies and reanalysis are also checked above.
+                    if (snapshot == project) verifyTypeDefaults(source("typedef-default-generated-" + stage, generated), 0);
+                    Project seedChanged = editDefaultSeed(snapshot, 259);
+                    assertTypeDefaultIdentity(seedChanged, 1);
+                    var keyAlias = nodes(snapshot.files().getFirst(), TypedefDeclaration.class).stream()
+                            .filter(t -> t.name().equals("KeyByte")).findFirst().orElseThrow();
+                    var editor = new ProjectEditor(snapshot);
+                    editor.replace(keyAlias.type(), NamedType.create().setName("unsigned short").build());
+                    Project typeChanged = NameResolver.resolve(editor.build());
+                    assertTypeDefaultIdentity(typeChanged, 2);
+                    var restoreAlias = nodes(typeChanged.files().getFirst(), TypedefDeclaration.class).stream()
+                            .filter(t -> t.name().equals("KeyByte")).findFirst().orElseThrow();
+                    var restore = new ProjectEditor(typeChanged);
+                    restore.replace(restoreAlias.type(), NamedType.create().setName("unsigned char").build());
+                    Project restored = NameResolver.resolve(restore.build());
+                    assertTypeDefaultIdentity(restored, 0);
+                    if (snapshot == project) {
+                        verifyTypeDefaults(source("typedef-default-restored-" + stage,
+                                Cpg.sources(restored, Language.CPP).get("main.cpp")), 0);
+                        verifyTypeDefaults(source("typedef-default-seed-edited-" + stage,
+                                Cpg.sources(seedChanged, Language.CPP).get("main.cpp")), 1);
+                        verifyTypeDefaults(source("typedef-default-type-edited-" + stage,
+                                Cpg.sources(typeChanged, Language.CPP).get("main.cpp")), 2);
+                    }
+                    assertTypeDefaultIdentity(snapshot, 0);
+                    assertEquals(generated, Cpg.sources(snapshot, Language.CPP).get("main.cpp"));
+                    assertEquals(json, ProjectJson.encode(snapshot).toText("  "));
+                }
+            }
+            var cli = new CliSandbox(Files.createTempDirectory(temp, "typedef-default-cli")).source("main.cpp", text);
+            Path profile = Files.createTempFile(temp, "typedef-default-profile", ".json");
+            Files.writeString(profile, Json.serialize(PROFILE.toSettings()));
+            var run = cli.run("cpp", "--stage", "folded", "--cpp-standard", "c++03",
+                    "--platform-profile", profile.toString()).expectStatus(0);
+            assertNotNull(Json.parse(run.work().resolve("snapshot.json").toFile()));
+            verifyTypeDefaults(run.work().resolve("generated/main.cpp"), 0);
+        }
+    }
+
     private void verifyTypeDefaults(Path source, int edit) throws Exception {
         assertTypeDefaultIdentity(Cpg.read(source.getParent(), options(Cpg.Stage.RESOLVED)), edit);
         Path expanded = materialize(source);
