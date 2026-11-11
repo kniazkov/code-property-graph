@@ -17,47 +17,70 @@ public final class VarargsSemantics {
         var editor = new ProjectEditor(project).retainDiagnostics().withoutRevalidation();
         var members = Collections.newSetFromMap(new IdentityHashMap<Node, Boolean>());
         project.walk(new NodeVisitor() { @Override public void visit(Node node) { members.add(node); } });
+        var fields = Collections.newSetFromMap(new IdentityHashMap<VariableDeclaration, Boolean>());
+        project.walk(new NodeVisitor() { @Override public void visit(ClassDeclaration owner) {
+            owner.members().stream().filter(VariableDeclaration.class::isInstance).map(VariableDeclaration.class::cast).forEach(fields::add);
+        } });
         for (var root : SourceContexts.roots(project)) {
             if (root.source().language() != Language.CPP) continue;
             var profile = TypeSemantics.profile(root.source());
-            inspect(root.node(), null, profile, members, editor);
+            inspect(root.node(), null, profile, members, fields, new IntegralConstants(project, profile), editor, false);
         }
         return editor.build();
     }
 
     private static void inspect(Node node, CallableDeclaration owner, PlatformProfile profile,
-            Set<Node> members, ProjectEditor editor) {
-        if (node instanceof CallableDeclaration callable) owner = callable;
+            Set<Node> members, Set<VariableDeclaration> fields, IntegralConstants constants, ProjectEditor editor, boolean unevaluated) {
+        if (node instanceof CallableDeclaration callable) { owner = callable; unevaluated = false; }
+        unevaluated |= unevaluated(node, profile);
+        // The initializer is separate evaluated syntax, even when the only list
+        // use is beneath sizeof. Opaque va_list has no certified initializer model.
+        if (node instanceof VariableDeclaration list && list.initializer().isPresent()
+                && list.type().filter(type -> vaList(type, members)).isPresent())
+            editor.diagnose(list, unsupported("list-initialization", "Initialization or copying of opaque va_list storage is outside this subset, including when its later use is unevaluated").orElseThrow());
         if (node instanceof VaListExpression operation) {
-            var problem = violation(operation, owner, profile, members);
+            var problem = violation(operation, owner, profile, members, fields, constants, unevaluated);
             problem.ifPresent(value -> editor.diagnose(operation, value));
         }
         if (node instanceof CallableDeclaration callable && callable.body().isPresent() && containsOperation(callable.body().orElseThrow()))
-            validateLocalUses(callable, members, editor);
-        for (Node child : node.children()) inspect(child, owner, profile, members, editor);
+            validateLocalUses(callable, profile, members, editor);
+        for (Node child : node.children()) inspect(child, owner, profile, members, fields, constants, editor, unevaluated);
     }
 
     private static Optional<Diagnostic> violation(VaListExpression operation, CallableDeclaration owner,
-            PlatformProfile profile, Set<Node> members) {
+            PlatformProfile profile, Set<Node> members, Set<VariableDeclaration> fields, IntegralConstants constants, boolean unevaluated) {
         if (profile.varargs().isEmpty()) return invalid("capability", "Variable-argument operations require the explicit varargs compiler/ABI capability");
-        if (owner == null || owner.body().isEmpty() || !owner.variadic())
+        // An unevaluated va_arg checks types and bindings, not an accessed cursor's
+        // owner, storage duration, initialization or default argument promotions.
+        boolean typeOnly = unevaluated && operation.kind() == VaListExpression.Kind.ARG;
+        if (!typeOnly && (owner == null || owner.body().isEmpty() || !owner.variadic()))
             return operation.kind() == VaListExpression.Kind.ARG
                     ? unsupported("function", "This subset requires a variadic function definition containing the local va_list")
                     : invalid("function", "C++03 va_start and va_end must occur in the function accepting the varying arguments");
         if (!(operation.list() instanceof NameExpression name))
-            return unsupported("list-expression", "Only a direct name bound to local va_list state is supported");
-        if (name.target().orElse(null) instanceof ParameterDeclaration parameter && members.contains(parameter)
-                && parameter.type().filter(type -> vaList(type, members)).isPresent())
-            return unsupported("list-storage", "Interprocedural va_list parameters are outside this local-state subset");
-        if (!(name.target().orElse(null) instanceof VariableDeclaration list) || !members.contains(list))
-            return invalid("list-binding", "The list operand must bind a variable in this snapshot");
-        if (!ownedLocal(owner.body().orElseThrow(), list) || list.modifiers().contains("static") || list.modifiers().contains("extern"))
-            return unsupported("list-storage", "Only automatic va_list storage in the current function is supported");
-        if (list.type().isEmpty() || !vaList(list.type().orElseThrow(), members))
+            return unsupported("list-expression", "Only a direct name bound to va_list state is supported");
+        Declaration target = name.target().filter(members::contains).orElse(null);
+        TypeNode listType;
+        if (target instanceof ParameterDeclaration parameter) {
+            listType = parameter.type().orElse(null);
+            if (!typeOnly && listType != null && vaList(listType, members))
+                return unsupported("list-storage", "Interprocedural va_list parameters are outside this local-state subset");
+            if (!typeOnly) return invalid("list-binding", "The list operand must bind a variable in this snapshot");
+        } else if (target instanceof VariableDeclaration list) {
+            if (fields.contains(list)) return unsupported("list-expression", "Class-member va_list storage is outside this direct-list subset, including unevaluated uses");
+            listType = list.type().orElse(null);
+            if (!typeOnly && (!ownedLocal(owner.body().orElseThrow(), list)
+                    || list.modifiers().contains("static") || list.modifiers().contains("extern")))
+                return unsupported("list-storage", "Only automatic va_list storage in the current function is supported");
+            if (!typeOnly && list.initializer().isPresent())
+                return unsupported("list-copy", "Copied or initialized va_list objects are not supported");
+        } else return invalid("list-binding", "The list operand must bind a variable in this snapshot");
+        if (listType != null && TypeSemantics.unqualified(listType) instanceof ReferenceType)
+            return unsupported("list-expression", "Reference-bound va_list operands are outside this direct-list subset");
+        if (listType == null || !vaList(listType, members))
             return invalid("list-type", "The list operand must bind the standard-library va_list type, not a spelling-compatible user type");
-        if (TypeSemantics.qualifiers(list.type().orElseThrow()) != 0)
-            return unsupported("qualified-list", "Const or volatile va_list state is outside this mutable local-state subset");
-        if (list.initializer().isPresent()) return unsupported("list-copy", "Copied or initialized va_list objects are not supported");
+        if (TypeSemantics.qualifiers(listType) != 0)
+            return unsupported("qualified-list", "Const or volatile va_list state is outside the selected GCC/Clang contract");
         if (operation.kind() == VaListExpression.Kind.START) {
             Expression last = operation.lastParameter().orElseThrow();
             if (!(last instanceof NameExpression parameter) || owner.parameters().isEmpty()
@@ -69,16 +92,16 @@ public final class VarargsSemantics {
             if (plain instanceof ReferenceType || plain instanceof ArrayType || plain instanceof FunctionType || promotedType(plain)
                     || EnumSemantics.declaration(plain).isPresent())
                 return invalid("last-parameter-type", "C++03 va_start excludes reference, array, function and default-promoted last-parameter types");
-            if (!retrievalType(type, members)) return unsupported("last-parameter-type", "The last parameter type is outside the selected scalar/object-pointer subset");
+            if (!retrievalType(type, members, profile, constants, false)) return unsupported("last-parameter-type", "The last parameter type is outside the selected scalar/pointer subset");
         }
         if (operation.kind() == VaListExpression.Kind.ARG) {
             TypeNode type = operation.requestedType().orElseThrow();
-            if (TypeSemantics.dependent(type)) return unsupported("argument-type", "Dependent va_arg type operands are outside this subset");
+            if (dependentType(type, Collections.newSetFromMap(new IdentityHashMap<>()))) return unsupported("argument-type", "Dependent va_arg type operands are outside this subset");
             if (!boundType(type, members)) return invalid("argument-type", "va_arg requires a bound type name, not an expression or foreign binding");
-            if (promotedType(TypeSemantics.unqualified(type)))
-                return invalid("promoted-argument-type", "va_arg cannot retrieve an unpromoted float, bool, char, short or wchar_t; request the actual promoted type");
-            if (!retrievalType(type, members))
-                return unsupported("argument-type", "va_arg supports the selected promoted scalar and object-pointer types only");
+            if (!typeOnly && (promotedType(TypeSemantics.unqualified(type)) || EnumSemantics.declaration(type).isPresent()))
+                return invalid("promoted-argument-type", "va_arg cannot retrieve an unpromoted float, bool, char, short, wchar_t or enumeration; request the actual promoted type");
+            if (!retrievalType(type, members, profile, constants, typeOnly))
+                return unsupported("argument-type", "va_arg supports selected scalar types and pointer types; complex pointers require a written bound typedef name");
         }
         return Optional.empty();
     }
@@ -125,42 +148,115 @@ public final class VarargsSemantics {
             if (type instanceof ArrayType array) return boundType(array.elementType(), members, active);
             if (type instanceof MemberPointerType pointer) return boundType(pointer.ownerType(), members, active) && boundType(pointer.pointee(), members, active);
             if (type instanceof FunctionType function) return boundType(function.returnType(), members, active)
-                    && function.parameters().stream().allMatch(p -> p.type().filter(t -> boundType(t, members, active)).isPresent());
+                    && function.parameters().stream().allMatch(p -> p.type().filter(t -> boundType(t, members, active)).isPresent())
+                    && function.exceptionTypes().stream().allMatch(t -> boundType(t, members, active));
             return type instanceof OpaqueLibraryType && members.contains(type) && LibraryDeclarations.isLibrary(type);
         } finally { active.remove(type); }
+    }
+
+    private static boolean dependentType(TypeNode type, Set<TypeNode> seen) {
+        if (!seen.add(type)) return false;
+        if (TypeSemantics.dependent(type)) return true;
+        if (type instanceof NamedType name && name.alias().isPresent())
+            return dependentType(name.alias().orElseThrow().type(), seen);
+        for (Node child : type.children()) {
+            if (child instanceof TypeNode nested && dependentType(nested, seen)) return true;
+            if (child instanceof ParameterDeclaration parameter && parameter.type().filter(value -> dependentType(value, seen)).isPresent()) return true;
+        }
+        return false;
     }
 
     private static boolean promotedType(TypeNode type) {
         return type instanceof NamedType name && name.fundamentalKind().map(kind -> Set.of("bool", "char", "signed char", "unsigned char", "short", "unsigned short", "wchar_t", "float").contains(kind.spelling())).orElse(false);
     }
 
-    private static boolean retrievalType(TypeNode type, Set<Node> members) {
+    private static boolean retrievalType(TypeNode type, Set<Node> members, PlatformProfile profile, IntegralConstants constants, boolean typeOnly) {
         if (!boundType(type, members)) return false;
         TypeNode plain = TypeSemantics.unqualified(type);
         if (plain instanceof NamedType name) return name.fundamentalKind().map(kind ->
-                Set.of("int", "unsigned int", "long", "unsigned long", "double", "long double").contains(kind.spelling())).orElse(false);
-        if (!(plain instanceof PointerType pointer)) return false;
+                Set.of("int", "unsigned int", "long", "unsigned long", "double", "long double").contains(kind.spelling())
+                        || typeOnly && promotedType(name)).orElse(typeOnly && EnumSemantics.declaration(plain).isPresent());
+        if (!(plain instanceof PointerType pointer) || !appendStarSpelling(type)) return false;
         TypeNode pointee = TypeSemantics.unqualified(pointer.pointee());
-        // Pointer typedefs are valid type names, but callable/member-pointer and
-        // complex array declarators need a separate compiler contract.
-        return !(pointee instanceof FunctionType || pointee instanceof ReferenceType || pointee instanceof ArrayType || pointee instanceof MemberPointerType);
+        if (pointee instanceof ReferenceType || pointee instanceof MemberPointerType) return false;
+        if (pointee instanceof FunctionType || pointee instanceof ArrayType) {
+            // C90 7.8.1.2 requires pointer-to-requested-object syntax obtainable by
+            // simply appending '*'. Keep the written alias instead of accepting a
+            // raw abstract declarator merely because a compiler builtin accepts it.
+            TypeNode written = type;
+            while (written instanceof QualifiedType qualified) written = qualified.baseType();
+            if (!(written instanceof NamedType name) || name.alias().isEmpty()) return false;
+        }
+        return supportedPointerShape(plain, constants, Collections.newSetFromMap(new IdentityHashMap<>()));
     }
 
-    private static void validateLocalUses(CallableDeclaration owner, Set<Node> members, ProjectEditor editor) {
+    private static boolean appendStarSpelling(TypeNode written) {
+        if (written instanceof NamedType) return true;
+        if (written instanceof QualifiedType qualified) return appendStarSpelling(qualified.baseType());
+        return written instanceof PointerType pointer && appendStarSpelling(pointer.pointee());
+    }
+
+    /** Bound aliases have already been checked; this pass limits signature/array
+     * shapes without deriving layout or a concrete target for an indirect call. */
+    private static boolean supportedPointerShape(TypeNode type, IntegralConstants constants, Set<TypeNode> active) {
+        if (!active.add(type)) return false;
+        try {
+            if (type instanceof QualifiedType qualified) return (!(qualified.isConst() || qualified.isVolatile())
+                    || !(TypeSemantics.unqualified(qualified.baseType()) instanceof FunctionType))
+                    && supportedPointerShape(qualified.baseType(), constants, active);
+            if (type instanceof NamedType name) return name.alias().isEmpty()
+                    || supportedPointerShape(name.alias().orElseThrow().type(), constants, active);
+            if (type instanceof PointerType pointer) return !(TypeSemantics.unqualified(pointer.pointee()) instanceof ReferenceType)
+                    && supportedPointerShape(pointer.pointee(), constants, active);
+            if (type instanceof ReferenceType reference) return !voidType(reference.referredType())
+                    && !(TypeSemantics.unqualified(reference.referredType()) instanceof ReferenceType)
+                    && supportedPointerShape(reference.referredType(), constants, active);
+            if (type instanceof ArrayType array) return !voidType(array.elementType())
+                    && !(TypeSemantics.unqualified(array.elementType()) instanceof ReferenceType)
+                    && !(TypeSemantics.unqualified(array.elementType()) instanceof FunctionType)
+                    && array.bound()
+                    .flatMap(constants::evaluate)
+                    .filter(value -> value.number().signum() > 0).isPresent()
+                    && supportedPointerShape(array.elementType(), constants, active);
+            if (type instanceof FunctionType function) return !function.isConst() && !function.isVolatile()
+                    && !function.hasExceptionSpecification()
+                    && !(TypeSemantics.unqualified(function.returnType()) instanceof ArrayType)
+                    && !(TypeSemantics.unqualified(function.returnType()) instanceof FunctionType)
+                    && supportedPointerShape(function.returnType(), constants, active)
+                    && function.parameters().stream().allMatch(parameter -> parameter.type()
+                            .filter(value -> (!voidType(value) || function.parameters().size() == 1
+                                    && parameter.name().isEmpty() && !function.variadic() && TypeSemantics.qualifiers(value) == 0)
+                                    && parameter.defaultValue().isEmpty()
+                                    && supportedPointerShape(value, constants, active)).isPresent());
+            return type instanceof OpaqueLibraryType;
+        } finally { active.remove(type); }
+    }
+
+    private static boolean voidType(TypeNode type) {
+        return TypeSemantics.unqualified(type) instanceof NamedType name
+                && name.fundamentalKind().orElse(null) == FundamentalKind.VOID;
+    }
+
+    private static boolean unevaluated(Node node, PlatformProfile profile) {
+        return node instanceof SizeofExpression || node instanceof OffsetofExpression
+                || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile);
+    }
+
+    private static void validateLocalUses(CallableDeclaration owner, PlatformProfile profile, Set<Node> members, ProjectEditor editor) {
         var localLists = Collections.newSetFromMap(new IdentityHashMap<VariableDeclaration, Boolean>());
         owner.body().orElseThrow().walk(new NodeVisitor() {
             @Override public void visit(VariableDeclaration variable) {
                 if (ownedLocal(owner.body().orElseThrow(), variable) && variable.type().filter(t -> vaList(t, members)).isPresent()) localLists.add(variable);
             }
         });
-        validateUses(owner.body().orElseThrow(), localLists, editor, false, false);
+        validateUses(owner.body().orElseThrow(), localLists, profile, editor, false, false);
     }
-    private static void validateUses(Node node, Set<VariableDeclaration> lists, ProjectEditor editor, boolean unevaluated, boolean directList) {
+    private static void validateUses(Node node, Set<VariableDeclaration> lists, PlatformProfile profile, ProjectEditor editor, boolean unevaluated, boolean directList) {
         if (node instanceof CallableDeclaration || node instanceof ClassDeclaration) return;
-        if (node instanceof SizeofExpression || node instanceof OffsetofExpression) unevaluated = true;
+        unevaluated |= unevaluated(node, profile);
         if (!unevaluated && node instanceof NameExpression name && name.target().filter(lists::contains).isPresent() && !directList)
             editor.diagnose(name, unsupported("escaped-list", "Copying, escaping or indirectly accessing va_list is outside this local-state subset").orElseThrow());
-        for (Node child : node.children()) validateUses(child, lists, editor, unevaluated,
+        for (Node child : node.children()) validateUses(child, lists, profile, editor, unevaluated,
                 node instanceof VaListExpression operation && child == operation.list());
     }
     private static Optional<Diagnostic> invalid(String suffix, String text) {
