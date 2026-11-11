@@ -150,6 +150,10 @@ public final class TypeIdentity {
         if (value instanceof FloatingLiteral literal) return "floating(" + literal.cppType() + ":" + literal.value().stripTrailingZeros() + ")";
         if (value instanceof CompilerIntrinsicExpression intrinsic) return "compiler-intrinsic(" + intrinsic.kind().name()
                 + ":" + intrinsic.cppType() + ":" + intrinsic.emission() + ")";
+        if (value instanceof VaListExpression operation) return "varargs(" + operation.kind().name() + ":"
+                + expression(operation.list(), seen, dependentNames) + ":"
+                + operation.lastParameter().map(parameter -> expression(parameter, seen, dependentNames)).orElse("") + ":"
+                + operation.requestedType().map(type -> identity(type, seen, dependentNames)).orElse("") + ")";
         if (value instanceof OffsetofExpression offset) return "offsetof(" + identity(offset.type(), seen, dependentNames) + ","
                 + offset.steps().stream().map(step -> step instanceof OffsetofExpression.Member member ? "." + member.name()
                     : "[" + expression(((OffsetofExpression.Index) step).expression(), seen, dependentNames) + "]")

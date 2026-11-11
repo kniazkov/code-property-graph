@@ -99,7 +99,7 @@ public final class Source {
                         || n instanceof ScopeMemberExpression || n instanceof PointerMemberExpression
                         || n instanceof NameExpression name && name.name().contains("::")
                         || n instanceof AddressOfExpression || n instanceof DereferenceExpression
-                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof OffsetofExpression || n instanceof CompilerIntrinsicExpression || n instanceof CharacterLiteral || n instanceof StringLiteral
+                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof OffsetofExpression || n instanceof CompilerIntrinsicExpression || n instanceof VaListExpression || n instanceof CharacterLiteral || n instanceof StringLiteral
                         || cppOnlyStatement(n) || n instanceof CommaExpression || n instanceof DotMemberPointerExpression || n instanceof ArrowMemberPointerExpression
                         || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion) || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression
                         || n instanceof ConditionalExpression
@@ -187,7 +187,7 @@ public final class Source {
         if (!implicitIntroductionsMatch(node))
             throw new IllegalArgumentException("Source generation cannot change an implicit class declaration independently of its written elaborated type");
         if (!intrinsicsSupported(node, context, context != null))
-            throw new IllegalArgumentException("Compiler intrinsic emission requires the matching explicit hugeVal or offsetof platform capability");
+            throw new IllegalArgumentException("Compiler intrinsic emission requires the matching explicit hugeVal, offsetof or varargs platform capability");
         node.walk(new NodeVisitor() {
             @Override public void visit(Node n) {
                 if (n instanceof SourceFile file && file.hasErrors())
@@ -224,6 +224,9 @@ public final class Source {
             if (!switch (intrinsic.kind()) {
                 case DOUBLE_POSITIVE_INFINITY -> capability.orElseThrow().kind().equals("positive_infinity");
             }) return false;
+        }
+        if (node instanceof VaListExpression) {
+            if (unit == null || unit.configuration() == null || unit.configuration().platform().varargs().isEmpty()) return false;
         }
         if (node instanceof OffsetofExpression) {
             if (unit == null || unit.configuration() == null) return false;
@@ -330,7 +333,7 @@ public final class Source {
         file.walk(new NodeVisitor() {
             @Override public void visit(Node n) {
                 if (target == Language.JAVA && (n instanceof Expression expression && !expression.operatorCandidates().isEmpty()
-                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof OffsetofExpression || n instanceof CompilerIntrinsicExpression || n instanceof CharacterLiteral
+                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof OffsetofExpression || n instanceof CompilerIntrinsicExpression || n instanceof VaListExpression || n instanceof CharacterLiteral
                         || n instanceof StringLiteral || cppOnlyStatement(n) || n instanceof CommaExpression || n instanceof DotMemberPointerExpression
                         || n instanceof ArrowMemberPointerExpression || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion)
                         || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression || n instanceof ConditionalExpression
@@ -526,6 +529,7 @@ public final class Source {
             case OffsetofExpression.Member member -> member.name();
             case OffsetofExpression.Index index -> "[" + emit(index.expression(), 0) + "]";
             case CompilerIntrinsicExpression intrinsic -> compilerIntrinsic(intrinsic);
+            case VaListExpression operation -> varargs(operation);
             case CharacterLiteral c -> c.spelling();
             case StringLiteral s -> s.spelling();
             case ConversionExpression c -> conversion(c);
@@ -563,6 +567,16 @@ public final class Source {
             } else throw unsupported(step);
         }
         return "__builtin_offsetof(" + declaration(offset.type(), "") + ", " + path + ")";
+    }
+
+    private String varargs(VaListExpression operation) {
+        if (target != Language.CPP) throw unsupported(operation);
+        String operand = emit(operation.list(), 0);
+        return switch (operation.kind()) {
+            case START -> "__builtin_va_start(" + operand + ", " + emit(operation.lastParameter().orElseThrow(), 0) + ")";
+            case ARG -> "__builtin_va_arg(" + operand + ", " + declaration(operation.requestedType().orElseThrow(), "") + ")";
+            case END -> "__builtin_va_end(" + operand + ")";
+        };
     }
 
     private String compilerIntrinsic(CompilerIntrinsicExpression intrinsic) {

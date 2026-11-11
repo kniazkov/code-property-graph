@@ -541,3 +541,13 @@ API проверяет вклад stream/value/newline/flush, обе обрат�
 сгенерированное и повторно прочитанное дерево выполняются строгими GCC и Clang
 (`10 3 2\n`). См. README сценария и [статус приёмки](cpp03-acceptance.ru.md).
 Сценарий не закрывает открытую поабзацную сверку с точной редакцией стандарта.
+
+### Ограниченный varargs oracle
+
+`VarargsRuntimeIT` проверяет явно выбранную capability GCC/Clang x86_64 SysV
+LP64: корректные original/generated/CPG-materialized исходники в строгом
+C++03 и packaged CLI. Артефакты: `target/varargs-runtime-oracle/`.
+Некорректные retrieval/final-parameter случаи проверяются только диагностикой,
+без native запуска UB. Windows запускает focused Java tests, но это не
+поддержка Windows ABI. Точные результаты и full-suite/CI — отдельные гейты:
+[границы и статус проверок](cpp03-varargs-verification.md).
