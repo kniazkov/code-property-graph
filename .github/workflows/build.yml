@@ -40,8 +40,10 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Install mandatory C++03 compilers
-        run: sudo apt-get update && sudo apt-get install -y g++ clang
+      - name: Test mandatory C++03 compiler bootstrap
+        run: python3 scripts/test-cpp03-compilers.py
+      - name: Ensure mandatory C++03 compilers
+        run: python3 scripts/ensure-cpp03-compilers.py
       - name: Install Graphviz for SVG end-to-end checks
         run: command -v dot || (sudo apt-get update && sudo apt-get install -y graphviz)
       - run: mvn -B verify
