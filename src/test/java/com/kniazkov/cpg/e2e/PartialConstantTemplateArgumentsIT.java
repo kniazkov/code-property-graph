@@ -422,6 +422,198 @@ class PartialConstantTemplateArgumentsIT {
         }
     }
 
+    private static final List<String> TYPE_DEFAULT_ALIASES = List.of("ByOmitted", "ByType", "ByExplicit",
+            "ByThree", "ByWrongType", "ByOrdered", "ByPure", "ByCv", "ByCvMismatch", "ByBool", "BySigned",
+            "ByMulti", "ByRepeated", "ByBoth", "ByReverse");
+
+    private static String typeDefaultProgram(String header) {
+        String declarations = "#include <" + header + ">\n" + """
+                const int seed=258;
+                const int fixed=seed;
+                namespace nested {
+                template<class T,class V=unsigned char,V N=fixed> struct Key {};
+                template<class T> struct Box {char data;char tail;};
+                template<class T> struct Box<Key<T> >;
+                template<class U> struct Box<Key<U> > {long data;char tail;};
+                template<class T> struct Box<Key<T*> > {short data;char tail;};
+                }
+                template<class T,class V=int> struct Pure {};
+                template<class T> struct PureBox {char data;char tail;};
+                template<class T> struct PureBox<Pure<T> > {long data;char tail;};
+                template<class T,class V=const int> struct Cv {};
+                template<class T> struct CvBox {char data;char tail;};
+                template<class T> struct CvBox<Cv<T> > {long data;char tail;};
+                template<class T,class V=bool,V N=2> struct Boolean {};
+                template<class T> struct BoolBox {char data;char tail;};
+                template<class T> struct BoolBox<Boolean<T> > {long data;char tail;};
+                template<class T,class V=signed char,V N=-7> struct Signed {};
+                template<class T> struct SignedBox {char data;char tail;};
+                template<class T> struct SignedBox<Signed<T> > {long data;char tail;};
+                template<class T,class V=unsigned char,V N=258,class W=short,W M=7> struct Multi {};
+                template<class T> struct MultiBox {char data;char tail;};
+                template<class T> struct MultiBox<Multi<T> > {long data;char tail;};
+                template<class T,class U> struct Pair {char data;char tail;};
+                template<class T> struct Pair<T,T> {long data;char tail;};
+                namespace nested {
+                template<class T,class U> struct Both {char data;char tail;};
+                template<class T> struct Both<Key<T,bool>,Key<T,unsigned char> > {long data;char tail;};
+                template<class T,class U> struct Reverse {char data;char tail;};
+                template<class T> struct Reverse<Key<T,unsigned char>,Key<T,bool> > {long data;char tail;};
+                }
+                typedef nested::Box<nested::Key<int> > ByOmitted;
+                typedef nested::Box<nested::Key<int,unsigned char> > ByType;
+                typedef nested::Box<nested::Key<int,unsigned char,2> > ByExplicit;
+                typedef nested::Box<nested::Key<int,unsigned char,3> > ByThree;
+                typedef nested::Box<nested::Key<int,unsigned short,258> > ByWrongType;
+                typedef nested::Box<nested::Key<int*> > ByOrdered;
+                typedef PureBox<Pure<int,int> > ByPure;
+                typedef CvBox<Cv<int,const int> > ByCv;
+                typedef CvBox<Cv<int,int> > ByCvMismatch;
+                typedef BoolBox<Boolean<int,bool,true> > ByBool;
+                typedef SignedBox<Signed<int,signed char,-7> > BySigned;
+                typedef MultiBox<Multi<int,unsigned char,2,short,7> > ByMulti;
+                typedef Pair<nested::Key<int>,nested::Key<int,unsigned char,fixed> > ByRepeated;
+                typedef nested::Both<nested::Key<int,bool,true>,nested::Key<int,unsigned char,2> > ByBoth;
+                typedef nested::Reverse<nested::Key<int,unsigned char,2>,nested::Key<int,bool,true> > ByReverse;
+                """;
+        var result = new StringBuilder(declarations);
+        for (String alias : TYPE_DEFAULT_ALIASES)
+            result.append("unsigned long offset_").append(alias).append("=offsetof(").append(alias).append(",tail);\n");
+        return result.append("enum {extent=offsetof(ByExplicit,tail)+1};char array[extent];int main(){return 0;}\n").toString();
+    }
+
+    private static int typeDefaultOffset(String alias, int edit) {
+        if (alias.equals("ByOrdered")) return 2;
+        if (alias.equals("ByCvMismatch")) return 1;
+        if (alias.equals("ByWrongType")) return edit == 2 ? 8 : 1;
+        if (alias.equals("ByThree")) return edit == 1 ? 8 : 1;
+        if (alias.equals("ByExplicit")) return edit == 0 ? 8 : 1;
+        if (alias.equals("ByType") || alias.equals("ByRepeated")) return edit == 2 ? 1 : 8;
+        if (alias.equals("ByBoth") || alias.equals("ByReverse")) return edit == 1 ? 1 : 8;
+        return 8;
+    }
+
+    private static void assertTypeDefaultIdentity(Project project, int edit) {
+        healthy(project);
+        var targets = new LinkedHashMap<String, ClassDeclaration>();
+        for (String name : TYPE_DEFAULT_ALIASES) {
+            var alias = nodes(project.files().getFirst(), TypedefDeclaration.class).stream()
+                    .filter(t -> t.name().equals(name)).findFirst().orElseThrow();
+            var type = assertInstanceOf(NamedType.class, alias.type().canonicalType());
+            var declaration = assertInstanceOf(ClassDeclaration.class, type.declaration().orElseThrow());
+            targets.put(name, declaration);
+            var instance = project.classTemplateInstances().stream()
+                    .filter(i -> i.declaration() == declaration).findFirst().orElseThrow();
+            int expected = typeDefaultOffset(name, edit);
+            assertEquals(expected == 1 ? TemplateKind.PRIMARY : TemplateKind.PARTIAL_SPECIALIZATION,
+                    instance.selected().templateKind(), name);
+            var data = declaration.members().stream().filter(VariableDeclaration.class::isInstance)
+                    .map(VariableDeclaration.class::cast).filter(v -> v.name().equals("data")).findFirst().orElseThrow();
+            assertEquals(expected == 1 ? "char" : expected == 2 ? "short" : "long",
+                    data.type().orElseThrow().canonicalIdentity(), name);
+        }
+        if (edit == 0) assertSame(targets.get("ByOmitted"), targets.get("ByExplicit"));
+        if (edit == 1) assertSame(targets.get("ByOmitted"), targets.get("ByThree"));
+        if (edit == 2) assertSame(targets.get("ByOmitted"), targets.get("ByWrongType"));
+        assertNotSame(targets.get("ByCv"), targets.get("ByCvMismatch"));
+    }
+
+    @Test void nestedIntegralTypeDefaultsSurviveLifecycleAndNativeOracle() throws Exception {
+        for (String header : List.of("cstddef", "stddef.h")) {
+            String text = typeDefaultProgram(header);
+            verifyTypeDefaults(source("type-default-original", text), 0);
+            for (var stage : List.of(Cpg.Stage.RESOLVED, Cpg.Stage.GREEN, Cpg.Stage.FOLDED)) {
+                Path input = source("type-default-stage", text);
+                Project project = Cpg.read(input.getParent(), options(stage));
+                for (Project snapshot : List.of(project, project.edit().build(), NameResolver.resolve(project.edit().build()))) {
+                    assertTypeDefaultIdentity(snapshot, 0);
+                    String json = ProjectJson.encode(snapshot).toText("  ");
+                    assertNotNull(Json.parse(json));
+                    String generated = Cpg.sources(snapshot, Language.CPP).get("main.cpp");
+                    assertTrue(generated.replaceAll("\\s+", "").contains("Box<Key<U>>"), generated);
+                    // Compile each stage's source; copies and reanalysis are also checked above.
+                    if (snapshot == project) verifyTypeDefaults(source("type-default-generated-" + stage, generated), 0);
+                    Project seedChanged = editDefaultSeed(snapshot, 259);
+                    assertTypeDefaultIdentity(seedChanged, 1);
+                    var key = nodes(snapshot.files().getFirst(), ClassDeclaration.class).stream()
+                            .filter(c -> c.name().equals("Key") && c.templateKind() == TemplateKind.PRIMARY)
+                            .findFirst().orElseThrow();
+                    var editor = new ProjectEditor(snapshot);
+                    editor.replace(key.templateParameters().get(1).defaultArgument().orElseThrow().type().orElseThrow(),
+                            NamedType.create().setName("unsigned short").build());
+                    Project typeChanged = NameResolver.resolve(editor.build());
+                    assertTypeDefaultIdentity(typeChanged, 2);
+                    if (snapshot == project) {
+                        verifyTypeDefaults(source("type-default-seed-edited-" + stage,
+                                Cpg.sources(seedChanged, Language.CPP).get("main.cpp")), 1);
+                        verifyTypeDefaults(source("type-default-type-edited-" + stage,
+                                Cpg.sources(typeChanged, Language.CPP).get("main.cpp")), 2);
+                    }
+                    assertTypeDefaultIdentity(snapshot, 0);
+                    assertEquals(generated, Cpg.sources(snapshot, Language.CPP).get("main.cpp"));
+                    assertEquals(json, ProjectJson.encode(snapshot).toText("  "));
+                }
+            }
+            var cli = new CliSandbox(Files.createTempDirectory(temp, "type-default-cli")).source("main.cpp", text);
+            Path profile = Files.createTempFile(temp, "type-default-profile", ".json");
+            Files.writeString(profile, Json.serialize(PROFILE.toSettings()));
+            var run = cli.run("cpp", "--stage", "folded", "--cpp-standard", "c++03",
+                    "--platform-profile", profile.toString()).expectStatus(0);
+            assertNotNull(Json.parse(run.work().resolve("snapshot.json").toFile()));
+            verifyTypeDefaults(run.work().resolve("generated/main.cpp"), 0);
+        }
+    }
+
+    private void verifyTypeDefaults(Path source, int edit) throws Exception {
+        assertTypeDefaultIdentity(Cpg.read(source.getParent(), options(Cpg.Stage.RESOLVED)), edit);
+        Path expanded = materialize(source);
+        assertTypeDefaultIdentity(Cpg.read(expanded.getParent(), options(Cpg.Stage.RESOLVED)), edit);
+        for (Path tested : List.of(source, expanded)) for (String compiler : List.of("g++", "clang++")) {
+            Path work = Files.createTempDirectory(temp, "type-default-native");
+            Path wrapper = work.resolve("wrapper.cpp"), binary = work.resolve("probe");
+            var code = new StringBuilder("""
+                    #include <cstddef>
+                    #include <climits>
+                    #include <cstdio>
+                    #if !defined(__x86_64__) || !defined(__LP64__)
+                    #error selected target mismatch
+                    #endif
+                    #define main tested_main
+                    #include "%s"
+                    #undef main
+                    """.formatted(tested.toAbsolutePath().toString().replace("\\", "\\\\").replace("\"", "\\\"")));
+            for (String alias : TYPE_DEFAULT_ALIASES)
+                code.append("typedef char ice_").append(alias).append("[(__builtin_offsetof(").append(alias)
+                        .append(",tail)==").append(typeDefaultOffset(alias, edit)).append(")?1:-1];\n");
+            code.append("int main(){if(CHAR_BIT!=8 || sizeof(int)!=4 || sizeof(long)!=8 || sizeof(void*)!=8) return 10;\n");
+            var expected = new StringBuilder();
+            for (String alias : TYPE_DEFAULT_ALIASES) {
+                int offset = typeDefaultOffset(alias, edit);
+                code.append("if(offset_").append(alias).append("!=").append(offset).append(") return 11;\n")
+                        .append("std::printf(\"").append(alias).append("=%lu\\n\",offset_").append(alias).append(");\n");
+                expected.append(alias).append('=').append(offset).append('\n');
+            }
+            code.append("if(sizeof(array)!=").append(typeDefaultOffset("ByExplicit", edit) + 1)
+                    .append(") return 12; return tested_main();}\n");
+            Files.writeString(wrapper, code);
+            List<String> command = List.of(compiler, "-std=c++03", "-pedantic-errors", wrapper.toString(), "-o", binary.toString());
+            success(command, work);
+            String observations = success(List.of(binary.toString()), work);
+            assertEquals(expected.toString(), observations);
+            Path evidence = Files.createDirectories(Path.of("target/partial-constant-template-arguments-oracle")
+                    .resolve(String.format("type-defaults-%03d-%s", ++execution, hash(tested).substring(0, 16)))
+                    .resolve(compiler.equals("g++") ? "gcc" : "clang"));
+            Files.writeString(evidence.resolve("tested.cpp"), Files.readString(tested));
+            Files.writeString(evidence.resolve("wrapper.cpp"), code);
+            Files.writeString(evidence.resolve("observations.txt"), observations);
+            Files.writeString(evidence.resolve("metadata.json"), Json.serialize(Map.of(
+                    "compiler", compiler, "version", success(List.of(compiler, "--version"), work),
+                    "target", success(List.of(compiler, "-dumpmachine"), work), "command", command,
+                    "profile", PROFILE.toSettings(), "sourceSha256", hash(tested),
+                    "materialized", tested.equals(expanded), "edit", edit)));
+        }
+    }
+
     private static void assertPartialDefaultIdentity(Project project, boolean edited) {
         healthy(project);
         var targets = new LinkedHashMap<String, ClassDeclaration>();
