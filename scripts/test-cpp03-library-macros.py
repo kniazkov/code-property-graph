@@ -255,6 +255,45 @@ class MacroInventoryTest(unittest.TestCase):
         row['partial_implementation'] = copy.deepcopy(partial)
         self.assertTrue(checker.check(self.data))
 
+    def test_varargs_partial_closed_schema_and_open_obligations(self):
+        for name in ('va_start', 'va_arg', 'va_end'):
+            original = next(e for e in self.data['entries'] if e['name'] == name)
+            mutations = [('profile_setting', 'cRuntime'), ('emission', 'native'),
+                         ('abi', 'other'), ('required_long_double_format', 'binary64'),
+                         ('required_long_double_storage_bits', 64),
+                         ('required_long_double_storage_bits', 128.0),
+                         ('completion', 'complete'), ('unknown_behavior', ''),
+                         ('support_boundary', ''), ('extra', True)]
+            for field, value in mutations:
+                with self.subTest(name=name, field=field):
+                    data = copy.deepcopy(self.data)
+                    row = next(e for e in data['entries'] if e['name'] == name)
+                    row['partial_implementation'][field] = value
+                    self.assertTrue(checker.check(data))
+            for field in original['partial_implementation']:
+                with self.subTest(name=name, missing=field):
+                    data = copy.deepcopy(self.data)
+                    row = next(e for e in data['entries'] if e['name'] == name)
+                    del row['partial_implementation'][field]
+                    self.assertTrue(checker.check(data))
+            for field, value in [('support_status', 'profile_definition'), ('header', 'cstdio'),
+                                 ('macro_kind', 'object'), ('required_in_if', 'yes'),
+                                 ('implementation', []), ('tests', [])]:
+                with self.subTest(name=name, field=field):
+                    data = copy.deepcopy(self.data)
+                    row = next(e for e in data['entries'] if e['name'] == name)
+                    row[field] = value
+                    self.assertTrue(checker.check(data))
+            data = copy.deepcopy(self.data)
+            del next(e for e in data['entries'] if e['name'] == name)['partial_implementation']
+            self.assertTrue(checker.check(data))
+
+    def test_all_five_residual_obligations_stay_open(self):
+        for name in ('offsetof', 'setjmp', 'va_start', 'va_arg', 'va_end'):
+            data = copy.deepcopy(self.data)
+            next(e for e in data['entries'] if e['name'] == name)['support_status'] = 'profile_definition'
+            self.assertTrue(checker.check(data))
+
 
 if __name__ == '__main__':
     unittest.main()

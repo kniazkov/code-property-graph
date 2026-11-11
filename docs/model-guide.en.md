@@ -2092,3 +2092,16 @@ routes are unchanged. Earlier blanket typedef exclusions describe historical
 checkpoints. This is a bounded offsetof/POD prerequisite, not template completion.
 Section 11/access and ABI policies are unchanged; #92/#48 and all five remaining
 macro obligations stay open. [Contract, assertions and separate execution gates](cpp03-nested-integral-typedef-defaults-verification.md).
+
+### Bounded C++03 varargs
+
+`VaListExpression` preserves START/ARG/END, the list expression, a binding-only
+last parameter for START and a type operand for ARG. Explicit profile selection
+`varargs={"emission":"gcc-clang-builtin","abi":"x86_64-sysv-lp64-v1"}`
+requires the matching scalar ABI and binary80/128-bit-storage long double;
+default selection is unavailable. Standard-bound direct local mutable lists
+support the selected promoted scalar/object-pointer subset. `library::va_list`
+remains opaque with UNKNOWN size/alignment. START writes, ARG reads/advances,
+END reads/completes; sizeof is unevaluated and pointer aliases conservative.
+This does not prove dynamic count/type/lifecycle correctness. See the
+[contract, residuals and separate gates](cpp03-varargs-verification.md).

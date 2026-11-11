@@ -515,3 +515,13 @@ provenance and CFG/DFG/effect links, followed by original/generated/reparsed str
 GCC and Clang runs (`10 3 2\n`). See the fixture README and
 [acceptance status](cpp03-acceptance.en.md). This scenario does not close the open
 exact-edition paragraph audit.
+
+### Bounded varargs oracle
+
+`VarargsRuntimeIT` targets the explicitly selected GCC/Clang x86_64 SysV LP64
+capability, comparing well-defined original, generated and CPG-materialized
+sources in strict C++03 mode, alongside packaged CLI evidence. Artifacts belong
+in `target/varargs-runtime-oracle/`. Invalid retrieval/final-parameter cases
+are diagnostic-only, never UB native runs. Focused Java tests also run on
+Windows without asserting a Windows ABI. Exact execution results and full-suite
+CI gates are separate: [scope and verification status](cpp03-varargs-verification.md).

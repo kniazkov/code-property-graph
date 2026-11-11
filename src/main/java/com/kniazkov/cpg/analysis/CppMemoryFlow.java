@@ -314,6 +314,10 @@ final class CppMemoryFlow {
             void coveredReads(Node node) {
                 if(normalized.contains(node)||node instanceof SizeofExpression || node instanceof OffsetofExpression
                     ||node instanceof TypeidExpression t&&TypeSemantics.typeidOperandUnevaluated(t,profile))return;
+                if (node instanceof VaListExpression operation) {
+                    if (operation.kind() != VaListExpression.Kind.START) coveredReads(operation.list());
+                    return;
+                }
                 if(node instanceof Expression expression && (expression instanceof NameExpression || expression instanceof MemberExpression
                     ||expression instanceof DereferenceExpression ||expression instanceof IndexExpression
                     ||expression instanceof DotMemberPointerExpression||expression instanceof ArrowMemberPointerExpression)&&modeled(expression))reads.add(expression);
@@ -442,6 +446,18 @@ final class CppMemoryFlow {
                 if (expression instanceof AddressOfExpression address) return locations(address.operand(),state);
                 if (expression instanceof ConditionalExpression conditional) {
                     var result = new LinkedHashSet<>(points(conditional.thenExpression(),state)); result.addAll(points(conditional.elseExpression(),state)); return result;
+                }
+                if (expression instanceof VaListExpression operation && operation.kind() == VaListExpression.Kind.ARG
+                        && LibraryCallEffects.aliasResult(operation).isPresent()) {
+                    // Variadic arguments have no positional/ABI model. A pointer may
+                    // denote nonlocal storage or any already exposed object.
+                    var possible = new LinkedHashSet<Loc>();
+                    possible.add(UNKNOWN_NONLOCAL);
+                    for (Loc location : state.escaped) possible.add(location.child("?"));
+                    for (Set<Loc> locations : state.pointers.values())
+                        for (Loc location : locations) possible.add(location.child("?"));
+                    for (VariableDeclaration global : accessibleGlobals) possible.add(new Loc(global,"?",null));
+                    return possible;
                 }
                 if (expression instanceof CallExpression call) return callResults.getOrDefault(call,Set.of());
                 if (expression instanceof AddExpression || expression instanceof SubtractExpression) {
@@ -645,6 +661,14 @@ final class CppMemoryFlow {
             void evaluate(Expression expression, State state) {
                 if (normalized.contains(expression)) { inherit(expression,state); return; }
                 if(expression instanceof SizeofExpression || expression instanceof OffsetofExpression)return;
+                if (expression instanceof VaListExpression operation) {
+                    if (operation.kind() != VaListExpression.Kind.START) {
+                        for (Loc location : locations(operation.list(), state))
+                            for (Source source : definitions(location, state)) definition(source, operation);
+                    }
+                    write(operation.list(), operation, state);
+                    return;
+                }
                 if(expression.operatorTarget().filter(t->!LibraryCallEffects.unknown(t)).isPresent()) {
                     for(Expression operand:OperatorSemantics.operands(expression))evaluate(operand,state);
                     opaqueUserEffect(expression,OperatorSemantics.operands(expression),state);inherit(expression,state);return;
