@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DocumentationRenameTest {
-    private static final String ROOT = "/virtual/docs/";
+    private static final String ROOT = Path.of("/virtual/docs").toAbsolutePath().normalize() + java.io.File.separator;
     private static final String HEADER = "/** @brief count stays.\r\n * @param count count stays verbatim.\r\n * @unknown count untouched\r\n * @return result\r\n */\r\nint process(int count);\r\n";
     private static Project parse(Map<String, String> sources, String... files) {
         var root = Project.create();
