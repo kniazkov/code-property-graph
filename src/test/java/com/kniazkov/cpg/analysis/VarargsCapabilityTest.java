@@ -24,6 +24,9 @@ class VarargsCapabilityTest {
         assertEquals(p, p.toBuilder().build());
         assertEquals(p, PlatformProfile.fromSettings(p.toSettings()));
         assertTrue(PlatformProfile.defaults().varargs().isEmpty());
+        assertFalse(PlatformProfile.defaults().toSettings().containsKey("varargs"));
+        var old = PlatformProfile.builder().offsetof("gcc-clang-builtin", "x86_64-sysv-lp64-v1", "2147483647").build();
+        assertEquals("c1119b1bab9350f65b8ed95bd338f4df5b32979f84d573ca66eeb664081e0f10", old.identityHash());
         assertTrue(PlatformProfile.builder().cRuntime("glibc").build().varargs().isEmpty());
         assertNotEquals(p.identityHash(), PlatformProfile.defaults().identityHash());
         var settings = new LinkedHashMap<String,Object>(p.toSettings());
