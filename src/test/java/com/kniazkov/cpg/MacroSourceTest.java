@@ -69,8 +69,8 @@ class MacroSourceTest {
     @Test void absoluteLiteralAndMacroComputedIncludesAreRejectedForRelocation() throws Exception {
         Path header = directory.resolve("absolute.h");
         Files.writeString(header, "#define V 3\n");
-        for (String include : List.of("#include \"" + header + "\"\n",
-                "#define HEADER \"" + header + "\"\n#include HEADER\n")) {
+        for (String include : List.of("#include \"" + header.toString().replace('\\', '/') + "\"\n",
+                "#define HEADER \"" + header.toString().replace('\\', '/') + "\"\n#include HEADER\n")) {
             var project = parse(include + "int main() { return V; }\n");
             var error = assertThrows(IllegalArgumentException.class, () -> Cpg.sources(project, Language.CPP));
             assertTrue(error.getMessage().contains("absolute include is not relocatable"), error.getMessage());

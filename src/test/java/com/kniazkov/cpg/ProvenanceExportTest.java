@@ -37,7 +37,7 @@ class ProvenanceExportTest {
         assertEquals(2, json.split("\"translationUnit\"", -1).length - 1);
         assertTrue(json.replaceAll("\\s+", "").contains("\"sourceFileId\":1"));
         assertTrue(json.replaceAll("\\s+", "").contains("\"sourceFileId\":3"));
-        assertTrue(json.contains(Path.of("a.cpp").toAbsolutePath().toString()));
+        assertTrue(json.contains(com.kniazkov.json.Json.serialize(Path.of("a.cpp").toAbsolutePath().toString())));
         assertTrue(json.contains("\"spellingRange\""));
         assertTrue(json.contains("\"replacement\""));
         assertTrue(json.contains("\"fragments\""));

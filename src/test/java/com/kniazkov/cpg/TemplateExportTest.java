@@ -74,7 +74,7 @@ class TemplateExportTest {
         var library = project.librarySources().getFirst();
         var unit = library.provenance().orElseThrow().unit();
         String expected = unit.configuration().source().path().toString();
-        assertTrue(expected.startsWith("/__cpg_library__/"));
+        assertTrue(java.nio.file.Path.of(expected).startsWith(java.nio.file.Path.of("/__cpg_library__").toAbsolutePath().normalize()));
         assertEquals(expected, unit.translationUnit());
         assertEquals(java.nio.file.Path.of(expected), unit.configuration().source().path());
         assertEquals(unit.configuration().source().path().getParent(), unit.configuration().directory());
