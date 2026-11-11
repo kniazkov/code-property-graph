@@ -719,6 +719,23 @@ public final class CppPreprocessor {
                 }
             }
             String canonical = com.kniazkov.cpg.analysis.StandardLibraryCatalogue.canonicalHeader(header);
+            if (canonical.equals("cstdarg")) {
+                var model = unit.platform().varargs();
+                for (String name : List.of("va_start", "va_arg", "va_end")) {
+                    String file = unit.directory().resolve(".cpg-library-" + header + "-" + name).toString();
+                    String source = name + "(" + String.join(", ", com.kniazkov.cpg.build.VarargsModel.parameters(name))
+                            + ") " + model.map(m -> m.replacement(name)).orElse("");
+                    definitionSources.put(file, source);
+                    define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                            "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":" + name);
+                    if (model.isEmpty()) {
+                        Definition d = definitions.getLast();
+                        definitions.set(definitions.size() - 1, new Definition(d.id(), d.name(), d.functionLike(), d.parameters(),
+                                d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(),
+                                "Library macro " + name + " requires an explicit varargs compiler/ABI capability"));
+                    }
+                }
+            }
             if (canonical.equals("cstddef")) {
                 var model = unit.platform().offsetof();
                 String file = unit.directory().resolve(".cpg-library-" + header + "-offsetof").toString();

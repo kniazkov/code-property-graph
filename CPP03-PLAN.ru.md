@@ -466,6 +466,12 @@ JSON/DOT показывают её отдельно от дерева владе
   preceding effective arguments следующего VALUE default. Member/local/foreign/
   cyclic/dependent и остальные residual routes не расширены. Ограниченные prerequisites
   для offsetof, не закрытие #92/#48: [контракт и гейты](docs/cpp03-nested-integral-typedef-defaults-verification.md).
+- [x] Ограниченный пакет va_start/va_arg/va_end: явная capability varargs для
+  GCC/Clang x86_64 SysV LP64, operand-bearing модель и локальный va_list,
+  типизированное извлечение и консервативные эффекты. Остальные ABI, формы списков
+  и динамическое доказательство count/type/lifecycle не включены. Пять макрообязательств
+  и #92/#48 остаются открытыми; полный verify/CI — отдельные гейты:
+  [контракт и статус проверок](docs/cpp03-varargs-verification.md).
 - [ ] Остатки offsetof и функциональные макросы setjmp, va_start, va_arg,
   va_end. Пять обязательств остаются незавершёнными; эта очередь не означает
   полного соответствия C++03 и не завершает итоговую приёмку #48.

@@ -62,18 +62,38 @@ def check(data, root=ROOT):
         require(bool(entry.get('support_boundary')), label + ': missing support boundary')
         require(bool(re.fullmatch(r'https://github\.com/kniazkov/code-property-graph/issues/[0-9]+', entry.get('remaining_work',''))),
                 label + ': no remaining-work issue')
+        if entry['name'] in ('offsetof', 'setjmp', 'va_start', 'va_arg', 'va_end'):
+            require(entry.get('support_status') == 'open', label + ': residual obligation must remain open')
+        if entry['name'] in ('va_start', 'va_arg', 'va_end'):
+            require('partial_implementation' in entry, label + ': missing bounded varargs metadata')
         if 'partial_implementation' in entry:
             partial = entry['partial_implementation']
-            require(entry['name'] == 'offsetof' and entry['header'] == 'cstddef' and
-                    entry.get('support_status') == 'open' and entry.get('macro_kind') == 'function',
-                    label + ': partial subset cannot promote or replace another obligation')
-            require(set(partial) == {'profile_setting', 'emission', 'layout', 'ceiling_field',
-                    'ceiling_min', 'ceiling_max', 'completion', 'unknown_behavior', 'support_boundary'},
-                    label + ': partial subset requires exact closed metadata')
-            for field, value in [('profile_setting', 'offsetof'), ('emission', 'gcc-clang-builtin'),
-                    ('layout', 'x86_64-sysv-lp64-v1'), ('ceiling_field', 'supportedObjectBytes'),
-                    ('ceiling_min', '1'), ('ceiling_max', '2147483647'), ('completion', 'partial_open')]:
-                require(partial.get(field) == value, label + ': invalid partial subset ' + field)
+            require(entry.get('support_status') == 'open' and entry.get('macro_kind') == 'function',
+                    label + ': partial subset cannot promote an obligation')
+            if entry['name'] in ('va_start', 'va_arg', 'va_end'):
+                require(entry['header'] == 'cstdarg' and entry.get('required_in_if') == 'not_applicable',
+                        label + ': partial varargs requires original header and macro contract')
+                require(set(partial) == {'profile_setting', 'emission', 'abi',
+                        'required_long_double_format', 'required_long_double_storage_bits',
+                        'completion', 'unknown_behavior', 'support_boundary'},
+                        label + ': partial varargs requires exact closed metadata')
+                for field, value in [('profile_setting', 'varargs'), ('emission', 'gcc-clang-builtin'),
+                        ('abi', 'x86_64-sysv-lp64-v1'), ('required_long_double_format', 'binary80'),
+                        ('completion', 'partial_open')]:
+                    require(partial.get(field) == value, label + ': invalid partial varargs ' + field)
+                require(type(partial.get('required_long_double_storage_bits')) is int and
+                        partial.get('required_long_double_storage_bits') == 128,
+                        label + ': partial varargs requires exact 128-bit long double storage')
+            else:
+                require(entry['name'] == 'offsetof' and entry['header'] == 'cstddef',
+                        label + ': partial subset cannot replace another obligation')
+                require(set(partial) == {'profile_setting', 'emission', 'layout', 'ceiling_field',
+                        'ceiling_min', 'ceiling_max', 'completion', 'unknown_behavior', 'support_boundary'},
+                        label + ': partial subset requires exact closed metadata')
+                for field, value in [('profile_setting', 'offsetof'), ('emission', 'gcc-clang-builtin'),
+                        ('layout', 'x86_64-sysv-lp64-v1'), ('ceiling_field', 'supportedObjectBytes'),
+                        ('ceiling_min', '1'), ('ceiling_max', '2147483647'), ('completion', 'partial_open')]:
+                    require(partial.get(field) == value, label + ': invalid partial subset ' + field)
             require(bool(partial.get('unknown_behavior')) and bool(partial.get('support_boundary')),
                     label + ': partial subset needs unavailable and remaining-scope boundaries')
             require(bool(entry.get('implementation')) and bool(entry.get('tests')),

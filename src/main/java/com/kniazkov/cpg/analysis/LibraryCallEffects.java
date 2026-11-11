@@ -11,6 +11,10 @@ final class LibraryCallEffects {
         node.accept(visitor);
         if (node instanceof OffsetofExpression || node instanceof SizeofExpression
                 || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile)) return;
+        if (node instanceof VaListExpression operation) {
+            if (operation.kind() != VaListExpression.Kind.START) walkEvaluated(operation.list(), profile, visitor);
+            return;
+        }
         for (Node child : node.children()) walkEvaluated(child, profile, visitor);
     }
     static boolean unknown(Expression expression) {
@@ -23,6 +27,8 @@ final class LibraryCallEffects {
     }
     /** Opaque reference/pointer results may alias exposed input or nonlocal storage. */
     static Optional<TypeNode> aliasResult(Expression expression) {
+        if (expression instanceof VaListExpression operation && operation.kind() == VaListExpression.Kind.ARG)
+            return operation.requestedType().map(TypeSemantics::unqualified).filter(PointerType.class::isInstance);
         var selected = expression.operatorTarget();
         if (selected.isEmpty() && expression instanceof CallExpression call) selected = call.target();
         return selected.filter(LibraryCallEffects::unknown).flatMap(CallableDeclaration::returnType)

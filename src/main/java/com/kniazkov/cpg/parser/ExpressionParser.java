@@ -149,6 +149,20 @@ final class ExpressionParser {
     private NodeBuilder<? extends Expression> primary() {
         var start = tokens.start();
         if (java.util.Set.of(";", ")", "]", "}", ",", ":", "<eof>").contains(tokens.peek())) throw tokens.missingExpression();
+        if (language == Language.CPP && java.util.Set.of("__builtin_va_start", "__builtin_va_arg", "__builtin_va_end").contains(tokens.peek())) {
+            if (tokens.platform().varargs().isEmpty()) throw tokens.error("Variable argument intrinsic requires varargs capability");
+            String name = tokens.peek(); tokens.advance(); tokens.expect("(");
+            var kind = name.equals("__builtin_va_start") ? VaListExpression.Kind.START
+                    : name.equals("__builtin_va_arg") ? VaListExpression.Kind.ARG : VaListExpression.Kind.END;
+            var result = VaListExpression.create().setKind(kind).setList(nestedExpression(1));
+            if (kind != VaListExpression.Kind.END) {
+                tokens.expect(",");
+                if (kind == VaListExpression.Kind.ARG) result.setRequestedType(types.abstractType());
+                else result.setLastParameter(nestedExpression(1));
+            }
+            tokens.expect(")");
+            return postfix(start, tokens.span(start, result));
+        }
         if (language == Language.CPP && tokens.peek().equals("__builtin_offsetof")) {
             if (tokens.platform().offsetof().isEmpty()) throw tokens.error("offsetof requires selected offsetof capability");
             tokens.advance(); tokens.expect("(");

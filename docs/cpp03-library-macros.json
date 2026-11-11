@@ -2098,9 +2098,30 @@
       "required_in_if": "not_applicable",
       "support_status": "open",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/VarargsModel.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/model/VaListExpression.java",
+        "src/main/java/com/kniazkov/cpg/analysis/VarargsSemantics.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/analysis/VarargsCapabilityTest.java",
+        "src/test/java/com/kniazkov/cpg/VarargsEffectsTest.java",
+        "src/test/java/com/kniazkov/cpg/analysis/VarargsRuntimeTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/VarargsRuntimeIT.java"
+      ],
+      "support_boundary": "Selected gcc-clang-builtin / x86_64-sysv-lp64-v1 capability only, with matching scalar ABI and binary80 long double in 128-bit storage. Direct local nonconst/nonvolatile standard-bound va_list in the current variadic function; va_start binds the actual final parameter. Retrieval supports int, unsigned int, long, unsigned long, double, long double and object pointers through bound aliases. Copied, escaped, nonlocal, indirect or member lists, other ABIs and complex/type cases remain unsupported. No general dynamic argument count/type or lifecycle proof; no va_list size/alignment claim. All five remaining macro obligations stay open.",
+      "partial_implementation": {
+        "profile_setting": "varargs",
+        "emission": "gcc-clang-builtin",
+        "abi": "x86_64-sysv-lp64-v1",
+        "required_long_double_format": "binary80",
+        "required_long_double_storage_bits": 128,
+        "completion": "partial_open",
+        "unknown_behavior": "Empty/default capability remains unavailable; including either header is allowed but expanding a macro is diagnosed. No host ABI inference.",
+        "support_boundary": "Selected gcc-clang-builtin / x86_64-sysv-lp64-v1 capability only, with matching scalar ABI and binary80 long double in 128-bit storage. Direct local nonconst/nonvolatile standard-bound va_list in the current variadic function; va_start binds the actual final parameter. Retrieval supports int, unsigned int, long, unsigned long, double, long double and object pointers through bound aliases. Copied, escaped, nonlocal, indirect or member lists, other ABIs and complex/type cases remain unsupported. No general dynamic argument count/type or lifecycle proof; no va_list size/alignment claim. All five remaining macro obligations stay open."
+      }
     },
     {
       "header": "cstdarg",
@@ -2119,9 +2140,30 @@
       "required_in_if": "not_applicable",
       "support_status": "open",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/VarargsModel.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/model/VaListExpression.java",
+        "src/main/java/com/kniazkov/cpg/analysis/VarargsSemantics.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/analysis/VarargsCapabilityTest.java",
+        "src/test/java/com/kniazkov/cpg/VarargsEffectsTest.java",
+        "src/test/java/com/kniazkov/cpg/analysis/VarargsRuntimeTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/VarargsRuntimeIT.java"
+      ],
+      "support_boundary": "Selected gcc-clang-builtin / x86_64-sysv-lp64-v1 capability only, with matching scalar ABI and binary80 long double in 128-bit storage. Direct local nonconst/nonvolatile standard-bound va_list in the current variadic function; va_start binds the actual final parameter. Retrieval supports int, unsigned int, long, unsigned long, double, long double and object pointers through bound aliases. Copied, escaped, nonlocal, indirect or member lists, other ABIs and complex/type cases remain unsupported. No general dynamic argument count/type or lifecycle proof; no va_list size/alignment claim. All five remaining macro obligations stay open.",
+      "partial_implementation": {
+        "profile_setting": "varargs",
+        "emission": "gcc-clang-builtin",
+        "abi": "x86_64-sysv-lp64-v1",
+        "required_long_double_format": "binary80",
+        "required_long_double_storage_bits": 128,
+        "completion": "partial_open",
+        "unknown_behavior": "Empty/default capability remains unavailable; including either header is allowed but expanding a macro is diagnosed. No host ABI inference.",
+        "support_boundary": "Selected gcc-clang-builtin / x86_64-sysv-lp64-v1 capability only, with matching scalar ABI and binary80 long double in 128-bit storage. Direct local nonconst/nonvolatile standard-bound va_list in the current variadic function; va_start binds the actual final parameter. Retrieval supports int, unsigned int, long, unsigned long, double, long double and object pointers through bound aliases. Copied, escaped, nonlocal, indirect or member lists, other ABIs and complex/type cases remain unsupported. No general dynamic argument count/type or lifecycle proof; no va_list size/alignment claim. All five remaining macro obligations stay open."
+      }
     },
     {
       "header": "cstdarg",
@@ -2140,9 +2182,30 @@
       "required_in_if": "not_applicable",
       "support_status": "open",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": [
+        "src/main/java/com/kniazkov/cpg/build/VarargsModel.java",
+        "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
+        "src/main/java/com/kniazkov/cpg/model/VaListExpression.java",
+        "src/main/java/com/kniazkov/cpg/analysis/VarargsSemantics.java",
+        "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java"
+      ],
+      "tests": [
+        "src/test/java/com/kniazkov/cpg/analysis/VarargsCapabilityTest.java",
+        "src/test/java/com/kniazkov/cpg/VarargsEffectsTest.java",
+        "src/test/java/com/kniazkov/cpg/analysis/VarargsRuntimeTest.java",
+        "src/test/java/com/kniazkov/cpg/e2e/VarargsRuntimeIT.java"
+      ],
+      "support_boundary": "Selected gcc-clang-builtin / x86_64-sysv-lp64-v1 capability only, with matching scalar ABI and binary80 long double in 128-bit storage. Direct local nonconst/nonvolatile standard-bound va_list in the current variadic function; va_start binds the actual final parameter. Retrieval supports int, unsigned int, long, unsigned long, double, long double and object pointers through bound aliases. Copied, escaped, nonlocal, indirect or member lists, other ABIs and complex/type cases remain unsupported. No general dynamic argument count/type or lifecycle proof; no va_list size/alignment claim. All five remaining macro obligations stay open.",
+      "partial_implementation": {
+        "profile_setting": "varargs",
+        "emission": "gcc-clang-builtin",
+        "abi": "x86_64-sysv-lp64-v1",
+        "required_long_double_format": "binary80",
+        "required_long_double_storage_bits": 128,
+        "completion": "partial_open",
+        "unknown_behavior": "Empty/default capability remains unavailable; including either header is allowed but expanding a macro is diagnosed. No host ABI inference.",
+        "support_boundary": "Selected gcc-clang-builtin / x86_64-sysv-lp64-v1 capability only, with matching scalar ABI and binary80 long double in 128-bit storage. Direct local nonconst/nonvolatile standard-bound va_list in the current variadic function; va_start binds the actual final parameter. Retrieval supports int, unsigned int, long, unsigned long, double, long double and object pointers through bound aliases. Copied, escaped, nonlocal, indirect or member lists, other ABIs and complex/type cases remain unsupported. No general dynamic argument count/type or lifecycle proof; no va_list size/alignment claim. All five remaining macro obligations stay open."
+      }
     },
     {
       "header": "cstddef",

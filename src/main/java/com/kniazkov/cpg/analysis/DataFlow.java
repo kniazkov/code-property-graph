@@ -744,6 +744,12 @@ public final class DataFlow {
             });
             constructLibraryObject(declaration, state, sink);
             sink.edge(declaration, condition, Dependency.DEFINITION);
+        } else if (value instanceof VaListExpression varargs) {
+            // The last fixed parameter is a binding marker, never a runtime read.
+            // START replaces opaque state; ARG advances it; END completes it.
+            if (varargs.kind() != VaListExpression.Kind.START)
+                consume(varargs.list(), varargs, state, sink);
+            writeTarget(varargs.list(), varargs, state);
         } else if (value instanceof SizeofExpression || value instanceof OffsetofExpression) {
             // C++03 sizeof and offsetof operands do not read or execute their expressions.
             return;

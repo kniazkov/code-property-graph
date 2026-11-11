@@ -2102,3 +2102,16 @@ headers, зависимые defaults и unsupported heads не добавлен�
 prerequisite offsetof/POD, не полная поддержка templates. Section 11/access и ABI
 политики не изменены; #92/#48 и пять macro obligations остаются открытыми.
 [Контракт, assertions и отдельные гейты](cpp03-nested-integral-typedef-defaults-verification.md).
+
+### Ограниченная поддержка varargs C++03
+
+`VaListExpression` хранит START/ARG/END, выражение списка, последний параметр
+как binding-only operand для START и тип для ARG. Явная настройка
+`varargs={"emission":"gcc-clang-builtin","abi":"x86_64-sysv-lp64-v1"}`
+требует согласованный scalar ABI и long double binary80 в 128-битном storage;
+по умолчанию capability недоступна. Поддержаны связанные со стандартной
+библиотекой прямые локальные изменяемые списки и ограниченные scalar/object-pointer
+типы. `library::va_list` остаётся opaque с UNKNOWN size/alignment. START пишет,
+ARG читает/продвигает, END читает/завершает; sizeof не выполняет операции,
+алиасы указателей консервативны. Динамическое доказательство count/type/lifecycle
+не заявлено. [Границы и отдельные гейты](cpp03-varargs-verification.md).

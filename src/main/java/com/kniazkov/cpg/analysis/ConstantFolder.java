@@ -77,7 +77,7 @@ public final class ConstantFolder {
         return result[0];
     }
 
-    /** A literal cannot retain a layout dependency. Preserve the intrinsic, its operands,
+    /** A literal cannot retain a layout or variable-argument type dependency. Preserve the intrinsic, its operands,
      * and values depending on it (including sizeof of an offsetof-sized array) so later
      * declaration edits still recompute the same syntax. This is not a numeric cache. */
     private static Set<Node> offsetofDependencies(Project project, Node root, com.kniazkov.cpg.build.PlatformProfile profile) {
@@ -90,6 +90,12 @@ public final class ConstantFolder {
             Node node = pending.removeFirst();
             if (!seen.add(node)) continue;
             if (node instanceof OffsetofExpression offset) layout.constant(offset);
+            // sizeof(va_arg(ap,T)) is known without advancing ap, but retaining
+            // its type operand makes later edits to T observable after folding.
+            if (node instanceof VaListExpression operation) {
+                layout.constant(operation);
+                operation.requestedType().ifPresent(layout::type);
+            }
             for (Node dependency : java.util.stream.Stream.concat(node.children().stream(), node.references().stream()).toList()) {
                 users.computeIfAbsent(dependency, ignored -> new ArrayList<>()).add(node);
                 pending.addLast(dependency);
