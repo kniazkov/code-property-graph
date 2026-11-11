@@ -551,3 +551,18 @@ C++03 и packaged CLI. Артефакты: `target/varargs-runtime-oracle/`.
 без native запуска UB. Windows запускает focused Java tests, но это не
 поддержка Windows ABI. Точные результаты и full-suite/CI — отдельные гейты:
 [границы и статус проверок](cpp03-varargs-verification.md).
+
+`TypedPointerVarargsRuntimeIT` добавляет ограниченный oracle для typedef-типов
+указателей на функции и фиксированные массивы. Принятие raw complex declarator
+через builtin не считается portable macro-positive результатом. Некорректные
+promotion/last-parameter случаи остаются diagnostic-only; sizeof не обходит
+список во время выполнения. [Отчёт](cpp03-typed-pointer-varargs-verification.md)
+фиксирует финальные 29 unit-тестов, 2 IT, 72 native-запуска и 144 хэша с
+function-cv guard; независимая проверка прошла 43 semantic/generation probes
+(12 accepted, 31 rejected).
+Full/CI-гейты ожидаются отдельно.
+Workflow включает upload typed-pointer oracle.
+Структурное переименование алиаса в декларации с va_arg проверяется как отказ;
+положительное редактирование использует отдельные declaration/assignment
+и `EditableCallback`. Это не расширение ABI,
+runtime-форм списков или заявление о полном покрытии макросов.

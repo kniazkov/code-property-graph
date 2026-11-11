@@ -319,7 +319,8 @@ public final class TypeSemantics {
         if (expression.type().isPresent()) return true;
         return expression.operand().flatMap(operand -> expressionType(operand, profile)).map(TypeSemantics::unqualified)
                 .map(type -> type instanceof PointerType || type instanceof MemberPointerType || type instanceof ArrayType
-                        || type instanceof FunctionType || type instanceof NamedType name && name.fundamentalKind().isPresent())
+                        || type instanceof FunctionType || type instanceof NamedType name && name.fundamentalKind().isPresent()
+                        || EnumSemantics.declaration(type).isPresent())
                 .orElse(false);
     }
     public static ValueCategory valueCategory(Expression expression, PlatformProfile profile) {

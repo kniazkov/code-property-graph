@@ -132,8 +132,9 @@ class VarargsRuntimeTest {
         cases.put("int f(int n,...){std::va_list ap;std::va_list copy=ap;va_end(ap);}","unsupported-varargs-escaped-list");
         cases.put("void sink(std::va_list);int f(int n,...){std::va_list ap;va_start(ap,n);sink(ap);va_end(ap);}","unsupported-varargs-escaped-list");
         cases.put("int f(int n,...){std::va_list ap;va_arg(ap,n);}","invalid-varargs-argument-type");
+        cases.put("enum E{a};typedef E Alias;int f(int n,...){std::va_list ap;va_arg(ap,Alias);}","invalid-varargs-promoted-argument-type");
         for (String type : List.of("float","char","short","bool","wchar_t")) cases.put("int f(int n,...){std::va_list ap;va_arg(ap,"+type+");}","invalid-varargs-promoted-argument-type");
-        for (String type : List.of("X","U","E","int X::*","int[2]","int (*)(int)")) cases.put("struct X{int x;};union U{int x;};enum E{a};int f(int n,...){std::va_list ap;va_arg(ap,"+type+");}","unsupported-varargs-argument-type");
+        for (String type : List.of("X","U","int X::*","int[2]","int (*)(int)")) cases.put("struct X{int x;};union U{int x;};enum E{a};int f(int n,...){std::va_list ap;va_arg(ap,"+type+");}","unsupported-varargs-argument-type");
         for (var entry : cases.entrySet()) {
             var graph = resolve("#include <cstdarg>\n"+entry.getKey());
             assertTrue(graph.semanticDiagnostics().stream().anyMatch(d -> d.code().equals(entry.getValue())), () -> entry + " / " + graph.semanticDiagnostics());
