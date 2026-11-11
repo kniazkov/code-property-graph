@@ -120,6 +120,11 @@ class VarargsRuntimeTest {
         cases.put("int f(int n[],...){std::va_list ap;va_start(ap,n);}","invalid-varargs-last-parameter-type");
         cases.put("int f(int n(),...){std::va_list ap;va_start(ap,n);}","invalid-varargs-last-parameter-type");
         cases.put("int f(float n,...){std::va_list ap;va_start(ap,n);}","invalid-varargs-last-parameter-type");
+        cases.put("enum E{A};int f(E n,...){std::va_list ap;va_start(ap,n);va_end(ap);return 0;}","invalid-varargs-last-parameter-type");
+        cases.put("int helper(std::va_list ap,int n,...){return va_arg(ap,int);}","unsupported-varargs-list-storage");
+        cases.put("typedef std::va_list List;int helper(List ap,int n,...){return va_arg(ap,int);}","unsupported-varargs-list-storage");
+        cases.put("int helper(int ap,int n,...){return va_arg(ap,int);}","invalid-varargs-list-binding");
+        cases.put("int helper(int n,...){return va_arg(missing,int);}","invalid-varargs-list-binding");
         cases.put("typedef int va_list;int f(int n,...){va_list ap;va_start(ap,n);}","invalid-varargs-list-type");
         cases.put("int f(int n,...){const std::va_list ap;va_start(ap,n);}","unsupported-varargs-qualified-list");
         cases.put("int f(int n,...){std::va_list ap;std::va_list* p=&ap;va_end(*p);}","unsupported-varargs-list-expression");

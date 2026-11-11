@@ -46,6 +46,9 @@ public final class VarargsSemantics {
                     : invalid("function", "C++03 va_start and va_end must occur in the function accepting the varying arguments");
         if (!(operation.list() instanceof NameExpression name))
             return unsupported("list-expression", "Only a direct name bound to local va_list state is supported");
+        if (name.target().orElse(null) instanceof ParameterDeclaration parameter && members.contains(parameter)
+                && parameter.type().filter(type -> vaList(type, members)).isPresent())
+            return unsupported("list-storage", "Interprocedural va_list parameters are outside this local-state subset");
         if (!(name.target().orElse(null) instanceof VariableDeclaration list) || !members.contains(list))
             return invalid("list-binding", "The list operand must bind a variable in this snapshot");
         if (!ownedLocal(owner.body().orElseThrow(), list) || list.modifiers().contains("static") || list.modifiers().contains("extern"))
@@ -63,7 +66,8 @@ public final class VarargsSemantics {
             TypeNode type = owner.parameters().getLast().type().orElse(null);
             if (type == null || !boundType(type, members)) return invalid("last-parameter-type", "The last parameter requires a bound type");
             TypeNode plain = TypeSemantics.unqualified(type);
-            if (plain instanceof ReferenceType || plain instanceof ArrayType || plain instanceof FunctionType || promotedType(plain))
+            if (plain instanceof ReferenceType || plain instanceof ArrayType || plain instanceof FunctionType || promotedType(plain)
+                    || EnumSemantics.declaration(plain).isPresent())
                 return invalid("last-parameter-type", "C++03 va_start excludes reference, array, function and default-promoted last-parameter types");
             if (!retrievalType(type, members)) return unsupported("last-parameter-type", "The last parameter type is outside the selected scalar/object-pointer subset");
         }
