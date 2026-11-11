@@ -29,6 +29,17 @@ class OutputConflictTest {
         assertFalse(Files.exists(svg), "No SVG export may be written before validation");
     }
 
+    @Test void exportsNestedHeaderWithPortableOutputName() throws Exception {
+        Path input = input();
+        var project = Cpg.read(input, new Cpg.Options(com.kniazkov.cpg.model.Language.CPP, Cpg.Stage.RESOLVED, "c++03"));
+        var sources = Cpg.sources(project, com.kniazkov.cpg.model.Language.CPP);
+        assertEquals(Set.of("main.cpp", "include/value.h"), sources.keySet());
+        Path output = temp.resolve("out");
+        Main.run("--input", input.toString(), "--from", "CPP", "--stage", "resolved", "--out", output.toString());
+        assertEquals(Files.readString(input.resolve("main.cpp")), Files.readString(output.resolve("main.cpp")));
+        assertEquals(Files.readString(input.resolve("include/value.h")), Files.readString(output.resolve("include/value.h")));
+    }
+
     @Test void rejectsJsonAsParentOfGeneratedHeaderBeforeAnyExports() throws Exception {
         Path output = temp.resolve("out");
         rejected(input(), output, output.resolve("include"), temp.resolve("graph.svg"));
