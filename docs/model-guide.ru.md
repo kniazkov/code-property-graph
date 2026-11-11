@@ -2083,3 +2083,22 @@ signed out-of-range conversions или arithmetic deduction. Это границ
 исключения всех type defaults относятся к историческим пакетам. #92/#48 и пять
 macro obligations остаются открытыми; section 11 и ABI policy не меняются.
 [Контракт, свежая сверка оригинала и отдельные гейты](cpp03-nested-integral-type-defaults-verification.md).
+
+### Связанные integral typedef defaults (#92, ограниченный шаг)
+
+Вложенные actual/partial class-template-id принимают TYPE default, уже связанный
+с конечной global/namespace typedef-цепочкой текущего snapshot до встроенного
+целого типа. Для `cfg::Byte`, обозначающего `unsigned char`, варианты `Key<T>`,
+`Key<T,cfg::Byte>` и `Key<T,unsigned char,2>` согласованы при `V=cfg::Byte` и
+независимом `V N=258` в профиле с восьмибитным char. Исходный аргумент, связи и
+cv-идентичность сохраняются; нового lookup в точке использования нет. Видимость
+точного primary header и собственные preceding effective arguments сохраняют
+свои ограничения; общие узлы defaults не смешивают разные контексты.
+
+Member/local/foreign/cyclic/unresolved/dependent и нецелые aliases, merged/late
+headers, зависимые defaults и unsupported heads не добавлены. Скрытые sizeof/enum
+зависимости выбранных и невыбранных кандидатов и ordinary routes сохранены.
+Прежние общие запреты typedef относятся к историческим этапам. Это ограниченный
+prerequisite offsetof/POD, не полная поддержка templates. Section 11/access и ABI
+политики не изменены; #92/#48 и пять macro obligations остаются открытыми.
+[Контракт, assertions и отдельные гейты](cpp03-nested-integral-typedef-defaults-verification.md).
