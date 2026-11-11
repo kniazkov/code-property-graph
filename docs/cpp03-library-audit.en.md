@@ -726,3 +726,22 @@ boundaries, not prohibitions of C++03; existing ordinary routes are preserved.
 Earlier exclusions of all type defaults describe historical packages. #92/#48
 and the five macro obligations remain open; no section 11 or ABI-policy change.
 [Contract, fresh original-edition review and separate execution gates](cpp03-nested-integral-type-defaults-verification.md).
+
+### Bound integral typedef defaults (#92, bounded follow-up)
+
+Nested actual/partial class-template-ids now accept a TYPE default already bound
+to a finite global/namespace typedef chain in the same snapshot, ending in a
+builtin integral type. For `cfg::Byte` aliasing `unsigned char`, `Key<T>`,
+`Key<T,cfg::Byte>` and `Key<T,unsigned char,2>` agree for a type default
+`V=cfg::Byte` followed by independent `V N=258` on an eight-bit-char profile.
+The original argument, binding chain and cv identity are retained. No new use-site
+lookup occurs. Exact-header visibility and per-occurrence preceding effective
+arguments still govern completion; shared defaults cannot contaminate each other.
+
+Member/local, foreign, cyclic, unresolved/dependent and non-integral aliases,
+merged/late headers, dependent defaults and unsupported heads remain outside this
+route. Selected/unselected hidden sizeof/enum dependencies and ordinary legacy
+routes are unchanged. Earlier blanket typedef exclusions describe historical
+checkpoints. This is a bounded offsetof/POD prerequisite, not template completion.
+Section 11/access and ABI policies are unchanged; #92/#48 and all five remaining
+macro obligations stay open. [Contract, assertions and separate execution gates](cpp03-nested-integral-typedef-defaults-verification.md).
