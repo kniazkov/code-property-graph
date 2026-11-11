@@ -55,6 +55,24 @@ class CppPreprocessorTest {
         }
     }
 
+    @Test void capturedHeadersUseNormalizedAbsoluteKeysWithoutFilesystemAccess() {
+        var build = unit(List.of(), List.of());
+        String header = directory.resolve("unused/../captured.h").toString();
+        var captured = java.util.Map.of(header, "#define VALUE 23\n");
+        var result = CppPreprocessor.preprocess(build, "#include \"captured.h\"\nVALUE\n", captured);
+        assertEquals("23", text(result));
+        assertEquals("#define VALUE 23\n", result.sources().get(directory.resolve("captured.h").toString()));
+        assertFalse(Files.exists(directory.resolve("captured.h")));
+        assertEquals(java.util.Set.of(header), captured.keySet());
+    }
+    @Test void conflictingCapturedPathAliasesAreRejected() {
+        var captured = java.util.Map.of(directory.resolve("captured.h").toString(), "#define VALUE 23\n",
+                directory.resolve("unused/../captured.h").toString(), "#define VALUE 24\n");
+        assertTrue(assertThrows(IllegalArgumentException.class,
+                () -> CppPreprocessor.preprocess(unit(List.of(), List.of()), "", captured))
+                .getMessage().contains("Conflicting captured source contents"));
+    }
+
     @Test void objectFunctionEmptyReplacementUndefAndInvocationDistinction() {
         assertEquals("7 3 ( ( 2 + 1 ) * ( 2 + 1 ) ) F 9", expand("""
                 #define A 7
