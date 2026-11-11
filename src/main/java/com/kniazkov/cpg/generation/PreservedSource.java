@@ -155,7 +155,10 @@ final class PreservedSource {
         for (var entry : emitted.entrySet()) {
             Path physical = Path.of(entry.getKey());
             if (!physical.startsWith(base)) throw unsupported("header lies outside the output source root: " + physical);
-            String relative = base.relativize(physical).toString();
+            // Output names use '/' on every host; preserve characters inside each component.
+            var components = new StringJoiner("/");
+            for (Path component : base.relativize(physical)) components.add(component.toString());
+            String relative = components.toString();
             Source.requireSafeName(relative);
             if (result.putIfAbsent(relative, entry.getValue()) != null) throw unsupported("duplicate output path " + relative);
         }
