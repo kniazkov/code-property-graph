@@ -13,12 +13,12 @@ public final class ClassTemplateSemantics {
     private record CompletedArguments(List<TemplateArgument> values, boolean unsupported) {}
     private record PatternValues(Map<TemplateArgument, TemplateArgument> arguments,
             Map<NamedType, ClassDeclaration> heads, Map<NamedType, List<TemplateArgument>> effective,
-            Set<Node> active, Map<Node, Located> patternLocations, List<Located> declarations, List<Use> uses, boolean specializedFamily) {
+            Set<Node> active, Map<Node, Located> patternLocations, List<Located> declarations, List<Use> uses, IntegralTypeDefaults typeDefaults, boolean specializedFamily) {
         PatternValues(List<Located> declarations, List<Use> uses, Map<Node, Located> patternLocations,
-                boolean specializedFamily) {
+                IntegralTypeDefaults typeDefaults, boolean specializedFamily) {
             this(new IdentityHashMap<>(), new IdentityHashMap<>(), new IdentityHashMap<>(),
                     Collections.newSetFromMap(new IdentityHashMap<>()), patternLocations,
-                    declarations, uses, specializedFamily);
+                    declarations, uses, typeDefaults, specializedFamily);
         }
     }
     /** Header syntax has declaration visibility, independently of later concrete uses. */
@@ -30,6 +30,41 @@ public final class ClassTemplateSemantics {
                     @Override public void visit(Node node) { result.put(node, location); }
                 }));
         return result;
+    }
+
+    /** One snapshot index, shared across all uses. Only source/namespace-owned
+     * typedefs qualify; neither member/local aliases nor foreign references do.
+     * The proof never resolves names or substitutes the canonical target. */
+    static final class IntegralTypeDefaults {
+        private final Set<TypedefDeclaration> aliases = Collections.newSetFromMap(new IdentityHashMap<>());
+        IntegralTypeDefaults(Project project) {
+            project.files().forEach(this::collect);
+            project.librarySources().forEach(this::collect);
+        }
+        private void collect(Node node) {
+            if (node instanceof TypedefDeclaration alias) aliases.add(alias);
+            else if (node instanceof SourceFile || node instanceof NamespaceDeclaration)
+                node.children().forEach(this::collect);
+        }
+        boolean accepts(TypeNode written, PlatformProfile profile) {
+            var seen = Collections.newSetFromMap(new IdentityHashMap<TypeNode, Boolean>());
+            while (written != null && seen.add(written)) {
+                if (written instanceof QualifiedType qualified) { written = qualified.baseType(); continue; }
+                if (!(written instanceof NamedType named) || named.hasTemplateArguments()
+                        || TypeSemantics.dependent(named)) return false;
+                TypedefDeclaration alias = named.alias().orElse(null);
+                if (alias != null) {
+                    if (!aliases.contains(alias)) return false;
+                    written = alias.type();
+                    continue;
+                }
+                // integerType also accepts references: the exact NamedType
+                // shape and builtin kind are therefore part of this proof.
+                return named.fundamentalKind().isPresent()
+                        && TypeSemantics.integerType(named, profile).isPresent();
+            }
+            return false;
+        }
     }
 
     private record Match(ClassDeclaration declaration, Map<TemplateParameterDeclaration, TemplateArgument> bindings) {}
@@ -86,6 +121,7 @@ public final class ClassTemplateSemantics {
         project.classTemplateInstances().forEach(i -> known.add(i.identity()));
         var constantContexts = new HashMap<PlatformProfile, IntegralConstants>();
         var patternLocations = patternLocations(declarations);
+        var typeDefaults = new IntegralTypeDefaults(project);
         usesLoop: for (Use use : uses) {
             if (use.node() instanceof NamedType named && named.declaration().filter(d -> project.classTemplateInstances().stream().anyMatch(i -> i.declaration() == d)).isPresent()) continue;
             List<Located> family = family(use, declarations);
@@ -104,7 +140,7 @@ public final class ClassTemplateSemantics {
             var matches = new ArrayList<Match>();
             var fullPatterns = new IdentityHashMap<ClassDeclaration, String>();
             var partialPatterns = new IdentityHashMap<ClassDeclaration, List<TemplateArgument>>();
-            var normalized = new PatternValues(declarations, uses, patternLocations, family.stream().anyMatch(candidate ->
+            var normalized = new PatternValues(declarations, uses, patternLocations, typeDefaults, family.stream().anyMatch(candidate ->
                     candidate.declaration().templateKind() == TemplateKind.PARTIAL_SPECIALIZATION
                             || candidate.declaration().templateKind() == TemplateKind.FULL_SPECIALIZATION));
             if (!normalizeNestedArguments(arguments, project, profile, constants, normalized, false)) {
@@ -571,13 +607,9 @@ public final class ClassTemplateSemantics {
             TemplateArgument value = parameter.defaultArgument().orElse(null);
             if (value == null) return null;
             if (parameter.kind() == TemplateParameterDeclaration.Kind.TYPE) {
-                // Certify the written type-id, not its canonical target: aliases
-                // and dependent defaults are outside this bounded route. Keep
-                // the original qualified argument for type identity.
-                TypeNode written = value.type().orElse(null);
-                while (written instanceof QualifiedType qualified) written = qualified.baseType();
-                if (!(written instanceof NamedType builtin) || builtin.fundamentalKind().isEmpty()
-                        || TypeSemantics.integerType(builtin, profile).isEmpty()) return null;
+                // Only prove eligibility through existing snapshot bindings. Keep
+                // the written argument, alias links and cv for contextual identity.
+                if (!normalized.typeDefaults().accepts(value.type().orElse(null), profile)) return null;
                 completed.add(value);
                 continue;
             }
