@@ -272,7 +272,7 @@ final class PreservedSource {
     private static Project relocated(List<Preprocessing> records, Map<String, String> sources, Path base) {
         String virtualName = "__cpg_generated_source__";
         if (base.getFileName() != null && base.getFileName().toString().equals(virtualName)) virtualName += "_relocated";
-        Path root = Path.of("/").resolve(virtualName);
+        Path root = Path.of("/").toAbsolutePath().normalize().resolve(virtualName);
         var relocatedSources = new LinkedHashMap<String, String>();
         for (var entry : sources.entrySet()) {
             Path path = Path.of(entry.getKey());
