@@ -565,7 +565,7 @@ class ConstantTemplateArgumentsTest {
     }
 
     @Test void unsupportedTypeDefaultsRemainGuardedInActualAndPartialHeads(){
-        for(String type:List.of("T","Alias","E","Object","int*","int&","double"))for(boolean omittedPattern:List.of(false,true)){
+        for(String type:List.of("T","E","Object","int*","int&","double"))for(boolean omittedPattern:List.of(false,true)){
             String explicit=type.equals("T")?"int":type;
             var p=resolve("typedef int Alias;enum E {one=1};struct Object {};template<class T,class V="+type+"> struct Key {};"
                     +"template<class T> struct Box {char data;char tail;};template<class T> struct Box<Key<T"+(omittedPattern?"":","+explicit)+"> > {long data;char tail;};"

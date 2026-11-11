@@ -460,6 +460,12 @@ JSON/DOT показывают её отдельно от дерева владе
   Cv-идентичность и исходные зависимости сохраняются; typedef и остальные
   новые type-default routes не включены. Ограниченный контракт и отдельные
   гейты: [отчёт](docs/cpp03-nested-integral-type-defaults-verification.md).
+- [x] Независимые integral typedef TYPE defaults во вложенных actual/partial
+  class-template-id: только связанные global/namespace цепочки текущего snapshot,
+  builtin integral terminal, сохранённые cv/bindings/source/JSON и собственные
+  preceding effective arguments следующего VALUE default. Member/local/foreign/
+  cyclic/dependent и остальные residual routes не расширены. Ограниченные prerequisites
+  для offsetof, не закрытие #92/#48: [контракт и гейты](docs/cpp03-nested-integral-typedef-defaults-verification.md).
 - [ ] Остатки offsetof и функциональные макросы setjmp, va_start, va_arg,
   va_end. Пять обязательств остаются незавершёнными; эта очередь не означает
   полного соответствия C++03 и не завершает итоговую приёмку #48.
