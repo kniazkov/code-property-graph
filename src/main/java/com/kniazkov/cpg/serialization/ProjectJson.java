@@ -700,6 +700,12 @@ public final class ProjectJson {
                     if (t.hasExceptionSpecification()) obj.put("hasExceptionSpecification", true).put("exceptionTypes", nodes(t.exceptionTypes()));
                 }
                 case OffsetofExpression e -> obj.put("type", node(e.type())).put("steps", nodes(e.steps()));
+                case VaListExpression e -> {
+                    obj.put("operation", lower(e.kind())).put("list", node(e.list()))
+                            .put("emission", e.emission()).put("stateRepresentation", "opaque");
+                    e.lastParameter().ifPresent(value -> obj.put("lastParameter", node(value)));
+                    e.requestedType().ifPresent(value -> obj.put("requestedType", node(value)));
+                }
                 case OffsetofExpression.Member member -> {
                     obj.put("name", member.name()); member.target().ifPresent(target -> obj.put("targetId", id(target)));
                 }

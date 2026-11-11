@@ -26,7 +26,7 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Test preprocessing and synthetic source paths on Windows
-        run: mvn -B "-Dtest=CppPreprocessorTest,StandardLibraryMacrosTest,AssertionMacrosTest,RuntimeIntegerMacrosTest,DeclaratorTest,JsonExportTest" test
+        run: mvn -B "-Dtest=CppPreprocessorTest,StandardLibraryMacrosTest,AssertionMacrosTest,RuntimeIntegerMacrosTest,VarargsCapabilityTest,VarargsEffectsTest,VarargsRuntimeTest,DeclaratorTest,JsonExportTest" test
   verify:
     runs-on: ubuntu-latest
     steps:
@@ -68,6 +68,7 @@ jobs:
             target/cpg-*.jar
             target/demo/
             target/runtime-integer-oracle/
+            target/varargs-runtime-oracle/
             target/errno-runtime-oracle/
             target/mb-cur-max-oracle/
             target/standard-streams-oracle/

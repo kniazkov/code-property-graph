@@ -188,6 +188,8 @@ public final class TypeSemantics {
         if (expression instanceof CharacterLiteral literal) return Optional.of(named(literal.cppType()));
         if (expression instanceof FloatingLiteral literal) return Optional.of(named(literal.cppType()));
         if (expression instanceof CompilerIntrinsicExpression intrinsic) return Optional.of(named(intrinsic.cppType()));
+        if (expression instanceof VaListExpression operation) return profile.varargs().isEmpty() ? Optional.empty()
+                : operation.kind() == VaListExpression.Kind.ARG ? operation.requestedType() : Optional.of(named("void"));
         if (expression instanceof StringLiteral literal) return Optional.of(ArrayType.create()
                 .setElementType(QualifiedType.create().setBaseType(NamedType.create().setName(literal.wide() ? "wchar_t" : "char")).setConst(true))
                 .setBound(IntegerLiteral.create().setValue(literal.codeUnits().size() + 1)).build());
