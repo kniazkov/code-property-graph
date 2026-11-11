@@ -246,7 +246,8 @@ public final class PlatformProfile {
         map.put("standardStreamsBinding", standardStreamsBinding);
         map.put("signalDispositionBinding", signalDispositionBinding);
         map.put("hugeVal", hugeVal == null ? Map.of() : hugeVal.settings());
-        map.put("varargs", varargs == null ? Map.of() : varargs.settings());
+        // An absent optional capability preserves pre-varargs profile identities.
+        if (varargs != null) map.put("varargs", varargs.settings());
         map.put("offsetof", offsetof == null ? Map.of() : offsetof.settings());
         map.put("clockScale", clockScale == null ? Map.of() : clockScale.settings());
         map.put("wideInteger", wideInteger == null ? Map.of() : wideInteger.settings());
