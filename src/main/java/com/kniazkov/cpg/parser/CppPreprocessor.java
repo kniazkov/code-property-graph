@@ -292,7 +292,20 @@ public final class CppPreprocessor {
         }
         Processor(Build.TranslationUnit unit, Map<String, String> sources) { this(unit, sources, Instant.now()); }
         Processor(Build.TranslationUnit unit, Map<String, String> sources, Instant time) {
-            this.unit = unit; this.virtualSources = sources; this.translationTime = Objects.requireNonNull(time);
+            this.unit = unit; this.virtualSources = normalizeSources(sources); this.translationTime = Objects.requireNonNull(time);
+        }
+        // Use the same absolute, normalized spelling as PhysicalSource and SourceRange.
+        // In particular, a Windows root-relative path still needs its drive letter.
+        private static Map<String, String> normalizeSources(Map<String, String> sources) {
+            if (sources == null) return null;
+            var normalized = new LinkedHashMap<String, String>();
+            sources.forEach((file, text) -> {
+                String key = Path.of(file).toAbsolutePath().normalize().toString();
+                String previous = normalized.putIfAbsent(key, text);
+                if (previous != null && !previous.equals(text))
+                    throw new IllegalArgumentException("Conflicting captured source contents: " + key);
+            });
+            return Collections.unmodifiableMap(normalized);
         }
 
         Result run(String source) {

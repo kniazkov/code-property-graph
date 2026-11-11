@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DeclarationRenameTest {
-    private static final String ROOT = "/virtual/rename/";
+    private static final String ROOT = Path.of("/virtual/rename").toAbsolutePath().normalize() + java.io.File.separator;
     private static Project parse(Map<String, String> sources, String... files) {
         var root = Project.create();
         for (String file : files) {

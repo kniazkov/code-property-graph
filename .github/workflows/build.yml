@@ -25,8 +25,8 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - name: Test preprocessing and synthetic source paths on Windows
-        run: mvn -B "-Dtest=CppPreprocessorTest,StandardLibraryMacrosTest,AssertionMacrosTest,RuntimeIntegerMacrosTest,DeclaratorTest,JsonExportTest" test
+      - name: Run all unit tests on Windows
+        run: mvn -B -ntp test
   verify:
     runs-on: ubuntu-latest
     steps:
