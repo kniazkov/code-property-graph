@@ -71,6 +71,7 @@ jobs:
             target/demo/
             target/runtime-integer-oracle/
             target/varargs-runtime-oracle/
+            target/typed-pointer-varargs-runtime-oracle/
             target/errno-runtime-oracle/
             target/mb-cur-max-oracle/
             target/standard-streams-oracle/

@@ -525,3 +525,16 @@ in `target/varargs-runtime-oracle/`. Invalid retrieval/final-parameter cases
 are diagnostic-only, never UB native runs. Focused Java tests also run on
 Windows without asserting a Windows ABI. Exact execution results and full-suite
 CI gates are separate: [scope and verification status](cpp03-varargs-verification.md).
+
+`TypedPointerVarargsRuntimeIT` adds the bounded typedef-based function-pointer
+and fixed-array-pointer oracle. Raw complex declarator builtin acceptance is not
+a portable macro-positive result. Invalid promotion/last-parameter cases remain
+diagnostic-only; sizeof checks do not execute list traversal. The
+[typed-pointer report](cpp03-typed-pointer-varargs-verification.md) separates the
+final passing 29 units, two IT, 72 native runs and 144 source hashes from
+pending full/CI gates. The final function-cv guard is included; independent
+review passed 43 semantic/generation probes (12 accepted, 31 rejected).
+The workflow uploads the typed-pointer oracle directory.
+The structural alias-rename guard is tested as a rejection; positive edits use
+a separate declaration and assignment with `EditableCallback`. No broader ABI, runtime
+list ownership or complete macro-support claim follows.

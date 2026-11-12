@@ -2105,3 +2105,26 @@ remains opaque with UNKNOWN size/alignment. START writes, ARG reads/advances,
 END reads/completes; sizeof is unevaluated and pointer aliases conservative.
 This does not prove dynamic count/type/lifecycle correctness. See the
 [contract, residuals and separate gates](cpp03-varargs-verification.md).
+
+The [typed-pointer follow-up](cpp03-typed-pointer-varargs-verification.md) adds
+bound written typedefs for ordinary function pointers and fixed positive array
+pointers, including qualified alias chains and pointer-typedef last parameters.
+Pointer values and indirect-call targets remain unknown; effects stay conservative.
+Evaluated enum requests (including aliases) are invalid promotion requests.
+Unevaluated sizeof accepts float, small scalars and complete enums/aliases without
+runtime owner/storage/promotion checks for direct standard-bound lists, including
+nonvariadic locals, globals, static/extern objects and direct parameters. It does
+not invent enum layout; qualified/fake/foreign/unbound/cyclic lists are not accepted.
+Runtime list restrictions remain unchanged. Raw complex declarators accepted by
+builtins are not portable macro-positive evidence; #92/#48 and all five macros
+remain open. typeid retains its precise C++03 evaluation rules.
+
+Named fixed array bounds use `IntegralConstants` in snapshot context with
+cyclic/dependent/foreign guards. Structural alias renaming in a declaration
+containing va_arg retains the source-preservation rejection; tested positive
+edits use separate declaration/assignment and `EditableCallback`, not arbitrary
+structural rewrites.
+
+Initialized/copied lists remain unsupported at their declaration because opaque
+initialization is not modeled, even when later va_arg use is type-only. Implicit
+direct-name class-member lists are also unsupported in type-only contexts.

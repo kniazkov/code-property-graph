@@ -1,5 +1,10 @@
 # Bounded C++03 variable-argument macros (#92)
 
+The subsequent [typed-pointer follow-up](cpp03-typed-pointer-varargs-verification.md)
+extends the bounded type subset and distinguishes unevaluated type-only checks
+from runtime list restrictions. Execution results below belong to this original
+package and are not results for that follow-up.
+
 ## Contract and remaining work
 
 This package supplies a selected partial implementation, not completion of
