@@ -366,12 +366,13 @@ public final class PlatformProfile {
             if (model.isEmpty()) b.offsetof = null;
             else {
                 if (!model.keySet().containsAll(Set.of("emission", "layout", "supportedObjectBytes"))
-                        || !Set.of("emission", "layout", "supportedObjectBytes", "memberPointerStorage", "enumStorage").containsAll(model.keySet()))
-                    throw invalid("offsetof requires emission, layout and supportedObjectBytes, with optional memberPointerStorage and enumStorage");
+                        || !Set.of("emission", "layout", "supportedObjectBytes", "memberPointerStorage", "enumStorage", "bitFieldStorage").containsAll(model.keySet()))
+                    throw invalid("offsetof requires emission, layout and supportedObjectBytes, with optional memberPointerStorage, enumStorage and bitFieldStorage");
                 b.offsetof(string(model.get("emission"), "offsetof.emission"), string(model.get("layout"), "offsetof.layout"),
                         string(model.get("supportedObjectBytes"), "offsetof.supportedObjectBytes"),
                         model.containsKey("memberPointerStorage") ? string(model.get("memberPointerStorage"), "offsetof.memberPointerStorage") : null,
-                        model.containsKey("enumStorage") ? string(model.get("enumStorage"), "offsetof.enumStorage") : null);
+                        model.containsKey("enumStorage") ? string(model.get("enumStorage"), "offsetof.enumStorage") : null,
+                        model.containsKey("bitFieldStorage") ? string(model.get("bitFieldStorage"), "offsetof.bitFieldStorage") : null);
             }
         }
         if (settings.containsKey("hugeVal")) {
@@ -512,6 +513,9 @@ public final class PlatformProfile {
         }
         public Builder offsetof(String emission, String layout, String supportedObjectBytes, String memberPointerStorage, String enumStorage) {
             offsetof = OffsetofModel.parse(emission, layout, supportedObjectBytes, memberPointerStorage, enumStorage); return this;
+        }
+        public Builder offsetof(String emission, String layout, String supportedObjectBytes, String memberPointerStorage, String enumStorage, String bitFieldStorage) {
+            offsetof = OffsetofModel.parse(emission, layout, supportedObjectBytes, memberPointerStorage, enumStorage, bitFieldStorage); return this;
         }
         public Builder setjmp(String emission) { setjmp = new SetjmpModel(emission); return this; }
         public Builder varargs(String emission, String abi) { varargs = new VarargsModel(emission, abi); return this; }
