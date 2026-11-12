@@ -69,6 +69,8 @@ jobs:
           path: |
             target/cpg-*.jar
             target/demo/
+            target/library-macros-oracle/
+            target/assertion-runtime-oracle/
             target/runtime-integer-oracle/
             target/varargs-runtime-oracle/
             target/setjmp-runtime-oracle/

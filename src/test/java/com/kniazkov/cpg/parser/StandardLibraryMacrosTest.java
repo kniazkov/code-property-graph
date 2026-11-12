@@ -3,6 +3,10 @@ package com.kniazkov.cpg.parser;
 
 import com.kniazkov.cpg.build.*;
 import java.nio.file.*;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -29,6 +33,71 @@ class StandardLibraryMacrosTest {
     private String text(CppPreprocessor.Result result) {
         return String.join(" ", result.tokens().stream().filter(t -> !Set.of(WHITESPACE, NEWLINE, EOF, HEADER_NAME).contains(t.token().kind()))
                 .map(t -> t.token().spelling()).toList());
+    }
+    @Test void allIntegerAndFloatingDefinitionsMatchIndependentTwoProfileFacts() {
+        var lp64=PlatformProfile.defaults();
+        var ilp32=lp64.toBuilder().sizeBits("long",32).alignmentBits("long",32).charSigned(false)
+                .floatingFormat("long double","binary80").floatingRounds(0).nullPointerConstant("0L").maxMultibyteLength(4).build();
+        for(var profile:List.of(lp64,ilp32)) {
+            boolean wide=profile==lp64;
+            var integers=new LinkedHashMap<String,String>(Map.ofEntries(
+                    Map.entry("CHAR_BIT","8"),Map.entry("SCHAR_MIN","(-127 - 1)"),Map.entry("SCHAR_MAX","127"),
+                    Map.entry("UCHAR_MAX","255"),Map.entry("CHAR_MIN",wide?"(-127 - 1)":"0"),Map.entry("CHAR_MAX",wide?"127":"255"),
+                    Map.entry("MB_LEN_MAX",wide?"16":"4"),Map.entry("SHRT_MIN","(-32767 - 1)"),Map.entry("SHRT_MAX","32767"),
+                    Map.entry("USHRT_MAX","65535"),Map.entry("INT_MIN","(-2147483647 - 1)"),Map.entry("INT_MAX","2147483647"),
+                    Map.entry("UINT_MAX","4294967295U"),Map.entry("LONG_MIN",wide?"(-9223372036854775807L - 1L)":"(-2147483647L - 1L)"),
+                    Map.entry("LONG_MAX",wide?"9223372036854775807L":"2147483647L"),Map.entry("ULONG_MAX",wide?"18446744073709551615UL":"4294967295UL")));
+            assertEquals(INTEGER_LIMITS,integers.keySet());
+            for(String header:List.of("climits","limits.h")) assertEquals(integers,replacements(header,profile));
+            for(String header:List.of("cfloat","float.h")) {
+                var actual=replacements(header,profile);assertEquals(FLOATING_LIMITS,actual.keySet());
+                assertEquals("2",actual.get("FLT_RADIX"));assertEquals(wide?"1":"0",actual.get("FLT_ROUNDS"));
+                checkFloatingFacts(actual,"FLT","F",24,6,-125,-37,128,38);
+                checkFloatingFacts(actual,"DBL","",53,15,-1021,-307,1024,308);
+                checkFloatingFacts(actual,"LDBL","L",wide?113:64,wide?33:18,-16381,-4931,16384,4932);
+            }
+            for(String header:List.of("cwchar","wchar.h")) {
+                var actual=replacements(header,profile);
+                assertEquals("(-2147483647 - 1)",actual.get("WCHAR_MIN"));assertEquals("2147483647",actual.get("WCHAR_MAX"));
+            }
+            for(String header:List.of("cstddef","cstdio","cstdlib","cstring","ctime","clocale","cwchar",
+                    "stddef.h","stdio.h","stdlib.h","string.h","time.h","locale.h","wchar.h"))
+                assertEquals(wide?"0":"0L",replacements(header,profile).get("NULL"));
+        }
+    }
+    private Map<String,String> replacements(String header,PlatformProfile profile) {
+        var result=new LinkedHashMap<String,String>();
+        for(var definition:preprocess("#include <"+header+">\n",profile).definitions())
+            if(definition.originKind().equals("library")) assertNull(result.put(definition.name(),definition.rawReplacement()));
+        return result;
+    }
+    private static void checkFloatingFacts(Map<String,String> actual,String prefix,String suffix,int precision,int digits,
+            int minExponent,int minDecimalExponent,int maxExponent,int maxDecimalExponent) {
+        // Fixed binary32/64/80/128 facts above, independent of provider/profile helpers.
+        assertEquals(Integer.toString(precision),actual.get(prefix+"_MANT_DIG"));
+        assertEquals(Integer.toString(digits),actual.get(prefix+"_DIG"));
+        assertEquals("("+minExponent+")",actual.get(prefix+"_MIN_EXP"));
+        assertEquals("("+minDecimalExponent+")",actual.get(prefix+"_MIN_10_EXP"));
+        assertEquals(Integer.toString(maxExponent),actual.get(prefix+"_MAX_EXP"));
+        assertEquals(Integer.toString(maxDecimalExponent),actual.get(prefix+"_MAX_10_EXP"));
+        // MAX=(2^p-1)*2^(emax-p), EPS=2^(1-p), MIN=2^(emin-1).
+        // Exact decimal arithmetic, never JVM float/double or host long double.
+        var max=new BigDecimal(BigInteger.ONE.shiftLeft(precision).subtract(BigInteger.ONE)).multiply(powerOfTwo(maxExponent-precision));
+        checkDecimalReplacement(actual.get(prefix+"_MAX"),suffix,max);
+        checkDecimalReplacement(actual.get(prefix+"_EPSILON"),suffix,powerOfTwo(1-precision));
+        checkDecimalReplacement(actual.get(prefix+"_MIN"),suffix,powerOfTwo(minExponent-1));
+    }
+    private static BigDecimal powerOfTwo(int exponent) {
+        return exponent>=0?new BigDecimal(BigInteger.ONE.shiftLeft(exponent))
+                :new BigDecimal(BigInteger.valueOf(5).pow(-exponent),-exponent);
+    }
+    private static void checkDecimalReplacement(String replacement,String suffix,BigDecimal exact) {
+        assertTrue(replacement.endsWith(suffix),replacement);
+        String numeral=replacement.substring(0,replacement.length()-suffix.length());
+        // The selected decimal representation is exact or rounds to 36 significant digits;
+        // a host binary80 compiler is not an oracle for binary128 target conformance.
+        var value=new BigDecimal(numeral);
+        assertTrue(exact.compareTo(value)==0 || exact.round(new MathContext(36,RoundingMode.HALF_EVEN)).compareTo(value)==0,replacement);
     }
     @Test void integerLimitsWorkInDirectivesAndOrdinaryExpressionsForTwoProfiles() {
         var lp64 = PlatformProfile.defaults();
