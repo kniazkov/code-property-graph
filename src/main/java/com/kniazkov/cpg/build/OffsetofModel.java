@@ -6,7 +6,7 @@ import java.util.*;
 
 /** Caller-selected layout contract, not host detection or a compiler allocation guarantee. */
 public record OffsetofModel(String emission, String layout, BigInteger supportedObjectBytes,
-        String memberPointerStorage, String enumStorage) {
+        String memberPointerStorage, String enumStorage, String bitFieldStorage) {
     private static final BigInteger MAXIMUM = BigInteger.valueOf(2147483647L);
     /** Existing callers do not opt in to any member-pointer representation. */
     public OffsetofModel(String emission, String layout, BigInteger supportedObjectBytes) {
@@ -15,6 +15,10 @@ public record OffsetofModel(String emission, String layout, BigInteger supported
     /** Existing member-pointer callers do not select enum storage. */
     public OffsetofModel(String emission, String layout, BigInteger supportedObjectBytes, String memberPointerStorage) {
         this(emission, layout, supportedObjectBytes, memberPointerStorage, null);
+    }
+    /** Existing enum callers do not select bit-field allocation. */
+    public OffsetofModel(String emission, String layout, BigInteger supportedObjectBytes, String memberPointerStorage, String enumStorage) {
+        this(emission, layout, supportedObjectBytes, memberPointerStorage, enumStorage, null);
     }
     public OffsetofModel {
         if (!"gcc-clang-builtin".equals(emission) || !"x86_64-sysv-lp64-v1".equals(layout))
@@ -25,6 +29,8 @@ public record OffsetofModel(String emission, String layout, BigInteger supported
             throw invalid("memberPointerStorage must be itanium-x86_64-lp64-v1 when supplied");
         if (enumStorage != null && !enumStorage.equals("gcc-clang-x86_64-default-enum-v1"))
             throw invalid("enumStorage must be gcc-clang-x86_64-default-enum-v1 when supplied");
+        if (bitFieldStorage != null && !bitFieldStorage.equals("x86_64-sysv-unsigned-v1"))
+            throw invalid("bitFieldStorage must be x86_64-sysv-unsigned-v1 when supplied");
     }
     public static OffsetofModel parse(String emission, String layout, String decimal) {
         return parse(emission, layout, decimal, null);
@@ -33,9 +39,12 @@ public record OffsetofModel(String emission, String layout, BigInteger supported
         return parse(emission, layout, decimal, memberPointerStorage, null);
     }
     public static OffsetofModel parse(String emission, String layout, String decimal, String memberPointerStorage, String enumStorage) {
+        return parse(emission, layout, decimal, memberPointerStorage, enumStorage, null);
+    }
+    public static OffsetofModel parse(String emission, String layout, String decimal, String memberPointerStorage, String enumStorage, String bitFieldStorage) {
         if (decimal == null || !decimal.matches("[1-9][0-9]*"))
             throw invalid("supportedObjectBytes must be a positive canonical decimal string");
-        return new OffsetofModel(emission, layout, new BigInteger(decimal), memberPointerStorage, enumStorage);
+        return new OffsetofModel(emission, layout, new BigInteger(decimal), memberPointerStorage, enumStorage, bitFieldStorage);
     }
     public Map<String,String> settings() {
         var result = new LinkedHashMap<String,String>();
@@ -44,6 +53,7 @@ public record OffsetofModel(String emission, String layout, BigInteger supported
         // Absence preserves canonical settings and identity of existing profiles.
         if (memberPointerStorage != null) result.put("memberPointerStorage", memberPointerStorage);
         if (enumStorage != null) result.put("enumStorage", enumStorage);
+        if (bitFieldStorage != null) result.put("bitFieldStorage", bitFieldStorage);
         return Collections.unmodifiableMap(result);
     }
     void validate(PlatformProfile profile) {

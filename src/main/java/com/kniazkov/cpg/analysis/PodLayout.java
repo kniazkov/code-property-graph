@@ -12,7 +12,8 @@ import java.util.function.Function;
  * This neither changes generic sizeof/aggregate semantics nor certifies a compiler ABI.
  * Failure means this query cannot justify a result, not necessarily invalid C++03.
  * Enums and member pointers require separate explicitly selected storage contracts.
- * Unresolved templates and bit-fields remain unsupported. Member pointers require
+ * Unresolved templates remain unsupported. Bit-fields require a separate narrow
+ * allocation contract; they never become addressable fields. Member pointers require
  * their own explicitly selected storage contract. Ordinary methods
  * and static data do not affect the layout; user special members and non-POD subobjects do.
  * No source nodes, implicit declarations, persistent caches or host facts are created.
@@ -478,13 +479,33 @@ final class PodLayout {
             try {
                 boolean union = owner.keyword().equals("union");
                 BigInteger size = BigInteger.ZERO;
+                BigInteger nextBit = BigInteger.ZERO;
                 int alignment = profile.bitsPerByte();
                 var fields = new ArrayList<Field>();
                 for (Declaration member : owner.members()) {
                     if (!(member instanceof VariableDeclaration field) || field.modifiers().contains("static")) continue;
-                    if (field.bitWidth().isPresent()) return failure(Reason.BIT_FIELD, "Bit-field layout and address designation are unsupported");
                     if (!field.access().orElse(owner.memberAccess()).equals("public"))
                         return failure(Reason.NOT_POD, "A C++03 POD class has only public nonstatic data members");
+                    if (field.bitWidth().isPresent()) {
+                        var bitField = bitField(field);
+                        if (!bitField.supported()) return propagate(bitField);
+                        BitAllocation value = bitField.value().orElseThrow();
+                        BigInteger unit = BigInteger.valueOf(value.storageBits());
+                        BigInteger width = BigInteger.valueOf(value.width());
+                        BigInteger start = union ? BigInteger.ZERO : nextBit;
+                        // SysV permits sharing the current storage unit, including bytes
+                        // after ordinary fields, but never crossing the declared-type unit.
+                        if (start.mod(unit).add(width).compareTo(unit) > 0)
+                            start = start.add(unit).subtract(BigInteger.ONE).divide(unit).multiply(unit);
+                        BigInteger end = start.add(width);
+                        BigInteger occupied = end.add(BigInteger.valueOf(7)).divide(BigInteger.valueOf(8));
+                        size = union ? size.max(occupied) : occupied;
+                        if (!supportedSize(size)) return unsupportedSize(size);
+                        if (!union) nextBit = end;
+                        alignment = Math.max(alignment, value.storageBits());
+                        // No Field entry: a bit-field has no addressable byte offset.
+                        continue;
+                    }
                     if (field.name().isEmpty() || field.type().isEmpty())
                         return failure(Reason.UNSUPPORTED_TYPE, "Every object field needs a name and resolved type");
                     var result = type(field.type().orElseThrow(), true);
@@ -496,11 +517,34 @@ final class PodLayout {
                     if (!supportedSize(offset)) return unsupportedSize(offset);
                     fields.add(new Field(field, offset));
                     size = union ? size.max(value.sizeBytes()) : offset.add(value.sizeBytes());
+                    if (!union) nextBit = size.multiply(BigInteger.valueOf(8));
                     if (!supportedSize(size)) return unsupportedSize(size);
                 }
                 return layoutValue(align(size.max(BigInteger.ONE), alignment, profile), alignment, fields);
             } finally { activeClasses.removeLast(); }
         }
+        /** Positive named unsigned fields only; no allocation facts are host-derived. */
+        private record BitAllocation(int storageBits, int width) {}
+        private Result<BitAllocation> bitField(VariableDeclaration field) {
+            if (profile.offsetof().map(model -> model.bitFieldStorage() == null).orElse(true))
+                return failure(Reason.BIT_FIELD, "Bit-field allocation requires explicit offsetof.bitFieldStorage");
+            if (field.name().isEmpty() || field.type().isEmpty())
+                return failure(Reason.BIT_FIELD, "Selected bit-field allocation requires a named field with a resolved type");
+            var shape = memberShape(field.type().orElseThrow());
+            if (!shape.supported()) return propagate(shape);
+            TypeNode plain = shape.value().orElseThrow();
+            String spelling = plain instanceof NamedType named
+                    ? named.fundamentalKind().map(FundamentalKind::spelling).orElse("") : "";
+            int bits = switch (spelling) { case "unsigned char" -> 8; case "unsigned int" -> 32; default -> 0; };
+            if (bits == 0)
+                return failure(Reason.BIT_FIELD, "Selected bit-field allocation supports only unsigned char and unsigned int");
+            var width = integer(field.bitWidth().orElseThrow());
+            if (width.isEmpty()) return constantFailure(Reason.BIT_FIELD, "Bit-field width is not a certified integral constant");
+            if (width.orElseThrow().signum() <= 0 || width.orElseThrow().compareTo(BigInteger.valueOf(bits)) > 0)
+                return failure(Reason.BIT_FIELD, "Selected bit-field width must be positive and no greater than its declared storage width");
+            return success(new BitAllocation(bits, width.orElseThrow().intValueExact()));
+        }
+
         private boolean ordinaryAssignment(CallableDeclaration function) {
             return function.name().equals("operator=") && function.parameters().size() == 1
                     && !function.isFriend() && !function.modifiers().contains("static")
@@ -538,6 +582,9 @@ final class PodLayout {
                     if (!(plain instanceof NamedType named) || !(named.declaration().orElse(null) instanceof ClassDeclaration declaration))
                         return failure(Reason.INVALID_PATH, "Named member access requires a POD class or union subobject");
                     ClassDeclaration owner = definition(declaration);
+                    if (owner.members().stream().anyMatch(value -> value instanceof VariableDeclaration field
+                            && field.name().equals(member.name()) && field.bitWidth().isPresent()))
+                        return failure(Reason.BIT_FIELD, "A bit-field cannot be designated by offsetof");
                     var selected = layout.fields().stream().filter(field -> field.declaration().name().equals(member.name())).toList();
                     if (selected.size() != 1) {
                         if (owner.members().stream().anyMatch(value -> value instanceof VariableDeclaration field
