@@ -745,3 +745,22 @@ routes are unchanged. Earlier blanket typedef exclusions describe historical
 checkpoints. This is a bounded offsetof/POD prerequisite, not template completion.
 Section 11/access and ABI policies are unchanged; #92/#48 and all five remaining
 macro obligations stay open. [Contract, assertions and separate execution gates](cpp03-nested-integral-typedef-defaults-verification.md).
+
+### Ordinary members beside selected bit-fields (#92, bounded follow-up)
+
+The optional `offsetof.bitFieldStorage="x86_64-sysv-unsigned-v1"` contract
+adds layout for named, positive-width `unsigned char` and `unsigned int`
+bit-fields no wider than their declared storage, including resolved aliases/cv,
+POD structs/unions and nested arrays. It does not make a bit-field an addressable
+member or support `offsetof` designating one. The explicit existing x86_64 SysV
+LP64 layout and natural alignment remain prerequisites; defaults retain their
+previous identities. Missing capability, unnamed/zero/oversized fields and other
+bit-field types remain unsupported, not necessarily invalid C++03.
+
+Ordinary members may reuse whole bytes after a partial bit-field. Storage-unit
+boundaries and declared-type alignment still matter. This is a bounded layout
+query, not a generic `sizeof` extension or host-derived ABI claim. Snapshot,
+representability, object-ceiling, pragma and source/dependency guards remain.
+Earlier blanket bit-field exclusions describe historical checkpoints. #92/#48
+and all five macro obligations remain open.
+[Original evidence, contract and separate verification gates](cpp03-bit-field-layout-verification.md).
