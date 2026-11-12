@@ -774,3 +774,7 @@ nonpublic/cv unnamed и прочие категории остаются unsuppo
 invalid. [Оригиналы, неоднозначность 9.2/17 и гейты](docs/cpp03-unnamed-bit-field-layout-verification.md).
 Изменены лишь tests/gap строк 18.1/5, 9.6/2 и 9.2/17; хеши, координаты
 и классификации не повышены. Пять обязательств и #92/#48 открыты.
+
+## Сводная приёмка обязательных макросов (#92)
+
+[Матрица 102 обязательств](docs/cpp03-macro-acceptance.ru.md) связывает каждое имя/заголовок с точными assertions и исходными локаторами. Добавлены независимые двухпрофильные числовые проверки, actual CPG-materialized integer limits и наблюдаемый disabled assert(++count), сохраняемые native artifacts. Это не подтверждение native ILP32 layout или host long double. Пять обязательств остаются partial/open: offsetof [#145](https://github.com/kniazkov/code-property-graph/issues/145), varargs [#146](https://github.com/kniazkov/code-property-graph/issues/146), setjmp [#147](https://github.com/kniazkov/code-property-graph/issues/147). Полные verify/CI и отдельное решение по #92 не подменяются присутствием записей в inventory; #48 остаётся открытой.
