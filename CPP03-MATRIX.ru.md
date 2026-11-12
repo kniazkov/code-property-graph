@@ -778,3 +778,7 @@ invalid. [Оригиналы, неоднозначность 9.2/17 и гейт�
 ## Сводная приёмка обязательных макросов (#92)
 
 [Матрица 102 обязательств](docs/cpp03-macro-acceptance.ru.md) связывает каждое имя/заголовок с точными assertions и исходными локаторами. Добавлены независимые двухпрофильные числовые проверки, actual CPG-materialized integer limits и наблюдаемый disabled assert(++count), сохраняемые native artifacts. Это не подтверждение native ILP32 layout или host long double. Пять обязательств остаются partial/open: offsetof [#145](https://github.com/kniazkov/code-property-graph/issues/145), varargs [#146](https://github.com/kniazkov/code-property-graph/issues/146), setjmp [#147](https://github.com/kniazkov/code-property-graph/issues/147). Полные verify/CI и отдельное решение по #92 не подменяются присутствием записей в inventory; #48 остаётся открытой.
+
+### Знаковые и обычные целые битовые поля (#145)
+
+Явная политика `x86_64-sysv-integral-v4` расширяет v3 раскладку signed/plain char/short/int/long. Это только offsetof обычных членов и выбранные storage/alignment факты: знаковость, значения и продвижения битовых полей не объявлены реализованными. Существующие identities не меняются; bool/enum/oversized, nonpublic/cv unnamed и leading-positive остаются в #145. Пять partial/open обязательств сохранены; #92 закрыта по support-or-open-link приёмке, не как универсальная поддержка. [Контракт и отдельные гейты](docs/cpp03-signed-bit-field-layout-verification.md).
