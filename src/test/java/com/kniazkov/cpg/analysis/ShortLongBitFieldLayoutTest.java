@@ -66,7 +66,7 @@ class ShortLongBitFieldLayoutTest {
         assertEquals(old, PROFILE.toBuilder().offsetof("gcc-clang-builtin","x86_64-sysv-lp64-v1","2147483647").build());
         var reset = new LinkedHashMap<>(PROFILE.toSettings()); reset.put("offsetof", Map.of());
         assertTrue(PlatformProfile.fromSettings(reset).offsetof().isEmpty());
-        for (Object bad : Arrays.asList("", "sysv", "msvc", "x86_64-sysv-unsigned-v3", 8, true, List.of(STORAGE), null)) {
+        for (Object bad : Arrays.asList("", "sysv", "msvc", "x86_64-sysv-unsigned-v4", 8, true, List.of(STORAGE), null)) {
             var model = new LinkedHashMap<String,Object>(PROFILE.offsetof().orElseThrow().settings()); model.put("bitFieldStorage", bad);
             assertThrows(IllegalArgumentException.class, () -> PlatformProfile.fromSettings(Map.of("inherits","default","offsetof",model)));
         }
