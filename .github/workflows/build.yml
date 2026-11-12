@@ -86,5 +86,6 @@ jobs:
             target/member-pointer-layout-oracle/
             target/enum-storage-layout-oracle/
             target/bit-field-layout-oracle/
+            target/short-long-bit-field-layout-oracle/
             target/constant-template-arguments-oracle/
             target/partial-constant-template-arguments-oracle/

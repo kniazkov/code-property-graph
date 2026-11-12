@@ -684,3 +684,19 @@ representability, object-ceiling, pragma and source/dependency guards remain.
 Earlier blanket bit-field exclusions describe historical checkpoints. #92/#48
 and all five macro obligations remain open.
 [Original evidence, contract and separate verification gates](cpp03-bit-field-layout-verification.md).
+
+### Selected unsigned short/long bit-fields (#92, v2 follow-up)
+
+The new explicit `offsetof.bitFieldStorage="x86_64-sysv-unsigned-v2"`
+contract extends v1 with named positive `unsigned short` widths 1..16 and
+`unsigned long` widths 1..64, including bound aliases/cv. Selected storage and
+alignment are 2/2 and 8/8 bytes under the existing LP64 target. V1 keeps its
+original unsigned char/int subset and identity; omission still selects no bit-field
+layout. Storage-unit containment, ordinary-member offsets, POD unions/nesting
+and arrays use the same bounded rules. Bit-field designators remain unsupported.
+
+Unnamed/zero-width, signed/plain, bool/enum, oversized and long-long fields are
+not added. Generic `sizeof`, source/dependency guards and default identities
+remain unchanged. Earlier v1 exclusions remain correct for v1, not v2. This is
+not a portable layout claim or closure of #92/#48 or the five macro obligations.
+[Original evidence and separate verification gates](cpp03-short-long-bit-field-layout-verification.md).
