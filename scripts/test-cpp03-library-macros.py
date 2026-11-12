@@ -19,6 +19,28 @@ class MacroInventoryTest(unittest.TestCase):
     def test_current_inventory(self):
         self.assertEqual([], checker.check(self.data))
 
+    def test_setjmp_requires_exact_open_backend_metadata(self):
+        for field, wrong in [('profile_setting', 'varargs'), ('emission', 'builtin'),
+                             ('c_runtime', 'musl'), ('completion', 'complete'),
+                             ('unknown_behavior', ''), ('support_boundary', ''), ('extra', True)]:
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                row = next(e for e in data['entries'] if e['name'] == 'setjmp')
+                row['partial_implementation'][field] = wrong
+                self.assertTrue(checker.check(data))
+
+    def test_setjmp_cannot_drop_subset_or_promote_obligation(self):
+        for field, wrong in [('support_status', 'compiler_intrinsic'), ('implementation', []),
+                             ('tests', []), ('header', 'cstdarg'), ('required_in_if', 'yes')]:
+            with self.subTest(field=field):
+                data = copy.deepcopy(self.data)
+                row = next(e for e in data['entries'] if e['name'] == 'setjmp')
+                row[field] = wrong
+                self.assertTrue(checker.check(data))
+        row = next(e for e in self.data['entries'] if e['name'] == 'setjmp')
+        del row['partial_implementation']
+        self.assertTrue(checker.check(self.data))
+
     def test_dropped_obligation(self):
         self.data['entries'].pop()
         self.assertTrue(checker.check(self.data))

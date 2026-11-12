@@ -732,6 +732,20 @@ public final class CppPreprocessor {
                 }
             }
             String canonical = com.kniazkov.cpg.analysis.StandardLibraryCatalogue.canonicalHeader(header);
+            if (canonical.equals("csetjmp")) {
+                var model = unit.platform().setjmp();
+                String file = unit.directory().resolve(".cpg-library-" + header + "-setjmp").toString();
+                String source = "setjmp(env) " + model.map(m -> m.replacement()).orElse("");
+                definitionSources.put(file, source);
+                define(wrap(CppLexer.scan(file, source).tokens(), parent), "library",
+                        "profile:platform:" + unit.platform().identityHash() + ":library:" + header + ":setjmp");
+                if (model.isEmpty()) {
+                    Definition d = definitions.getLast();
+                    definitions.set(definitions.size() - 1, new Definition(d.id(), d.name(), d.functionLike(), d.parameters(),
+                            d.rawReplacement(), d.range(), d.include(), d.originKind(), d.sourceKey(),
+                            "Library macro setjmp requires an explicit glibc setjmp capability"));
+                }
+            }
             if (canonical.equals("cstdarg")) {
                 var model = unit.platform().varargs();
                 for (String name : List.of("va_start", "va_arg", "va_end")) {

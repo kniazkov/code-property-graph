@@ -150,6 +150,7 @@ public final class TypeIdentity {
         if (value instanceof FloatingLiteral literal) return "floating(" + literal.cppType() + ":" + literal.value().stripTrailingZeros() + ")";
         if (value instanceof CompilerIntrinsicExpression intrinsic) return "compiler-intrinsic(" + intrinsic.kind().name()
                 + ":" + intrinsic.cppType() + ":" + intrinsic.emission() + ")";
+        if (value instanceof SetjmpExpression operation) return "setjmp(" + expression(operation.buffer(), seen, dependentNames) + ")";
         if (value instanceof VaListExpression operation) return "varargs(" + operation.kind().name() + ":"
                 + expression(operation.list(), seen, dependentNames) + ":"
                 + operation.lastParameter().map(parameter -> expression(parameter, seen, dependentNames)).orElse("") + ":"

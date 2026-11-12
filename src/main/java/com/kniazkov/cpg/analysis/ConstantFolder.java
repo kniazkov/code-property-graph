@@ -90,6 +90,7 @@ public final class ConstantFolder {
             Node node = pending.removeFirst();
             if (!seen.add(node)) continue;
             if (node instanceof OffsetofExpression offset) layout.constant(offset);
+            if (node instanceof SetjmpExpression operation) layout.constant(operation);
             // sizeof(va_arg(ap,T)) is known without advancing ap, but retaining
             // its type operand makes later edits to T observable after folding.
             if (node instanceof VaListExpression operation) {
