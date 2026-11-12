@@ -780,3 +780,23 @@ not added. Generic `sizeof`, source/dependency guards and default identities
 remain unchanged. Earlier v1 exclusions remain correct for v1, not v2. This is
 not a portable layout claim or closure of #92/#48 or the five macro obligations.
 [Original evidence and separate verification gates](cpp03-short-long-bit-field-layout-verification.md).
+
+### Selected unnamed unsigned padding (#92, v3 follow-up)
+
+`offsetof.bitFieldStorage="x86_64-sysv-unsigned-v3"` preserves v2's named
+fields and adds public, non-cv unnamed unsigned char/short/int/long fields with
+width zero through declared storage width. Interior/trailing padding, consecutive
+barriers, leading zero-width fields, unions, all-zero-field structs and nested
+arrays share one selected allocation contract. Unnamed fields consume padding
+but do not raise aggregate alignment or become addressable members.
+
+Positive leading struct padding before the first named nonstatic field/bit-field
+and positive-padding-only structs remain unsupported because original C++03
+§9.2/17 and §9.6/2 need reconciliation there. Nonpublic or cv-qualified unnamed
+fields (including cv through aliases) are also outside this contract, not thereby
+invalid C++03. Named private fields remain non-POD. V1/v2/default identities,
+generic `sizeof` and previous semantic guards are unchanged. Signed/plain,
+bool/enum, oversized and long-long fields are not added. Zero-width effects on
+ordinary members/trailing size are selected ABI/compiler facts, not universal
+2003 guarantees. #92/#48 and the five macro obligations remain open.
+[Original evidence and separate gates](cpp03-unnamed-bit-field-layout-verification.md).
