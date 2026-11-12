@@ -99,7 +99,7 @@ public final class Source {
                         || n instanceof ScopeMemberExpression || n instanceof PointerMemberExpression
                         || n instanceof NameExpression name && name.name().contains("::")
                         || n instanceof AddressOfExpression || n instanceof DereferenceExpression
-                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof OffsetofExpression || n instanceof CompilerIntrinsicExpression || n instanceof VaListExpression || n instanceof CharacterLiteral || n instanceof StringLiteral
+                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof OffsetofExpression || n instanceof CompilerIntrinsicExpression || n instanceof VaListExpression || n instanceof SetjmpExpression || n instanceof CharacterLiteral || n instanceof StringLiteral
                         || cppOnlyStatement(n) || n instanceof CommaExpression || n instanceof DotMemberPointerExpression || n instanceof ArrowMemberPointerExpression
                         || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion) || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression
                         || n instanceof ConditionalExpression
@@ -225,6 +225,9 @@ public final class Source {
                 case DOUBLE_POSITIVE_INFINITY -> capability.orElseThrow().kind().equals("positive_infinity");
             }) return false;
         }
+        if (node instanceof SetjmpExpression) {
+            if (unit == null || unit.configuration() == null || unit.configuration().platform().setjmp().isEmpty()) return false;
+        }
         if (node instanceof VaListExpression) {
             if (unit == null || unit.configuration() == null || unit.configuration().platform().varargs().isEmpty()) return false;
         }
@@ -333,7 +336,7 @@ public final class Source {
         file.walk(new NodeVisitor() {
             @Override public void visit(Node n) {
                 if (target == Language.JAVA && (n instanceof Expression expression && !expression.operatorCandidates().isEmpty()
-                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof OffsetofExpression || n instanceof CompilerIntrinsicExpression || n instanceof VaListExpression || n instanceof CharacterLiteral
+                        || n instanceof TypeidExpression || n instanceof NewExpression || n instanceof DeleteExpression || n instanceof InitializationExpression || n instanceof BaseSpecifier || n instanceof MemberInitializer || n instanceof FloatingLiteral || n instanceof OffsetofExpression || n instanceof CompilerIntrinsicExpression || n instanceof VaListExpression || n instanceof SetjmpExpression || n instanceof CharacterLiteral
                         || n instanceof StringLiteral || cppOnlyStatement(n) || n instanceof CommaExpression || n instanceof DotMemberPointerExpression
                         || n instanceof ArrowMemberPointerExpression || n instanceof ConversionExpression conversion && cppOnlyConversion(conversion)
                         || n instanceof LogicalAndExpression || n instanceof LogicalOrExpression || n instanceof ConditionalExpression
@@ -529,6 +532,7 @@ public final class Source {
             case OffsetofExpression.Member member -> member.name();
             case OffsetofExpression.Index index -> "[" + emit(index.expression(), 0) + "]";
             case CompilerIntrinsicExpression intrinsic -> compilerIntrinsic(intrinsic);
+            case SetjmpExpression operation -> "::_setjmp(" + emit(operation.buffer(), 0) + ")";
             case VaListExpression operation -> varargs(operation);
             case CharacterLiteral c -> c.spelling();
             case StringLiteral s -> s.spelling();

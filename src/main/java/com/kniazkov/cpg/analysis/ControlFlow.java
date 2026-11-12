@@ -23,17 +23,280 @@ public final class ControlFlow {
         var findings = new IdentityHashMap<Node, Diagnostic>();
         for (var function : unsupported) findings.put(function, new Diagnostic("unsupported-constructor-flow", Diagnostic.Severity.WARNING,
                 "Constructor flow requires a complete hierarchy without context-dependent virtual-base initialization; no partial flow is published"));
-        final Project snapshot = project.withDiagnostics("unsupported-constructor-flow", findings);
+        final Project snapshot = nonlocalDiagnostics(project.withDiagnostics("unsupported-constructor-flow", findings));
         List<FunctionFlow> flows = new ArrayList<>();
         var contexts = SourceContexts.index(snapshot);
         snapshot.walk(new NodeVisitor() {
             @Override public void visit(CallableDeclaration fn) {
-                fn.body().ifPresent(body -> flows.add(initializers(snapshot, fn)
+                fn.body().ifPresent(body -> flows.add((fn.diagnostics().stream().anyMatch(d -> d.code().equals(NONLOCAL_FLOW))
+                        ? Optional.<List<ClassSemantics.Subobject>>empty() : initializers(snapshot, fn))
                         .map(initializers -> new Builder(snapshot, fn, SourceContexts.require(contexts, fn)).build(body, initializers))
                         .orElseGet(() -> new FunctionFlow(fn, fn.exit(), List.of(), List.of(), false))));
             }
         });
         return snapshot.withFlows(flows).invalidatePasses(Set.of("DataFlow")).recordPass("ControlFlow");
+    }
+
+    /** Nonlocal transfers have neither ordinary return edges nor C++ unwind edges. */
+    private static final String NONLOCAL_FLOW = "unsupported-nonlocal-control-flow";
+
+    /** Propagate known nonlocal control through declarations and callable dependencies.
+     * This is a may-effect boundary, not a proof about unknown callbacks or runtime targets. */
+    private static Project nonlocalDiagnostics(Project project) {
+        var functions = new ArrayList<CallableDeclaration>();
+        boolean[] seed = {false};
+        project.walk(new NodeVisitor() {
+            @Override public void visit(Node node) { if (node instanceof SetjmpExpression) seed[0] = true; }
+            @Override public void visit(CallableDeclaration fn) {
+                functions.add(fn);
+                if (LibraryDeclarations.isLibrary(fn) && fn.name().equals("longjmp")) seed[0] = true;
+            }
+        });
+        // Almost every ordinary project has no nonlocal-control seed. Avoid all
+        // lifetime/hierarchy discovery there, but clear a stale derived warning
+        // when an edit has removed the project's final save/restore operation.
+        if (!seed[0]) return project.withDiagnostics(NONLOCAL_FLOW, Map.of());
+        var contexts = SourceContexts.index(project);
+        var dependencies = new IdentityHashMap<CallableDeclaration, Set<CallableDeclaration>>();
+        Set<CallableDeclaration> affected = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (var fn : functions) {
+            Set<CallableDeclaration> targets = Collections.newSetFromMap(new IdentityHashMap<>());
+            dependencies.put(fn, targets);
+            fn.definition().filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast).ifPresent(targets::add);
+            fn.previousDeclaration().filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast).ifPresent(targets::add);
+            if (LibraryDeclarations.isLibrary(fn) && fn.name().equals("longjmp")) affected.add(fn);
+            if (fn.body().isEmpty()) continue;
+            for (var parameter : fn.parameters()) parameter.type().ifPresent(type ->
+                    lifetimeTargets(type, targets, false, true, Collections.newSetFromMap(new IdentityHashMap<>())));
+            if (fn.kind() == CallableDeclaration.Kind.CONSTRUCTOR || fn.kind() == CallableDeclaration.Kind.DESTRUCTOR)
+                InheritanceSemantics.owningClass(project, fn).ifPresent(owner -> {
+                    boolean construct = fn.kind() == CallableDeclaration.Kind.CONSTRUCTOR;
+                    Set<ClassDeclaration> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+                    for (var base : owner.bases()) lifetimeTargets(base.type(), targets, construct, true, seen);
+                    for (var field : ClassSemantics.fields(owner)) field.type().ifPresent(type -> lifetimeTargets(type, targets, construct, true, seen));
+                });
+            var profile = TypeSemantics.profile(SourceContexts.require(contexts, fn));
+            Set<Node> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+            if (fn.kind() == CallableDeclaration.Kind.CONSTRUCTOR) {
+                var owner = InheritanceSemantics.owningClass(project, fn);
+                if (owner.isPresent()) {
+                    Set<ClassDeclaration> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+                    for (var base : owner.orElseThrow().bases())
+                        if (constructorDefaults(project, base.type(), 0, profile, targets, visited, seen)) affected.add(fn);
+                    for (var field : ClassSemantics.fields(owner.orElseThrow())) if (field.type().isPresent()
+                            && constructorDefaults(project, field.type().orElseThrow(), 0, profile, targets, visited, seen)) affected.add(fn);
+                }
+            }
+            if (nonlocalSyntax(project, fn.body().orElseThrow(), profile, targets, visited)) affected.add(fn);
+            for (var initializer : fn.initializers()) if (nonlocalSyntax(project, initializer, profile, targets, visited)) affected.add(fn);
+            for (var handler : fn.handlers()) if (nonlocalSyntax(project, handler, profile, targets, visited)) affected.add(fn);
+        }
+        // Redeclaration links may point only backwards. A selected prototype still
+        // denotes the definition's possible transfer, without guessing by spelling.
+        for (var fn : functions) {
+            fn.previousDeclaration().filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast)
+                    .filter(dependencies::containsKey).ifPresent(previous -> dependencies.get(previous).add(fn));
+        }
+        boolean changed;
+        do {
+            changed = false;
+            for (var fn : functions) if (!affected.contains(fn)
+                    && dependencies.get(fn).stream().anyMatch(affected::contains)) changed |= affected.add(fn);
+        } while (changed);
+        var findings = new IdentityHashMap<Node, Diagnostic>();
+        for (var fn : affected) if (fn.body().isPresent()) findings.put(fn, new Diagnostic(NONLOCAL_FLOW, Diagnostic.Severity.WARNING,
+                "Evaluated setjmp, standard longjmp, or a known callee may transfer nonlocally; resumption and state are not modeled, so no ordinary control/data flow is published"));
+        return project.withDiagnostics(NONLOCAL_FLOW, findings);
+    }
+
+    /** Collect evaluated targets only; a nested callable's body is not executed by its declaration. */
+    private static boolean nonlocalSyntax(Project project, Node node, com.kniazkov.cpg.build.PlatformProfile profile,
+            Set<CallableDeclaration> targets, Set<Node> visited) {
+        if (!visited.add(node) || node instanceof CallableDeclaration || node instanceof ClassDeclaration
+                || node instanceof SizeofExpression || node instanceof OffsetofExpression
+                || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile)) return false;
+        boolean direct = node instanceof SetjmpExpression;
+        if (node instanceof Expression expression) expression.operatorTarget().ifPresent(targets::add);
+        if (node instanceof VariableDeclaration variable) {
+            variable.constructorTarget().ifPresent(targets::add);
+            if (variable.isDefinition() && !variable.modifiers().contains("extern")) variable.type().ifPresent(type ->
+                    lifetimeTargets(type, targets, variable.constructorTarget().isEmpty() && variable.initializer().isEmpty(),
+                            !variable.modifiers().contains("static"), Collections.newSetFromMap(new IdentityHashMap<>())));
+            if (variable.isDefinition() && !variable.modifiers().contains("extern") && variable.type().isPresent()) {
+                Expression initializer = variable.initializer().orElse(null);
+                int count = initializer == null ? 0 : initializer instanceof InitializationExpression init ? init.arguments().size() : 1;
+                direct |= constructorDefaults(project, variable.type().orElseThrow(), count, profile, targets, visited,
+                        Collections.newSetFromMap(new IdentityHashMap<>()));
+            }
+        }
+        if (node instanceof NewExpression allocation) {
+            constructionTargets(allocation.type(), allocation.initializerArguments().size(), targets);
+            direct |= constructorDefaults(project, allocation.type(), allocation.initializerArguments().size(), profile, targets, visited,
+                    Collections.newSetFromMap(new IdentityHashMap<>()));
+            // Failed array/subobject construction can invoke known destructors.
+            lifetimeTargets(allocation.type(), targets, false, true, Collections.newSetFromMap(new IdentityHashMap<>()));
+        }
+        if (node instanceof InitializationExpression initialization && initialization.type().isPresent()) {
+            constructionTargets(initialization.type().orElseThrow(), initialization.arguments().size(), targets);
+            direct |= constructorDefaults(project, initialization.type().orElseThrow(), initialization.arguments().size(), profile, targets, visited,
+                    Collections.newSetFromMap(new IdentityHashMap<>()));
+            lifetimeTargets(initialization.type().orElseThrow(), targets, false, true, Collections.newSetFromMap(new IdentityHashMap<>()));
+        }
+        if (node instanceof MemberInitializer initializer) {
+            Declaration target = initializer.target().orElse(null);
+            if (target instanceof VariableDeclaration field && field.type().isPresent()) {
+                constructionTargets(field.type().orElseThrow(), initializer.arguments().size(), targets);
+                direct |= constructorDefaults(project, field.type().orElseThrow(), initializer.arguments().size(), profile, targets, visited,
+                        Collections.newSetFromMap(new IdentityHashMap<>()));
+            } else if (target instanceof ClassDeclaration owner) {
+                constructorCandidates(owner, initializer.arguments().size(), targets);
+                direct |= constructorDefaults(project, owner, initializer.arguments().size(), profile, targets, visited,
+                        Collections.newSetFromMap(new IdentityHashMap<>()));
+            }
+        }
+        if (node instanceof DeleteExpression deletion) {
+            TypeNode operand = TypeSemantics.expressionType(deletion.operand(), profile).map(TypeSemantics::withoutReference).map(TypeSemantics::unqualified).orElse(null);
+            if (operand instanceof PointerType pointer) {
+                lifetimeTargets(pointer.pointee(), targets, false, true, Collections.newSetFromMap(new IdentityHashMap<>()));
+                ClassSemantics.objectClass(pointer.pointee()).ifPresent(owner -> {
+                    if (virtualDestructionTargets(project, owner, owner, targets, Collections.newSetFromMap(new IdentityHashMap<>())))
+                        knownDynamicLifetimes(project, owner, targets);
+                });
+            }
+        }
+        if (node instanceof CallExpression call) {
+            call.target().ifPresent(targets::add);
+            targets.addAll(call.virtualTargets());
+            if (call.isVirtualDispatch() && call.target().filter(target -> target.kind() == CallableDeclaration.Kind.DESTRUCTOR).isPresent()) {
+                ClassDeclaration receiver = null;
+                if (call.callee() instanceof MemberExpression member) {
+                    TypeNode type = TypeSemantics.expressionType(member.receiver(), profile).map(TypeSemantics::withoutReference)
+                            .map(TypeSemantics::unqualified).orElse(null);
+                    if (type instanceof PointerType pointer) type = pointer.pointee();
+                    if (type != null) receiver = ClassSemantics.objectClass(type).orElse(null);
+                }
+                if (receiver == null) receiver = InheritanceSemantics.owningClass(project, call.target().orElseThrow()).orElse(null);
+                if (receiver != null) knownDynamicLifetimes(project, receiver, targets);
+            }
+            callableReferences(call.callee(), targets, Collections.newSetFromMap(new IdentityHashMap<>()));
+            for (var argument : call.defaultArguments()) direct |= nonlocalSyntax(project, argument.expression(), profile, targets, visited);
+        }
+        for (var child : node.children()) direct |= nonlocalSyntax(project, child, profile, targets, visited);
+        return direct;
+    }
+
+    /** An initialized function pointer/reference may still name its original target.
+     * Taking that address alone is not a transfer; this walk starts only at callees. */
+    private static void callableReferences(Node node, Set<CallableDeclaration> targets, Set<Node> visited) {
+        if (!visited.add(node)) return;
+        if (node instanceof NameExpression name) name.target().ifPresent(target -> {
+            if (target instanceof CallableDeclaration callable) targets.add(callable);
+            else if (target instanceof VariableDeclaration variable) variable.initializer().ifPresent(value -> callableReferences(value, targets, visited));
+        });
+        if (node instanceof MemberExpression member) member.target().ifPresent(target -> {
+            if (target instanceof CallableDeclaration callable) targets.add(callable);
+            else if (target instanceof VariableDeclaration variable) variable.initializer().ifPresent(value -> callableReferences(value, targets, visited));
+        });
+        if (node instanceof CallExpression) return;
+        for (var child : node.children()) callableReferences(child, targets, visited);
+    }
+
+    /** An implicit destructor is virtual when a base destructor is virtual, even
+     * though this snapshot has no callable declaration for that implicit member.
+     * Search inherited anchors while retaining the actual static receiver: only
+     * its known derived implementations are possible dynamic destruction targets. */
+    private static boolean virtualDestructionTargets(Project project, ClassDeclaration owner, ClassDeclaration staticReceiver,
+            Set<CallableDeclaration> targets, Set<ClassDeclaration> visited) {
+        if (!visited.add(owner)) return false;
+        boolean virtual = false;
+        for (var member : owner.members()) if (member instanceof CallableDeclaration destructor
+                && destructor.kind() == CallableDeclaration.Kind.DESTRUCTOR && InheritanceSemantics.isVirtual(project, destructor)) {
+            virtual = true;
+            targets.addAll(InheritanceSemantics.possibleTargets(project, destructor, staticReceiver));
+        }
+        for (var base : owner.bases()) {
+            var parent = InheritanceSemantics.baseClass(base);
+            if (parent.isPresent()) virtual |= virtualDestructionTargets(project, parent.orElseThrow(), staticReceiver, targets, visited);
+        }
+        return virtual;
+    }
+
+    /** A known derived class may itself have only an implicit destructor. Its
+     * member/base cleanup still runs during virtual destruction, even though no
+     * explicit override node exists for possibleTargets to return. */
+    private static void knownDynamicLifetimes(Project project, ClassDeclaration receiver, Set<CallableDeclaration> targets) {
+        Set<ClassDeclaration> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        project.walk(new NodeVisitor() { @Override public void visit(ClassDeclaration candidate) {
+            if (candidate == receiver || InheritanceSemantics.derivesFrom(candidate, receiver))
+                lifetimeTargets(candidate, targets, false, true, visited);
+        } });
+    }
+
+    /** Allocation and temporary syntax have no selected constructor link in this
+     * model. Retain all arity-compatible source candidates rather than claiming
+     * ordinary return because the expression's result is merely a pointer. */
+    private static void constructionTargets(TypeNode type, int arguments, Set<CallableDeclaration> targets) {
+        ClassSemantics.objectClass(type).ifPresent(owner -> constructorCandidates(owner, arguments, targets));
+        lifetimeTargets(type, targets, true, false, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+    private static void constructorCandidates(ClassDeclaration owner, int arguments, Set<CallableDeclaration> targets) {
+        for (var member : owner.members()) if (member instanceof CallableDeclaration callable
+                && callable.kind() == CallableDeclaration.Kind.CONSTRUCTOR
+                && (callable.variadic() || arguments <= callable.parameters().size())
+                && callable.parameters().subList(Math.min(arguments, callable.parameters().size()), callable.parameters().size())
+                        .stream().allMatch(parameter -> parameter.defaultValue().isPresent())) targets.add(callable);
+    }
+
+    /** Omitted constructor defaults execute at the construction site, not when
+     * the constructor is declared. New/temporary syntax lacks CallExpression's
+     * derived defaultArguments links, so inspect each arity-compatible candidate. */
+    private static boolean constructorDefaults(Project project, TypeNode type, int arguments,
+            com.kniazkov.cpg.build.PlatformProfile profile, Set<CallableDeclaration> targets,
+            Set<Node> visited, Set<ClassDeclaration> seen) {
+        if (TypeSemantics.unqualified(type) instanceof ReferenceType) return false;
+        var object = ClassSemantics.objectClass(type);
+        return object.isPresent() && constructorDefaults(project, object.orElseThrow(), arguments, profile, targets, visited, seen);
+    }
+    private static boolean constructorDefaults(Project project, ClassDeclaration owner, int arguments,
+            com.kniazkov.cpg.build.PlatformProfile profile, Set<CallableDeclaration> targets,
+            Set<Node> visited, Set<ClassDeclaration> seen) {
+        if (!seen.add(owner)) return false;
+        Set<CallableDeclaration> candidates = Collections.newSetFromMap(new IdentityHashMap<>());
+        constructorCandidates(owner, arguments, candidates);
+        targets.addAll(candidates);
+        boolean direct = false;
+        for (var candidate : candidates) for (int i = arguments; i < candidate.parameters().size(); i++) {
+            var parameter = candidate.parameters().get(i);
+            if (parameter.defaultValue().isPresent())
+                direct |= nonlocalSyntax(project, parameter.defaultValue().orElseThrow(), profile, targets, visited);
+        }
+        for (var base : owner.bases()) direct |= constructorDefaults(project, base.type(), 0, profile, targets, visited, seen);
+        for (var field : ClassSemantics.fields(owner)) if (field.type().isPresent())
+            direct |= constructorDefaults(project, field.type().orElseThrow(), 0, profile, targets, visited, seen);
+        return direct;
+    }
+
+    /** Include the known lifetime calls that the ordinary CFG would synthesize.
+     * A reference does not own its referent; static-local destruction is not a
+     * return-time call. Subobjects also matter when the enclosing special member
+     * is implicit and has no declaration of its own in the snapshot. */
+    private static void lifetimeTargets(TypeNode type, Set<CallableDeclaration> targets, boolean construct,
+            boolean destroy, Set<ClassDeclaration> visited) {
+        type = TypeSemantics.unqualified(type);
+        if (type instanceof ReferenceType) return;
+        ClassSemantics.objectClass(type).ifPresent(owner -> lifetimeTargets(owner, targets, construct, destroy, visited));
+    }
+    private static void lifetimeTargets(ClassDeclaration owner, Set<CallableDeclaration> targets, boolean construct,
+            boolean destroy, Set<ClassDeclaration> visited) {
+        if (!visited.add(owner)) return;
+        for (var member : owner.members()) if (member instanceof CallableDeclaration callable) {
+            if (destroy && callable.kind() == CallableDeclaration.Kind.DESTRUCTOR) targets.add(callable);
+            if (construct && callable.kind() == CallableDeclaration.Kind.CONSTRUCTOR
+                    && callable.parameters().stream().allMatch(p -> p.defaultValue().isPresent())) targets.add(callable);
+        }
+        for (var base : owner.bases()) lifetimeTargets(base.type(), targets, construct, destroy, visited);
+        for (var field : ClassSemantics.fields(owner)) field.type().ifPresent(value ->
+                lifetimeTargets(value, targets, construct, destroy, visited));
     }
 
     /** Resolving an implicit prerequisite must not erase previously reported root errors.

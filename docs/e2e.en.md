@@ -538,3 +538,11 @@ The workflow uploads the typed-pointer oracle directory.
 The structural alias-rename guard is tested as a rejection; positive edits use
 a separate declaration and assignment with `EditableCallback`. No broader ABI, runtime
 list ownership or complete macro-support claim follows.
+
+### Bounded setjmp oracle
+
+`SetjmpRuntimeIT` covers original/generated/CPG-materialized routes and real
+graph edits in optimized strict C++03 GCC/Clang executions. Negative boundaries
+are not executed as UB. Artifacts: `target/setjmp-runtime-oracle/`.
+Implementation checks and full verify/CI are separate in the
+[report](cpp03-setjmp-verification.md).

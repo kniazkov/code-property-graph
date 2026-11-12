@@ -2138,3 +2138,14 @@ declaration/assignment и `EditableCallback`, не произвольные пе
 Initialized/copied списки остаются неподдержанными на уровне декларации:
 opaque initialization не моделируется, даже если дальнейший va_arg type-only.
 Неявные direct-name члены класса также не поддержаны в type-only контексте.
+
+### Ограниченный setjmp C++03
+
+Профиль `setjmp={"emission":"gcc-clang-glibc"}` требует `cRuntime="glibc"`.
+`SetjmpExpression.buffer()` сохраняет прямой standard-bound локальный
+`jmp_buf`; результат int неизвестен, layout буфера не угадывается.
+Генерация вызывает runtime entry непосредственно, без wrapper и без
+`__builtin_setjmp`. Nonlocal CFG/DFG и известные транзитивные вызывающие
+функции явно неполны, не изображаются обычным возвратом или исключением.
+Динамическая корректность lifetime/state не доказана.
+[Контракт, оригинальная редакция и гейты](cpp03-setjmp-verification.md).
