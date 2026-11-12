@@ -491,7 +491,7 @@ final class PodLayout {
                 var fields = new ArrayList<Field>();
                 boolean namedObjectSeen = false;
                 boolean padding = profile.offsetof().map(model ->
-                        "x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage())).orElse(false);
+                        ("x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage()) || "x86_64-sysv-integral-v4".equals(model.bitFieldStorage()))).orElse(false);
                 for (Declaration member : owner.members()) {
                     if (!(member instanceof VariableDeclaration field) || field.modifiers().contains("static")) continue;
                     // C++03 9.6/2: an unnamed bit-field is not a member. Its
@@ -545,13 +545,13 @@ final class PodLayout {
                 return layoutValue(align(size.max(BigInteger.ONE), alignment, profile), alignment, fields);
             } finally { activeClasses.removeLast(); }
         }
-        /** Selected unsigned fields and optional unnamed padding; no host-derived facts. */
+        /** Selected integral storage allocation and optional unnamed padding; no signedness/value/promotion or host-derived facts. */
         private record BitAllocation(int storageBits, int width) {}
         private Result<BitAllocation> bitField(VariableDeclaration field) {
             if (profile.offsetof().map(model -> model.bitFieldStorage() == null).orElse(true))
                 return failure(Reason.BIT_FIELD, "Bit-field allocation requires explicit offsetof.bitFieldStorage");
             boolean padding = profile.offsetof().map(model ->
-                    "x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage())).orElse(false);
+                    ("x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage()) || "x86_64-sysv-integral-v4".equals(model.bitFieldStorage()))).orElse(false);
             boolean unnamed = field.name().isEmpty();
             if ((unnamed && !padding) || field.type().isEmpty())
                 return failure(Reason.BIT_FIELD, "Selected bit-field allocation requires a resolved type and admitted field category");
@@ -561,16 +561,22 @@ final class PodLayout {
             String spelling = plain instanceof NamedType named
                     ? named.fundamentalKind().map(FundamentalKind::spelling).orElse("") : "";
             boolean extended = profile.offsetof().map(model ->
-                    Set.of("x86_64-sysv-unsigned-v2", "x86_64-sysv-unsigned-v3").contains(model.bitFieldStorage())).orElse(false);
+                    Set.of("x86_64-sysv-unsigned-v2", "x86_64-sysv-unsigned-v3", "x86_64-sysv-integral-v4").contains(model.bitFieldStorage())).orElse(false);
+            boolean integral = profile.offsetof().map(model ->
+                    "x86_64-sysv-integral-v4".equals(model.bitFieldStorage())).orElse(false);
             int bits = switch (spelling) {
                 case "unsigned char" -> 8;
+                case "char", "signed char" -> integral ? 8 : 0;
+                case "short", "signed short" -> integral ? 16 : 0;
+                case "int", "signed int" -> integral ? 32 : 0;
+                case "long", "signed long" -> integral ? 64 : 0;
                 case "unsigned short" -> extended ? 16 : 0;
                 case "unsigned int" -> 32;
                 case "unsigned long" -> extended ? 64 : 0;
                 default -> 0;
             };
             if (bits == 0)
-                return failure(Reason.BIT_FIELD, extended ? "Selected bit-field allocation supports only unsigned char, unsigned short, unsigned int and unsigned long"
+                return failure(Reason.BIT_FIELD, integral ? "Selected bit-field allocation supports only char, short, int and long storage families" : extended ? "Selected bit-field allocation supports only unsigned char, unsigned short, unsigned int and unsigned long"
                         : "Selected bit-field allocation supports only unsigned char and unsigned int");
             var width = integer(field.bitWidth().orElseThrow());
             if (width.isEmpty()) return constantFailure(Reason.BIT_FIELD, "Bit-field width is not a certified integral constant");

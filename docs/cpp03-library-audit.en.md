@@ -804,3 +804,7 @@ ordinary members/trailing size are selected ABI/compiler facts, not universal
 ### Macro acceptance consolidation
 
 [The 102-obligation acceptance map](cpp03-macro-acceptance.md) distinguishes definition presence, independently checked target facts, native CPG materializations and residual scope. Five obligations remain partial/open under #145/#146/#147; neither this map nor the 97 implementation classifications means complete C++03 or universal ABI support. Exact frozen-head aggregate gates are recorded in the task PR.
+
+### Signed and plain integral bit-field layout (#145)
+
+Explicit `x86_64-sysv-integral-v4` adds signed/plain char/short/int/long to ordinary-member layout only, not bit-field signedness, values or promotions. Omitted/v1/v2/v3 contracts are unchanged; #145 residual forms and all five partial/open macro obligations remain open. [Contract and separate gates](cpp03-signed-bit-field-layout-verification.md). #92 acceptance after #148 completed its support-or-open-link criterion, not every residual implementation.
