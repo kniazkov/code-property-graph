@@ -539,9 +539,18 @@ final class PodLayout {
             TypeNode plain = shape.value().orElseThrow();
             String spelling = plain instanceof NamedType named
                     ? named.fundamentalKind().map(FundamentalKind::spelling).orElse("") : "";
-            int bits = switch (spelling) { case "unsigned char" -> 8; case "unsigned int" -> 32; default -> 0; };
+            boolean extended = profile.offsetof().map(model ->
+                    "x86_64-sysv-unsigned-v2".equals(model.bitFieldStorage())).orElse(false);
+            int bits = switch (spelling) {
+                case "unsigned char" -> 8;
+                case "unsigned short" -> extended ? 16 : 0;
+                case "unsigned int" -> 32;
+                case "unsigned long" -> extended ? 64 : 0;
+                default -> 0;
+            };
             if (bits == 0)
-                return failure(Reason.BIT_FIELD, "Selected bit-field allocation supports only unsigned char and unsigned int");
+                return failure(Reason.BIT_FIELD, extended ? "Selected bit-field allocation supports only unsigned char, unsigned short, unsigned int and unsigned long"
+                        : "Selected bit-field allocation supports only unsigned char and unsigned int");
             var width = integer(field.bitWidth().orElseThrow());
             if (width.isEmpty()) return constantFailure(Reason.BIT_FIELD, "Bit-field width is not a certified integral constant");
             if (width.orElseThrow().signum() <= 0 || width.orElseThrow().compareTo(BigInteger.valueOf(bits)) > 0)
