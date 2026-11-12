@@ -41,6 +41,16 @@ class MacroInventoryTest(unittest.TestCase):
         del row['partial_implementation']
         self.assertTrue(checker.check(self.data))
 
+    def test_partial_residual_cannot_link_only_to_umbrella(self):
+        for name in ('offsetof', 'setjmp', 'va_start', 'va_arg', 'va_end'):
+            for umbrella in (48, 92):
+                with self.subTest(name=name, umbrella=umbrella):
+                    data = copy.deepcopy(self.data)
+                    row = next(e for e in data['entries'] if e['name'] == name)
+                    row['remaining_work'] = ('https://github.com/kniazkov/'
+                                             'code-property-graph/issues/' + str(umbrella))
+                    self.assertTrue(checker.check(data))
+
     def test_dropped_obligation(self):
         self.data['entries'].pop()
         self.assertTrue(checker.check(self.data))

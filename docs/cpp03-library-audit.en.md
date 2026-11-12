@@ -800,3 +800,7 @@ bool/enum, oversized and long-long fields are not added. Zero-width effects on
 ordinary members/trailing size are selected ABI/compiler facts, not universal
 2003 guarantees. #92/#48 and the five macro obligations remain open.
 [Original evidence and separate gates](cpp03-unnamed-bit-field-layout-verification.md).
+
+### Macro acceptance consolidation
+
+[The 102-obligation acceptance map](cpp03-macro-acceptance.md) distinguishes definition presence, independently checked target facts, native CPG materializations and residual scope. Five obligations remain partial/open under #145/#146/#147; neither this map nor the 97 implementation classifications means complete C++03 or universal ABI support. Exact frozen-head aggregate gates are recorded in the task PR.

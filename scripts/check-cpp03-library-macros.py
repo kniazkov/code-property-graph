@@ -64,6 +64,10 @@ def check(data, root=ROOT):
                 label + ': no remaining-work issue')
         if entry['name'] in ('offsetof', 'setjmp', 'va_start', 'va_arg', 'va_end'):
             require(entry.get('support_status') == 'open', label + ': residual obligation must remain open')
+            require(entry.get('remaining_work') not in (
+                    'https://github.com/kniazkov/code-property-graph/issues/92',
+                    'https://github.com/kniazkov/code-property-graph/issues/48'),
+                    label + ': residual needs a specific follow-up, not an umbrella self-reference')
         if entry['name'] in ('setjmp', 'va_start', 'va_arg', 'va_end'):
             require('partial_implementation' in entry, label + ': missing bounded function-macro metadata')
         if 'partial_implementation' in entry:
