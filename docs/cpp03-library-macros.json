@@ -1755,7 +1755,7 @@
       "guarantee": "Must remain macro; saves execution context and returns again on matching longjmp. Expansion cannot honestly be replaced by an arbitrary ordinary function. Preserve permitted invocation contexts and C++ destructor restriction.",
       "required_in_if": "not_applicable",
       "support_status": "open",
-      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/147",
       "implementation": ["src/main/java/com/kniazkov/cpg/build/SetjmpModel.java", "src/main/java/com/kniazkov/cpg/model/SetjmpExpression.java", "src/main/java/com/kniazkov/cpg/analysis/SetjmpSemantics.java", "src/main/java/com/kniazkov/cpg/analysis/ControlFlow.java"],
       "tests": ["src/test/java/com/kniazkov/cpg/analysis/SetjmpModelTest.java", "src/test/java/com/kniazkov/cpg/analysis/SetjmpRuntimeTest.java", "src/test/java/com/kniazkov/cpg/analysis/NonlocalControlFlowTest.java", "src/test/java/com/kniazkov/cpg/e2e/SetjmpRuntimeIT.java"],
       "support_boundary": "Bounded explicit gcc-clang-glibc backend with cRuntime=glibc, direct local standard-bound opaque jmp_buf, C90 invocation-context checks and incomplete nonlocal CFG/DFG including known transitive callers. No general lifetime/environment/state proof, signal semantics or other runtime guarantee. Five obligations and #92/#48 remain open; see docs/cpp03-setjmp-verification.md for separate verification gates.",
@@ -2098,7 +2098,7 @@
       "guarantee": "Macros traverse target-specific va_list state; va_arg second operand is a type, not a value argument. Respect default promotions, va_start last-parameter restrictions, and va_end lifetime. No required va_copy.",
       "required_in_if": "not_applicable",
       "support_status": "open",
-      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/146",
       "implementation": [
         "src/main/java/com/kniazkov/cpg/build/VarargsModel.java",
         "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
@@ -2142,7 +2142,7 @@
       "guarantee": "Macros traverse target-specific va_list state; va_arg second operand is a type, not a value argument. Respect default promotions, va_start last-parameter restrictions, and va_end lifetime. No required va_copy.",
       "required_in_if": "not_applicable",
       "support_status": "open",
-      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/146",
       "implementation": [
         "src/main/java/com/kniazkov/cpg/build/VarargsModel.java",
         "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
@@ -2186,7 +2186,7 @@
       "guarantee": "Macros traverse target-specific va_list state; va_arg second operand is a type, not a value argument. Respect default promotions, va_start last-parameter restrictions, and va_end lifetime. No required va_copy.",
       "required_in_if": "not_applicable",
       "support_status": "open",
-      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/146",
       "implementation": [
         "src/main/java/com/kniazkov/cpg/build/VarargsModel.java",
         "src/main/java/com/kniazkov/cpg/build/PlatformProfile.java",
@@ -2230,7 +2230,7 @@
       "guarantee": "Integral constant expression of size_t for POD struct/union member byte offset; static-data/function member undefined. Depends on target layout, packing, alignment; bit-field offset is not portable.",
       "required_in_if": "not_applicable",
       "support_status": "open",
-      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
+      "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/145",
       "implementation": [
         "src/main/java/com/kniazkov/cpg/build/OffsetofModel.java",
         "src/main/java/com/kniazkov/cpg/model/OffsetofExpression.java",
