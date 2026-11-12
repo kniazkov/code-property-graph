@@ -566,3 +566,11 @@ Workflow включает upload typed-pointer oracle.
 положительное редактирование использует отдельные declaration/assignment
 и `EditableCallback`. Это не расширение ABI,
 runtime-форм списков или заявление о полном покрытии макросов.
+
+### Ограниченный setjmp oracle
+
+`SetjmpRuntimeIT` проверяет original/generated/CPG-materialized пути и
+настоящие правки графа в строгом C++03 с оптимизацией GCC/Clang. Негативные
+границы не исполняются как UB. Артефакты: `target/setjmp-runtime-oracle/`.
+Проверки реализации и полный verify/CI разделены в
+[отчёте](cpp03-setjmp-verification.md).

@@ -2128,3 +2128,13 @@ structural rewrites.
 Initialized/copied lists remain unsupported at their declaration because opaque
 initialization is not modeled, even when later va_arg use is type-only. Implicit
 direct-name class-member lists are also unsupported in type-only contexts.
+
+### Bounded C++03 setjmp
+
+The `setjmp={"emission":"gcc-clang-glibc"}` profile requires `cRuntime="glibc"`.
+`SetjmpExpression.buffer()` retains a direct standard-bound local `jmp_buf`;
+the int result is unknown and buffer layout is not guessed. Generation calls
+the runtime entry directly, without a wrapper or `__builtin_setjmp`. Nonlocal
+CFG/DFG and known transitive callers are explicitly incomplete, not ordinary
+return or exception-unwinding graphs. Dynamic lifetime/state correctness is
+not proved. [Contract, original edition and gates](cpp03-setjmp-verification.md).

@@ -149,6 +149,12 @@ final class ExpressionParser {
     private NodeBuilder<? extends Expression> primary() {
         var start = tokens.start();
         if (java.util.Set.of(";", ")", "]", "}", ",", ":", "<eof>").contains(tokens.peek())) throw tokens.missingExpression();
+        if (language == Language.CPP && (tokens.peek().equals("::") && tokens.peek(1).equals("_setjmp"))) {
+            if (tokens.platform().setjmp().isEmpty()) throw tokens.error("Nonlocal environment save requires setjmp capability");
+            tokens.take("::"); tokens.advance(); tokens.expect("(");
+            var result = SetjmpExpression.create().setBuffer(nestedExpression(1));
+            tokens.expect(")"); return postfix(start, tokens.span(start, result));
+        }
         if (language == Language.CPP && java.util.Set.of("__builtin_va_start", "__builtin_va_arg", "__builtin_va_end").contains(tokens.peek())) {
             if (tokens.platform().varargs().isEmpty()) throw tokens.error("Variable argument intrinsic requires varargs capability");
             String name = tokens.peek(); tokens.advance(); tokens.expect("(");

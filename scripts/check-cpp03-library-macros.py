@@ -64,8 +64,8 @@ def check(data, root=ROOT):
                 label + ': no remaining-work issue')
         if entry['name'] in ('offsetof', 'setjmp', 'va_start', 'va_arg', 'va_end'):
             require(entry.get('support_status') == 'open', label + ': residual obligation must remain open')
-        if entry['name'] in ('va_start', 'va_arg', 'va_end'):
-            require('partial_implementation' in entry, label + ': missing bounded varargs metadata')
+        if entry['name'] in ('setjmp', 'va_start', 'va_arg', 'va_end'):
+            require('partial_implementation' in entry, label + ': missing bounded function-macro metadata')
         if 'partial_implementation' in entry:
             partial = entry['partial_implementation']
             require(entry.get('support_status') == 'open' and entry.get('macro_kind') == 'function',
@@ -84,6 +84,15 @@ def check(data, root=ROOT):
                 require(type(partial.get('required_long_double_storage_bits')) is int and
                         partial.get('required_long_double_storage_bits') == 128,
                         label + ': partial varargs requires exact 128-bit long double storage')
+            elif entry['name'] == 'setjmp':
+                require(entry['header'] == 'csetjmp' and entry.get('required_in_if') == 'not_applicable',
+                        label + ': partial setjmp requires original header and macro contract')
+                require(set(partial) == {'profile_setting', 'emission', 'c_runtime',
+                        'completion', 'unknown_behavior', 'support_boundary'},
+                        label + ': partial setjmp requires exact closed metadata')
+                for field, value in [('profile_setting', 'setjmp'), ('emission', 'gcc-clang-glibc'),
+                        ('c_runtime', 'glibc'), ('completion', 'partial_open')]:
+                    require(partial.get(field) == value, label + ': invalid partial setjmp ' + field)
             else:
                 require(entry['name'] == 'offsetof' and entry['header'] == 'cstddef',
                         label + ': partial subset cannot replace another obligation')

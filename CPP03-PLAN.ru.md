@@ -477,6 +477,11 @@ JSON/DOT показывают её отдельно от дерева владе
   последние параметры, корректное разделение promotion и unevaluated sizeof.
   Это отдельный bounded-подпункт, не закрытие пяти макросов или #92/#48;
   [контракт, план и статус проверок](docs/cpp03-typed-pointer-varargs-verification.md).
+- [x] Ограниченный glibc setjmp: явный backend, operand-bearing модель и
+  локальный opaque jmp_buf; контексты C90, консервативная транзитивная
+  неполнота CFG/DFG и native original/generated/materialized проверки.
+  Целевые проверки и независимое review пройдены; полный verify/CI —
+  отдельные незавершённые гейты: [отчёт](docs/cpp03-setjmp-verification.md).
 - [ ] Остатки offsetof и функциональные макросы setjmp, va_start, va_arg,
   va_end. Пять обязательств остаются незавершёнными; эта очередь не означает
   полного соответствия C++03 и не завершает итоговую приёмку #48.
