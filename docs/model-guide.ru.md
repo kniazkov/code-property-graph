@@ -2115,3 +2115,26 @@ prerequisite offsetof/POD, не полная поддержка templates. Secti
 ARG читает/продвигает, END читает/завершает; sizeof не выполняет операции,
 алиасы указателей консервативны. Динамическое доказательство count/type/lifecycle
 не заявлено. [Границы и отдельные гейты](cpp03-varargs-verification.md).
+
+[Пакет typed pointers](cpp03-typed-pointer-varargs-verification.md) добавляет
+связанные записанные typedef-имена указателей на обычные функции и массивы
+фиксированной положительной длины, включая квалифицированные цепочки алиасов
+и такие последние параметры. Значения и цели косвенных вызовов неизвестны,
+эффекты консервативны. Вычисляемое извлечение enum/алиаса некорректно из-за
+promotion. Невычисляемый sizeof допускает float, малые скаляры и complete enum
+с алиасами без runtime-проверок owner/storage/promotion для прямых стандартных
+списков: локальных (также nonvariadic), global/static/extern и direct parameter.
+Layout enum не выдумывается; qualified/fake/foreign/unbound/cyclic списки не
+принимаются. Runtime-ограничения не расширены. Raw complex declarators,
+принимаемые builtin, не являются portable macro-positive доказательством.
+Правила вычисления typeid сохраняются; все пять макросов и #92/#48 открыты.
+
+Именованные фиксированные границы массивов используют `IntegralConstants`
+в контексте snapshot с защитой от cyclic/dependent/foreign случаев. Структурное
+переименование алиаса внутри декларации с va_arg по-прежнему отклоняется
+source-preservation guard; положительная проверка использует отдельные
+declaration/assignment и `EditableCallback`, не произвольные переписывания.
+
+Initialized/copied списки остаются неподдержанными на уровне декларации:
+opaque initialization не моделируется, даже если дальнейший va_arg type-only.
+Неявные direct-name члены класса также не поддержаны в type-only контексте.
