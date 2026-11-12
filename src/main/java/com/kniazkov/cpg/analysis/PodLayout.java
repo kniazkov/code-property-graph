@@ -484,6 +484,10 @@ final class PodLayout {
                 var fields = new ArrayList<Field>();
                 for (Declaration member : owner.members()) {
                     if (!(member instanceof VariableDeclaration field) || field.modifiers().contains("static")) continue;
+                    // C++03 9.6/2: an unnamed bit-field is not a member. Its
+                    // access label must not turn an unsupported layout into NOT_POD.
+                    if (field.bitWidth().isPresent() && field.name().isEmpty())
+                        return failure(Reason.BIT_FIELD, "Unnamed bit-field allocation is outside the selected contract");
                     if (!field.access().orElse(owner.memberAccess()).equals("public"))
                         return failure(Reason.NOT_POD, "A C++03 POD class has only public nonstatic data members");
                     if (field.bitWidth().isPresent()) {

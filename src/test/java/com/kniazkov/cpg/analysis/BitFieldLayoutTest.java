@@ -135,6 +135,16 @@ class BitFieldLayoutTest {
                 "enum E {a,b}; E bits:2;", "unsigned int b:-1;", "int width; unsigned int b:width;"))
             unsupported(resolve(source(member)),PROFILE,"BIT_FIELD");
     }
+    @Test void unnamedFieldsDoNotBecomePrivateNonPodMembers() {
+        for(String declaration:List.of("class S {unsigned int :3;public:char tail;};",
+                "class S {unsigned int :0;public:char tail;};",
+                "struct S {private:unsigned int :3;public:char tail;};")) {
+            var p=resolve(declaration+"unsigned long result=__builtin_offsetof(S,tail);");
+            unsupported(p,PROFILE,"BIT_FIELD");
+            assertTrue(p.semanticDiagnostics().stream().anyMatch(d->d.code().equals("unsupported-offsetof")));
+            assertFalse(p.semanticDiagnostics().toString().contains("NOT_POD"));
+        }
+    }
     @Test void bitFieldsNeverAcquireMemberDesignatorOffsets() {
         for(String designator:List.of("b","inner.b")) {
             var p=resolve("struct I {unsigned int b:3;char tail;};struct S {unsigned int b:3;I inner;};unsigned long result=__builtin_offsetof(S,"+designator+");");
