@@ -60,6 +60,7 @@ public interface NodeVisitor {
     default void visit(BooleanLiteral node) { visit((Expression) node); }
     default void visit(FloatingLiteral node) { visit((Expression) node); }
     default void visit(CompilerIntrinsicExpression node) { visit((Expression) node); }
+    default void visit(SetjmpExpression node) { visit((Expression) node); }
     default void visit(VaListExpression node) { visit((Expression) node); }
     default void visit(CharacterLiteral node) { visit((Expression) node); }
     default void visit(StringLiteral node) { visit((Expression) node); }

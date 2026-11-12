@@ -69,7 +69,7 @@ public final class NameResolver {
                     "Template instantiation resource limit reached (64 rounds, 256 instances or 20000 nodes)"));
             typed=limited.build();
         }
-        return VarargsSemantics.analyze(LibraryGraph.materialize(typed)).recordPass("NameResolver");
+        return SetjmpSemantics.analyze(VarargsSemantics.analyze(LibraryGraph.materialize(typed))).recordPass("NameResolver");
     }
 
     private static List<String> expressionBindings(Project project) {

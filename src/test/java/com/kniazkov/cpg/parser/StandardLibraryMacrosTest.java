@@ -159,12 +159,13 @@ class StandardLibraryMacrosTest {
                 + "#include <csetjmp>\n#include <cstddef>\n#include <ciso646>\n", PlatformProfile.defaults());
         var names = result.definitions().stream().map(CppPreprocessor.Definition::name).toList();
         for (String name : List.of("LLONG_MAX", "ULLONG_MAX", "FLT_TRUE_MIN", "FLT_EVAL_METHOD", "DECIMAL_DIG", "FLT_DECIMAL_DIG",
-                "va_copy", "setjmp", "and", "or", "not")) assertFalse(names.contains(name), name);
+                "va_copy", "and", "or", "not")) assertFalse(names.contains(name), name);
         assertTrue(result.definitions().stream().filter(d -> d.name().equals("offsetof")).allMatch(d -> d.unavailableReason() != null));
-        for (String name : List.of("va_start", "va_arg", "va_end")) {
+        for (String name : List.of("setjmp", "va_start", "va_arg", "va_end")) {
             var definition = result.definitions().stream().filter(d -> d.name().equals(name)).findFirst().orElseThrow();
             assertTrue(definition.functionLike());
             assertNotNull(definition.unavailableReason(), name);
+            assertTrue(definition.rawReplacement().isBlank(), name);
         }
     }
 }

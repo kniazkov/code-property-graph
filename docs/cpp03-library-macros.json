@@ -1756,9 +1756,10 @@
       "required_in_if": "not_applicable",
       "support_status": "open",
       "remaining_work": "https://github.com/kniazkov/code-property-graph/issues/92",
-      "implementation": [],
-      "tests": [],
-      "support_boundary": "Not supplied by this stage. Needs the remaining #92 implementation and tests; no fake declaration or host-dependent replacement is counted as support."
+      "implementation": ["src/main/java/com/kniazkov/cpg/build/SetjmpModel.java", "src/main/java/com/kniazkov/cpg/model/SetjmpExpression.java", "src/main/java/com/kniazkov/cpg/analysis/SetjmpSemantics.java", "src/main/java/com/kniazkov/cpg/analysis/ControlFlow.java"],
+      "tests": ["src/test/java/com/kniazkov/cpg/analysis/SetjmpModelTest.java", "src/test/java/com/kniazkov/cpg/analysis/SetjmpRuntimeTest.java", "src/test/java/com/kniazkov/cpg/analysis/NonlocalControlFlowTest.java", "src/test/java/com/kniazkov/cpg/e2e/SetjmpRuntimeIT.java"],
+      "support_boundary": "Bounded explicit gcc-clang-glibc backend with cRuntime=glibc, direct local standard-bound opaque jmp_buf, C90 invocation-context checks and incomplete nonlocal CFG/DFG including known transitive callers. No general lifetime/environment/state proof, signal semantics or other runtime guarantee. Five obligations and #92/#48 remain open; see docs/cpp03-setjmp-verification.md for separate verification gates.",
+      "partial_implementation": {"profile_setting": "setjmp", "emission": "gcc-clang-glibc", "c_runtime": "glibc", "completion": "partial_open", "unknown_behavior": "Missing capability leaves the macro unavailable; opaque jmp_buf has unknown layout and no guessed save/restore state.", "support_boundary": "Bounded explicit gcc-clang-glibc backend with cRuntime=glibc, direct local standard-bound opaque jmp_buf, C90 invocation-context checks and incomplete nonlocal CFG/DFG including known transitive callers. No general lifetime/environment/state proof, signal semantics or other runtime guarantee. Five obligations and #92/#48 remain open; see docs/cpp03-setjmp-verification.md for separate verification gates."}
     },
     {
       "header": "csignal",
