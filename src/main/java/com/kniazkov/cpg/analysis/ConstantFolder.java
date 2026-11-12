@@ -194,8 +194,10 @@ public final class ConstantFolder {
         }
         private void fields(ClassDeclaration owner) {
             if (visited.add(owner)) for (Declaration member : owner.members())
-                if (member instanceof VariableDeclaration field && !field.modifiers().contains("static"))
+                if (member instanceof VariableDeclaration field && !field.modifiers().contains("static")) {
                     field.type().ifPresent(this::type);
+                    field.bitWidth().ifPresent(this::constant);
+                }
         }
         private void type(TypeNode type) {
             if (!visited.add(type)) return;
