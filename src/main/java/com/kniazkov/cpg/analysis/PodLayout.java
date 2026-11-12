@@ -414,9 +414,16 @@ final class PodLayout {
          * lookup is not by-value layout recursion: the owner can be the enclosing type,
          * even when a graph reuses that exact TypeNode. */
         private Result<TypeNode> memberShape(TypeNode type) {
+            return memberShape(type, false);
+        }
+        /** Unnamed padding keeps cv qualification visible through every typedef edge. */
+        private Result<TypeNode> memberShape(TypeNode type, boolean rejectCv) {
             Set<TypeNode> seen = Collections.newSetFromMap(new IdentityHashMap<>());
             while (seen.add(type)) {
-                if (type instanceof QualifiedType qualified) { type = qualified.baseType(); continue; }
+                if (type instanceof QualifiedType qualified) {
+                    if (rejectCv) return failure(Reason.BIT_FIELD, "Cv-qualified unnamed padding is outside the selected contract");
+                    type = qualified.baseType(); continue;
+                }
                 if (type instanceof NamedType named) {
                     if (templateName(named)) return failure(Reason.UNSUPPORTED_TEMPLATE, "Member-pointer type is not fully resolved");
                     if (named.alias().isPresent()) {
@@ -482,31 +489,41 @@ final class PodLayout {
                 BigInteger nextBit = BigInteger.ZERO;
                 int alignment = profile.bitsPerByte();
                 var fields = new ArrayList<Field>();
+                boolean namedObjectSeen = false;
+                boolean padding = profile.offsetof().map(model ->
+                        "x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage())).orElse(false);
                 for (Declaration member : owner.members()) {
                     if (!(member instanceof VariableDeclaration field) || field.modifiers().contains("static")) continue;
                     // C++03 9.6/2: an unnamed bit-field is not a member. Its
                     // access label must not turn an unsupported layout into NOT_POD.
-                    if (field.bitWidth().isPresent() && field.name().isEmpty())
-                        return failure(Reason.BIT_FIELD, "Unnamed bit-field allocation is outside the selected contract");
-                    if (!field.access().orElse(owner.memberAccess()).equals("public"))
+                    boolean unnamed = field.bitWidth().isPresent() && field.name().isEmpty();
+                    boolean publicAccess = field.access().orElse(owner.memberAccess()).equals("public");
+                    if (unnamed && (!padding || !publicAccess))
+                        return failure(Reason.BIT_FIELD, "Unnamed bit-field allocation requires selected public padding");
+                    if (!publicAccess)
                         return failure(Reason.NOT_POD, "A C++03 POD class has only public nonstatic data members");
                     if (field.bitWidth().isPresent()) {
                         var bitField = bitField(field);
                         if (!bitField.supported()) return propagate(bitField);
                         BitAllocation value = bitField.value().orElseThrow();
+                        if (unnamed && !union && !namedObjectSeen && value.width() > 0)
+                            return failure(Reason.BIT_FIELD, "Leading positive struct padding is outside the selected contract");
                         BigInteger unit = BigInteger.valueOf(value.storageBits());
                         BigInteger width = BigInteger.valueOf(value.width());
                         BigInteger start = union ? BigInteger.ZERO : nextBit;
                         // SysV permits sharing the current storage unit, including bytes
                         // after ordinary fields, but never crossing the declared-type unit.
-                        if (start.mod(unit).add(width).compareTo(unit) > 0)
+                        if (value.width() == 0 || start.mod(unit).add(width).compareTo(unit) > 0)
                             start = start.add(unit).subtract(BigInteger.ONE).divide(unit).multiply(unit);
                         BigInteger end = start.add(width);
                         BigInteger occupied = end.add(BigInteger.valueOf(7)).divide(BigInteger.valueOf(8));
                         size = union ? size.max(occupied) : occupied;
                         if (!supportedSize(size)) return unsupportedSize(size);
                         if (!union) nextBit = end;
-                        alignment = Math.max(alignment, value.storageBits());
+                        if (!unnamed) {
+                            alignment = Math.max(alignment, value.storageBits());
+                            namedObjectSeen = true;
+                        }
                         // No Field entry: a bit-field has no addressable byte offset.
                         continue;
                     }
@@ -520,6 +537,7 @@ final class PodLayout {
                     BigInteger offset = union ? BigInteger.ZERO : align(size, fieldAlignment, profile);
                     if (!supportedSize(offset)) return unsupportedSize(offset);
                     fields.add(new Field(field, offset));
+                    namedObjectSeen = true;
                     size = union ? size.max(value.sizeBytes()) : offset.add(value.sizeBytes());
                     if (!union) nextBit = size.multiply(BigInteger.valueOf(8));
                     if (!supportedSize(size)) return unsupportedSize(size);
@@ -527,20 +545,23 @@ final class PodLayout {
                 return layoutValue(align(size.max(BigInteger.ONE), alignment, profile), alignment, fields);
             } finally { activeClasses.removeLast(); }
         }
-        /** Positive named unsigned fields only; no allocation facts are host-derived. */
+        /** Selected unsigned fields and optional unnamed padding; no host-derived facts. */
         private record BitAllocation(int storageBits, int width) {}
         private Result<BitAllocation> bitField(VariableDeclaration field) {
             if (profile.offsetof().map(model -> model.bitFieldStorage() == null).orElse(true))
                 return failure(Reason.BIT_FIELD, "Bit-field allocation requires explicit offsetof.bitFieldStorage");
-            if (field.name().isEmpty() || field.type().isEmpty())
-                return failure(Reason.BIT_FIELD, "Selected bit-field allocation requires a named field with a resolved type");
-            var shape = memberShape(field.type().orElseThrow());
+            boolean padding = profile.offsetof().map(model ->
+                    "x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage())).orElse(false);
+            boolean unnamed = field.name().isEmpty();
+            if ((unnamed && !padding) || field.type().isEmpty())
+                return failure(Reason.BIT_FIELD, "Selected bit-field allocation requires a resolved type and admitted field category");
+            var shape = memberShape(field.type().orElseThrow(), unnamed);
             if (!shape.supported()) return propagate(shape);
             TypeNode plain = shape.value().orElseThrow();
             String spelling = plain instanceof NamedType named
                     ? named.fundamentalKind().map(FundamentalKind::spelling).orElse("") : "";
             boolean extended = profile.offsetof().map(model ->
-                    "x86_64-sysv-unsigned-v2".equals(model.bitFieldStorage())).orElse(false);
+                    Set.of("x86_64-sysv-unsigned-v2", "x86_64-sysv-unsigned-v3").contains(model.bitFieldStorage())).orElse(false);
             int bits = switch (spelling) {
                 case "unsigned char" -> 8;
                 case "unsigned short" -> extended ? 16 : 0;
@@ -553,8 +574,9 @@ final class PodLayout {
                         : "Selected bit-field allocation supports only unsigned char and unsigned int");
             var width = integer(field.bitWidth().orElseThrow());
             if (width.isEmpty()) return constantFailure(Reason.BIT_FIELD, "Bit-field width is not a certified integral constant");
-            if (width.orElseThrow().signum() <= 0 || width.orElseThrow().compareTo(BigInteger.valueOf(bits)) > 0)
-                return failure(Reason.BIT_FIELD, "Selected bit-field width must be positive and no greater than its declared storage width");
+            if (width.orElseThrow().signum() < 0 || (!unnamed && width.orElseThrow().signum() == 0)
+                    || width.orElseThrow().compareTo(BigInteger.valueOf(bits)) > 0)
+                return failure(Reason.BIT_FIELD, "Selected width must fit declared storage and be positive unless unnamed padding");
             return success(new BitAllocation(bits, width.orElseThrow().intValueExact()));
         }
 
