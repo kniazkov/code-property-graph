@@ -126,3 +126,23 @@ post-merge master verification are separate gates, not inferred from focused
 success. Their final outcomes are recorded in the associated PR checklist.
 This frozen pre-publication report does not claim merge or a full aggregate
 PASS. Interrupted/failed runs are never counted as successful verification.
+
+## Pre-merge diagnostic correction
+
+A subsequent negative probe found that an unnamed bit-field under a private
+access label was being reported as NOT_POD/invalid offsetof. Original 9.6/2 says
+an unnamed bit-field is not a member. The query now rejects that unsupported
+allocation before checking member access, retaining BIT_FIELD/unsupported
+without falsely classifying the class. Named private data still fails the
+existing POD guard. No ABI category was broadened.
+
+The corrected isolated focused run passed **54 units** (12 in
+BitFieldLayoutTest) and **2 IT**, zero failures/errors/skips, in 42.113 s.
+It reproduced all 68 native records; a separate audit verified all **204**
+source/wrapper/profile SHA-256 entries and the 34 actual materializations.
+The selected profile identity is
+`92bb62417af0d2d82a9e883b0fb79a2ca39cf8061be3f6f9b91804b41e855327`.
+The earlier 1617-unit clean-local phase and its ongoing integrations belong to
+the initial head, not this corrected production. Final aggregate acceptance
+requires the new exact-head full CI and independent correction review, tracked
+in the PR. No full local aggregate on the corrected head is claimed.
