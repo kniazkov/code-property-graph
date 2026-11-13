@@ -786,3 +786,7 @@ invalid. [Оригиналы, неоднозначность 9.2/17 и гейт�
 ### Ограниченная oversized-раскладка (#145)
 
 Политика `x86_64-sysv-oversized-v5` добавляет named char/short/int signed/plain/unsigned шире объявленного storage, до 64 бит. Используется отдельный Itanium §2.4 алгоритм, а не снятие старого ограничения ширины. V1–v4 и guards сохранены; unnamed oversized/bool/enum/>64 и другие остатки остаются в #145, все пять macro obligations partial/open. [Контракт и отдельные проверки](docs/cpp03-oversized-bit-field-layout-verification.md).
+
+### Ограниченная bool-раскладка v6 (#145)
+
+Явная `x86_64-sysv-bool-v6` добавляет к v5 именованные bool-поля шириной 1–8 бит с байтовым storage/alignment. Предыдущие identities и guards неизменны. Это только раскладка обычных членов, не значения/продвижения/адресация битовых полей. Unnamed bool, bool >8, enum и прочие остатки остаются в #145; пять обязательств partial/open, #48 не закрыта. [Контракт и отдельные гейты](docs/cpp03-bool-bit-field-layout-verification.md).

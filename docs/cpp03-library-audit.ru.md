@@ -834,3 +834,7 @@ ABI/compiler-фактом, не универсальным правилом 2003
 ### Ограниченная oversized-раскладка (#145)
 
 Явная политика `x86_64-sysv-oversized-v5` добавляет named signed/plain/unsigned char/short/int шире объявленного storage до64 бит по отдельному алгоритму Itanium §2.4, а не просто снимает width cap v4. Старые политики и guards неизменны; unnamed oversized/bool/enum/>64 и прочие остатки сохраняются в #145. Пять обязательств partial/open. [Контракт и отдельные гейты](cpp03-oversized-bit-field-layout-verification.md).
+
+### Ограниченная bool-раскладка v6 (#145)
+
+Явная `x86_64-sysv-bool-v6` добавляет к v5 именованные bool-поля шириной 1–8 бит с байтовым storage/alignment. Предыдущие identities и guards неизменны. Это только раскладка обычных членов, не значения/продвижения/адресация битовых полей. Unnamed bool, bool >8, enum и прочие остатки остаются в #145; пять обязательств partial/open, #48 не закрыта. [Контракт и отдельные гейты](cpp03-bool-bit-field-layout-verification.md).
