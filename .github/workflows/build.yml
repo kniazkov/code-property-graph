@@ -91,5 +91,6 @@ jobs:
             target/short-long-bit-field-layout-oracle/
             target/unnamed-bit-field-layout-oracle/
             target/signed-bitfield-oracle/
+            target/oversized-bitfield-oracle/
             target/constant-template-arguments-oracle/
             target/partial-constant-template-arguments-oracle/
