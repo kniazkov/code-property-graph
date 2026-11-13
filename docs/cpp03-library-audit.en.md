@@ -808,3 +808,7 @@ ordinary members/trailing size are selected ABI/compiler facts, not universal
 ### Signed and plain integral bit-field layout (#145)
 
 Explicit `x86_64-sysv-integral-v4` adds signed/plain char/short/int/long to ordinary-member layout only, not bit-field signedness, values or promotions. Omitted/v1/v2/v3 contracts are unchanged; #145 residual forms and all five partial/open macro obligations remain open. [Contract and separate gates](cpp03-signed-bit-field-layout-verification.md). #92 acceptance after #148 completed its support-or-open-link criterion, not every residual implementation.
+
+### Bounded oversized bit-field layout (#145)
+
+Explicit `x86_64-sysv-oversized-v5` adds named signed/plain/unsigned char/short/int widths above declared storage through 64 bits, using Itanium §2.4 rather than simply removing v4's width cap. Old policies and guards remain unchanged. Unnamed oversized, bool/enum, widths above64 and other residuals remain in #145; all five obligations stay partial/open. [Contract and separate verification gates](cpp03-oversized-bit-field-layout-verification.md).

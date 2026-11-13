@@ -510,6 +510,12 @@ JSON/DOT показывают её отдельно от дерева владе
   full clean verify/CI и post-merge остаются отдельными гейтами в PR.
   Bool/enum/oversized/nonpublic-cv-unnamed/leading-positive остаются в #145.
   [Контракт и проверки](docs/cpp03-signed-bit-field-layout-verification.md).
+- [x] Ограниченная oversized-раскладка v5 (#145): именованные char/short/int
+  signed/plain/unsigned до 64 бит с отдельным алгоритмом Itanium §2.4,
+  сохранением v1–v4 и консервативных guards. Целевые unit/IT пройдены;
+  full clean verify: 1657 unit + 171 IT; exact-head/post-merge CI остаются отдельными гейтами.
+  #145 и пять partial/open обязательств не закрываются этим пакетом.
+  [Контракт и проверки](docs/cpp03-oversized-bit-field-layout-verification.md).
 - [ ] Остатки offsetof и функциональные макросы setjmp, va_start, va_arg,
   va_end. Пять обязательств остаются незавершёнными; эта очередь не означает
   полного соответствия C++03 и не завершает итоговую приёмку #48.

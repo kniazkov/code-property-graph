@@ -491,7 +491,7 @@ final class PodLayout {
                 var fields = new ArrayList<Field>();
                 boolean namedObjectSeen = false;
                 boolean padding = profile.offsetof().map(model ->
-                        ("x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage()) || "x86_64-sysv-integral-v4".equals(model.bitFieldStorage()))).orElse(false);
+                        ("x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage()) || "x86_64-sysv-integral-v4".equals(model.bitFieldStorage()) || "x86_64-sysv-oversized-v5".equals(model.bitFieldStorage()))).orElse(false);
                 for (Declaration member : owner.members()) {
                     if (!(member instanceof VariableDeclaration field) || field.modifiers().contains("static")) continue;
                     // C++03 9.6/2: an unnamed bit-field is not a member. Its
@@ -511,17 +511,26 @@ final class PodLayout {
                         BigInteger unit = BigInteger.valueOf(value.storageBits());
                         BigInteger width = BigInteger.valueOf(value.width());
                         BigInteger start = union ? BigInteger.ZERO : nextBit;
-                        // SysV permits sharing the current storage unit, including bytes
-                        // after ordinary fields, but never crossing the declared-type unit.
-                        if (value.width() == 0 || start.mod(unit).add(width).compareTo(unit) > 0)
-                            start = start.add(unit).subtract(BigInteger.ONE).divide(unit).multiply(unit);
+                        if (value.oversized()) {
+                            // Itanium ABI 1.75 2.4 II-2(b): oversized fields start at
+                            // the next byte offset aligned for the largest admitted
+                            // integral type whose representation fits their width.
+                            // Unlike ordinary fields, they never reuse a partial byte.
+                            start = union ? BigInteger.ZERO : align(size, value.allocationAlignmentBits(), profile)
+                                    .multiply(BigInteger.valueOf(8));
+                        } else {
+                            // SysV ordinary fields may share the current storage unit,
+                            // but never cross the declared-type unit boundary.
+                            if (value.width() == 0 || start.mod(unit).add(width).compareTo(unit) > 0)
+                                start = start.add(unit).subtract(BigInteger.ONE).divide(unit).multiply(unit);
+                        }
                         BigInteger end = start.add(width);
                         BigInteger occupied = end.add(BigInteger.valueOf(7)).divide(BigInteger.valueOf(8));
                         size = union ? size.max(occupied) : occupied;
                         if (!supportedSize(size)) return unsupportedSize(size);
                         if (!union) nextBit = end;
                         if (!unnamed) {
-                            alignment = Math.max(alignment, value.storageBits());
+                            alignment = Math.max(alignment, value.allocationAlignmentBits());
                             namedObjectSeen = true;
                         }
                         // No Field entry: a bit-field has no addressable byte offset.
@@ -546,12 +555,12 @@ final class PodLayout {
             } finally { activeClasses.removeLast(); }
         }
         /** Selected integral storage allocation and optional unnamed padding; no signedness/value/promotion or host-derived facts. */
-        private record BitAllocation(int storageBits, int width) {}
+        private record BitAllocation(int storageBits, int allocationAlignmentBits, int width, boolean oversized) {}
         private Result<BitAllocation> bitField(VariableDeclaration field) {
             if (profile.offsetof().map(model -> model.bitFieldStorage() == null).orElse(true))
                 return failure(Reason.BIT_FIELD, "Bit-field allocation requires explicit offsetof.bitFieldStorage");
             boolean padding = profile.offsetof().map(model ->
-                    ("x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage()) || "x86_64-sysv-integral-v4".equals(model.bitFieldStorage()))).orElse(false);
+                    ("x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage()) || "x86_64-sysv-integral-v4".equals(model.bitFieldStorage()) || "x86_64-sysv-oversized-v5".equals(model.bitFieldStorage()))).orElse(false);
             boolean unnamed = field.name().isEmpty();
             if ((unnamed && !padding) || field.type().isEmpty())
                 return failure(Reason.BIT_FIELD, "Selected bit-field allocation requires a resolved type and admitted field category");
@@ -561,9 +570,9 @@ final class PodLayout {
             String spelling = plain instanceof NamedType named
                     ? named.fundamentalKind().map(FundamentalKind::spelling).orElse("") : "";
             boolean extended = profile.offsetof().map(model ->
-                    Set.of("x86_64-sysv-unsigned-v2", "x86_64-sysv-unsigned-v3", "x86_64-sysv-integral-v4").contains(model.bitFieldStorage())).orElse(false);
+                    Set.of("x86_64-sysv-unsigned-v2", "x86_64-sysv-unsigned-v3", "x86_64-sysv-integral-v4", "x86_64-sysv-oversized-v5").contains(model.bitFieldStorage())).orElse(false);
             boolean integral = profile.offsetof().map(model ->
-                    "x86_64-sysv-integral-v4".equals(model.bitFieldStorage())).orElse(false);
+                    ("x86_64-sysv-integral-v4".equals(model.bitFieldStorage()) || "x86_64-sysv-oversized-v5".equals(model.bitFieldStorage()))).orElse(false);
             int bits = switch (spelling) {
                 case "unsigned char" -> 8;
                 case "char", "signed char" -> integral ? 8 : 0;
@@ -580,10 +589,20 @@ final class PodLayout {
                         : "Selected bit-field allocation supports only unsigned char and unsigned int");
             var width = integer(field.bitWidth().orElseThrow());
             if (width.isEmpty()) return constantFailure(Reason.BIT_FIELD, "Bit-field width is not a certified integral constant");
+            boolean oversizedSelected = profile.offsetof().map(model ->
+                    "x86_64-sysv-oversized-v5".equals(model.bitFieldStorage())).orElse(false);
+            int maximumWidth = oversizedSelected && !unnamed ? 64 : bits;
             if (width.orElseThrow().signum() < 0 || (!unnamed && width.orElseThrow().signum() == 0)
-                    || width.orElseThrow().compareTo(BigInteger.valueOf(bits)) > 0)
-                return failure(Reason.BIT_FIELD, "Selected width must fit declared storage and be positive unless unnamed padding");
-            return success(new BitAllocation(bits, width.orElseThrow().intValueExact()));
+                    || width.orElseThrow().compareTo(BigInteger.valueOf(maximumWidth)) > 0)
+                return failure(Reason.BIT_FIELD, oversizedSelected
+                        ? "Selected width must fit declared storage (or named integral v5 width up to 64) and be positive unless unnamed padding"
+                        : "Selected width must fit declared storage and be positive unless unnamed padding");
+            int admittedWidth = width.orElseThrow().intValueExact();
+            boolean oversized = admittedWidth > bits;
+            // The bounded target has integral storage/alignment sizes 8, 16, 32, 64.
+            // Width <= 64 excludes extended integral-type allocation choices.
+            int allocationAlignment = oversized ? Integer.highestOneBit(admittedWidth) : bits;
+            return success(new BitAllocation(bits, allocationAlignment, admittedWidth, oversized));
         }
 
         private boolean ordinaryAssignment(CallableDeclaration function) {
