@@ -29,8 +29,8 @@ public record OffsetofModel(String emission, String layout, BigInteger supported
             throw invalid("memberPointerStorage must be itanium-x86_64-lp64-v1 when supplied");
         if (enumStorage != null && !enumStorage.equals("gcc-clang-x86_64-default-enum-v1"))
             throw invalid("enumStorage must be gcc-clang-x86_64-default-enum-v1 when supplied");
-        if (bitFieldStorage != null && !Set.of("x86_64-sysv-unsigned-v1", "x86_64-sysv-unsigned-v2", "x86_64-sysv-unsigned-v3", "x86_64-sysv-integral-v4").contains(bitFieldStorage))
-            throw invalid("bitFieldStorage must be x86_64-sysv-unsigned-v1, x86_64-sysv-unsigned-v2, x86_64-sysv-unsigned-v3 or x86_64-sysv-integral-v4 when supplied");
+        if (bitFieldStorage != null && !Set.of("x86_64-sysv-unsigned-v1", "x86_64-sysv-unsigned-v2", "x86_64-sysv-unsigned-v3", "x86_64-sysv-integral-v4", "x86_64-sysv-oversized-v5").contains(bitFieldStorage))
+            throw invalid("bitFieldStorage must be x86_64-sysv-unsigned-v1, x86_64-sysv-unsigned-v2, x86_64-sysv-unsigned-v3, x86_64-sysv-integral-v4 or x86_64-sysv-oversized-v5 when supplied");
     }
     public static OffsetofModel parse(String emission, String layout, String decimal) {
         return parse(emission, layout, decimal, null);

@@ -782,3 +782,7 @@ invalid. [Оригиналы, неоднозначность 9.2/17 и гейт�
 ### Знаковые и обычные целые битовые поля (#145)
 
 Явная политика `x86_64-sysv-integral-v4` расширяет v3 раскладку signed/plain char/short/int/long. Это только offsetof обычных членов и выбранные storage/alignment факты: знаковость, значения и продвижения битовых полей не объявлены реализованными. Существующие identities не меняются; bool/enum/oversized, nonpublic/cv unnamed и leading-positive остаются в #145. Пять partial/open обязательств сохранены; #92 закрыта по support-or-open-link приёмке, не как универсальная поддержка. [Контракт и отдельные гейты](docs/cpp03-signed-bit-field-layout-verification.md).
+
+### Ограниченная oversized-раскладка (#145)
+
+Политика `x86_64-sysv-oversized-v5` добавляет named char/short/int signed/plain/unsigned шире объявленного storage, до 64 бит. Используется отдельный Itanium §2.4 алгоритм, а не снятие старого ограничения ширины. V1–v4 и guards сохранены; unnamed oversized/bool/enum/>64 и другие остатки остаются в #145, все пять macro obligations partial/open. [Контракт и отдельные проверки](docs/cpp03-oversized-bit-field-layout-verification.md).
