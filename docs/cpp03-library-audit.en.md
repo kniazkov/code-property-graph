@@ -812,3 +812,7 @@ Explicit `x86_64-sysv-integral-v4` adds signed/plain char/short/int/long to ordi
 ### Bounded oversized bit-field layout (#145)
 
 Explicit `x86_64-sysv-oversized-v5` adds named signed/plain/unsigned char/short/int widths above declared storage through 64 bits, using Itanium §2.4 rather than simply removing v4's width cap. Old policies and guards remain unchanged. Unnamed oversized, bool/enum, widths above64 and other residuals remain in #145; all five obligations stay partial/open. [Contract and separate verification gates](cpp03-oversized-bit-field-layout-verification.md).
+
+### Bounded named bool layout v6 (#145)
+
+Explicit `x86_64-sysv-bool-v6` extends v5 with named bool widths 1..8 and byte storage/alignment. Earlier identities and guards are unchanged. This is layout only, not bit-field values, promotions or addressing. Unnamed bool, bool widths above 8, enum and other residuals stay in #145; all five obligations remain partial/open, and #48 stays open. [Contract and separate gates](cpp03-bool-bit-field-layout-verification.md).
