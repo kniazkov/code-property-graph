@@ -851,6 +851,15 @@ public final class DataFlow {
             consume(call.callee(), call, state, sink);
             arguments(call, state, sink);
             exposeAdapters(call, state);
+            // SysV array parameter adjustment shares the opaque caller cursor.
+            if (VarargsSemantics.borrowed(profile)) {
+                var target = call.target().orElse(null);
+                if (target != null) for (int i = 0; i < Math.min(call.arguments().size(), target.parameters().size()); i++) {
+                    TypeNode type = target.parameters().get(i).type().map(TypeSemantics::unqualified).orElse(null);
+                    if (type instanceof OpaqueLibraryType opaque && opaque.identity().equals("library::va_list")
+                            && LibraryDeclarations.isLibrary(opaque)) possibleMutation(call.arguments().get(i), call, state);
+                }
+            }
             if (LibraryCallEffects.unknown(call)) {
                 var exposed = new LinkedHashSet<Declaration>(libraryAccessible);
                 LibraryCallEffects.exposed(call).forEach(expression -> exposed.addAll(storageRoots(expression, state)));

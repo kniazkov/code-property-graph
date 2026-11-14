@@ -6,9 +6,10 @@ import java.util.*;
 /** Compiler-owned va_list operations. No va_list size, alignment or register layout is implied. */
 public record VarargsModel(String emission, String abi) {
     public VarargsModel {
-        if (!"gcc-clang-builtin".equals(emission) || !"x86_64-sysv-lp64-v1".equals(abi))
-            throw invalid("requires gcc-clang-builtin emission and x86_64-sysv-lp64-v1 ABI");
+        if (!"gcc-clang-builtin".equals(emission) || !Set.of("x86_64-sysv-lp64-v1", "x86_64-sysv-lp64-borrowed-v2").contains(abi))
+            throw invalid("requires gcc-clang-builtin emission and a selected x86_64-sysv-lp64 ABI");
     }
+    public boolean borrowedLists() { return "x86_64-sysv-lp64-borrowed-v2".equals(abi); }
     public Map<String, String> settings() {
         var result = new LinkedHashMap<String, String>();
         result.put("emission", emission); result.put("abi", abi);

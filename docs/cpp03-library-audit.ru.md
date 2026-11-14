@@ -838,3 +838,7 @@ ABI/compiler-фактом, не универсальным правилом 2003
 ### Ограниченная bool-раскладка v6 (#145)
 
 Явная `x86_64-sysv-bool-v6` добавляет к v5 именованные bool-поля шириной 1–8 бит с байтовым storage/alignment. Предыдущие identities и guards неизменны. Это только раскладка обычных членов, не значения/продвижения/адресация битовых полей. Unnamed bool, bool >8, enum и прочие остатки остаются в #145; пять обязательств partial/open, #48 не закрыта. [Контракт и отдельные гейты](cpp03-bool-bit-field-layout-verification.md).
+
+## Borrowed va_list (#146)
+
+Явный borrowed-v2 добавляет ограниченные same-TU helper-параметры va_list: соседние start/call/end у владельца и общая opaque cursor state. V1 не меняется. Остатки forwarding/storage/retrieval остаются в #146, пять macro obligations partial/open. Доказательство whole-program lifecycle не заявлено. [Contract / контракт](cpp03-borrowed-varargs-verification.md).

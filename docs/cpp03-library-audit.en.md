@@ -816,3 +816,7 @@ Explicit `x86_64-sysv-oversized-v5` adds named signed/plain/unsigned char/short/
 ### Bounded named bool layout v6 (#145)
 
 Explicit `x86_64-sysv-bool-v6` extends v5 with named bool widths 1..8 and byte storage/alignment. Earlier identities and guards are unchanged. This is layout only, not bit-field values, promotions or addressing. Unnamed bool, bool widths above 8, enum and other residuals stay in #145; all five obligations remain partial/open, and #48 stays open. [Contract and separate gates](cpp03-bool-bit-field-layout-verification.md).
+
+## Borrowed va_list (#146)
+
+Explicit borrowed-v2 adds bounded same-TU helper va_list parameters, adjacent owner start/call/end and shared opaque cursor memory effects. V1 remains unchanged. Further forwarding/storage/retrieval forms remain #146; all five macro obligations retain partial/open status. No whole-program lifecycle proof is claimed. [Contract / контракт](cpp03-borrowed-varargs-verification.md).

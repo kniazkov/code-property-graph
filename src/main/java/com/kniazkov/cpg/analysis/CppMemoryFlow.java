@@ -789,7 +789,10 @@ final class CppMemoryFlow {
                         TypeNode type=parameter.type().map(TypeSemantics::unqualified).orElse(null);
                         Set<Loc> actual=argument==null?Set.of():type instanceof PointerType?points(argument,state):locations(argument,state);
                         bindings.add(Set.copyOf(actual));
-                        if(type instanceof ReferenceType)bound.refs.put(parameter,new LinkedHashSet<>(actual));
+                        // ABI array parameter adjustment aliases the opaque cursor, not a copy.
+                        if(type instanceof ReferenceType || VarargsSemantics.borrowedType(type, profile)
+                                && profiles.containsKey(target) && VarargsSemantics.borrowed(profiles.get(target)))
+                            bound.refs.put(parameter,new LinkedHashSet<>(actual));
                         else {
                             Loc parameterLocation=new Loc(parameter,"",call);
                             bound.defs.put(parameterLocation,new LinkedHashSet<>(List.of(new Source(parameter,site))));
@@ -867,10 +870,11 @@ final class CppMemoryFlow {
                     Expression argument=arguments.get(i);
                     TypeNode type=target!=null&&i<target.parameters().size()?target.parameters().get(i).type().map(TypeSemantics::unqualified).orElse(null):null;
                     TypeNode exposed=type instanceof ReferenceType r?r.referredType():type instanceof PointerType p?p.pointee():null;
-                    boolean mutable=exposed!=null&&(TypeSemantics.qualifiers(exposed)&1)==0;
+                    boolean borrowedList=VarargsSemantics.borrowedType(type,profile);
+                    boolean mutable=borrowedList || exposed!=null&&(TypeSemantics.qualifiers(exposed)&1)==0;
                     Set<Loc> locations=type instanceof PointerType||unwrap(argument) instanceof AddressOfExpression?points(argument,input):locations(argument,input);
                     if(target==null)mutable=true;
-                    if(exposed!=null || target==null || type instanceof ArrayType) {
+                    if(borrowedList || exposed!=null || target==null || type instanceof ArrayType) {
                         var reachable=new LinkedHashSet<Loc>(locations); var pending=new ArrayDeque<Loc>(locations);
                         while(!pending.isEmpty()) {
                             Loc location=pending.remove();
