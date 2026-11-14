@@ -525,6 +525,10 @@ JSON/DOT показывают её отдельно от дерева владе
   соседние start/call/end у владельца, запрет копирования/forwarding и общая
   cursor-memory связь, API/CLI/native materialization. V1 не расширен.
   [Контракт, остатки и отдельные гейты](docs/cpp03-borrowed-varargs-verification.md).
+- [x] Ограниченные direct same-TU static/global `jmp_buf` v2 (#147): отдельный
+  opt-in профиль без расширения v1, identity/TU/escape guards и консервативный
+  nonlocal-flow. #147 и #146 остаются открытыми; dynamic lifetime proof не заявлен.
+  [Контракт и отдельные гейты](docs/cpp03-static-setjmp-verification.md).
 - [ ] Остатки offsetof и функциональные макросы setjmp, va_start, va_arg,
   va_end. Пять обязательств остаются незавершёнными; эта очередь не означает
   полного соответствия C++03 и не завершает итоговую приёмку #48.
