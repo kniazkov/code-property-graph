@@ -24,13 +24,19 @@ public final class VarargsSemantics {
         for (var root : SourceContexts.roots(project)) {
             if (root.source().language() != Language.CPP) continue;
             var profile = TypeSemantics.profile(root.source());
-            inspect(root.node(), null, profile, members, fields, new IntegralConstants(project, profile), editor, false);
+            var localMembers = Collections.newSetFromMap(new IdentityHashMap<Node, Boolean>());
+            root.node().walk(new NodeVisitor() { @Override public void visit(Node node) { localMembers.add(node); } });
+            Map<CallableDeclaration, Set<Node>> admitted = new IdentityHashMap<>();
+            if (borrowed(profile)) root.node().walk(new NodeVisitor() { @Override public void visit(CallableDeclaration callable) {
+                if (callable.body().isPresent()) admitted.put(callable, borrowedArguments(callable, profile, members, localMembers));
+            } });
+            inspect(root.node(), null, profile, members, localMembers, admitted, fields, new IntegralConstants(project, profile), editor, false);
         }
         return editor.build();
     }
 
     private static void inspect(Node node, CallableDeclaration owner, PlatformProfile profile,
-            Set<Node> members, Set<VariableDeclaration> fields, IntegralConstants constants, ProjectEditor editor, boolean unevaluated) {
+            Set<Node> members, Set<Node> localMembers, Map<CallableDeclaration, Set<Node>> admitted, Set<VariableDeclaration> fields, IntegralConstants constants, ProjectEditor editor, boolean unevaluated) {
         if (node instanceof CallableDeclaration callable) { owner = callable; unevaluated = false; }
         unevaluated |= unevaluated(node, profile);
         // The initializer is separate evaluated syntax, even when the only list
@@ -38,13 +44,27 @@ public final class VarargsSemantics {
         if (node instanceof VariableDeclaration list && list.initializer().isPresent()
                 && list.type().filter(type -> vaList(type, members)).isPresent())
             editor.diagnose(list, unsupported("list-initialization", "Initialization or copying of opaque va_list storage is outside this subset, including when its later use is unevaluated").orElseThrow());
+        // Inspect calls in all syntax, including global/default initializers.
+        // Only names explicitly admitted in the owner's body may cross a helper boundary.
+        if (!unevaluated && borrowed(profile) && node instanceof CallExpression call) {
+            var allowed = admitted.getOrDefault(owner, Set.of());
+            var target = call.target().orElse(null);
+            for (int i = 0; i < call.arguments().size(); i++) {
+                var argument = call.arguments().get(i);
+                TypeNode formal = target != null && i < target.parameters().size() ? target.parameters().get(i).type().orElse(null) : null;
+                TypeNode actual = TypeSemantics.expressionType(argument, profile).orElse(null);
+                if ((borrowedType(formal, profile) || borrowedType(actual, profile)) && !allowed.contains(argument))
+                    editor.diagnose(call, unsupported("borrowed-call", "A borrowed list call requires its own adjacent start/call/end, direct automatic argument and supported same-TU helper").orElseThrow());
+            }
+        }
         if (node instanceof VaListExpression operation) {
             var problem = violation(operation, owner, profile, members, fields, constants, unevaluated);
             problem.ifPresent(value -> editor.diagnose(operation, value));
         }
-        if (node instanceof CallableDeclaration callable && callable.body().isPresent() && containsOperation(callable.body().orElseThrow()))
-            validateLocalUses(callable, profile, members, editor);
-        for (Node child : node.children()) inspect(child, owner, profile, members, fields, constants, editor, unevaluated);
+        if (node instanceof CallableDeclaration callable && callable.body().isPresent()
+                && (borrowed(profile) || containsOperation(callable.body().orElseThrow())))
+            validateLocalUses(callable, profile, members, admitted.getOrDefault(callable, Set.of()), editor);
+        for (Node child : node.children()) inspect(child, owner, profile, members, localMembers, admitted, fields, constants, editor, unevaluated);
     }
 
     private static Optional<Diagnostic> violation(VaListExpression operation, CallableDeclaration owner,
@@ -53,7 +73,10 @@ public final class VarargsSemantics {
         // An unevaluated va_arg checks types and bindings, not an accessed cursor's
         // owner, storage duration, initialization or default argument promotions.
         boolean typeOnly = unevaluated && operation.kind() == VaListExpression.Kind.ARG;
-        if (!typeOnly && (owner == null || owner.body().isEmpty() || !owner.variadic()))
+        boolean borrowed = borrowed(profile) && owner != null && owner.body().isPresent()
+                && operation.list() instanceof NameExpression operand
+                && operand.target().filter(owner.parameters()::contains).isPresent();
+        if (!typeOnly && !borrowed && (owner == null || owner.body().isEmpty() || !owner.variadic()))
             return operation.kind() == VaListExpression.Kind.ARG
                     ? unsupported("function", "This subset requires a variadic function definition containing the local va_list")
                     : invalid("function", "C++03 va_start and va_end must occur in the function accepting the varying arguments");
@@ -63,9 +86,9 @@ public final class VarargsSemantics {
         TypeNode listType;
         if (target instanceof ParameterDeclaration parameter) {
             listType = parameter.type().orElse(null);
-            if (!typeOnly && listType != null && vaList(listType, members))
+            if (!typeOnly && !borrowed && listType != null && vaList(listType, members))
                 return unsupported("list-storage", "Interprocedural va_list parameters are outside this local-state subset");
-            if (!typeOnly) return invalid("list-binding", "The list operand must bind a variable in this snapshot");
+            if (!typeOnly && !borrowed) return invalid("list-binding", "The list operand must bind a variable in this snapshot");
         } else if (target instanceof VariableDeclaration list) {
             if (fields.contains(list)) return unsupported("list-expression", "Class-member va_list storage is outside this direct-list subset, including unevaluated uses");
             listType = list.type().orElse(null);
@@ -81,6 +104,10 @@ public final class VarargsSemantics {
             return invalid("list-type", "The list operand must bind the standard-library va_list type, not a spelling-compatible user type");
         if (TypeSemantics.qualifiers(listType) != 0)
             return unsupported("qualified-list", "Const or volatile va_list state is outside the selected GCC/Clang contract");
+        if (!typeOnly && borrowed && (operation.kind() != VaListExpression.Kind.ARG || owner.variadic() || !(owner instanceof FunctionDeclaration)
+                || owner.parameters().stream().filter(p -> p.type().filter(t -> vaList(t, members)).isPresent()).count() != 1
+                || owner.templateKind() != TemplateKind.NONE || !owner.templateParameters().isEmpty() || owner.templateOrigin().isPresent()))
+            return unsupported("borrowed-operation", "A borrowed nonvariadic helper may only retrieve from the caller-owned list; start/end remain in its variadic owner");
         if (operation.kind() == VaListExpression.Kind.START) {
             Expression last = operation.lastParameter().orElseThrow();
             if (!(last instanceof NameExpression parameter) || owner.parameters().isEmpty()
@@ -112,13 +139,13 @@ public final class VarargsSemantics {
         return node.children().stream().anyMatch(VarargsSemantics::containsOperation);
     }
 
-    private static boolean ownedLocal(Node root, VariableDeclaration target) {
+    private static boolean ownedLocal(Node root, Node target) {
         if (root == target) return true;
         if (root instanceof CallableDeclaration || root instanceof ClassDeclaration) return false;
         return root.children().stream().anyMatch(child -> ownedLocal(child, target));
     }
 
-    private static boolean vaList(TypeNode type, Set<Node> members) {
+    static boolean vaList(TypeNode type, Set<Node> members) {
         var seen = Collections.newSetFromMap(new IdentityHashMap<TypeNode, Boolean>());
         while (seen.add(type)) {
             if (type instanceof QualifiedType qualified) type = qualified.baseType();
@@ -242,23 +269,87 @@ public final class VarargsSemantics {
                 || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile);
     }
 
-    private static void validateLocalUses(CallableDeclaration owner, PlatformProfile profile, Set<Node> members, ProjectEditor editor) {
-        var localLists = Collections.newSetFromMap(new IdentityHashMap<VariableDeclaration, Boolean>());
+    private static void validateLocalUses(CallableDeclaration owner, PlatformProfile profile, Set<Node> members, Set<Node> allowed, ProjectEditor editor) {
+        var localLists = Collections.newSetFromMap(new IdentityHashMap<Declaration, Boolean>());
+        if (borrowed(profile)) owner.parameters().stream().filter(p -> p.type().filter(t -> vaList(t, members)).isPresent()).forEach(localLists::add);
         owner.body().orElseThrow().walk(new NodeVisitor() {
             @Override public void visit(VariableDeclaration variable) {
                 if (ownedLocal(owner.body().orElseThrow(), variable) && variable.type().filter(t -> vaList(t, members)).isPresent()) localLists.add(variable);
             }
         });
-        validateUses(owner.body().orElseThrow(), localLists, profile, editor, false, false);
+        if (borrowed(profile)) owner.body().orElseThrow().walk(new NodeVisitor() {
+            @Override public void visit(NameExpression name) {
+                name.target().filter(d -> d instanceof VariableDeclaration || d instanceof ParameterDeclaration).ifPresent(d -> {
+                    var type = d instanceof VariableDeclaration v ? v.type() : ((ParameterDeclaration)d).type();
+                    if (type.filter(t -> vaList(t, members)).isPresent()) localLists.add(d);
+                });
+            }
+        });
+        validateUses(owner.body().orElseThrow(), localLists, profile, editor, allowed, false, false);
     }
-    private static void validateUses(Node node, Set<VariableDeclaration> lists, PlatformProfile profile, ProjectEditor editor, boolean unevaluated, boolean directList) {
+    private static void validateUses(Node node, Set<Declaration> lists, PlatformProfile profile, ProjectEditor editor, Set<Node> allowed, boolean unevaluated, boolean directList) {
         if (node instanceof CallableDeclaration || node instanceof ClassDeclaration) return;
         unevaluated |= unevaluated(node, profile);
-        if (!unevaluated && node instanceof NameExpression name && name.target().filter(lists::contains).isPresent() && !directList)
+        if (!unevaluated && node instanceof NameExpression name && name.target().filter(lists::contains).isPresent() && !directList && !allowed.contains(name))
             editor.diagnose(name, unsupported("escaped-list", "Copying, escaping or indirectly accessing va_list is outside this local-state subset").orElseThrow());
-        for (Node child : node.children()) validateUses(child, lists, profile, editor, unevaluated,
+        for (Node child : node.children()) validateUses(child, lists, profile, editor, allowed, unevaluated,
                 node instanceof VaListExpression operation && child == operation.list());
     }
+    static boolean borrowed(PlatformProfile profile) {
+        return profile.varargs().map(com.kniazkov.cpg.build.VarargsModel::borrowedLists).orElse(false);
+    }
+    static boolean borrowedType(TypeNode type, PlatformProfile profile) {
+        if (!borrowed(profile) || type == null) return false;
+        TypeNode plain = TypeSemantics.unqualified(type);
+        return plain instanceof OpaqueLibraryType opaque && opaque.identity().equals("library::va_list")
+                && opaque.category() == OpaqueLibraryType.Category.OBJECT && LibraryDeclarations.isLibrary(opaque);
+    }
+
+    /** Only a direct call in a start/call/end block is admitted. This is a
+     * syntactic bounded contract, not a general interprocedural lifecycle proof. */
+    private static Set<Node> borrowedArguments(CallableDeclaration owner, PlatformProfile profile, Set<Node> members, Set<Node> localMembers) {
+        var allowed = Collections.newSetFromMap(new IdentityHashMap<Node, Boolean>());
+        if (!owner.variadic()) return allowed;
+        owner.body().orElseThrow().walk(new NodeVisitor() { @Override public void visit(BlockStatement block) {
+            if (!ownedLocal(owner.body().orElseThrow(), block)) return;
+            var items = block.items();
+            for (int i = 1; i + 1 < items.size(); i++) {
+                Expression expression = items.get(i) instanceof ExpressionStatement statement ? statement.expression()
+                        : items.get(i) instanceof VariableDeclaration variable ? variable.initializer().orElse(null) : null;
+                if (!(expression instanceof CallExpression call) || !(call.callee() instanceof NameExpression)
+                        || call.isVirtualDispatch()) continue;
+                var target = call.target().filter(localMembers::contains).orElse(null);
+                if (!(target instanceof FunctionDeclaration) || target.body().isEmpty() || target.variadic()
+                        || target.templateKind() != TemplateKind.NONE || !target.templateParameters().isEmpty() || target.templateOrigin().isPresent()
+                        || target.parameters().stream().filter(p -> p.type().filter(t -> vaList(t, members)).isPresent()).count() != 1
+                        || call.arguments().size() != target.parameters().size()) continue;
+                for (int a = 0; a < call.arguments().size(); a++) {
+                    var argument = call.arguments().get(a);
+                    var parameter = target.parameters().get(a);
+                    if (!(argument instanceof NameExpression name)
+                            || !(name.target().orElse(null) instanceof VariableDeclaration list)
+                            || !ownedLocal(owner.body().orElseThrow(), list)
+                            || list.initializer().isPresent() || list.modifiers().contains("static") || list.modifiers().contains("extern")
+                            || !list.type().filter(t -> vaList(t, members) && TypeSemantics.qualifiers(t) == 0).isPresent()
+                            || !parameter.type().filter(t -> vaList(t, members) && TypeSemantics.qualifiers(t) == 0).isPresent()) continue;
+                    long occurrences = call.arguments().stream().mapToLong(e -> evaluatedReferences(e, list, profile)).sum();
+                    if (occurrences == 1 && listOperation(items.get(i - 1), list, VaListExpression.Kind.START)
+                            && listOperation(items.get(i + 1), list, VaListExpression.Kind.END)) allowed.add(name);
+                }
+            }
+        }});
+        return allowed;
+    }
+    private static long evaluatedReferences(Node node, Declaration list, PlatformProfile profile) {
+        if (unevaluated(node, profile)) return 0;
+        long self = node instanceof NameExpression name && name.target().orElse(null) == list ? 1 : 0;
+        return self + node.children().stream().mapToLong(child -> evaluatedReferences(child, list, profile)).sum();
+    }
+    private static boolean listOperation(Node node, Declaration list, VaListExpression.Kind kind) {
+        return node instanceof ExpressionStatement statement && statement.expression() instanceof VaListExpression operation
+                && operation.kind() == kind && operation.list() instanceof NameExpression name && name.target().orElse(null) == list;
+    }
+
     private static Optional<Diagnostic> invalid(String suffix, String text) {
         return Optional.of(new Diagnostic("invalid-varargs-" + suffix, Diagnostic.Severity.ERROR, text));
     }

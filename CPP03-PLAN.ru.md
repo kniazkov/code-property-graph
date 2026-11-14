@@ -521,6 +521,10 @@ JSON/DOT показывают её отдельно от дерева владе
   Целевые unit/IT пройдены; full clean verify и exact-head/post-merge CI — отдельные гейты.
   Unnamed/oversized bool, enum и другие остатки остаются в #145, #48 не закрыта.
   [Контракт и проверки](docs/cpp03-bool-bit-field-layout-verification.md).
+- [x] Ограниченные borrowed va_list helper-параметры v2 (#146): явный ABI,
+  соседние start/call/end у владельца, запрет копирования/forwarding и общая
+  cursor-memory связь, API/CLI/native materialization. V1 не расширен.
+  [Контракт, остатки и отдельные гейты](docs/cpp03-borrowed-varargs-verification.md).
 - [ ] Остатки offsetof и функциональные макросы setjmp, va_start, va_arg,
   va_end. Пять обязательств остаются незавершёнными; эта очередь не означает
   полного соответствия C++03 и не завершает итоговую приёмку #48.

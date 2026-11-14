@@ -790,3 +790,7 @@ invalid. [Оригиналы, неоднозначность 9.2/17 и гейт�
 ### Ограниченная bool-раскладка v6 (#145)
 
 Явная `x86_64-sysv-bool-v6` добавляет к v5 именованные bool-поля шириной 1–8 бит с байтовым storage/alignment. Предыдущие identities и guards неизменны. Это только раскладка обычных членов, не значения/продвижения/адресация битовых полей. Unnamed bool, bool >8, enum и прочие остатки остаются в #145; пять обязательств partial/open, #48 не закрыта. [Контракт и отдельные гейты](docs/cpp03-bool-bit-field-layout-verification.md).
+
+### Ограниченные borrowed va_list helper-параметры (#146)
+
+Явный `x86_64-sysv-lp64-borrowed-v2` разрешает direct same-TU helper с параметром va_list, соседние start/call/end у владельца и только va_arg у заёмщика. Тип остаётся opaque; анализ памяти учитывает общую cursor state. V1 и guards сохранены. Forwarding и дополнительные storage/operand/retrieval формы остаются в #146; пять macro obligations и #48 не закрыты. [Контракт и отдельные гейты](docs/cpp03-borrowed-varargs-verification.md).
