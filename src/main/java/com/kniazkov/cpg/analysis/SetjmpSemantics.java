@@ -18,12 +18,20 @@ public final class SetjmpSemantics {
             members.add(node); node.children().forEach(child -> parents.put(child, node));
             if (node instanceof SetjmpExpression save) operations.add(save);
         } });
-        if (operations.isEmpty()) return project;
         var contexts = SourceContexts.index(project);
         var conflictingRuntimeDeclarations = members.stream().filter(node -> !LibraryDeclarations.isLibrary(node)
                 && runtimeName(node)).toList();
         var editor = new ProjectEditor(project).retainDiagnostics().withoutRevalidation();
         var buffers = Collections.newSetFromMap(new IdentityHashMap<VariableDeclaration, Boolean>());
+        for (var node : members) if (node instanceof VariableDeclaration buffer
+                && buffer.type().filter(type -> jmpBuffer(type, members)).isPresent()
+                && contexts.containsKey(buffer) && staticBuffers(TypeSemantics.profile(contexts.get(buffer)))) {
+            buffers.add(buffer);
+            if (buffer.modifiers().contains("extern") || buffer.previousDeclaration().isPresent() || !buffer.isDefinition() || members.stream().anyMatch(other -> other != buffer
+                    && other instanceof VariableDeclaration declaration && declaration.name().equals(buffer.name())
+                    && parents.get(other) == parents.get(buffer)))
+                diagnose(editor, buffer, "unsupported", "buffer-redeclaration", "V2 does not normalize extern or repeated opaque-buffer declarations");
+        }
         for (var save : operations) {
             var profile = TypeSemantics.profile(SourceContexts.require(contexts, save));
             if (conflictingRuntimeDeclarations.stream().anyMatch(node -> contexts.get(node) == contexts.get(save)
@@ -32,7 +40,8 @@ public final class SetjmpSemantics {
             if (profile.setjmp().isEmpty()) diagnose(editor, save, "invalid", "capability", "Environment save requires the explicit glibc setjmp capability");
             if (!placement(save, parents, new IntegralConstants(project, profile)))
                 diagnose(editor, save, "invalid", "context", "setjmp is restricted to the C90 controlling-expression or expression-statement contexts; this implementation rejects other placements");
-            if (!(save.buffer() instanceof NameExpression name) || !(name.target().filter(members::contains).orElse(null) instanceof VariableDeclaration buffer)) {
+            VariableDeclaration buffer = directBuffer(save.buffer(), staticBuffers(profile));
+            if (buffer == null || !members.contains(buffer)) {
                 diagnose(editor, save, "unsupported", "buffer-expression", "Only a direct name bound to local standard jmp_buf storage is supported");
                 continue;
             }
@@ -44,15 +53,62 @@ public final class SetjmpSemantics {
             if (TypeSemantics.qualifiers(type) != 0)
                 diagnose(editor, save, "unsupported", "qualified-buffer", "Const or volatile jmp_buf storage is outside this subset");
             CallableDeclaration owner = owner(save, parents);
-            if (owner == null || owner(buffer, parents) != owner || isField(buffer, parents)
-                    || buffer.modifiers().contains("static") || buffer.modifiers().contains("extern"))
-                diagnose(editor, save, "unsupported", "buffer-storage", "Only automatic jmp_buf storage in the current function is supported");
+            boolean automatic = owner != null && owner(buffer, parents) == owner && !isField(buffer, parents)
+                    && !buffer.modifiers().contains("static") && !buffer.modifiers().contains("extern");
+            boolean admittedStatic = staticBuffers(profile) && owner != null && staticStorage(buffer, parents)
+                    && (owner(buffer, parents) == null || owner(buffer, parents) == owner)
+                    && contexts.get(buffer) == contexts.get(save);
+            if (!automatic && !admittedStatic)
+                diagnose(editor, save, "unsupported", "buffer-storage", "The selected policy requires direct automatic storage or opt-in same-TU static storage");
             if (buffer.initializer().isPresent())
                 diagnose(editor, buffer, "unsupported", "buffer-initialization", "Initialization or copying of opaque jmp_buf storage is outside this subset");
         }
-        for (var root : SourceContexts.roots(project))
-            uses(root.node(), buffers, TypeSemantics.profile(root.source()), editor, false, false);
+        for (var root : SourceContexts.roots(project)) {
+            var profile = TypeSemantics.profile(root.source());
+            if (staticBuffers(profile)) validateRestores(root.node(), profile, members, parents, contexts, buffers, editor, false);
+            uses(root.node(), buffers, profile, editor, false, false);
+        }
         return editor.build();
+    }
+
+    private static VariableDeclaration directBuffer(Expression expression, boolean qualified) {
+        Declaration target = expression instanceof NameExpression name ? name.target().orElse(null)
+                : qualified && expression instanceof ScopeMemberExpression scope && namespaceQualifier(scope.receiver())
+                    ? scope.target().orElse(null) : null;
+        return target instanceof VariableDeclaration variable ? variable : null;
+    }
+    private static boolean namespaceQualifier(Expression expression) {
+        Declaration target = expression instanceof NameExpression name ? name.target().orElse(null)
+                : expression instanceof ScopeMemberExpression scope && namespaceQualifier(scope.receiver()) ? scope.target().orElse(null) : null;
+        return target instanceof NamespaceDeclaration || target instanceof NamespaceAliasDeclaration;
+    }
+    private static boolean staticBuffers(PlatformProfile profile) {
+        return profile.setjmp().map(com.kniazkov.cpg.build.SetjmpModel::staticBuffers).orElse(false);
+    }
+    private static boolean staticStorage(VariableDeclaration buffer, Map<Node, Node> parents) {
+        return !isField(buffer, parents) && !buffer.modifiers().contains("extern")
+                && (owner(buffer, parents) == null || buffer.modifiers().contains("static"));
+    }
+    /** Checks structural admission only, not whether the saving activation is still alive. */
+    private static void validateRestores(Node node, PlatformProfile profile, Set<Node> members,
+            Map<Node, Node> parents, Map<Node, SourceFile> contexts, Set<VariableDeclaration> buffers,
+            ProjectEditor editor, boolean unevaluated) {
+        unevaluated |= node instanceof SizeofExpression || node instanceof OffsetofExpression
+                || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile);
+        if (!unevaluated && node instanceof CallExpression call && call.target().filter(target ->
+                LibraryDeclarations.isLibrary(target) && target.name().equals("longjmp")).isPresent()
+                && !call.arguments().isEmpty()) {
+            Expression argument = call.arguments().getFirst();
+            while (argument instanceof ConversionExpression conversion && !conversion.isExplicit()) argument = conversion.operand();
+            VariableDeclaration buffer = directBuffer(argument, true);
+            if (buffer == null || !members.contains(buffer) || buffer.type().filter(type -> jmpBuffer(type, members)
+                            && TypeSemantics.qualifiers(type) == 0).isEmpty()
+                    || isField(buffer, parents) || buffer.modifiers().contains("extern")
+                    || buffer.initializer().isPresent() || contexts.get(buffer) != contexts.get(call)) {
+                diagnose(editor, call, "unsupported", "restore-buffer", "V2 requires a direct same-TU standard buffer definition; dynamic matching and saving-frame lifetime remain unproved");
+            }
+        }
+        for (Node child : node.children()) validateRestores(child, profile, members, parents, contexts, buffers, editor, unevaluated);
     }
 
     private static CallableDeclaration owner(Node node, Map<Node, Node> parents) {
@@ -78,6 +134,8 @@ public final class SetjmpSemantics {
         return name.equals("_setjmp") || name.endsWith("::_setjmp");
     }
     private static boolean isField(Node node, Map<Node, Node> parents) {
+        if (node instanceof Declaration declaration && (declaration.access().isPresent()
+                || declaration.previousDeclaration().filter(previous -> previous != node && previous.access().isPresent()).isPresent())) return true;
         for (Node parent = parents.get(node); parent != null; parent = parents.get(parent)) {
             if (parent instanceof ClassDeclaration) return true;
             if (parent instanceof CallableDeclaration) return false;
@@ -137,10 +195,13 @@ public final class SetjmpSemantics {
             ProjectEditor editor, boolean unevaluated, boolean allowed) {
         unevaluated |= node instanceof SizeofExpression || node instanceof OffsetofExpression
                 || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile);
-        if (!unevaluated && node instanceof NameExpression name && name.target().filter(buffers::contains).isPresent() && !allowed)
-            diagnose(editor, name, "unsupported", "escaped-buffer", "Copying, escaping or indirectly accessing saved jmp_buf storage is outside this subset");
+        Declaration referenced = node instanceof NameExpression name ? name.target().orElse(null)
+                : staticBuffers(profile) && node instanceof MemberExpression member ? member.target().orElse(null) : null;
+        if (!unevaluated && buffers.contains(referenced) && !allowed)
+            diagnose(editor, node, "unsupported", "escaped-buffer", "Copying, escaping or indirectly accessing saved jmp_buf storage is outside this subset");
         for (Node child : node.children()) {
-            boolean direct = node instanceof SetjmpExpression save && child == save.buffer();
+            boolean direct = node instanceof SetjmpExpression save && child == save.buffer()
+                    || staticBuffers(profile) && allowed && node instanceof ConversionExpression conversion && !conversion.isExplicit();
             if (node instanceof CallExpression call && call.target().filter(target -> LibraryDeclarations.isLibrary(target)
                     && target.name().equals("longjmp")).isPresent() && !call.arguments().isEmpty())
                 direct |= child == call.arguments().getFirst();
