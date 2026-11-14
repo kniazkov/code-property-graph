@@ -794,3 +794,5 @@ invalid. [Оригиналы, неоднозначность 9.2/17 и гейт�
 ### Ограниченные borrowed va_list helper-параметры (#146)
 
 Явный `x86_64-sysv-lp64-borrowed-v2` разрешает direct same-TU helper с параметром va_list, соседние start/call/end у владельца и только va_arg у заёмщика. Тип остаётся opaque; анализ памяти учитывает общую cursor state. V1 и guards сохранены. Forwarding и дополнительные storage/operand/retrieval формы остаются в #146; пять macro obligations и #48 не закрыты. [Контракт и отдельные гейты](docs/cpp03-borrowed-varargs-verification.md).
+
+Ограниченные direct same-TU static/global `jmp_buf` v2 (#147): отдельная opt-in политика `gcc-clang-glibc-static-v2`, без расширения v1 и без доказательства времени жизни saving frame. #147/#146 остаются открытыми. [Контракт и отдельные гейты](docs/cpp03-static-setjmp-verification.md).

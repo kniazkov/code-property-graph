@@ -842,3 +842,5 @@ ABI/compiler-фактом, не универсальным правилом 2003
 ## Borrowed va_list (#146)
 
 Явный borrowed-v2 добавляет ограниченные same-TU helper-параметры va_list: соседние start/call/end у владельца и общая opaque cursor state. V1 не меняется. Остатки forwarding/storage/retrieval остаются в #146, пять macro obligations partial/open. Доказательство whole-program lifecycle не заявлено. [Contract / контракт](cpp03-borrowed-varargs-verification.md).
+
+Ограниченные direct same-TU static/global `jmp_buf` v2 (#147): отдельная opt-in политика `gcc-clang-glibc-static-v2`, без расширения v1 и без доказательства времени жизни saving frame. #147/#146 остаются открытыми. [Контракт и отдельные гейты](cpp03-static-setjmp-verification.md).
