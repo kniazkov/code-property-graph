@@ -75,6 +75,7 @@ jobs:
             target/varargs-runtime-oracle/
             target/setjmp-runtime-oracle/
             target/typed-pointer-varargs-runtime-oracle/
+            target/borrowed-varargs-runtime-oracle/
             target/errno-runtime-oracle/
             target/mb-cur-max-oracle/
             target/standard-streams-oracle/
