@@ -140,8 +140,6 @@ class CppPreprocessorTest {
                 """));
         assertEquals("prefix tail", expand("#define CAT(a,b) a ## b\nCAT(pre,fix tail)"));
         assertEquals("L\"x\" 1e+2", expand("#define CAT(a,b) a ## b\nCAT(L,\"x\") CAT(1e+,2)"));
-        failure("#define CAT(a,b) a##b\nCAT(+,*)", "Invalid token paste");
-        failure("#define CAT(a,b) a##b\nCAT(/,*)", "Invalid token paste");
     }
     @Test void rejectsMalformedAndNonCpp03MacroForms() {
         failure("#define F(x,x) x", "Duplicate macro parameter");
@@ -149,11 +147,26 @@ class CppPreprocessorTest {
         failure("#define F(x) #other", "# must precede");
         failure("#define F ##x", "## cannot begin");
         failure("#define F(x) x##", "## cannot begin");
-        failure("#define F(x) x\nF()", "Empty macro argument");
-        failure("#define F(a,b) a##b\nF(,b)", "Empty macro argument");
         failure("#define and 7", "Expected macro name");
         failure("#define A 1\n#define A 2", "Incompatible redefinition");
         assertEquals("1", expand("#define A 1\n#define A 1\nA"));
+    }
+    // These four tests pin CPG refusal policy on UB in the printed 2003 edition.
+    // They do not claim a mandatory ISO diagnostic; never use native execution
+    // of these inputs as a result oracle.
+    @Test void ubPolicyRejectsEmptyMacroArguments() {
+        failure("#define F(x) x\nF()", "Empty macro argument");
+        failure("#define F(a,b) a##b\nF(,b)", "Empty macro argument");
+    }
+    @Test void ubPolicyRejectsInvalidPasteResults() {
+        failure("#define CAT(a,b) a##b\nCAT(+,*)", "Invalid token paste");
+        failure("#define CAT(a,b) a##b\nCAT(/,*)", "Invalid token paste");
+    }
+    @Test void ubPolicyRejectsOutOfRangeLineNumbers() {
+        failure("#line 0\nx", "1..32767"); failure("#line 32768\nx", "1..32767");
+    }
+    @Test void ubPolicyRejectsPredefinedNameChanges() {
+        failure("#define __LINE__ 2", "undefined behavior"); failure("#undef defined", "undefined behavior");
     }
     @Test void buildMacrosAreOrderedAndTranslationUnitsAreIndependent() {
         var build = unit(List.of(), List.of(new Build.MacroOperation(true, "VALUE=1"), new Build.MacroOperation(false, "VALUE"), new Build.MacroOperation(true, "VALUE=3"), new Build.MacroOperation(true, "FLAG"), new Build.MacroOperation(true, "F(x)=x+x")));
@@ -305,6 +318,8 @@ class CppPreprocessorTest {
     }
 
     @Test void stringizeAndChainedPasteKeepAllPhysicalParticipants() {
+        // ISO leaves ## order unspecified. This checks CPG provenance, not a
+        // universal evaluation order; either grouping yields "prefixed" here.
         var result = preprocess("#define STR(x) #x\n#define CAT(a,b,c) a##b##c\nSTR(hello + world) CAT(pre,fix,ed)");
         assertEquals("\"hello + world\" prefixed", text(result));
         var stringize = result.expansions().get(0).operations().getFirst();
@@ -447,9 +462,8 @@ class CppPreprocessorTest {
         assertEquals("41 \"logical.cpp\" 199711L 42", text(result));
         assertTrue(result.tokens().stream().filter(t -> t.token().spelling().equals("41")).findFirst().orElseThrow().expansionRange().file().endsWith("main.cpp"));
         assertTrue(result.logicalLocations().stream().anyMatch(l -> l.file().equals("logical.cpp") && l.line() == 41));
+        // __STDC__ absence is the selected CPG profile, not a universal ISO fact.
         assertEquals("ok", expand("#if __cplusplus == 199711L && defined(__LINE__) && !defined(__STDC__)\nok\n#endif"));
-        failure("#line 0\nx", "1..32767"); failure("#line 32768\nx", "1..32767");
-        failure("#define __LINE__ 2", "undefined behavior"); failure("#undef defined", "undefined behavior");
     }
     @Test void dateAndTimeAreTranslationTimeConstantsAndUnusedCatalogueIsStable() {
         var unit = unit(List.of(), List.of());

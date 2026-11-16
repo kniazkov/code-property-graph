@@ -31,11 +31,40 @@ class TemplateInstantiationSemanticsTest {
         assertTrue(p.hasErrors());assertTrue(error.message().contains("int"));assertTrue(error.message().contains("size"));
         assertEquals(List.of(2,3),error.relatedRanges().stream().map(r->r.range().start().line()).toList());
     }
-    @Test void fullSpecializationAndExplicitInstantiation(){
-        var p=resolve("template<class T> T identity(T x){return x;} template<> int identity<int>(int x){return 7;} template int identity<int>(int); int main(){return identity(2);}");
-        assertEquals(1,p.templateInstances().size());
-        assertEquals(2,p.templateInstances().getFirst().requests().size());
-        assertEquals(7,nodes(p.templateInstances().getFirst().declaration(),IntegerLiteral.class).getFirst().bigValue().intValue());
+    @Test void fullSpecializationSelectsItsDefinitionWithoutExplicitInstantiation() {
+        var p=resolve("template<class T> T identity(T x){return x;} template<> int identity<int>(int x){return 7;} int main(){return identity(2);}");
+        for (var snapshot:List.of(p,p.edit().build(),NameResolver.resolve(p.edit().build()))) {
+            assertFalse(snapshot.hasErrors(),snapshot.semanticDiagnostics().toString());
+            assertEquals(1,snapshot.templateInstances().size());
+            var instance=snapshot.templateInstances().getFirst();
+            assertEquals(1,instance.requests().size());
+            assertTrue(instance.requests().getFirst() instanceof CallExpression);
+            assertSame(instance.declaration(),instance.cause().target().orElseThrow());
+            assertEquals(7,nodes(instance.declaration(),IntegerLiteral.class).getFirst().bigValue().intValue());
+        }
+    }
+    @Test void explicitInstantiationSelectsPrimaryWithoutFullSpecialization() {
+        var p=resolve("template<class T> T identity(T x){return x;} template int identity<int>(int); int main(){return identity(2);}");
+        for (var snapshot:List.of(p,p.edit().build(),NameResolver.resolve(p.edit().build()))) {
+            assertFalse(snapshot.hasErrors(),snapshot.semanticDiagnostics().toString());
+            assertEquals(1,snapshot.templateInstances().size());
+            var instance=snapshot.templateInstances().getFirst();
+            assertEquals(TemplateKind.PRIMARY,instance.origin().templateKind());
+            assertEquals(2,instance.requests().size());
+            assertEquals(1,instance.requests().stream().filter(CallableDeclaration.class::isInstance).count());
+            assertSame(instance.declaration(),instance.cause().target().orElseThrow());
+            var returned=nodes(instance.declaration(),ReturnStatement.class).getFirst();
+            assertEquals("x",nodes(returned,NameExpression.class).getFirst().name());
+        }
+    }
+    @Test void ifndrSpecializationAndInstantiationOnlyChecksAnalysisRobustness() {
+        // Printed C++03 14.7/5: IFNDR. No portable count, chosen body, result,
+        // acceptance or mandatory diagnostic is asserted for this input.
+        assertDoesNotThrow(() -> {
+            var p=resolve("template<class T> T identity(T x){return x;} template<> int identity<int>(int x){return 7;} template int identity<int>(int); int main(){return identity(2);}");
+            com.kniazkov.cpg.serialization.ProjectJson.encode(p);
+            com.kniazkov.cpg.serialization.ProjectJson.encode(NameResolver.resolve(p.edit().build()));
+        });
     }
     @Test void valueArgumentsAndArrayBoundDeduction() {
         var p=resolve("template<int N> int value(){return N;} template<int N> int length(const int (&a)[N]){return N;} int main(){int a[3];return value<4>()+length(a);}");
