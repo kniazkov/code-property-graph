@@ -54,7 +54,7 @@
 - [x] [#92 — Координационная приёмка обязательных библиотечных макросов](https://github.com/kniazkov/code-property-graph/issues/92): закрыта после [PR #148](https://github.com/kniazkov/code-property-graph/pull/148) по критерию «поддержка либо открытая ссылка на остаток». 102 обязательства / 95 имён; пять обязательств остаются partial/open. Закрытие #92 не означает полную реализацию макросов.
 - [x] **Восстановить учёт остатков offsetof:** код и существующие assertions сверены на master `d1b93899bc75e90dc6c0a9c71e3974329c45ad5e`; [#145](https://github.com/kniazkov/code-property-graph/issues/145) переоткрыта с конкретными остатками и ссылками на реализацию. Запись `cstddef/offsetof` в `docs/cpp03-library-macros.json` уже указывает на #145; URL, `open`/`partial_open` и нормативные классификации сохранены. Это завершение сверки, а не реализации остатка; доказательства приведены ниже.
 - [x] [#97](https://github.com/kniazkov/code-property-graph/issues/97) — Разделены корректные специализация/инстанцирование и IFNDR-проверка устойчивости; четыре семейства UB выделены в policy-тесты API/CLI/JSON без native oracle. [Assertions и команды](docs/cpp03-oracle-policy.ru.md). Приёмка и закрытие issue требуют зелёного полного CI финальной ревизии PR; результаты фиксируются в PR.
-- [ ] [#145](https://github.com/kniazkov/code-property-graph/issues/145) — Завершить остатки offsetof/POD layout: enum bit-fields, ширины >=128, cv unnamed поля и leading-positive struct padding. V7 влит в PR #157; v8 влит в PR #158; v9 добавляет ширины 65–127 и требует зелёного CI. Сохранить границы v1–v9 и явные ссылки на незавершённые формы. Выполнить до #100 и #48.
+- [ ] [#145](https://github.com/kniazkov/code-property-graph/issues/145) — Завершить остатки offsetof/POD layout: enum bit-fields, ширины >=128 и leading-positive struct padding. V7 влит в PR #157; v8 влит в PR #158; v9 добавляет ширины 65–127 и требует зелёного CI. Сохранить границы v1–v9 и явные ссылки на незавершённые формы. Выполнить до #100 и #48.
 - [ ] [#104](https://github.com/kniazkov/code-property-graph/issues/104) — Исправить явное инстанцирование после отдельного объявления и определения шаблона.
 - [ ] [#93](https://github.com/kniazkov/code-property-graph/issues/93) — Дополнить объявления потоков и зафиксировать точные свойства типов и выбранный профиль.
 - [ ] [#95](https://github.com/kniazkov/code-property-graph/issues/95) — Построить в CFG очистку частично созданных массивов.
@@ -597,5 +597,9 @@ JSON/DOT показывают её отдельно от дерева владе
   #145 остаётся открытой: enum, cv unnamed, ширины >64, leading-positive.
 
 - [x] Реализовать ограниченный v9: ширины 65–127, тесты и ручной пример.
-- [ ] Принять v9 после зелёного GitHub CI финальной ревизии PR.
+- [x] V9 принят пользователем и влит в PR #159.
   [Контракт](docs/cpp03-wide-bitfield-verification.md). #145 остаётся открытой.
+
+- [x] Реализовать v10: cv unnamed по исходному C++03 с явным различием GCC/Clang.
+- [ ] Принять v10 после зелёного CI; [контракт](docs/cpp03-cv-padding-verification.md).
+  Остатки #145: enum, leading-positive, >=128.
