@@ -47,14 +47,14 @@
 
 ## Актуальная очередь оставшейся работы
 
-Обновление на 16 ноября 2026 года: база этого пакета — master `144a5a83b876e53e39bb84450e1ce4959426aed2`, влит [PR #156](https://github.com/kniazkov/code-property-graph/pull/156) по #97. В очереди ниже остаются 15 задач, включая частично выполненную #145. Последняя проверенная здесь зелёная сборка — [CI предшествующей ревизии master bff518d](https://github.com/kniazkov/code-property-graph/actions/runs/43635089599). Linux выполняет полный `mvn verify` и дополнительные проверки; Windows выполняет `mvn test` и проверку переносимости путей. Это не подтверждение полного Windows E2E/verify.
+Обновление на 16 ноября 2026 года: база этого пакета — master `72bb720`, влит [PR #157](https://github.com/kniazkov/code-property-graph/pull/157) с ограниченной раскладкой v7. В очереди ниже остаются 15 задач, включая частично выполненную #145. Последняя проверенная здесь зелёная сборка — [CI предшествующей ревизии master bff518d](https://github.com/kniazkov/code-property-graph/actions/runs/43635089599). Linux выполняет полный `mvn verify` и дополнительные проверки; Windows выполняет `mvn test` и проверку переносимости путей. Это не подтверждение полного Windows E2E/verify.
 
 Исходная очередь #11–#48 выше сохраняет историю принятых этапов и их ограниченного охвата. Для дальнейшего выполнения использовать очередь ниже. Порядок рекомендательный; обязательные зависимости названы в пунктах. Галочки исторических этапов не закрывают выявленные позднее пробелы. Критерий приёмки каждой задачи — зелёный GitHub CI на точной финальной ревизии PR, проверки и документация в объёме её контракта; после слияния проверяется CI master.
 
 - [x] [#92 — Координационная приёмка обязательных библиотечных макросов](https://github.com/kniazkov/code-property-graph/issues/92): закрыта после [PR #148](https://github.com/kniazkov/code-property-graph/pull/148) по критерию «поддержка либо открытая ссылка на остаток». 102 обязательства / 95 имён; пять обязательств остаются partial/open. Закрытие #92 не означает полную реализацию макросов.
 - [x] **Восстановить учёт остатков offsetof:** код и существующие assertions сверены на master `d1b93899bc75e90dc6c0a9c71e3974329c45ad5e`; [#145](https://github.com/kniazkov/code-property-graph/issues/145) переоткрыта с конкретными остатками и ссылками на реализацию. Запись `cstddef/offsetof` в `docs/cpp03-library-macros.json` уже указывает на #145; URL, `open`/`partial_open` и нормативные классификации сохранены. Это завершение сверки, а не реализации остатка; доказательства приведены ниже.
 - [x] [#97](https://github.com/kniazkov/code-property-graph/issues/97) — Разделены корректные специализация/инстанцирование и IFNDR-проверка устойчивости; четыре семейства UB выделены в policy-тесты API/CLI/JSON без native oracle. [Assertions и команды](docs/cpp03-oracle-policy.ru.md). Приёмка и закрытие issue требуют зелёного полного CI финальной ревизии PR; результаты фиксируются в PR.
-- [ ] [#145](https://github.com/kniazkov/code-property-graph/issues/145) — Завершить остатки offsetof/POD layout: enum bit-fields, ширины >64, cv/non-public unnamed поля и leading-positive struct padding. Поднабор v7 (bool и unnamed oversized до 64) реализован и локально проверен; принятие пакета требует зелёного CI. Сохранить границы v1–v7 и явные ссылки на незавершённые формы. Выполнить до #100 и #48.
+- [ ] [#145](https://github.com/kniazkov/code-property-graph/issues/145) — Завершить остатки offsetof/POD layout: enum bit-fields, ширины >64, cv unnamed поля и leading-positive struct padding. V7 влит в PR #157; v8 добавляет non-public unnamed и требует зелёного CI для приёмки. Сохранить границы v1–v8 и явные ссылки на незавершённые формы. Выполнить до #100 и #48.
 - [ ] [#104](https://github.com/kniazkov/code-property-graph/issues/104) — Исправить явное инстанцирование после отдельного объявления и определения шаблона.
 - [ ] [#93](https://github.com/kniazkov/code-property-graph/issues/93) — Дополнить объявления потоков и зафиксировать точные свойства типов и выбранный профиль.
 - [ ] [#95](https://github.com/kniazkov/code-property-graph/issues/95) — Построить в CFG очистку частично созданных массивов.
@@ -586,6 +586,12 @@ JSON/DOT показывают её отдельно от дерева владе
 - [x] Реализовать ограниченную раскладку v7 в рамках #145: bool и unnamed
   oversized до 64 бит, отдельное выравнивание oversized unnamed, сохранение
   старых политик; добавить unit/e2e, CLI/JSON, GCC/Clang и ручной исходник.
-- [ ] Принять пакет v7 после зелёного GitHub CI финальной ревизии PR.
+- [x] Пакет v7 принят пользователем и влит в PR #157.
   #145 остаётся открытой для перечисленных выше остатков.
   [Контракт и доказательства](docs/cpp03-padding-bit-field-layout-verification.md).
+
+- [x] Реализовать v8: private/protected unnamed bit-fields, включая default
+  class access, с прежней раскладкой и отдельными регрессиями старых профилей.
+- [ ] Принять v8 после зелёного GitHub CI финальной ревизии PR.
+  [Обоснование, ручной пример и проверки](docs/cpp03-nonpublic-padding-verification.md).
+  #145 остаётся открытой: enum, cv unnamed, ширины >64, leading-positive.
