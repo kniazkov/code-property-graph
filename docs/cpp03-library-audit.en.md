@@ -822,3 +822,13 @@ Explicit `x86_64-sysv-bool-v6` extends v5 with named bool widths 1..8 and byte s
 Explicit borrowed-v2 adds bounded same-TU helper va_list parameters, adjacent owner start/call/end and shared opaque cursor memory effects. V1 remains unchanged. Further forwarding/storage/retrieval forms remain #146; all five macro obligations retain partial/open status. No whole-program lifecycle proof is claimed. [Contract / контракт](cpp03-borrowed-varargs-verification.md).
 
 The opt-in direct same-TU static/global `jmp_buf` v2 package leaves v1 unchanged and does not establish dynamic saving-frame lifetime. #147/#146 remain open. [Contract and separate gates](cpp03-static-setjmp-verification.md).
+
+### Bool and unnamed oversized layout v7 (#145)
+
+Explicit `x86_64-sysv-padding-v7` adds named bool 1..64, unnamed bool 0..64
+and unnamed oversized integral fields through 64 bits. Ordinary unnamed
+padding does not increase aggregate alignment; oversized padding does under
+Itanium §2.4 II-2(b). Earlier policies and guards are preserved. Values and
+promotions are not added. Widths >64, enum, cv/nonpublic unnamed and leading
+positive struct padding remain in #145; all five obligations stay partial/open.
+[Contract, fixed facts, tests and CI gate](cpp03-padding-bit-field-layout-verification.md).
