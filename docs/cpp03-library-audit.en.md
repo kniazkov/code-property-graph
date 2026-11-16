@@ -832,3 +832,12 @@ Itanium §2.4 II-2(b). Earlier policies and guards are preserved. Values and
 promotions are not added. Widths >64, enum, cv/nonpublic unnamed and leading
 positive struct padding remain in #145; all five obligations stay partial/open.
 [Contract, fixed facts, tests and CI gate](cpp03-padding-bit-field-layout-verification.md).
+
+### Nonpublic unnamed padding v8 (#145)
+
+Explicit `x86_64-sysv-access-v8` inherits v7 and admits non-cv unnamed private
+and protected bit-fields, including default class access. C++03 §9.6/2 makes
+these non-members; named nonpublic fields still fail POD eligibility. Earlier
+policies and storage algorithms remain unchanged. CV unnamed, enum, widths
+above64 and leading-positive padding remain in #145.
+[Reasoning, tests and CI gate](cpp03-nonpublic-padding-verification.md).
