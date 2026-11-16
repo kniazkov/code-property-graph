@@ -47,13 +47,14 @@
 
 ## Актуальная очередь оставшейся работы
 
-Сверка на 16 ноября 2026 года: master `bff518df8501928234794aa3eed382e26d5148a8`, последний влитый [PR #153](https://github.com/kniazkov/code-property-graph/pull/153). Открыты 15 задач, открытых PR на момент сверки нет. [CI этой ревизии master](https://github.com/kniazkov/code-property-graph/actions/runs/43635089599) зелёный: Linux выполняет полный `mvn verify` и дополнительные проверки; Windows выполняет `mvn test` и проверку переносимости путей. Это не подтверждение полного Windows E2E/verify.
+Сверка на 16 ноября 2026 года: master `d1b93899bc75e90dc6c0a9c71e3974329c45ad5e`, последний влитый [PR #154](https://github.com/kniazkov/code-property-graph/pull/154). После переоткрытия #145 открыты 16 задач. Последняя проверенная здесь зелёная сборка — [CI предшествующей ревизии master bff518d](https://github.com/kniazkov/code-property-graph/actions/runs/43635089599). Linux выполняет полный `mvn verify` и дополнительные проверки; Windows выполняет `mvn test` и проверку переносимости путей. Это не подтверждение полного Windows E2E/verify.
 
 Исходная очередь #11–#48 выше сохраняет историю принятых этапов и их ограниченного охвата. Для дальнейшего выполнения использовать очередь ниже. Порядок рекомендательный; обязательные зависимости названы в пунктах. Галочки исторических этапов не закрывают выявленные позднее пробелы. Критерий приёмки каждой задачи — зелёный GitHub CI на точной финальной ревизии PR, проверки и документация в объёме её контракта; после слияния проверяется CI master.
 
 - [x] [#92 — Координационная приёмка обязательных библиотечных макросов](https://github.com/kniazkov/code-property-graph/issues/92): закрыта после [PR #148](https://github.com/kniazkov/code-property-graph/pull/148) по критерию «поддержка либо открытая ссылка на остаток». 102 обязательства / 95 имён; пять обязательств остаются partial/open. Закрытие #92 не означает полную реализацию макросов.
-- [ ] **Сначала восстановить учёт остатков offsetof:** [#145](https://github.com/kniazkov/code-property-graph/issues/145) закрыта 13 ноября, но [PR #151](https://github.com/kniazkov/code-property-graph/pull/151) и описание v6 сохраняют unnamed/oversized bool, enum и другие ограничения. Сопоставить остатки с кодом и доказательствами, затем закрепить невыполненное открытой задачей (переоткрытой #145 либо конкретными задачами-преемниками) и обновить ссылки реестра. Само закрытие issue не является доказательством реализации; до этой сверки пункт не выполнен.
+- [x] **Восстановить учёт остатков offsetof:** код и существующие assertions сверены на master `d1b93899bc75e90dc6c0a9c71e3974329c45ad5e`; [#145](https://github.com/kniazkov/code-property-graph/issues/145) переоткрыта с конкретными остатками и ссылками на реализацию. Запись `cstddef/offsetof` в `docs/cpp03-library-macros.json` уже указывает на #145; URL, `open`/`partial_open` и нормативные классификации сохранены. Это завершение сверки, а не реализации остатка; доказательства приведены ниже.
 - [ ] [#97](https://github.com/kniazkov/code-property-graph/issues/97) — Исправить эталоны IFNDR/UB перед расширением доказательств соответствия.
+- [ ] [#145](https://github.com/kniazkov/code-property-graph/issues/145) — Реализовать подтверждённые остатки offsetof/POD layout после #97: unnamed/oversized bool, enum bit-fields, unnamed oversized integral и named integral шире 64 бит, cv/non-public unnamed поля и leading-positive struct padding. Сначала обосновать конечный ABI-поднабор; сохранить границы v1–v6 и явные ссылки на незавершённые формы. Выполнить до #100 и #48.
 - [ ] [#104](https://github.com/kniazkov/code-property-graph/issues/104) — Исправить явное инстанцирование после отдельного объявления и определения шаблона.
 - [ ] [#93](https://github.com/kniazkov/code-property-graph/issues/93) — Дополнить объявления потоков и зафиксировать точные свойства типов и выбранный профиль.
 - [ ] [#95](https://github.com/kniazkov/code-property-graph/issues/95) — Построить в CFG очистку частично созданных массивов.
@@ -69,7 +70,26 @@
 - [ ] [#103](https://github.com/kniazkov/code-property-graph/issues/103) — Добавить граничную приёмку потоков главы 27 после #93.
 - [ ] [#48](https://github.com/kniazkov/code-property-graph/issues/48) — Выполнить итоговую сверку матрицы, корпуса, профилей и ограничений RU/EN после перечисленных работ; не объявлять полное соответствие по факту закрытия исходных этапов.
 
-При появлении новых пробелов добавлять конкретные задачи перед #48. Остатки #145 требуют отдельной сверки и не входят в число 15 открытых issues. Эта синхронизация не меняет состояние issues и не переклассифицирует нормативные обязательства.
+При появлении новых пробелов добавлять конкретные задачи перед #48. Сверка учёта #145 выполнена; её оставшаяся реализация входит в число 16 открытых issues. Переоткрытие восстанавливает действующую ссылку реестра и не переклассифицирует нормативные обязательства.
+
+### Результат сверки остатков offsetof (#145)
+
+Проверена ревизия `d1b93899bc75e90dc6c0a9c71e3974329c45ad5e`. Это чтение реализации и существующих тестов; новый запуск Java/native тестов в рамках учётной задачи не выполнялся. Вопросы нормативного обоснования новых поддерживаемых форм остаются частью реализации #145.
+
+| Область | Результат сверки |
+| --- | --- |
+| Signed/plain char/short/int/long | Уже добавлены политикой v4 в пределах storage width; `SignedBitFieldLayoutTest#signedAndPlainFamiliesHaveIndependentLayoutFactsWithoutValueClaims` и `mixedSignedUnsignedUnitsAndUnnamedPaddingPreserveV3Rules`. Не повторять как полностью отсутствующую возможность. |
+| Named oversized integral | V5 допускает char/short/int через 64 бита; `OversizedBitFieldLayoutTest#boundariesUseAllocationAlignmentNotDeclaredStorage`. Unnamed oversized и named >64 остаются ограничены `PodLayout.bitField` / `maximumWidth`. |
+| Named bool 1–8 бит | Уже добавлены в v6; `BoolBitFieldLayoutTest#namedBoolWidthsUseByteStorageWithoutChangingEarlierPolicies`. Unnamed bool и widths >8 по-прежнему исключены условиями `boolSelected && !unnamed` и `maximumWidth`. |
+| Enum bit-fields | `PodLayout.bitField` выбирает storage только по fundamental spelling; enum попадает в отказ. Остаток присутствует в `BoolBitFieldLayoutTest#residualsAndUndefinedDesignatorsStayConservative`. |
+| Cv-qualified unnamed | `PodLayout.memberShape(type, rejectCv)` сохраняет отказ, включая typedef; `UnnamedBitFieldLayoutTest#nonpublicAndCvPaddingRemainUnsupportedNotInvalidOrNonPod`. |
+| Non-public unnamed | `PodLayout.owner` возвращает BIT_FIELD для unnamed с непубличным доступом; тест выше и `SignedBitFieldLayoutTest#unsupportedFormsDoNotExpandAlongWithSignedStorage`. Не смешивать с NOT_POD для named private fields. |
+| Leading-positive unnamed struct padding | Guard `!union && !namedObjectSeen && width > 0` сохраняется; `UnnamedBitFieldLayoutTest#leadingPositiveAndNoNamedMemberRemainBoundedUnsupported` включает positive-padding-only вложенную структуру. |
+| Учёт | `cstddef/offsetof.remaining_work` уже ведёт на #145; `support_status=open`, `partial_implementation.completion=partial_open`. После переоткрытия ссылка снова ведёт на открытую задачу, поэтому переписывать JSON и immutable paragraph records не требуется. |
+
+Исходники: [PodLayout](src/main/java/com/kniazkov/cpg/analysis/PodLayout.java), [signed tests](src/test/java/com/kniazkov/cpg/analysis/SignedBitFieldLayoutTest.java), [oversized tests](src/test/java/com/kniazkov/cpg/analysis/OversizedBitFieldLayoutTest.java), [bool tests](src/test/java/com/kniazkov/cpg/analysis/BoolBitFieldLayoutTest.java), [unnamed tests](src/test/java/com/kniazkov/cpg/analysis/UnnamedBitFieldLayoutTest.java), [реестр](docs/cpp03-library-macros.json). Точные ссылки на проверенный коммит сохранены в [#145](https://github.com/kniazkov/code-property-graph/issues/145).
+
+Существующие отрицательные тесты смешивают проверки неподдержанных форм и защиту от некорректных/UB входов. Named width 0, отрицательная ширина и offsetof самого битового поля не становятся положительными требованиями. Более ранние профили сохраняют прежние ограничения.
 
 ## Как читать план. Зелёные и красные узлы
 
@@ -438,7 +458,7 @@ JSON/DOT показывают её отдельно от дерева владе
 
 ### История ограниченных пакетов #92 и последующей работы
 
-Ниже сохранены границы и результаты последовательных пакетов. Упоминания отдельных гейтов и pending в связанных отчётах относятся к моменту подготовки соответствующего пакета, а не к текущему состоянию master. Текущие состояния задач и порядок продолжения приведены в актуальной очереди выше. В частности, #92 закрыта координационно, #145 закрыта при явно перечисленных остатках и требует сверки, #146/#147/#48 открыты.
+Ниже сохранены границы и результаты последовательных пакетов. Упоминания отдельных гейтов и pending в связанных отчётах относятся к моменту подготовки соответствующего пакета, а не к текущему состоянию master. Текущие состояния задач и порядок продолжения приведены в актуальной очереди выше. В частности, #92 закрыта координационно, #145 переоткрыта после сверки явно перечисленных остатков, #146/#147/#48 открыты.
 
 - [x] Явное ограниченное представление enum для offsetof: PR #124, полный CI
   [42602393679](https://github.com/kniazkov/code-property-graph/actions/runs/42602393679).
@@ -532,7 +552,7 @@ JSON/DOT показывают её отдельно от дерева владе
   Остатки первоначально оформлены в #145/#146/#147; пять partial/open статусов сохранены.
   Координационная приёмка #92 завершена после PR #148 и зелёных exact-head/post-merge CI
   ([результат](https://github.com/kniazkov/code-property-graph/issues/92)).
-  #48 открыта; текущее расхождение состояния #145 разобрано в актуальной очереди.
+  #48 открыта; учёт остатков #145 восстановлен переоткрытием задачи.
 - [x] Ограниченная signed/plain раскладка offsetof v4 (#145): char/short/int/long
   поверх v3, без обещания знаковости/значений/продвижений битовых полей.
   Предыдущие политики и guards сохранены; 44 focused unit + 2 IT прошли,
@@ -548,8 +568,8 @@ JSON/DOT показывают её отдельно от дерева владе
 - [x] Ограниченная bool-раскладка v6 (#145): именованные bool-поля 1–8 бит,
   с сохранением v1–v5, независимыми GCC/Clang фактами и проверками изменений.
   Целевые unit/IT пройдены; full clean verify и exact-head/post-merge CI — отдельные гейты.
-  Unnamed/oversized bool, enum и другие остатки описаны в #145, но issue теперь закрыта;
-  их учёт требует сверки по актуальной очереди. #48 не закрыта.
+  Unnamed/oversized bool, enum и другие остатки учтены в переоткрытой #145;
+  реализация остаётся в актуальной очереди. #48 не закрыта.
   [Контракт и проверки](docs/cpp03-bool-bit-field-layout-verification.md).
 - [x] Ограниченные borrowed va_list helper-параметры v2 (#146): явный ABI,
   соседние start/call/end у владельца, запрет копирования/forwarding и общая
