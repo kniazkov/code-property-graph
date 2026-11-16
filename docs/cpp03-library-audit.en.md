@@ -841,3 +841,11 @@ these non-members; named nonpublic fields still fail POD eligibility. Earlier
 policies and storage algorithms remain unchanged. CV unnamed, enum, widths
 above64 and leading-positive padding remain in #145.
 [Reasoning, tests and CI gate](cpp03-nonpublic-padding-verification.md).
+
+### Wide allocation v9 (#145)
+
+Explicit `x86_64-sysv-wide-v9` inherits v8 and admits integral/bool fields
+through 127 bits. Widths65..127 use eight-byte allocation alignment. Width128
+is a separate extended-type threshold and remains unsupported. Earlier policies
+are unchanged; enum, cv unnamed and leading-positive remain in #145.
+[Contract and tests](cpp03-wide-bitfield-verification.md).
