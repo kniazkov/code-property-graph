@@ -54,12 +54,15 @@ in [probes/README.md](probes/README.md).
    (16.4/3), and predefined-name redefinition/removal (16.8/3) have UB in this
    edition. Existing rejection tests may implement useful policy without proving
    that ISO requires those diagnostics.
-6. **An existing positive-looking template test uses IFNDR input.**
-   `TemplateInstantiationSemanticsTest.fullSpecializationAndExplicitInstantiation`
-   explicitly specializes and explicitly instantiates the same specialization.
-   Printed 14.7/5 prohibits that combination without requiring a diagnostic. Its
-   observed selection/count behavior must not serve as a portable positive
-   conformance oracle.
+6. **The IFNDR template oracle was separated in #97.**
+   The former `fullSpecializationAndExplicitInstantiation` combined both forms
+   for the same arguments (printed 14.7/5). Two independent valid tests now
+   check the selected definition and request counts. The retained IFNDR test
+   checks only analysis/JSON/copy/reanalysis robustness, with no portable result
+   or required diagnostic. The four UB families above have explicitly named
+   refusal-policy tests and API/CLI fixtures outside the executable corpus.
+   This corrects evidence; it does not establish complete paragraph coverage.
+
 
 The continuing informative blocks at 16.3.5/3–7, 14.8.2.4/5–8 and /13–14,
 and 14.8.3/2–5 are classified accordingly. Seven extraction artifacts resembling
