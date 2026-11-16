@@ -97,5 +97,6 @@ jobs:
             target/bool-bitfield-oracle/
             target/padding-bitfield-oracle/
             target/nonpublic-padding-oracle/
+            target/wide-bitfield-oracle/
             target/constant-template-arguments-oracle/
             target/partial-constant-template-arguments-oracle/
