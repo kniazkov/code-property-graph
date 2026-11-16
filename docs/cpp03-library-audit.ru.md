@@ -858,3 +858,12 @@ bool-поля 1–64 бит, безымянные bool-поля 0–64 бит и
 Ширины >64, enum, cv/nonpublic unnamed и leading-positive struct padding
 остаются в #145. Пять macro obligations остаются partial/open.
 [Обоснование, тесты и отдельный CI-гейт](cpp03-padding-bit-field-layout-verification.md).
+
+### Неименованные поля с закрытым доступом v8 (#145)
+
+Явная `x86_64-sysv-access-v8` наследует v7 и допускает non-cv безымянные
+битовые поля под private/protected, включая доступ class по умолчанию.
+По исходному C++03 §9.6/2 они не являются членами; именованные закрытые поля
+по-прежнему нарушают POD и отклоняются. Алгоритм раскладки не меняется.
+Старые профили сохраняют границы. CV unnamed, enum, ширины >64 и leading-positive
+остаются в #145. [Обоснование и проверки](cpp03-nonpublic-padding-verification.md).
