@@ -849,3 +849,10 @@ through 127 bits. Widths65..127 use eight-byte allocation alignment. Width128
 is a separate extended-type threshold and remains unsupported. Earlier policies
 are unchanged; enum, cv unnamed and leading-positive remain in #145.
 [Contract and tests](cpp03-wide-bitfield-verification.md).
+
+### Original C++03 cv unnamed padding v10
+
+Explicit x86_64-sysv-cv-v10 admits cv unnamed fields under the original
+C++03 rules, preserving written qualifiers. GCC positive layout and Clang
+later-DR rejection are tested separately. Prior profiles are unchanged.
+[Contract and residuals](cpp03-cv-padding-verification.md).
