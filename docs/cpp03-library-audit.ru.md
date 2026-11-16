@@ -844,3 +844,17 @@ ABI/compiler-фактом, не универсальным правилом 2003
 Явный borrowed-v2 добавляет ограниченные same-TU helper-параметры va_list: соседние start/call/end у владельца и общая opaque cursor state. V1 не меняется. Остатки forwarding/storage/retrieval остаются в #146, пять macro obligations partial/open. Доказательство whole-program lifecycle не заявлено. [Contract / контракт](cpp03-borrowed-varargs-verification.md).
 
 Ограниченные direct same-TU static/global `jmp_buf` v2 (#147): отдельная opt-in политика `gcc-clang-glibc-static-v2`, без расширения v1 и без доказательства времени жизни saving frame. #147/#146 остаются открытыми. [Контракт и отдельные гейты](cpp03-static-setjmp-verification.md).
+
+### Раскладка bool и безымянных расширенных полей v7 (#145)
+
+Явная политика `x86_64-sysv-padding-v7` наследует v6 и добавляет именованные
+bool-поля 1–64 бит, безымянные bool-поля 0–64 бит и безымянные char/short/int
+шире собственного типа, до 64 бит. Обычное безымянное поле не повышает
+выравнивание структуры; расширенное повышает его по Itanium §2.4 II-2(b).
+Например, после `char c` поле `bool :64` даёт смещение следующего `char` 16,
+размер структуры 24 и выравнивание 8 байт; `bool :3` даёт 2/3/1.
+Это только раскладка обычных членов: значения, продвижения и адресация
+битовых полей не добавлены. Старые политики и guards сохранены.
+Ширины >64, enum, cv/nonpublic unnamed и leading-positive struct padding
+остаются в #145. Пять macro obligations остаются partial/open.
+[Обоснование, тесты и отдельный CI-гейт](cpp03-padding-bit-field-layout-verification.md).
