@@ -856,3 +856,10 @@ Explicit x86_64-sysv-cv-v10 admits cv unnamed fields under the original
 C++03 rules, preserving written qualifiers. GCC positive layout and Clang
 later-DR rejection are tested separately. Prior profiles are unchanged.
 [Contract and residuals](cpp03-cv-padding-verification.md).
+
+### GCC extended widths v11
+
+Explicit x86_64-gcc-extended-v11 uses 16-byte alignment for oversized widths
+>=128, BigInteger arithmetic and the object-size ceiling. Clang differs; this
+is a GCC-selected profile. Earlier policies remain unchanged. Enum and leading
+positive padding remain #145. [Contract](cpp03-extended-bitfield-verification.md).
