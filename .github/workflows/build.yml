@@ -104,5 +104,6 @@ jobs:
             target/leading-padding-oracle/
             target/forward-explicit-oracle/
             target/iosfwd-declarations-oracle/
+            target/stream-copy-oracle/
             target/constant-template-arguments-oracle/
             target/partial-constant-template-arguments-oracle/
