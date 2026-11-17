@@ -878,6 +878,7 @@ public final class ProjectJson {
             var obj = Json.object().put("id", id(vertex)).put("kind", vertex.kind().name())
                     .put("ownerId", id(vertex.owner())).put("index", vertex.index());
             vertex.object().ifPresent(object -> obj.put("objectId", id(object)));
+            vertex.elementIndex().ifPresent(index -> obj.put("elementIndex", index));
             vertex.destructor().ifPresent(destructor -> obj.put("destructorId", id(destructor)));
             vertex.constructor().ifPresent(constructor -> obj.put("constructorId", id(constructor)));
             var links = outgoing.get(vertex);

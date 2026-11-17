@@ -177,7 +177,7 @@
 | 12 | [classes-initialization] | [ClassInitializationSemanticsTest] / `nonBaseAndIndirectNonvirtualInitializersAreRejectedEvenWithVirtualBases` | [ClassInitializationSemanticsTest] / `storageAndTemporaryBoundariesAreExplicit` |
 | 13 | [overloads-adl] | [OverloadResolutionTest] / `pairwiseVectorsRemainAmbiguousAndNoViableIsNotBound` | [OverloadResolutionTest] / `worseAmbiguousUserConversionDoesNotDefeatExactStandardCandidate` |
 | 14 | [templates-dependent], [template-instantiation] | [TemplateInstantiationExportTest] / `nestedBodyFailureExportsPrimaryTypeAndOrderedRequestRanges` | [TemplateInstantiationSemanticsTest] / `recursiveInstantiationHasAnExplicitResourceLimit`; export: нет положительной межфайловой реализации |
-| 15 | [statements-exceptions] | Нет полного реестра отрицательных исходников | [ExceptionCleanupFlowTest] / `partialArrayConstructionIsConservativelyIncomplete`, `exceptionSpecificationsEnforceTheirBoundary` |
+| 15 | [statements-exceptions] | Нет полного реестра отрицательных исходников | [ExceptionCleanupFlowTest] / `fixedArrayConstructionHasElementLifetimes` (bounded #95; ArrayCleanupFlowTest), `exceptionSpecificationsEnforceTheirBoundary` |
 | 16 | [macros], [conditional-catalog] | [CppPreprocessorTest] / `rejectsMalformedAndNonCpp03MacroForms` | [CppPreprocessorTest] / `recursiveMacrosTerminateAndDisabledTokensStayDisabled` |
 
 ## 4. Приложения A–E
