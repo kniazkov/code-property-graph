@@ -156,7 +156,7 @@ final class TypeParser {
     }
     void registerOpaquePlaceholder(String name) {
         registerClass(name);
-        if(name.startsWith("__cpg_opaque_integer_")) scope.libraryScalars.add(name);
+        if(name.startsWith("__cpg_opaque_integer_") || name.startsWith("__cpg_opaque_signedinteger_") || name.startsWith("__cpg_opaque_enumeration_")) scope.libraryScalars.add(name);
     }
     void registerClass(String name) {
         scope.tags.add(name);

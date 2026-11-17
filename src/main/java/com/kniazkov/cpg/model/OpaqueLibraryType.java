@@ -3,7 +3,7 @@ package com.kniazkov.cpg.model;
 import java.util.*;
 /** A specified category whose underlying implementation type, width and layout are unknown. */
 public final class OpaqueLibraryType extends TypeNode {
-    public enum Category { ARITHMETIC, INTEGER, OBJECT, UNSPECIFIED }
+    public enum Category { ARITHMETIC, INTEGER, SIGNED_INTEGER, ENUMERATION, OBJECT, UNSPECIFIED }
     private String name, identity;
     private Category category;
     private ClassDeclaration iteratorContainer;
@@ -12,6 +12,14 @@ public final class OpaqueLibraryType extends TypeNode {
     public String name() { return name; }
     public String identity() { return identity; }
     public Category category() { return category; }
+    /** Guaranteed arithmetic category; does not establish rank or representation. */
+    public boolean isArithmetic() { return category == Category.ARITHMETIC || category == Category.INTEGER || category == Category.SIGNED_INTEGER; }
+    /** Guaranteed enumeration category, with unknown enumerator values and underlying type. */
+    public boolean isEnumeration() { return category == Category.ENUMERATION; }
+    /** Known fundamental-type property; absent when the category does not establish it. */
+    public Optional<Boolean> fundamental() { return category == Category.SIGNED_INTEGER ? Optional.of(true) : isEnumeration() ? Optional.of(false) : Optional.empty(); }
+    /** Known signedness; enumeration underlying signedness remains unspecified. */
+    public Optional<Boolean> signed() { return category == Category.SIGNED_INTEGER ? Optional.of(true) : Optional.empty(); }
     /** Trusted catalogue container for an abstract iterator, never a pointer representation. */
     public Optional<ClassDeclaration> iteratorContainer() { return Optional.ofNullable(iteratorContainer); }
     public Optional<TypeNode> iteratorValueType() { return Optional.ofNullable(iteratorValueType).map(TypedefDeclaration::type); }

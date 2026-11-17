@@ -173,7 +173,7 @@ public final class OverloadResolution {
         return Optional.empty();
     }
     private static boolean opaqueArithmetic(TypeNode type) {
-        return type instanceof OpaqueLibraryType opaque && (opaque.category()==OpaqueLibraryType.Category.ARITHMETIC || opaque.category()==OpaqueLibraryType.Category.INTEGER)
+        return type instanceof OpaqueLibraryType opaque && opaque.isArithmetic()
                 || type instanceof NamedType named && named.fundamentalKind().filter(kind->kind!=FundamentalKind.VOID).isPresent();
     }
     private static Optional<Sequence> standard(TypeNode source, TypeNode target, ValueCategory category,
@@ -205,10 +205,19 @@ public final class OverloadResolution {
         if (targetBase instanceof OpaqueLibraryType opaque
                 && Set.of("setw_result", "setprecision_result", "setbase_result", "setfill_result", "setiosflags_result", "resetiosflags_result").contains(opaque.name())
                 && !sourceBase.canonicalIdentity().equals(targetBase.canonicalIdentity())) return Optional.empty();
+        // An implementation-defined enum is still an enum: arithmetic values
+        // cannot implicitly become that enum. Its promotion rank stays unknown.
+        if (targetBase instanceof OpaqueLibraryType opaque && opaque.isEnumeration()
+                && !sourceBase.canonicalIdentity().equals(targetBase.canonicalIdentity())
+                && (opaqueArithmetic(sourceBase) || EnumSemantics.declaration(sourceBase).isPresent()
+                    || sourceBase instanceof OpaqueLibraryType other && other.isEnumeration())) return Optional.empty();
+        if (sourceBase instanceof OpaqueLibraryType opaque && opaque.isEnumeration()
+                && EnumSemantics.declaration(targetBase).isPresent()) return Optional.empty();
         if((sourceBase instanceof OpaqueLibraryType || targetBase instanceof OpaqueLibraryType)
                 && !sourceBase.canonicalIdentity().equals(targetBase.canonicalIdentity()))
             return Optional.of(new Sequence(Rank.UNKNOWN,0,null,target instanceof ReferenceType,
-                    opaqueArithmetic(sourceBase) && opaqueArithmetic(targetBase)
+                    (opaqueArithmetic(sourceBase) || EnumSemantics.declaration(sourceBase).isPresent()
+                        || sourceBase instanceof OpaqueLibraryType enumeration && enumeration.isEnumeration()) && opaqueArithmetic(targetBase)
                     && (!(TypeSemantics.unqualified(target) instanceof ReferenceType reference) || TypeSemantics.qualifiers(reference.referredType())==1)));
         if (unknown(TypeSemantics.unqualified(source)) && unknown(TypeSemantics.unqualified(TypeSemantics.withoutReference(target))))
             return Optional.of(new Sequence(Rank.UNKNOWN, 0, null));
