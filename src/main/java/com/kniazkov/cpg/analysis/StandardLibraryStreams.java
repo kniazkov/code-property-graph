@@ -74,7 +74,7 @@ locale imbue(const locale&); locale getloc() const;
 static int xalloc(); long& iword(int); void*& pword(int);
 enum event { erase_event, imbue_event, copyfmt_event }; typedef void (*event_callback)(event, ios_base&, int);
 void register_callback(event_callback, int); static bool sync_with_stdio(bool = true); virtual ~ios_base();
-protected: ios_base(); };
+protected: ios_base(); private: ios_base(const ios_base&); ios_base& operator=(const ios_base&); };
 template<class CharT, class Traits> class basic_ios : public ios_base { public:
 typedef CharT char_type; typedef Traits traits_type; typedef typename Traits::int_type int_type; typedef typename Traits::pos_type pos_type; typedef typename Traits::off_type off_type;
 operator void*() const; bool operator!() const; ios_base::iostate rdstate() const; void clear(ios_base::iostate = goodbit); void setstate(ios_base::iostate); bool good() const; bool eof() const; bool fail() const; bool bad() const; ios_base::iostate exceptions() const; void exceptions(ios_base::iostate);
@@ -82,7 +82,7 @@ explicit basic_ios(basic_streambuf<CharT, Traits>*); virtual ~basic_ios();
 basic_ostream<CharT, Traits>* tie() const; basic_ostream<CharT, Traits>* tie(basic_ostream<CharT, Traits>*);
 basic_streambuf<CharT, Traits>* rdbuf() const; basic_streambuf<CharT, Traits>* rdbuf(basic_streambuf<CharT, Traits>*);
 basic_ios& copyfmt(const basic_ios&); char_type fill() const; char_type fill(char_type); locale imbue(const locale&); char narrow(char_type, char) const; char_type widen(char) const;
-protected: basic_ios(); void init(basic_streambuf<CharT, Traits>*); };
+protected: basic_ios(); void init(basic_streambuf<CharT, Traits>*); private: basic_ios(const basic_ios&); basic_ios& operator=(const basic_ios&); };
 ios_base& boolalpha(ios_base&);
 ios_base& noboolalpha(ios_base&);
 ios_base& showbase(ios_base&);

@@ -884,3 +884,7 @@ v13 `x86_64-gcc-leading-v13` допускает начальный положи�
 ### §27.2 — предварительные объявления iosfwd (#93, первый пакет)
 
 Добавлены оба buffer-iterator шаблона и char/wchar_t специализации char_traits. Независимый inventory проверяет отсутствие определений; API проверяет границу доступности методов и последующее подключение iterator/string. Статус §27.2 остаётся partial; остальные пункты #93 открыты. [Объём и команды](docs/cpp03-iosfwd-verification.md).
+
+### §27.4.2 / §27.4.4 — закрытое копирование потоковых баз (#93, шаг 2)
+
+В каталог добавлены private copy constructor и operator= для ios_base/basic_ios. Проверяются ios_base, ios, wios, оба size-type профиля, copy construction, assignment и явный operator=; отказ сопровождается диагностикой доступа и блокирует генерацию. Положительный copyfmt сохранён. Полный runtime потоков этим не доказан; записи synopsis остаются partial. [Проверки](docs/cpp03-stream-copy-verification.md).
