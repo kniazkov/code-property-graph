@@ -105,5 +105,6 @@ jobs:
             target/forward-explicit-oracle/
             target/iosfwd-declarations-oracle/
             target/stream-copy-oracle/
+            target/stream-is-open-oracle/
             target/constant-template-arguments-oracle/
             target/partial-constant-template-arguments-oracle/
