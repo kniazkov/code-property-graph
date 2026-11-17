@@ -102,5 +102,6 @@ jobs:
             target/extended-bitfield-oracle/
             target/enum-bitfield-oracle/
             target/leading-padding-oracle/
+            target/forward-explicit-oracle/
             target/constant-template-arguments-oracle/
             target/partial-constant-template-arguments-oracle/
