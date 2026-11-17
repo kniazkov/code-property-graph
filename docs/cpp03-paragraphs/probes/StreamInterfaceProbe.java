@@ -16,6 +16,17 @@ public final class StreamInterfaceProbe {
         System.out.println("ios-base-copy-declaration: " + base.contains("ios_base(const ios_base&"));
         System.out.println("basic-ios-copy-declaration: " + base.contains("basic_ios(const basic_ios&"));
         System.out.println("file-is-open-const-declarations: " + count(file, "bool is_open() const;"));
+        var types = NameResolver.resolve(Project.create().addFile(Parser.parse("types.cpp",
+            "#include <ios>\nstd::streamsize n;std::ios_base::seekdir direction;", Language.CPP)).build());
+        var facts = new java.util.TreeSet<String>();
+        for (var header : types.librarySources()) header.walk(new NodeVisitor() {
+            @Override public void visit(OpaqueLibraryType type) {
+                if (type.name().equals("streamsize") || type.name().equals("seekdir"))
+                    facts.add(type.name() + ": " + type.category() + " fundamental=" + type.fundamental()
+                        + " signed=" + type.signed() + " size=" + com.kniazkov.cpg.analysis.TypeSemantics.sizeof(type, profile));
+            }
+        });
+        facts.forEach(System.out::println);
         resolve("copy-ios-base", "#include <ios>\nvoid f(std::ios_base& src){std::ios_base copy(src);}");
         resolve("copy-ios", "#include <ios>\nvoid f(std::ios& src){std::ios copy(src);}");
     }
