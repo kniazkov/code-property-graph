@@ -114,3 +114,9 @@ The four const declarations are `filebuf` plus the three file-stream classes;
 строк отмечают только этот узкий выполненный эксперимент, а не полный прогон.
 Сноска 272 сохраняет проверенный номер и страницу без выдуманного места ссылки;
 пустой абзац 27.7.1.3/9 также сохранен.
+
+## Follow-up / Дополнение: #93, iosfwd
+
+The missing forward declarations described above are now supplied; the original audit remains a historical record. Current tests, rebuilt-JAR evidence and remaining limits are recorded in [iosfwd verification](../cpp03-iosfwd-verification.md). The paragraph remains partial.
+
+Недостающие предварительные объявления добавлены; исходный аудит выше сохранён как исторический отчёт. Текущие проверки и границы приведены в отчёте по ссылке. Остальные пункты #93 остаются открытыми.

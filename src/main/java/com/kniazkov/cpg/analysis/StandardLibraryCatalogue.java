@@ -840,7 +840,7 @@ public final class StandardLibraryCatalogue {
                 ostream_iterator& operator=(const T& value); ostream_iterator& operator*();
                 ostream_iterator& operator++(); ostream_iterator& operator++(int);
             };
-            template<class CharT,class Traits=char_traits<CharT> >
+            template<class CharT,class Traits>
             class istreambuf_iterator : public iterator<input_iterator_tag,CharT,typename Traits::off_type,CharT*,CharT&> {
                 public: typedef CharT char_type; typedef Traits traits_type; typedef typename Traits::int_type int_type;
                 typedef basic_streambuf<CharT,Traits> streambuf_type; typedef basic_istream<CharT,Traits> istream_type;
@@ -852,7 +852,7 @@ public final class StandardLibraryCatalogue {
             };
             template<class CharT,class Traits> bool operator==(const istreambuf_iterator<CharT,Traits>& x,const istreambuf_iterator<CharT,Traits>& y);
             template<class CharT,class Traits> bool operator!=(const istreambuf_iterator<CharT,Traits>& x,const istreambuf_iterator<CharT,Traits>& y);
-            template<class CharT,class Traits=char_traits<CharT> >
+            template<class CharT,class Traits>
             class ostreambuf_iterator : public iterator<output_iterator_tag,void,void,void,void> {
                 public: typedef CharT char_type; typedef Traits traits_type;
                 typedef basic_streambuf<CharT,Traits> streambuf_type; typedef basic_ostream<CharT,Traits> ostream_type;

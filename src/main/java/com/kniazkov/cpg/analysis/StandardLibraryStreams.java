@@ -7,6 +7,10 @@ final class StandardLibraryStreams {
         case "iosfwd" -> """
 typedef __cpg_opaque_integer_streamoff streamoff; typedef __cpg_opaque_integer_streamsize streamsize;
 template<class CharT> struct char_traits;
+template<> struct char_traits<char>;
+template<> struct char_traits<wchar_t>;
+template<class CharT, class Traits = char_traits<CharT> > class istreambuf_iterator;
+template<class CharT, class Traits = char_traits<CharT> > class ostreambuf_iterator;
 template<class T> class allocator;
 template<class State> class fpos { public: fpos(streamoff = 0); operator streamoff() const; State state() const; void state(State); fpos& operator+=(streamoff); fpos& operator-=(streamoff); fpos operator+(streamoff) const; fpos operator-(streamoff) const; streamoff operator-(const fpos&) const; };
 template<class State> bool operator==(const fpos<State>&, const fpos<State>&);
@@ -269,7 +273,7 @@ virtual ~strstream(); strstreambuf* rdbuf() const; void freeze(bool = true); int
     static Set<String> templateNames(String h) {
         var out = new java.util.LinkedHashSet<String>();
         if (h.equals("iosfwd")) {
-            out.addAll(Set.of("fpos", "char_traits", "allocator"));
+            out.addAll(Set.of("fpos", "char_traits", "allocator", "istreambuf_iterator", "ostreambuf_iterator"));
             for (String n : "ios streambuf istream ostream iostream filebuf ifstream ofstream fstream stringbuf istringstream ostringstream stringstream".split(" ")) out.add("basic_" + n);
         } else if (h.equals("ios")) out.add("basic_ios");
         else if (h.equals("istream")) { out.add("basic_istream"); out.add("basic_iostream"); }
