@@ -120,3 +120,9 @@ The four const declarations are `filebuf` plus the three file-stream classes;
 The missing forward declarations described above are now supplied; the original audit remains a historical record. Current tests, rebuilt-JAR evidence and remaining limits are recorded in [iosfwd verification](../cpp03-iosfwd-verification.md). The paragraph remains partial.
 
 Недостающие предварительные объявления добавлены; исходный аудит выше сохранён как исторический отчёт. Текущие проверки и границы приведены в отчёте по ссылке. Остальные пункты #93 остаются открытыми.
+
+### #93, private stream-base copying / закрытое копирование
+
+Private copy/assignment declarations for ios_base/basic_ios have been added. The historical omissions above are preserved as audit findings, not current catalogue state. [Current evidence](../cpp03-stream-copy-verification.md) covers declaration access and a copyfmt control, not the full stream runtime.
+
+Объявления закрытого копирования и присваивания добавлены; старый аудит выше остаётся историческим. Текущие проверки доступа и положительный copyfmt описаны по ссылке. Остальные пункты #93 остаются открытыми.
