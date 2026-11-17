@@ -610,5 +610,13 @@ JSON/DOT показывают её отдельно от дерева владе
   Остатки #145: enum, leading-positive.
 
 - [x] Реализовать enum bit-fields v12 с независимым enumStorage.
-- [ ] Принять v12 после зелёного CI; [контракт](docs/cpp03-enum-bitfield-verification.md).
+- [x] V12 влит пользователем в PR #162; [контракт](docs/cpp03-enum-bitfield-verification.md).
   Остаток #145: leading-positive struct padding.
+
+- [x] Реализовать последний выбранный layout-поднабор #145: leading/padding-only v13.
+- [ ] Принять итог #145 после зелёного CI и проверки границ контракта.
+  [Контракт и тесты](docs/cpp03-leading-padding-verification.md).
+- [ ] В рамках [#99](https://github.com/kniazkov/code-property-graph/issues/99)
+  сохранить/исследовать противоречие исходного C++03 initial-member-pointer и
+  leading unnamed padding. V13 фиксирует GCC-поведение, не нормативное решение;
+  в #48 не считать этот пункт доказанным соответствием стандарту.
