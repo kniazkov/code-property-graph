@@ -671,6 +671,8 @@ public final class ProjectJson {
                 }
                 case OpaqueLibraryType t -> {
                     obj.put("name", t.name()).put("identity", t.identity()).put("category", t.category().name());
+                    t.fundamental().ifPresent(value -> obj.put("fundamental", value));
+                    t.signed().ifPresent(value -> obj.put("signed", value));
                     t.iteratorContainer().ifPresent(container -> obj.put("iteratorContainerId", id(container)));
                     t.iteratorDifferenceType().ifPresent(difference -> obj.put("iteratorDifferenceTypeId", id(difference)));
                     t.iteratorValueType().ifPresent(value -> obj.put("iteratorValueTypeId", id(value)));

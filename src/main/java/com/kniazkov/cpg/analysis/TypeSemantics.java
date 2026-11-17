@@ -365,7 +365,7 @@ public final class TypeSemantics {
     }
     static boolean scalar(TypeNode type, PlatformProfile profile) {
         return integralOrEnum(type, profile) || floatingRank(type) > 0 || unqualified(type) instanceof PointerType
-                || unqualified(type) instanceof OpaqueLibraryType opaque && (opaque.category()==OpaqueLibraryType.Category.INTEGER || opaque.category()==OpaqueLibraryType.Category.ARITHMETIC);
+                || unqualified(type) instanceof OpaqueLibraryType opaque && (opaque.isArithmetic() || opaque.isEnumeration());
     }
     static int floatingRank(TypeNode type) {
         type = unqualified(type);
@@ -374,7 +374,9 @@ public final class TypeSemantics {
         } : 0;
     }
     static boolean integralOrEnum(TypeNode type, PlatformProfile profile) {
-        return integerType(type, profile).isPresent() || EnumSemantics.declaration(type).isPresent();
+        return integerType(type, profile).isPresent() || EnumSemantics.declaration(type).isPresent()
+                || unqualified(type) instanceof OpaqueLibraryType opaque && (opaque.category()==OpaqueLibraryType.Category.INTEGER
+                    || opaque.category()==OpaqueLibraryType.Category.SIGNED_INTEGER || opaque.isEnumeration());
     }
     /** Expression-aware promotions preserve direct bit-field ranges without importing later DRs. */
     public static Optional<TypeNode> promoted(Expression expression, PlatformProfile profile) {

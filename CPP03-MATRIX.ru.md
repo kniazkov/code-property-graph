@@ -892,3 +892,7 @@ v13 `x86_64-gcc-leading-v13` допускает начальный положи�
 ### §27.8.1.5 / §27.8.1.8 / §27.8.1.11 — cv-профиль is_open (#93, шаг 3)
 
 Выбран печатный C++03: basic_ifstream/basic_ofstream/basic_fstream имеют bool is_open() без const; basic_filebuf сохраняет bool is_open() const. Проверяются точные объявления и вызовы narrow/wide на обоих size-type профилях, диагностический JSON, копии/пересчёт, генерация. Отличия современной native-библиотеки фиксируются как наблюдения, не как нормативный эталон const-вызова. Synopsis остаются partial. [Отчёт](docs/cpp03-is-open-verification.md).
+
+### §27.4.1/2 и §27.4.2.1.5 — свойства типов потоков (#93, итоговый пакет)
+
+streamsize получает категорию SIGNED_INTEGER (signed fundamental), seekdir — ENUMERATION. API/JSON сохраняют известные свойства; ABI, underlying type, enum-значения, диапазон и rank остаются неизвестными. Число не преобразуется неявно в seekdir; enum→число допускается без выдуманной promotion rank. Неоднозначный выбор перегрузки по неизвестному rank не угадывается. Копирование, GREEN/FOLDED и генерация покрыты регрессиями. [Границы и команды](docs/cpp03-stream-types-verification.md).
