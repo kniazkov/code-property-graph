@@ -857,3 +857,11 @@ bool-поля 1–64 бит, безымянные bool-поля 0–64 бит и
 GCC и Clang расходятся; профиль явно выбирает GCC, старые политики неизменны.
 Остатки #145: enum и leading-positive struct padding.
 [Контракт и проверки](docs/cpp03-extended-bitfield-verification.md).
+
+### Enum bit-fields (#145)
+
+Профиль x86_64-gcc-enum-v12 требует явного enumStorage и использует
+существующий выбор 32/64-битного хранения по значениям enumerators.
+Алиасы/cv сохраняются; неизвестные зависимости диагностируются. Старые
+профили не расширены. Остаток #145: leading-positive struct padding.
+[Контракт](docs/cpp03-enum-bitfield-verification.md).
