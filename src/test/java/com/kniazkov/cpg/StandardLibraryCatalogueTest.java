@@ -80,6 +80,38 @@ class StandardLibraryCatalogueTest {
         assertEquals(Set.of("cstddef", "exception"), StandardLibraryCatalogue.dependencies("new"));
         assertEquals(Set.of("cstddef"), StandardLibraryCatalogue.dependencies("valarray"));
     }
+    @Test void iosfwdDeclaresBufferIteratorsAndCharacterSpecializationsWithoutDefinitions() {
+        // Independent expectations from the C++03 27.2 synopsis, not the catalogue index.
+        for (var profile : List.of(PlatformProfile.defaults(), PlatformProfile.builder().sizeType("unsigned int").build())) {
+            var classes = declarations(parse("iosfwd", profile)).stream()
+                .filter(ClassDeclaration.class::isInstance).map(ClassDeclaration.class::cast).toList();
+            for (String name : List.of("istreambuf_iterator", "ostreambuf_iterator")) {
+                var matches = classes.stream().filter(c -> c.name().equals(name)).toList();
+                assertEquals(1, matches.size());
+                var declaration = matches.getFirst();
+                assertEquals(2, declaration.templateParameters().size());
+                assertTrue(declaration.templateParameters().getFirst().defaultArgument().isEmpty());
+                assertEquals("char_traits<CharT>", declaration.templateParameters().getLast().defaultArgument().orElseThrow().source(Language.CPP).replace(" ", ""));
+                assertFalse(declaration.isDefinition());
+                assertTrue(declaration.members().isEmpty());
+                assertTrue(declaration.bases().isEmpty());
+                var definition = declarations(parse("iterator", profile)).stream()
+                    .filter(ClassDeclaration.class::isInstance).map(ClassDeclaration.class::cast)
+                    .filter(c -> c.name().equals(name)).findFirst().orElseThrow();
+                assertTrue(definition.isDefinition());
+                assertTrue(definition.templateParameters().getLast().defaultArgument().isEmpty(),
+                    "The default belongs to iosfwd and must not be redeclared");
+            }
+            var traits = classes.stream().filter(c -> c.name().equals("char_traits")).toList();
+            assertEquals(3, traits.size());
+            assertEquals(2, traits.stream().filter(c -> c.templateKind() == TemplateKind.FULL_SPECIALIZATION).count());
+            assertTrue(traits.stream().allMatch(c -> !c.isDefinition() && c.members().isEmpty()));
+            String source = StandardLibraryCatalogue.declarations("iosfwd", profile);
+            assertTrue(source.contains("template<> struct char_traits<char>;"));
+            assertTrue(source.contains("template<> struct char_traits<wchar_t>;"));
+            assertEquals(Set.of("cstddef", "cwchar"), StandardLibraryCatalogue.dependencies("iosfwd"));
+        }
+    }
     @Test void stringStreamsRetainTheirThirdAllocatorParameter() {
         var classes = declarations(parse("iosfwd", PlatformProfile.defaults())).stream()
             .filter(ClassDeclaration.class::isInstance).map(ClassDeclaration.class::cast)

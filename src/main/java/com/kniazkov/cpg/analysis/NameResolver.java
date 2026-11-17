@@ -1361,6 +1361,13 @@ public final class NameResolver {
         List<Match> collapse(List<Match> matches) {
             var result = new ArrayList<Match>();
             for (Match match : distinct(matches)) {
+                // A specialization forward does not replace the primary template
+                // in ordinary name lookup. Specialization selection uses its own family.
+                if (match.declaration() instanceof ClassDeclaration next
+                        && !next.isDefinition() && next.templateKind() == TemplateKind.FULL_SPECIALIZATION
+                        && result.stream().anyMatch(old -> old.declaration() instanceof ClassDeclaration previous
+                            && previous.templateKind() == TemplateKind.PRIMARY
+                            && scopes.get(previous) == scopes.get(next))) continue;
                 // Repeated declarations in one scope denote one name. Distinct imported
                 // namespaces are not collapsed merely because they spell the same name.
                 if (!(match.declaration() instanceof CallableDeclaration))
