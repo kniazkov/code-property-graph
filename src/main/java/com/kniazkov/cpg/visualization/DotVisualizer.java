@@ -380,7 +380,7 @@ public final class DotVisualizer {
             for (var vertex : flow.auxiliaryVertices()) {
                 String key = flowId(vertex);
                 dot.append("  ").append(key).append(" [shape=ellipse, style=dashed, label=<")
-                        .append(vertex.kind().name()).append(">];\n");
+                        .append(vertex.kind().name()).append(vertex.elementIndex().isPresent() ? " [" + vertex.elementIndex().getAsInt() + "]" : "").append(">];\n");
                 vertex.object().ifPresent(object -> auxiliaryReference(key, object, "object ref"));
                 vertex.destructor().ifPresent(destructor -> auxiliaryReference(key, destructor, "destructor ref"));
                 vertex.constructor().ifPresent(constructor -> auxiliaryReference(key, constructor, "constructor ref"));

@@ -1015,7 +1015,7 @@ public final class Project extends Node {
             for (var auxiliary : flow.auxiliaryVertices()) auxiliaries.put(auxiliary,
                     new AuxiliaryFlowVertex(entry, auxiliary.index(), auxiliary.kind(),
                             auxiliary.object().map(copied).orElse(null),
-                            auxiliary.destructor().or(auxiliary::constructor).map(d -> (CallableDeclaration) copied.apply(d)).orElse(null)));
+                            auxiliary.destructor().or(auxiliary::constructor).map(d -> (CallableDeclaration) copied.apply(d)).orElse(null), auxiliary.elementIndex()));
             java.util.function.Function<FlowVertex, FlowVertex> endpoint = v -> v instanceof Node n ? copied.apply(n) : auxiliaries.get(v);
             var control = flow.control().stream().map(e -> new FunctionFlow.ControlEdge(
                     endpoint.apply(e.from()), endpoint.apply(e.to()), e.kind())).toList();

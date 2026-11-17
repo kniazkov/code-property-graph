@@ -61,12 +61,15 @@ public final class DataFlow {
         libraryAccessible = LibraryCallEffects.accessible(flow.entry(), profile);
         // Sequenced/branching values may already execute as separate CFG vertices.
         // Detect that ownership from actual edges, rather than duplicating CFG grammar.
-        for (var edge : flow.control()) if (edge.from() instanceof Expression completed && edge.to() instanceof Node consumer) {
-            Expression value = consumer instanceof VariableDeclaration variable ? variable.initializer().orElse(null)
-                    : consumer instanceof ReturnStatement result ? result.value().orElse(null)
-                    : consumer instanceof AssignmentExpression assignment && assignment.target() instanceof NameExpression ? assignment.value() : null;
-            if (value != null && contains(value, completed)) {
-                expandedValues.put(consumer, value);
+        for (var edge : flow.control()) {
+            Expression completed = edge.from() instanceof Expression expression ? expression
+                    : edge.from() instanceof AuxiliaryFlowVertex auxiliary && auxiliary.kind() == AuxiliaryFlowVertex.Kind.IMPLICIT_CONSTRUCTOR
+                        ? auxiliary.object().filter(NewExpression.class::isInstance).map(Expression.class::cast).orElse(null) : null;
+            if (completed != null && edge.to() instanceof Node consumer) {
+                Expression value = consumer instanceof VariableDeclaration variable ? variable.initializer().orElse(null)
+                        : consumer instanceof ReturnStatement result ? result.value().orElse(null)
+                        : consumer instanceof AssignmentExpression assignment && assignment.target() instanceof NameExpression ? assignment.value() : null;
+                if (value != null && contains(value, completed)) expandedValues.put(consumer, value);
             }
         }
         Map<FlowVertex,List<FlowVertex>> normalPredecessors = new IdentityHashMap<>();
@@ -205,6 +208,13 @@ public final class DataFlow {
                 constructLibraryObject(v, state, sink);
             }
             case AuxiliaryFlowVertex auxiliary -> {
+                // Element identity lives on CFG vertices; DFG retains the aggregate storage root.
+                if (auxiliary.elementIndex().isPresent() && auxiliary.kind() == AuxiliaryFlowVertex.Kind.IMPLICIT_CONSTRUCTOR)
+                    auxiliary.object().filter(Declaration.class::isInstance).map(Declaration.class::cast)
+                            .ifPresent(object -> state.write(object, object));
+                if (auxiliary.elementIndex().isPresent() && auxiliary.kind() == AuxiliaryFlowVertex.Kind.IMPLICIT_DESTRUCTOR)
+                    auxiliary.object().filter(NewExpression.class::isInstance)
+                            .ifPresent(object -> sink.edge(object, object, Dependency.DEFINITION));
                 if (auxiliary.kind() == AuxiliaryFlowVertex.Kind.IMPLICIT_CONSTRUCTOR
                         && auxiliary.constructor().filter(LibraryCallEffects::unknown).isPresent()) {
                     auxiliary.object().ifPresent(object -> {
