@@ -888,3 +888,7 @@ v13 `x86_64-gcc-leading-v13` допускает начальный положи�
 ### §27.4.2 / §27.4.4 — закрытое копирование потоковых баз (#93, шаг 2)
 
 В каталог добавлены private copy constructor и operator= для ios_base/basic_ios. Проверяются ios_base, ios, wios, оба size-type профиля, copy construction, assignment и явный operator=; отказ сопровождается диагностикой доступа и блокирует генерацию. Положительный copyfmt сохранён. Полный runtime потоков этим не доказан; записи synopsis остаются partial. [Проверки](docs/cpp03-stream-copy-verification.md).
+
+### §27.8.1.5 / §27.8.1.8 / §27.8.1.11 — cv-профиль is_open (#93, шаг 3)
+
+Выбран печатный C++03: basic_ifstream/basic_ofstream/basic_fstream имеют bool is_open() без const; basic_filebuf сохраняет bool is_open() const. Проверяются точные объявления и вызовы narrow/wide на обоих size-type профилях, диагностический JSON, копии/пересчёт, генерация. Отличия современной native-библиотеки фиксируются как наблюдения, не как нормативный эталон const-вызова. Synopsis остаются partial. [Отчёт](docs/cpp03-is-open-verification.md).

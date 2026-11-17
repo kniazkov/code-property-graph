@@ -126,3 +126,9 @@ The missing forward declarations described above are now supplied; the original 
 Private copy/assignment declarations for ios_base/basic_ios have been added. The historical omissions above are preserved as audit findings, not current catalogue state. [Current evidence](../cpp03-stream-copy-verification.md) covers declaration access and a copyfmt control, not the full stream runtime.
 
 Объявления закрытого копирования и присваивания добавлены; старый аудит выше остаётся историческим. Текущие проверки доступа и положительный copyfmt описаны по ссылке. Остальные пункты #93 остаются открытыми.
+
+### #93, printed is_open cv profile / печатный cv-профиль
+
+The three file-stream templates now use the printed non-const is_open signature; filebuf remains const. Historical audit text above describes the former catalogue. [Current tests and profile](../cpp03-is-open-verification.md) distinguish host-library observations from the printed edition; no unidentified DR is claimed.
+
+Три файловых потока переведены на печатный non-const is_open, filebuf сохранён const. Старое описание выше историческое; текущий контракт и проверки приведены по ссылке.
