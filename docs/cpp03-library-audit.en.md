@@ -869,3 +869,10 @@ positive padding remain #145. [Contract](cpp03-extended-bitfield-verification.md
 Explicit x86_64-gcc-enum-v12 requires enumStorage and uses existing certified
 enumerator ranges for allocation. Earlier policies are unchanged; leading
 positive padding remains #145. [Contract](cpp03-enum-bitfield-verification.md).
+
+### Selected GCC leading padding v13
+
+Explicit x86_64-gcc-leading-v13 admits leading and padding-only layouts.
+The original initial-member-pointer question remains in #99/#48; no pointer
+equivalence is inferred. Earlier policies are unchanged.
+[Contract and limitations](cpp03-leading-padding-verification.md).
