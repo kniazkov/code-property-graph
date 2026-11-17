@@ -809,11 +809,27 @@ public final class NameResolver {
                         else if(!pending.contains(identity) && project.templateInstances().size()+project.classTemplateInstances().size()+pending.size()>=256)instantiationLimitReached=true;
                         else if(pending.add(identity)) {
                             CallableDeclaration definition=generic;
+                            if (definition.body().isEmpty()) for (Declaration later : declarations)
+                                if (later instanceof CallableDeclaration candidate && candidate.body().isPresent()
+                                        && candidate.templateKind() == generic.templateKind()
+                                        && scopes.get(candidate).file == file
+                                        && entityName(candidate).equals(entityName(generic))
+                                        && signature(candidate).equals(signature(generic))) {
+                                    definition=candidate; break;
+                                }
                             for(Match possible:lookup(request.name(),scopes.get(request),positions.get(request)-1,new HashSet<>()))
                                 if(possible.declaration() instanceof CallableDeclaration specialized && specialized.templateKind()==TemplateKind.FULL_SPECIALIZATION
                                         && matchesArguments(specialized.templateArguments(),deduction.arguments())
                                         && parameterSignature(specialized).equals(parameterSignature(request))) {definition=specialized;break;}
-                            if(definition.body().isPresent())editor.instantiateArguments(generic,request,file,deduction.structuredArguments(),deduction.substitutions(),definition);
+                            if(definition.body().isPresent()) {
+                                Map<Node,Node> substitutions=deduction.substitutions();
+                                if(definition!=generic && !definition.templateParameters().isEmpty()) {
+                                    var concrete=TemplateDeduction.explicit(definition,request,TypeSemantics.profile(file),classOrigins);
+                                    if(concrete.isEmpty())continue;
+                                    substitutions=concrete.get().substitutions();
+                                }
+                                editor.instantiateArguments(generic,request,file,deduction.structuredArguments(),substitutions,definition);
+                            }
                         }
                         break;
                     }
