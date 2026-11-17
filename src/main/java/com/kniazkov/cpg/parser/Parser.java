@@ -101,7 +101,7 @@ public final class Parser {
         var result = CppPreprocessor.preprocessLibrary(unit, source);
         var provenance = preprocessing(file, result, unit).asLibraryCatalogue();
         var parser = new Parser(file, Language.CPP, parserTokens(result, provenance), provenance);
-        var placeholders=java.util.regex.Pattern.compile("__cpg_opaque_(?:arithmetic|integer|object|unspecified)_[A-Za-z0-9_]+").matcher(source);
+        var placeholders=java.util.regex.Pattern.compile("__cpg_opaque_(?:arithmetic|integer|signedinteger|enumeration|object|unspecified)_[A-Za-z0-9_]+").matcher(source);
         while(placeholders.find()) parser.types.registerOpaquePlaceholder(placeholders.group());
         var parsed=parser.parse();
         parsed.setProvenance(new TokenProvenance(provenance, 0, provenance.tokens().size()));

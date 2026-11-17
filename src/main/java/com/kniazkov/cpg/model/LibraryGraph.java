@@ -16,7 +16,7 @@ public final class LibraryGraph {
                     String[] parts=type.name().substring("__cpg_opaque_".length()).split("_",2);
                     String identity=(owner.isEmpty() || owner.equals("::std") ? "library" : owner)+"::"+parts[1];
                     var builder=OpaqueLibraryType.create().setName(parts[1]).setIdentity(identity)
-                            .setCategory(OpaqueLibraryType.Category.valueOf(parts[0].toUpperCase(java.util.Locale.ROOT)));
+                            .setCategory(OpaqueLibraryType.Category.valueOf(parts[0].equals("signedinteger") ? "SIGNED_INTEGER" : parts[0].toUpperCase(java.util.Locale.ROOT)));
                     type.range().ifPresent(builder::setRange); type.provenance().ifPresent(builder::setProvenance);
                     replacements.put(type,builder.build());
                 }

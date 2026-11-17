@@ -132,3 +132,9 @@ Private copy/assignment declarations for ios_base/basic_ios have been added. The
 The three file-stream templates now use the printed non-const is_open signature; filebuf remains const. Historical audit text above describes the former catalogue. [Current tests and profile](../cpp03-is-open-verification.md) distinguish host-library observations from the printed edition; no unidentified DR is claimed.
 
 Три файловых потока переведены на печатный non-const is_open, filebuf сохранён const. Старое описание выше историческое; текущий контракт и проверки приведены по ссылке.
+
+### #93, stream type properties / свойства типов
+
+streamsize now records a signed fundamental integer category; seekdir records an enumeration category. ABI/rank/enum values remain unknown. [Current integrated verification](../cpp03-stream-types-verification.md) covers all four issue93 interface packages. Historical audit findings above are retained; synopsis/runtime coverage remains partial.
+
+Свойства streamsize/seekdir представлены в модели и JSON. Устройство типов не выдумывается; полный runtime и исходный абзац этим не доказаны. Общая промежуточная проверка всех частей #93 описана по ссылке.

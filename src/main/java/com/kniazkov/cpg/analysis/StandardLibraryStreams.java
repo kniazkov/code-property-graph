@@ -5,7 +5,7 @@ final class StandardLibraryStreams {
     private StandardLibraryStreams() {}
     static String declarations(String header) { return switch (header) {
         case "iosfwd" -> """
-typedef __cpg_opaque_integer_streamoff streamoff; typedef __cpg_opaque_integer_streamsize streamsize;
+typedef __cpg_opaque_integer_streamoff streamoff; typedef __cpg_opaque_signedinteger_streamsize streamsize;
 template<class CharT> struct char_traits;
 template<> struct char_traits<char>;
 template<> struct char_traits<wchar_t>;
@@ -63,7 +63,7 @@ class ios_base { public:
 class failure : public exception { public: explicit failure(const string&); virtual ~failure() throw(); virtual const char* what() const throw(); };
 class Init { public: Init(); ~Init(); };
 typedef __cpg_opaque_unspecified_fmtflags fmtflags; typedef __cpg_opaque_unspecified_iostate iostate;
-typedef __cpg_opaque_unspecified_openmode openmode; typedef __cpg_opaque_unspecified_seekdir seekdir;
+typedef __cpg_opaque_unspecified_openmode openmode; typedef __cpg_opaque_enumeration_seekdir seekdir;
 static const fmtflags boolalpha, dec, fixed, hex, internal, left, oct, right, scientific, showbase, showpoint, showpos, skipws, unitbuf, uppercase, adjustfield, basefield, floatfield;
 static const iostate badbit, eofbit, failbit, goodbit;
 static const openmode app, ate, binary, in, out, trunc;
