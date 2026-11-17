@@ -491,7 +491,7 @@ final class PodLayout {
                 var fields = new ArrayList<Field>();
                 boolean namedObjectSeen = false;
                 boolean padding = profile.offsetof().map(model ->
-                        ("x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage()) || "x86_64-sysv-integral-v4".equals(model.bitFieldStorage()) || "x86_64-sysv-oversized-v5".equals(model.bitFieldStorage()) || "x86_64-sysv-bool-v6".equals(model.bitFieldStorage()) || ("x86_64-sysv-padding-v7".equals(model.bitFieldStorage()) || ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || "x86_64-sysv-cv-v10".equals(model.bitFieldStorage())))))).orElse(false);
+                        ("x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage()) || "x86_64-sysv-integral-v4".equals(model.bitFieldStorage()) || "x86_64-sysv-oversized-v5".equals(model.bitFieldStorage()) || "x86_64-sysv-bool-v6".equals(model.bitFieldStorage()) || ("x86_64-sysv-padding-v7".equals(model.bitFieldStorage()) || ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || ("x86_64-sysv-cv-v10".equals(model.bitFieldStorage()) || "x86_64-gcc-extended-v11".equals(model.bitFieldStorage()))))))).orElse(false);
                 for (Declaration member : owner.members()) {
                     if (!(member instanceof VariableDeclaration field) || field.modifiers().contains("static")) continue;
                     // C++03 9.6/2: an unnamed bit-field is not a member. Its
@@ -500,7 +500,7 @@ final class PodLayout {
                     boolean unnamed = field.bitWidth().isPresent() && field.name().isEmpty();
                     boolean publicAccess = field.access().orElse(owner.memberAccess()).equals("public");
                     boolean accessIndependentPadding = profile.offsetof().map(model ->
-                            ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || "x86_64-sysv-cv-v10".equals(model.bitFieldStorage())))).orElse(false);
+                            ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || ("x86_64-sysv-cv-v10".equals(model.bitFieldStorage()) || "x86_64-gcc-extended-v11".equals(model.bitFieldStorage()))))).orElse(false);
                     if (unnamed && (!padding || (!publicAccess && !accessIndependentPadding)))
                         return failure(Reason.BIT_FIELD, "Unnamed bit-field allocation requires selected public padding");
                     if (!unnamed && !publicAccess)
@@ -509,10 +509,10 @@ final class PodLayout {
                         var bitField = bitField(field);
                         if (!bitField.supported()) return propagate(bitField);
                         BitAllocation value = bitField.value().orElseThrow();
-                        if (unnamed && !union && !namedObjectSeen && value.width() > 0)
+                        if (unnamed && !union && !namedObjectSeen && value.width().signum() > 0)
                             return failure(Reason.BIT_FIELD, "Leading positive struct padding is outside the selected contract");
                         BigInteger unit = BigInteger.valueOf(value.storageBits());
-                        BigInteger width = BigInteger.valueOf(value.width());
+                        BigInteger width = value.width();
                         BigInteger start = union ? BigInteger.ZERO : nextBit;
                         if (value.oversized()) {
                             // Itanium ABI 1.75 2.4 II-2(b): oversized fields start at
@@ -524,7 +524,7 @@ final class PodLayout {
                         } else {
                             // SysV ordinary fields may share the current storage unit,
                             // but never cross the declared-type unit boundary.
-                            if (value.width() == 0 || start.mod(unit).add(width).compareTo(unit) > 0)
+                            if (value.width().signum() == 0 || start.mod(unit).add(width).compareTo(unit) > 0)
                                 start = start.add(unit).subtract(BigInteger.ONE).divide(unit).multiply(unit);
                         }
                         BigInteger end = start.add(width);
@@ -559,30 +559,30 @@ final class PodLayout {
             } finally { activeClasses.removeLast(); }
         }
         /** Selected integral storage allocation and optional unnamed padding; no signedness/value/promotion or host-derived facts. */
-        private record BitAllocation(int storageBits, int allocationAlignmentBits, int width, boolean oversized) {}
+        private record BitAllocation(int storageBits, int allocationAlignmentBits, BigInteger width, boolean oversized) {}
         private Result<BitAllocation> bitField(VariableDeclaration field) {
             if (profile.offsetof().map(model -> model.bitFieldStorage() == null).orElse(true))
                 return failure(Reason.BIT_FIELD, "Bit-field allocation requires explicit offsetof.bitFieldStorage");
             boolean padding = profile.offsetof().map(model ->
-                    ("x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage()) || "x86_64-sysv-integral-v4".equals(model.bitFieldStorage()) || "x86_64-sysv-oversized-v5".equals(model.bitFieldStorage()) || "x86_64-sysv-bool-v6".equals(model.bitFieldStorage()) || ("x86_64-sysv-padding-v7".equals(model.bitFieldStorage()) || ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || "x86_64-sysv-cv-v10".equals(model.bitFieldStorage())))))).orElse(false);
+                    ("x86_64-sysv-unsigned-v3".equals(model.bitFieldStorage()) || "x86_64-sysv-integral-v4".equals(model.bitFieldStorage()) || "x86_64-sysv-oversized-v5".equals(model.bitFieldStorage()) || "x86_64-sysv-bool-v6".equals(model.bitFieldStorage()) || ("x86_64-sysv-padding-v7".equals(model.bitFieldStorage()) || ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || ("x86_64-sysv-cv-v10".equals(model.bitFieldStorage()) || "x86_64-gcc-extended-v11".equals(model.bitFieldStorage()))))))).orElse(false);
             boolean unnamed = field.name().isEmpty();
             if ((unnamed && !padding) || field.type().isEmpty())
                 return failure(Reason.BIT_FIELD, "Selected bit-field allocation requires a resolved type and admitted field category");
             boolean originalCvPadding = profile.offsetof().map(model ->
-                    "x86_64-sysv-cv-v10".equals(model.bitFieldStorage())).orElse(false);
+                    ("x86_64-sysv-cv-v10".equals(model.bitFieldStorage()) || "x86_64-gcc-extended-v11".equals(model.bitFieldStorage()))).orElse(false);
             var shape = memberShape(field.type().orElseThrow(), unnamed && !originalCvPadding);
             if (!shape.supported()) return propagate(shape);
             TypeNode plain = shape.value().orElseThrow();
             String spelling = plain instanceof NamedType named
                     ? named.fundamentalKind().map(FundamentalKind::spelling).orElse("") : "";
             boolean extended = profile.offsetof().map(model ->
-                    Set.of("x86_64-sysv-unsigned-v2", "x86_64-sysv-unsigned-v3", "x86_64-sysv-integral-v4", "x86_64-sysv-oversized-v5", "x86_64-sysv-bool-v6", "x86_64-sysv-padding-v7", "x86_64-sysv-access-v8", "x86_64-sysv-wide-v9", "x86_64-sysv-cv-v10").contains(model.bitFieldStorage())).orElse(false);
+                    Set.of("x86_64-sysv-unsigned-v2", "x86_64-sysv-unsigned-v3", "x86_64-sysv-integral-v4", "x86_64-sysv-oversized-v5", "x86_64-sysv-bool-v6", "x86_64-sysv-padding-v7", "x86_64-sysv-access-v8", "x86_64-sysv-wide-v9", "x86_64-sysv-cv-v10", "x86_64-gcc-extended-v11").contains(model.bitFieldStorage())).orElse(false);
             boolean integral = profile.offsetof().map(model ->
-                    ("x86_64-sysv-integral-v4".equals(model.bitFieldStorage()) || "x86_64-sysv-oversized-v5".equals(model.bitFieldStorage()) || "x86_64-sysv-bool-v6".equals(model.bitFieldStorage()) || ("x86_64-sysv-padding-v7".equals(model.bitFieldStorage()) || ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || "x86_64-sysv-cv-v10".equals(model.bitFieldStorage())))))).orElse(false);
+                    ("x86_64-sysv-integral-v4".equals(model.bitFieldStorage()) || "x86_64-sysv-oversized-v5".equals(model.bitFieldStorage()) || "x86_64-sysv-bool-v6".equals(model.bitFieldStorage()) || ("x86_64-sysv-padding-v7".equals(model.bitFieldStorage()) || ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || ("x86_64-sysv-cv-v10".equals(model.bitFieldStorage()) || "x86_64-gcc-extended-v11".equals(model.bitFieldStorage()))))))).orElse(false);
             boolean boolSelected = profile.offsetof().map(model ->
-                    ("x86_64-sysv-bool-v6".equals(model.bitFieldStorage()) || ("x86_64-sysv-padding-v7".equals(model.bitFieldStorage()) || ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || "x86_64-sysv-cv-v10".equals(model.bitFieldStorage())))))).orElse(false);
+                    ("x86_64-sysv-bool-v6".equals(model.bitFieldStorage()) || ("x86_64-sysv-padding-v7".equals(model.bitFieldStorage()) || ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || ("x86_64-sysv-cv-v10".equals(model.bitFieldStorage()) || "x86_64-gcc-extended-v11".equals(model.bitFieldStorage()))))))).orElse(false);
             boolean extendedPadding = profile.offsetof().map(model ->
-                    ("x86_64-sysv-padding-v7".equals(model.bitFieldStorage()) || ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || "x86_64-sysv-cv-v10".equals(model.bitFieldStorage()))))).orElse(false);
+                    ("x86_64-sysv-padding-v7".equals(model.bitFieldStorage()) || ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || ("x86_64-sysv-cv-v10".equals(model.bitFieldStorage()) || "x86_64-gcc-extended-v11".equals(model.bitFieldStorage())))))).orElse(false);
             // v7 opts into unnamed bool and oversized padding through 64 bits.
             // v6 retains named bool widths 1..8; neither policy models values.
             boolean boolField = spelling.equals("bool");
@@ -604,19 +604,20 @@ final class PodLayout {
             var width = integer(field.bitWidth().orElseThrow());
             if (width.isEmpty()) return constantFailure(Reason.BIT_FIELD, "Bit-field width is not a certified integral constant");
             boolean oversizedSelected = profile.offsetof().map(model ->
-                    "x86_64-sysv-oversized-v5".equals(model.bitFieldStorage()) || "x86_64-sysv-bool-v6".equals(model.bitFieldStorage()) || ("x86_64-sysv-padding-v7".equals(model.bitFieldStorage()) || ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || "x86_64-sysv-cv-v10".equals(model.bitFieldStorage()))))).orElse(false);
-            boolean wide = profile.offsetof().map(model -> ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || "x86_64-sysv-cv-v10".equals(model.bitFieldStorage()))).orElse(false);
+                    "x86_64-sysv-oversized-v5".equals(model.bitFieldStorage()) || "x86_64-sysv-bool-v6".equals(model.bitFieldStorage()) || ("x86_64-sysv-padding-v7".equals(model.bitFieldStorage()) || ("x86_64-sysv-access-v8".equals(model.bitFieldStorage()) || ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || ("x86_64-sysv-cv-v10".equals(model.bitFieldStorage()) || "x86_64-gcc-extended-v11".equals(model.bitFieldStorage())))))).orElse(false);
+            boolean wide = profile.offsetof().map(model -> ("x86_64-sysv-wide-v9".equals(model.bitFieldStorage()) || ("x86_64-sysv-cv-v10".equals(model.bitFieldStorage()) || "x86_64-gcc-extended-v11".equals(model.bitFieldStorage())))).orElse(false);
+            boolean gccExtended = profile.offsetof().map(model -> "x86_64-gcc-extended-v11".equals(model.bitFieldStorage())).orElse(false);
             int maximumWidth = wide ? 127 : extendedPadding || (oversizedSelected && !unnamed && !boolField) ? 64 : bits;
             if (width.orElseThrow().signum() < 0 || (!unnamed && width.orElseThrow().signum() == 0)
-                    || width.orElseThrow().compareTo(BigInteger.valueOf(maximumWidth)) > 0)
+                    || (!gccExtended && width.orElseThrow().compareTo(BigInteger.valueOf(maximumWidth)) > 0))
                 return failure(Reason.BIT_FIELD, wide ? "Selected v9 width must be 1..127 for named fields or 0..127 for unnamed padding" : extendedPadding ? "Selected v7 width must be 1..64 for named fields or 0..64 for unnamed padding" : boolField ? "Selected bool width must be between 1 and 8" : oversizedSelected
                         ? "Selected width must fit declared storage (or named integral v5 width up to 64) and be positive unless unnamed padding"
                         : "Selected width must fit declared storage and be positive unless unnamed padding");
-            int admittedWidth = width.orElseThrow().intValueExact();
-            boolean oversized = admittedWidth > bits;
+            BigInteger admittedWidth = width.orElseThrow();
+            boolean oversized = admittedWidth.compareTo(BigInteger.valueOf(bits)) > 0;
             // The bounded target has integral storage/alignment sizes 8, 16, 32, 64.
-            // Width < 128 excludes extended 128-bit integral allocation choices.
-            int allocationAlignment = oversized ? Integer.highestOneBit(admittedWidth) : bits;
+            // v11 selects GCC 128-bit storage for wider allocations; earlier policies stay bounded.
+            int allocationAlignment = oversized ? (gccExtended && admittedWidth.compareTo(BigInteger.valueOf(128)) >= 0 ? 128 : Integer.highestOneBit(admittedWidth.intValueExact())) : bits;
             return success(new BitAllocation(bits, allocationAlignment, admittedWidth, oversized));
         }
 

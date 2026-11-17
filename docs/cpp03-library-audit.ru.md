@@ -885,3 +885,11 @@ bool-поля 1–64 бит, безымянные bool-поля 0–64 бит и
 положительную раскладку; отказ Clang проверяется отдельно, не выдаётся за
 поддержку. Остатки #145: enum, leading-positive и >=128.
 [Контракт и проверки](cpp03-cv-padding-verification.md).
+
+### Расширенная GCC-раскладка (#145)
+
+`x86_64-gcc-extended-v11` наследует v10: ширины >=128 используют выравнивание
+16 байт. Ширина считается через BigInteger, предел задаёт supportedObjectBytes.
+GCC и Clang расходятся; профиль явно выбирает GCC, старые политики неизменны.
+Остатки #145: enum и leading-positive struct padding.
+[Контракт и проверки](cpp03-extended-bitfield-verification.md).
