@@ -863,3 +863,9 @@ Explicit x86_64-gcc-extended-v11 uses 16-byte alignment for oversized widths
 >=128, BigInteger arithmetic and the object-size ceiling. Clang differs; this
 is a GCC-selected profile. Earlier policies remain unchanged. Enum and leading
 positive padding remain #145. [Contract](cpp03-extended-bitfield-verification.md).
+
+### Enum bit-fields v12
+
+Explicit x86_64-gcc-enum-v12 requires enumStorage and uses existing certified
+enumerator ranges for allocation. Earlier policies are unchanged; leading
+positive padding remains #145. [Contract](cpp03-enum-bitfield-verification.md).
