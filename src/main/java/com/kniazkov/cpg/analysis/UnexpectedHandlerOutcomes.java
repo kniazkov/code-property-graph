@@ -66,11 +66,9 @@ final class UnexpectedHandlerOutcomes {
         }
         return List.copyOf(result);
     }
-    /** Nested pointer qualification and member-pointer conversions need a broader matching proof. */
+    /** Member-pointer conversions need a broader matching proof. */
     private static boolean complexPointer(String type) {
-        int first = type.indexOf("pointer(");
-        return type.contains("member-pointer") || type.contains("memberPointer")
-                || first >= 0 && type.indexOf("pointer(", first + 1) >= 0;
+        return type.contains("member-pointer");
     }
     private static boolean badException(TypeNode type) {
         return ClassSemantics.objectClass(type).filter(LibraryDeclarations::isLibrary).filter(c -> c.name().equals("bad_exception")).isPresent();

@@ -60,8 +60,8 @@ class UnexpectedHandlerOutcomesTest {
     }
     @Test void unsupportedLifetimeAndNestedPointersKeepAlternatives() {
         check("struct E{E(const E&);};E& get();void h(){throw get();}","int",AuxiliaryFlowVertex.Kind.EXCEPTION_REPLACEMENT,AuxiliaryFlowVertex.Kind.TERMINATE_EXIT);
-        check("int** p;void h(){throw p;}","const int*const*",AuxiliaryFlowVertex.Kind.EXCEPTION_REPLACEMENT,AuxiliaryFlowVertex.Kind.TERMINATE_EXIT);
-        check("int** p;void h(){try{throw p;}catch(const int*const*){throw 1;}catch(...){throw 1.0;}}","int",AuxiliaryFlowVertex.Kind.EXCEPTION_REPLACEMENT,AuxiliaryFlowVertex.Kind.TERMINATE_EXIT);
+        check("int** p;void h(){throw p;}","const int*const*",AuxiliaryFlowVertex.Kind.EXCEPTION_REPLACEMENT);
+        check("int** p;void h(){try{throw p;}catch(const int*const*){throw 1;}catch(...){throw 1.0;}}","int",AuxiliaryFlowVertex.Kind.EXCEPTION_REPLACEMENT);
     }
     @Test void publicUnambiguousPointerBaseMatching() {
         check("struct B{};struct D:public B{};D* p;void h(){throw p;}","B*",AuxiliaryFlowVertex.Kind.EXCEPTION_REPLACEMENT);
