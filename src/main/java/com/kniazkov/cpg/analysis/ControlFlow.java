@@ -411,7 +411,7 @@ public final class ControlFlow {
             var work = new ArrayDeque<FlowVertex>(); work.push(fn);
             while (!work.isEmpty()) { var vertex = work.pop(); if (reached.add(vertex)) work.addAll(successors.getOrDefault(vertex, List.of())); }
             edges.removeIf(e -> !reached.contains(e.from()));
-            return new FunctionFlow(fn, exit, edges, List.of());
+            return UnexpectedHandlerFlow.bind(new FunctionFlow(fn, exit, edges, List.of()), profile);
         }
         boolean containsThrow(Node node) {
             if (node instanceof SizeofExpression || node instanceof OffsetofExpression || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile)) return false;

@@ -965,7 +965,8 @@ public final class Project extends Node {
             }
             for (var auxiliary : flow.auxiliaryVertices()) {
                 if (auxiliary.object().filter(n -> !nodes.contains(n)).isPresent()
-                        || auxiliary.destructor().or(auxiliary::constructor).filter(n -> !nodes.contains(n)).isPresent())
+                        || auxiliary.destructor().or(auxiliary::constructor).filter(n -> !nodes.contains(n)).isPresent()
+                        || auxiliary.unexpectedHandlers().stream().anyMatch(n -> !nodes.contains(n)))
                     throw new IllegalArgumentException("Foreign auxiliary flow reference");
             }
             if (!owners.remove(flow.entry()))
@@ -1015,7 +1016,9 @@ public final class Project extends Node {
             for (var auxiliary : flow.auxiliaryVertices()) auxiliaries.put(auxiliary,
                     new AuxiliaryFlowVertex(entry, auxiliary.index(), auxiliary.kind(),
                             auxiliary.object().map(copied).orElse(null),
-                            auxiliary.destructor().or(auxiliary::constructor).map(d -> (CallableDeclaration) copied.apply(d)).orElse(null), auxiliary.elementIndex()));
+                            auxiliary.destructor().or(auxiliary::constructor).map(d -> (CallableDeclaration) copied.apply(d)).orElse(null), auxiliary.elementIndex(),
+                            auxiliary.unexpectedHandlers().stream().map(h -> (CallableDeclaration) copied.apply(h)).toList(),
+                            auxiliary.unknownUnexpectedHandler()));
             java.util.function.Function<FlowVertex, FlowVertex> endpoint = v -> v instanceof Node n ? copied.apply(n) : auxiliaries.get(v);
             var control = flow.control().stream().map(e -> new FunctionFlow.ControlEdge(
                     endpoint.apply(e.from()), endpoint.apply(e.to()), e.kind())).toList();

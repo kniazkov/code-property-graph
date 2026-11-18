@@ -11,7 +11,7 @@ class ExceptionBoundaryIT {
     @Test void gccOriginalAndGenerated() throws Exception { verify("g++"); }
     @Test void clangOriginalAndGenerated() throws Exception { verify("clang++"); }
     void verify(String compiler) throws Exception {
-        for(String name:List.of("allowed","bad","terminate","empty")) {
+        for(String name:List.of("allowed","bad","terminate","empty","local","overwrite","cleanup")) {
             String source=Files.readString(Path.of("src/test/resources/exception-boundary",name+".cpp"));
             var run=new CliSandbox(Files.createDirectory(temp.resolve(name))).source("main.cpp",source).run("cpp","--stage","resolved","--cpp-standard","c++03").expectStatus(0);
             assertTrue(Files.readString(run.work().resolve("snapshot.json")).contains("UNEXPECTED_CALL"));
