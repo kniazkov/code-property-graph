@@ -132,7 +132,10 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
         Set<Node> storage = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<Node> privateLocals = Collections.newSetFromMap(new IdentityHashMap<>());
         var pending = new ArrayDeque<Node>(); pending.add(entry);
-        for (var auxiliary : auxiliaries) auxiliary.destructor().or(auxiliary::constructor).ifPresent(pending::add);
+        for (var auxiliary : auxiliaries) {
+            auxiliary.destructor().or(auxiliary::constructor).ifPresent(pending::add);
+            pending.addAll(auxiliary.unexpectedHandlers());
+        }
         while (!pending.isEmpty()) {
             Node node = pending.remove();
             if (!seen.add(node)) continue;

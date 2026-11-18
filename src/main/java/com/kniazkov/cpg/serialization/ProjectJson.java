@@ -881,6 +881,10 @@ public final class ProjectJson {
             vertex.elementIndex().ifPresent(index -> obj.put("elementIndex", index));
             vertex.destructor().ifPresent(destructor -> obj.put("destructorId", id(destructor)));
             vertex.constructor().ifPresent(constructor -> obj.put("constructorId", id(constructor)));
+            if (vertex.kind() == AuxiliaryFlowVertex.Kind.UNEXPECTED_CALL) {
+                obj.put("unknownUnexpectedHandler", vertex.unknownUnexpectedHandler());
+                obj.array("unexpectedHandlerIds", a -> vertex.unexpectedHandlers().forEach(h -> a.add(id(h))));
+            }
             var links = outgoing.get(vertex);
             if (links != null) {
                 links.sort(Comparator.comparingInt(Edge::group).thenComparing(Edge::kind).thenComparingInt(Edge::to).thenComparing(e -> e.callSiteId() == null ? -1 : e.callSiteId()));
