@@ -41,10 +41,14 @@ in [probes/README.md](probes/README.md).
    `NameResolver` emits `unsupported-export-template` for exported callable
    declarations. Existing generation/reparse assertions prove preserved syntax,
    not separate exported-template translation.
-3. **15.2/2, array cleanup is explicitly incomplete.**
-   `partialArrayConstructionIsConservativelyIncomplete` expects incomplete flow
-   and no control edges for a class-object array. This assertion documents a limit,
-   rather than proving required partial-array cleanup.
+3. **15.2/2, bounded array cleanup is now implemented (#95).**
+   `ArrayCleanupFlowTest` replaces the old incomplete expectation for fixed
+   one-dimensional automatic/member arrays and ordinary new[] (up to 64 elements).
+   Indexed events destroy only the completed prefix in reverse; new[] releases
+   storage after cleanup. API/DFG/JSON/copy/edit and original/generated GCC traces
+   cover the selected cases. Symbolic/multidimensional/aggregate initialization,
+   placement/class-specific allocation and nested allocation expressions remain
+   incomplete. The paragraph stays partial; see [verification](../cpp03-array-cleanup-verification.md).
 4. **15.4/8, dynamic exception-specification coverage is partial.**
    `exceptionSpecificationsEnforceTheirBoundary` expects incomplete flow for an
    exception disallowed by `throw(int)`. General `unexpected` replacement behavior

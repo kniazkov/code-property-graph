@@ -178,7 +178,7 @@ tests. There is no positive cross-TU export acceptance scenario here.
 | 12 | [classes-initialization] | [ClassInitializationSemanticsTest] / `nonBaseAndIndirectNonvirtualInitializersAreRejectedEvenWithVirtualBases` | [ClassInitializationSemanticsTest] / `storageAndTemporaryBoundariesAreExplicit` |
 | 13 | [overloads-adl] | [OverloadResolutionTest] / `pairwiseVectorsRemainAmbiguousAndNoViableIsNotBound` | [OverloadResolutionTest] / `worseAmbiguousUserConversionDoesNotDefeatExactStandardCandidate` |
 | 14 | [templates-dependent], [template-instantiation] | [TemplateInstantiationExportTest] / `nestedBodyFailureExportsPrimaryTypeAndOrderedRequestRanges` | [TemplateInstantiationSemanticsTest] / `recursiveInstantiationHasAnExplicitResourceLimit`; export: no positive cross-TU implementation |
-| 15 | [statements-exceptions] | No exhaustive negative source ledger | [ExceptionCleanupFlowTest] / `partialArrayConstructionIsConservativelyIncomplete`, `exceptionSpecificationsEnforceTheirBoundary` |
+| 15 | [statements-exceptions] | No exhaustive negative source ledger | [ExceptionCleanupFlowTest] / `fixedArrayConstructionHasElementLifetimes` (bounded #95; ArrayCleanupFlowTest), `exceptionSpecificationsEnforceTheirBoundary` |
 | 16 | [macros], [conditional-catalog] | [CppPreprocessorTest] / `rejectsMalformedAndNonCpp03MacroForms` | [CppPreprocessorTest] / `recursiveMacrosTerminateAndDisabledTokensStayDisabled` |
 
 ## 4. Annexes A–E
