@@ -3,7 +3,7 @@ package com.kniazkov.cpg.model;
 import java.util.*;
 /** A flow-owned operation, never an AST child or an explicit source-level call. */
 public final class AuxiliaryFlowVertex implements FlowVertex {
-    public enum Kind { EXCEPTIONAL_EXIT, TERMINATE_EXIT, IMPLICIT_DESTRUCTOR, IMPLICIT_CONSTRUCTOR, ARRAY_UNWIND, ARRAY_DEALLOCATION }
+    public enum Kind { EXCEPTIONAL_EXIT, TERMINATE_EXIT, IMPLICIT_DESTRUCTOR, IMPLICIT_CONSTRUCTOR, ARRAY_UNWIND, ARRAY_DEALLOCATION, EXCEPTION_SPEC_CHECK, UNEXPECTED_CALL, EXCEPTION_REPLACEMENT, BAD_EXCEPTION_REPLACEMENT }
     private final CallableDeclaration owner;
     private final int index;
     private final Kind kind;

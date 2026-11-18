@@ -108,5 +108,6 @@ jobs:
             target/stream-is-open-oracle/
             target/stream-types-oracle/
             target/array-cleanup-oracle/
+            target/exception-boundary-oracle/
             target/constant-template-arguments-oracle/
             target/partial-constant-template-arguments-oracle/
