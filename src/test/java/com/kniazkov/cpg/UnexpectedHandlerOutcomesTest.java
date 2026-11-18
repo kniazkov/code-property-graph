@@ -73,6 +73,11 @@ class UnexpectedHandlerOutcomesTest {
         assertEquals(Set.of(AuxiliaryFlowVertex.Kind.EXCEPTION_REPLACEMENT),outcomes(p));
         assertTrue(flow(p).data().stream().anyMatch(e->e.to()==flow(p).entry()&&e.kind()==FunctionFlow.Dependency.DEFINITION));
     }
+    @Test void memberPointerOutcomesRespectOwnerAndMixedQualification() {
+        check("struct A{int x;};void h(){throw &A::x;}","int A::*",AuxiliaryFlowVertex.Kind.EXCEPTION_REPLACEMENT);
+        check("struct A{int x;};struct B{int x;};void h(){throw &A::x;}","int B::*",AuxiliaryFlowVertex.Kind.TERMINATE_EXIT);
+        check("struct A{int x;};int A::** p;void h(){throw p;}","const int A::*const*",AuxiliaryFlowVertex.Kind.EXCEPTION_REPLACEMENT);
+    }
     @Test void allKnownCandidatesContribute() {
         var p=read("void h(){throw 1;}void k(){std::terminate();}void f(bool b)throw(int){if(b)std::set_unexpected(h);else std::set_unexpected(k);throw 1.0;}");
         assertEquals(Set.of(AuxiliaryFlowVertex.Kind.EXCEPTION_REPLACEMENT,AuxiliaryFlowVertex.Kind.TERMINATE_EXIT),outcomes(p));
