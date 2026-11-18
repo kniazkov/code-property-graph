@@ -208,6 +208,8 @@ public final class DataFlow {
                 constructLibraryObject(v, state, sink);
             }
             case AuxiliaryFlowVertex auxiliary -> {
+                if (auxiliary.kind() == AuxiliaryFlowVertex.Kind.UNEXPECTED_CALL)
+                    opaqueMutation(auxiliary.owner(), libraryAccessible, state, sink);
                 // Element identity lives on CFG vertices; DFG retains the aggregate storage root.
                 if (auxiliary.elementIndex().isPresent() && auxiliary.kind() == AuxiliaryFlowVertex.Kind.IMPLICIT_CONSTRUCTOR)
                     auxiliary.object().filter(Declaration.class::isInstance).map(Declaration.class::cast)
