@@ -15,10 +15,13 @@ final class ExceptionMatching {
         if (Objects.equals(thrown, caught)) return true;
         if (thrown == null || caught == null) return false;
         if (thrown.startsWith("pointer(") && caught.startsWith("pointer(")) {
+            if (qualifiedPointers(thrown, caught)) return true;
             thrown = thrown.substring(8, thrown.length() - 1); caught = caught.substring(8, caught.length() - 1);
-            if (thrown.startsWith("const(") && !caught.startsWith("const(") || thrown.contains("volatile(") && !caught.contains("volatile(")) return false;
+            if ((qualifiers(thrown) & ~qualifiers(caught)) != 0) return false;
             thrown = plain(thrown); caught = plain(caught);
-            if (caught.equals("void") && !thrown.startsWith("function(") || thrown.equals(caught)) return true;
+            // Base/void conversions apply only at the first indirection level.
+            if (caught.equals("void") && !thrown.startsWith("function(")) return true;
+
         }
         if (!thrown.startsWith("named(") || !caught.startsWith("named(")) return false;
         final String identity = thrown.substring(6, thrown.length() - 1);
@@ -28,6 +31,27 @@ final class ExceptionMatching {
         var paths = new HashMap<String, Boolean>();
         basePaths(classes.getFirst(), caught, "root", true, paths, new HashSet<>());
         return paths.size() == 1 && paths.values().iterator().next();
+    }
+    private static int qualifiers(String type) {
+        int result = 0;
+        while (type.startsWith("const(") || type.startsWith("volatile(")) {
+            result |= type.startsWith("const(") ? 1 : 2;
+            type = type.substring(type.indexOf('(') + 1, type.length() - 1);
+        }
+        return result;
+    }
+    /** Added deep qualifiers require const at every intervening destination level. */
+    private static boolean qualifiedPointers(String source, String destination) {
+        boolean interveningConst = true;
+        while (source.startsWith("pointer(") && destination.startsWith("pointer(")) {
+            source = source.substring(8, source.length() - 1);
+            destination = destination.substring(8, destination.length() - 1);
+            int from = qualifiers(source), to = qualifiers(destination);
+            if ((from & ~to) != 0 || from != to && !interveningConst) return false;
+            interveningConst &= (to & 1) != 0;
+            source = plain(source); destination = plain(destination);
+        }
+        return source.equals(destination);
     }
     private static void basePaths(ClassDeclaration cls, String target, String path, boolean accessible, Map<String, Boolean> paths, Set<ClassDeclaration> active) {
         if (!active.add(cls)) return;
