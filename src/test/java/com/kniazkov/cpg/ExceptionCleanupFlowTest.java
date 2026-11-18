@@ -80,8 +80,8 @@ class ExceptionCleanupFlowTest {
         var p=read("void work();void f(){try{throw \"x\";}catch(const char*){}}void h(){try{(0,throw 1);work();}catch(int){}}void q(){try{int x=(true?throw 1:2);work();}catch(int){}}");var f=flow(p,"f");assertTrue(f.control().stream().anyMatch(e->e.kind()==Branch.THROW&&e.to() instanceof CatchClause));
         for(String name:List.of("h","q")){var flow=flow(p,name);assertTrue(flow.complete());var call=nodes(flow.entry(),CallExpression.class).getFirst();assertFalse(flow.control().stream().anyMatch(e->e.from()==call||e.to()==call));}
     }
-    @Test void partialArrayConstructionIsConservativelyIncomplete() throws Exception {
-        var p=read("struct Guard{Guard();~Guard();};void f(){Guard objects[2];}");var f=flow(p,"f");assertFalse(f.complete());assertTrue(f.control().isEmpty());
+    @Test void fixedArrayConstructionHasElementLifetimes() throws Exception {
+        var p=read("struct Guard{Guard();~Guard();};void f(){Guard objects[2];}");var f=flow(p,"f");assertTrue(f.complete());assertEquals(2,f.auxiliaryVertices().stream().filter(a->a.kind()==AuxiliaryFlowVertex.Kind.IMPLICIT_CONSTRUCTOR).count());
     }
     @Test void exceptionSpecificationsEnforceTheirBoundary() throws Exception {
         var p=read("void work();void f()throw(){throw 1;}void h()throw(){work();}void q()throw(int){throw 1.0;}void good()throw(int){throw 1;}");

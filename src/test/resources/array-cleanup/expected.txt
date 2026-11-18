@@ -1,0 +1,12 @@
+A0: +1 +2 +3 -3 -2 -1 S
+N0: +1 +2 +3 -3 -2 -1 D S
+M0: +1 +2 +3 +4 +5 -5 -4 -3 -2 -1 S
+A1: +1 S catch
+N1: +1 D S catch
+M1: +1 +2 -1 H S catch
+A2: +1 +2 -1 S catch
+N2: +1 +2 -1 D S catch
+M2: +1 +2 +3 -2 -1 H S catch
+A3: +1 +2 +3 -2 -1 S catch
+N3: +1 +2 +3 -2 -1 D S catch
+M3: +1 +2 +3 +4 -3 -2 -1 H S catch

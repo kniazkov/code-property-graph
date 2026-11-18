@@ -363,7 +363,7 @@ public final class ControlFlow {
         boolean invalidSyntax(Node node) {
             if (node instanceof ClassDeclaration || node instanceof CallableDeclaration) return false;
             if (node.diagnostics().stream().anyMatch(d -> d.severity() == Diagnostic.Severity.ERROR)
-                    || node instanceof ErrorExpression || node instanceof BlockStatement b && !b.complete() || unsupportedObject(node)) return true;
+                    || node instanceof ErrorExpression || node instanceof BlockStatement b && !b.complete() || !(node instanceof NewExpression) && unsupportedObject(node)) return true;
             return node.children().stream().anyMatch(this::invalidSyntax);
         }
         FunctionFlow build(BlockStatement body, List<ClassSemantics.Subobject> initializers) {
@@ -386,6 +386,11 @@ public final class ControlFlow {
             for (int i = fn.kind() == CallableDeclaration.Kind.CONSTRUCTOR ? initializers.size() - 1 : -1; i >= 0; i--) {
                 var subobject = initializers.get(i);
                 if (subobject.writtenInitializer().isEmpty() && !subobjects.contains(subobject.declaration())) continue;
+                if (arrayType(subobject.declaration()).isPresent()) {
+                    if (subobject.writtenInitializer().isPresent()) unsupportedExceptionBoundary = true;
+                    start = constructArray(subobject.declaration(), start, context, states.get(i));
+                    continue;
+                }
                 FlowVertex initializer = subobject.writtenInitializer().<FlowVertex>map(v -> v).orElseGet(() ->
                         new AuxiliaryFlowVertex(fn, sequence++, AuxiliaryFlowVertex.Kind.IMPLICIT_CONSTRUCTOR, subobject.declaration(), defaultConstructor(subobject.declaration()).orElse(null)));
                 edge(initializer, start, Branch.NEXT);
@@ -415,6 +420,7 @@ public final class ControlFlow {
         boolean unsupportedEvaluation(Node node) {
             if (node instanceof ClassDeclaration || node instanceof CallableDeclaration) return false;
             if (node instanceof SizeofExpression || node instanceof OffsetofExpression || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile)) return false;
+            if (node instanceof NewExpression && unsupportedObject(node)) return true;
             if (node instanceof InitializationExpression e && e.form() == InitializationExpression.Form.TEMPORARY && e.type().flatMap(ClassSemantics::objectClass).isPresent()) return true;
             if (node instanceof Expression e && !(e instanceof InitializationExpression initialization && initialization.form() != InitializationExpression.Form.TEMPORARY)
                     && (e instanceof CallExpression || e.semanticInfo().map(info -> info.category() == ValueCategory.RVALUE).orElse(false))
@@ -519,9 +525,82 @@ public final class ControlFlow {
             return arguments.size() == 1 && arguments.getFirst().type()
                     .map(TypeNode::canonicalIdentity).filter("char"::equals).isPresent();
         }
+        /** Explicit expansion bounds CFG growth; larger/symbolic shapes remain incomplete. */
+        private static final int MAX_ARRAY_ELEMENTS = 64;
+        Optional<ArrayType> arrayType(Node node) {
+            Optional<TypeNode> type = node instanceof VariableDeclaration v ? v.type()
+                    : node instanceof NewExpression n ? Optional.of(n.type()) : Optional.empty();
+            return type.map(TypeSemantics::unqualified).filter(ArrayType.class::isInstance).map(ArrayType.class::cast);
+        }
+        OptionalInt arrayCount(Node node) {
+            var array = arrayType(node);
+            if (array.isEmpty() || TypeSemantics.unqualified(array.get().elementType()) instanceof ArrayType) return OptionalInt.empty();
+            var bound = array.get().bound().flatMap(e -> ConstantEvaluator.evaluate(e, profile)).map(v -> v.number());
+            if (bound.isEmpty() || bound.get().signum() < 0 || bound.get().compareTo(java.math.BigInteger.valueOf(MAX_ARRAY_ELEMENTS)) > 0
+                    || bound.get().signum() == 0 && !(node instanceof NewExpression)) return OptionalInt.empty();
+            return OptionalInt.of(bound.get().intValue());
+        }
+        boolean directAllocation(NewExpression allocation) {
+            boolean[] direct = {false};
+            fn.body().ifPresent(body -> body.walk(new NodeVisitor() {
+                @Override public void visit(Node node) {
+                    Expression value = node instanceof VariableDeclaration v ? v.initializer().orElse(null)
+                            : node instanceof ReturnStatement r ? r.value().orElse(null)
+                            : node instanceof ExpressionStatement e ? e.expression() : null;
+                    if (value != null && written(value) == allocation) direct[0] = true;
+                }
+            }));
+            return direct[0];
+        }
         boolean unsupportedObject(Node node) {
-            return node instanceof VariableDeclaration v && v.type().map(TypeSemantics::unqualified).filter(ArrayType.class::isInstance).isPresent()
-                    && v.type().flatMap(ClassSemantics::objectClass).isPresent();
+            if (arrayType(node).isEmpty() || objectClass(node).isEmpty()) return false;
+            if (arrayCount(node).isEmpty()) return true;
+            if (node instanceof VariableDeclaration v)
+                return v.initializer().isPresent() || v.modifiers().contains("static") || v.modifiers().contains("extern");
+            if (node instanceof NewExpression allocation) {
+                // Placement/custom allocation requires matching-deallocation lookup, not a guessed call.
+                if (!allocation.placementArguments().isEmpty() || !allocation.initializerArguments().isEmpty() || !directAllocation(allocation)) return true;
+                return objectClass(node).stream().anyMatch(cls -> !cls.bases().isEmpty() || cls.members().stream()
+                        .filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast)
+                        .anyMatch(call -> call.name().contains("operator new") || call.name().contains("operator delete")));
+            }
+            return false;
+        }
+        AuxiliaryFlowVertex arrayOperation(Node object, int index, boolean construction) {
+            return new AuxiliaryFlowVertex(fn, sequence++, construction ? AuxiliaryFlowVertex.Kind.IMPLICIT_CONSTRUCTOR
+                    : AuxiliaryFlowVertex.Kind.IMPLICIT_DESTRUCTOR, object,
+                    (construction ? defaultConstructor(object) : destructor(object)).orElse(null), OptionalInt.of(index));
+        }
+        FlowVertex arrayFailure(Node object, int count, Context context, List<Node> live) {
+            var dispatch = new AuxiliaryFlowVertex(fn, sequence++, AuxiliaryFlowVertex.Kind.ARRAY_UNWIND, object, null);
+            throwEdges(dispatch, context, live, null, Branch.EXCEPTION);
+            FlowVertex next = dispatch;
+            if (object instanceof NewExpression) {
+                var release = new AuxiliaryFlowVertex(fn, sequence++, AuxiliaryFlowVertex.Kind.ARRAY_DEALLOCATION, object, null);
+                edge(release, next, Branch.CLEANUP); next = release;
+            }
+            return destroyArray(object, count, next, context, live, true);
+        }
+        FlowVertex destroyArray(Node object, int count, FlowVertex next, Context context, List<Node> live, boolean unwinding) {
+            for (int index = 0; index < count; index++) {
+                var operation = arrayOperation(object, index, false);
+                edge(operation, next, Branch.CLEANUP);
+                if (operation.destructor().map(d -> !noThrow(d)).orElse(true))
+                    edge(operation, unwinding ? terminate : arrayFailure(object, index, context, live), Branch.EXCEPTION);
+                next = operation;
+            }
+            return next;
+        }
+        FlowVertex constructArray(Node object, FlowVertex next, Context context, List<Node> live) {
+            for (int index = arrayCount(object).orElseThrow() - 1; index >= 0; index--) {
+                var operation = arrayOperation(object, index, true);
+                edge(operation, next, Branch.NEXT);
+                if (operation.constructor().map(c -> !noThrow(c) || c.parameters().stream()
+                        .flatMap(p -> p.defaultValue().stream()).anyMatch(this::canThrow)).orElse(true))
+                    edge(operation, arrayFailure(object, index, context, live), Branch.EXCEPTION);
+                next = operation;
+            }
+            return next;
         }
         boolean automatic(Node n) {
             return n instanceof VariableDeclaration v && !v.modifiers().contains("static") && !v.modifiers().contains("extern")
@@ -550,7 +629,7 @@ public final class ControlFlow {
             } else for (var child : node.children()) inventory(child, live);
         }
         Optional<ClassDeclaration> objectClass(Node object) {
-            return object instanceof VariableDeclaration v ? v.type().flatMap(ClassSemantics::objectClass) : object instanceof ParameterDeclaration p ? p.type().flatMap(ClassSemantics::objectClass) : object instanceof BaseSpecifier b ? ClassSemantics.objectClass(b.type()) : object instanceof ClassDeclaration cls ? Optional.of(cls) : Optional.empty();
+            return object instanceof VariableDeclaration v ? v.type().flatMap(ClassSemantics::objectClass) : object instanceof ParameterDeclaration p ? p.type().flatMap(ClassSemantics::objectClass) : object instanceof BaseSpecifier b ? ClassSemantics.objectClass(b.type()) : object instanceof ClassDeclaration cls ? Optional.of(cls) : object instanceof NewExpression n ? ClassSemantics.objectClass(n.type()) : Optional.empty();
         }
         Optional<CallableDeclaration> defaultConstructor(Node object) {
             var candidates = objectClass(object).stream().flatMap(c -> c.members().stream()).filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast)
@@ -568,6 +647,10 @@ public final class ControlFlow {
         FlowVertex cleanup(List<Node> live, int depth, FlowVertex next, Context context, boolean unwinding) {
             for (int i = depth; i < live.size(); i++) {
                 var object = live.get(i);
+                if (arrayType(object).isPresent()) {
+                    next = destroyArray(object, arrayCount(object).orElseThrow(), next, context, live.subList(0, i), unwinding);
+                    continue;
+                }
                 var operation = new AuxiliaryFlowVertex(fn, sequence++, AuxiliaryFlowVertex.Kind.IMPLICIT_DESTRUCTOR, object, destructor(object).orElse(null));
                 edge(operation, next, Branch.CLEANUP);
                 if (operation.destructor().map(d -> !noThrow(d)).orElse(true)) {
@@ -709,6 +792,12 @@ public final class ControlFlow {
         }
         FlowVertex evaluate(Expression value, FlowVertex next, Context c, List<Node> live) {
             var expression = written(value);
+            if (expression instanceof NewExpression allocation && arrayType(allocation).isPresent() && objectClass(allocation).isPresent()) {
+                edge(allocation, constructArray(allocation, next, c, live), Branch.NEXT);
+                // Allocation failure precedes all constructors and must not release unallocated storage.
+                throwEdges(allocation, c, live, null, Branch.EXCEPTION);
+                return allocation;
+            }
             if (expression instanceof ThrowExpression t) { t.value().ifPresent(v -> exceptions(expression, v, c, live, null)); throwEdges(expression, c, live, t.value().map(this::exceptionType).orElse(null), Branch.THROW); return expression; }
             if (expression instanceof AssignmentExpression assignment && assignment.target() instanceof NameExpression && special(assignment.value())) {
                 edge(assignment, next, Branch.NEXT); return evaluate(assignment.value(), assignment, c, live);
@@ -781,6 +870,10 @@ public final class ControlFlow {
                 if (result.value().isPresent()) { var value = result.value().get(); if (special(value)) return evaluate(value, statement, c, live); exceptions(statement, value, c, live, null); }
                 return statement;
             }
+            if (statement instanceof VariableDeclaration variable && automatic(variable) && arrayType(variable).isPresent()) {
+                edge(variable, constructArray(variable, next, c, live), fallThrough);
+                return variable;
+            }
             if (statement instanceof VariableDeclaration variable && variable.initializer().filter(this::special).isPresent()) {
                 edge(variable, next, fallThrough);
                 if (automatic(variable)) throwEdges(variable, c, live, null, Branch.EXCEPTION);
@@ -793,7 +886,7 @@ public final class ControlFlow {
             var expression = written(value);
             return expression instanceof ConditionDeclarationExpression declaration ? append(live, declaration.declaration()) : live;
         }
-        boolean special(Expression value) { var e = written(value); return e instanceof AssignmentExpression a && a.target() instanceof NameExpression && special(a.value()) || e instanceof ThrowExpression || e instanceof ConditionalExpression || e.operatorTarget().isEmpty() && (e instanceof LogicalAndExpression || e instanceof LogicalOrExpression || e instanceof CommaExpression); }
+        boolean special(Expression value) { var e = written(value); return e instanceof NewExpression n && arrayType(n).isPresent() && objectClass(n).isPresent() || e instanceof AssignmentExpression a && a.target() instanceof NameExpression && special(a.value()) || e instanceof ThrowExpression || e instanceof ConditionalExpression || e.operatorTarget().isEmpty() && (e instanceof LogicalAndExpression || e instanceof LogicalOrExpression || e instanceof CommaExpression); }
         int common(List<Node> a, List<Node> b) { int i = 0; while (i < a.size() && i < b.size() && a.get(i) == b.get(i)) i++; return i; }
         void redirect(FlowVertex old, FlowVertex replacement) { for (int i = 0; i < edges.size(); i++) { var e = edges.get(i); if (e.to() == old) edges.set(i, new ControlEdge(e.from(), replacement, e.kind())); } }
         void collectCases(Node node, List<CaseStatement> result) { if (node instanceof SwitchStatement) return; if (node instanceof CaseStatement label) result.add(label); for (var child : node.children()) collectCases(child, result); }

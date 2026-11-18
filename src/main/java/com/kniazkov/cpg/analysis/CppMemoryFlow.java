@@ -302,7 +302,10 @@ final class CppMemoryFlow {
                 }
                 for (var edge : flow.control()) {
                     successors.computeIfAbsent(edge.from(), k -> new ArrayList<>()).add(edge);
-                    if (edge.from() instanceof Expression completed && edge.to() instanceof Node consumer) {
+                    Expression completed = edge.from() instanceof Expression expression ? expression
+                            : edge.from() instanceof AuxiliaryFlowVertex auxiliary && auxiliary.kind() == AuxiliaryFlowVertex.Kind.IMPLICIT_CONSTRUCTOR
+                                ? auxiliary.object().filter(NewExpression.class::isInstance).map(Expression.class::cast).orElse(null) : null;
+                    if (completed != null && edge.to() instanceof Node consumer) {
                         Expression value = consumer instanceof VariableDeclaration v ? v.initializer().orElse(null)
                             : consumer instanceof ReturnStatement r ? r.value().orElse(null)
                             : consumer instanceof PrintStatement print ? print.value()
