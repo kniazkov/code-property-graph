@@ -384,6 +384,7 @@ public final class DotVisualizer {
                 vertex.object().ifPresent(object -> auxiliaryReference(key, object, "object ref"));
                 vertex.destructor().ifPresent(destructor -> auxiliaryReference(key, destructor, "destructor ref"));
                 vertex.constructor().ifPresent(constructor -> auxiliaryReference(key, constructor, "constructor ref"));
+                vertex.unexpectedHandlers().forEach(handler -> auxiliaryReference(key, handler, "possible unexpected handler"));
             }
             for (var edge : flow.control()) {
                 String from = flowId(edge.from());

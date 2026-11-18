@@ -638,6 +638,7 @@ final class CppMemoryFlow {
                     opaqueUserEffect(variable,variable.initializer().map(List::of).orElse(List.of()),state);
                 if(vertex instanceof AuxiliaryFlowVertex auxiliary)auxiliary.object().ifPresent(object->{
                     inherit(object,state);
+                    if(auxiliary.kind()==AuxiliaryFlowVertex.Kind.UNEXPECTED_CALL)opaqueUserEffect(object,List.of(),state);
                     if(auxiliary.destructor().or(auxiliary::constructor).filter(t->!LibraryCallEffects.unknown(t)).isPresent())opaqueUserEffect(object,List.of(),state);
                 });
             }
