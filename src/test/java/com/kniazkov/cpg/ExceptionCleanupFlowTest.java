@@ -86,7 +86,7 @@ class ExceptionCleanupFlowTest {
     @Test void exceptionSpecificationsEnforceTheirBoundary() throws Exception {
         var p=read("void work();void f()throw(){throw 1;}void h()throw(){work();}void q()throw(int){throw 1.0;}void good()throw(int){throw 1;}");
         for(String name:List.of("f","h")){var f=flow(p,name);assertTrue(f.complete());assertTrue(f.exceptionalExit().isEmpty());assertTrue(f.auxiliaryVertices().stream().anyMatch(a->a.kind()==AuxiliaryFlowVertex.Kind.TERMINATE_EXIT));}
-        assertFalse(flow(p,"q").complete());assertTrue(flow(p,"good").complete());assertTrue(flow(p,"good").exceptionalExit().isPresent());
+        assertTrue(flow(p,"q").complete());assertTrue(flow(p,"q").auxiliaryVertices().stream().anyMatch(a->a.kind()==AuxiliaryFlowVertex.Kind.UNEXPECTED_CALL));assertTrue(flow(p,"good").complete());assertTrue(flow(p,"good").exceptionalExit().isPresent());
     }
     @Test void localClassMethodsDoNotExecuteOrHijackOuterLabels() throws Exception {
         var p=read("void work();void f(){L:;struct C{void m(){L:;work();}};goto L;}");var f=flow(p,"f");assertTrue(f.complete());assertTrue(f.exceptionalExit().isEmpty());var label=nodes(f.entry(),LabelStatement.class).getFirst();var jump=nodes(f.entry(),GotoStatement.class).getFirst();assertTrue(f.control().contains(new ControlEdge(jump,label,Branch.GOTO)));
