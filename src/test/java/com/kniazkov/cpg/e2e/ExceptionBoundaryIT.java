@@ -11,7 +11,7 @@ class ExceptionBoundaryIT {
     @Test void gccOriginalAndGenerated() throws Exception { verify("g++"); }
     @Test void clangOriginalAndGenerated() throws Exception { verify("clang++"); }
     void verify(String compiler) throws Exception {
-        for(String name:List.of("allowed","bad","terminate","empty","local","overwrite","cleanup")) {
+        for(String name:List.of("allowed","bad","terminate","empty","local","overwrite","cleanup","saved","helper","throwing-helper","pointer-branch","helper-restore")) {
             String source=Files.readString(Path.of("src/test/resources/exception-boundary",name+".cpp"));
             var run=new CliSandbox(Files.createDirectory(temp.resolve(name))).source("main.cpp",source).run("cpp","--stage","resolved","--cpp-standard","c++03").expectStatus(0);
             assertTrue(Files.readString(run.work().resolve("snapshot.json")).contains("UNEXPECTED_CALL"));
@@ -21,6 +21,24 @@ class ExceptionBoundaryIT {
                 execute(List.of(compiler,"-std=c++03","-pedantic-errors",input.toString(),"-o",binary.toString()),logs.resolve("compile"+i),0);
                 execute(List.of(binary.toString()),logs.resolve("run"+i),name.equals("terminate")||name.equals("empty")?42:0);
             }
+        }
+        verifyMultipleUnits(compiler);
+    }
+    void verifyMultipleUnits(String compiler) throws Exception {
+        var sources=Path.of("src/test/resources/exception-boundary/units");
+        var run=new CliSandbox(Files.createDirectory(temp.resolve("units"))).directory(sources)
+                .run("cpp","--stage","resolved","--cpp-standard","c++03").expectStatus(0);
+        var logs=Files.createDirectories(Path.of("target/exception-boundary-oracle",compiler,"units"));
+        for(int i=1;i<=2;i++){
+            var command=new ArrayList<>(List.of(compiler,"-std=c++03","-pedantic-errors"));
+            for(String name:List.of("a.cpp","b.cpp")){
+                var input=logs.resolve(i+name).toAbsolutePath();
+                Files.writeString(input,Files.readString(i==1?sources.resolve(name):run.work().resolve("generated").resolve(name)));
+                command.add(input.toString());
+            }
+            var binary=temp.resolve("units"+i);command.add("-o");command.add(binary.toString());
+            execute(command,logs.resolve("compile"+i),0);
+            execute(List.of(binary.toString()),logs.resolve("run"+i),0);
         }
     }
     void execute(List<String> command,Path log,int expected) throws Exception {
