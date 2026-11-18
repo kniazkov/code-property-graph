@@ -726,15 +726,31 @@ public final class ControlFlow {
             }
             edge(source, cleanup(live, 0, escapingBoundary(type), context, true), kind);
         }
+        /** Nondeterministic boundary summary: no installed-handler identity is guessed. */
         FlowVertex escapingBoundary(String type) {
             if (!fn.hasExceptionSpecification()) return exceptional;
-            if (fn.exceptionTypes().isEmpty()) return terminate;
-            if (type == null || fn.exceptionTypes().stream().noneMatch(allowed -> catches(type, allowed.canonicalIdentity()))) {
-                // A user-installed unexpected handler may substitute a permitted exception or terminate.
-                // Without modelling that handler, no apparently complete ordinary exceptional edge is sound.
-                unsupportedExceptionBoundary = true;
+            if (type != null && fn.exceptionTypes().stream().anyMatch(allowed -> catches(type, allowed.canonicalIdentity()))) return exceptional;
+            var unexpected = new AuxiliaryFlowVertex(fn, sequence++, AuxiliaryFlowVertex.Kind.UNEXPECTED_CALL, fn, null);
+            // Unknown handler may terminate directly, return (which terminates), or throw.
+            edge(unexpected, terminate, Branch.EXCEPTION);
+            Set<String> identities = new HashSet<>();
+            for (var allowed : fn.exceptionTypes()) if (identities.add(allowed.canonicalIdentity())) {
+                var replacement = new AuxiliaryFlowVertex(fn, sequence++, AuxiliaryFlowVertex.Kind.EXCEPTION_REPLACEMENT, allowed, null);
+                edge(unexpected, replacement, Branch.EXCEPTION);
+                edge(replacement, exceptional, Branch.THROW);
+                // Only the standard class denotes the mandated fallback; spelling alone is insufficient.
+                if (ClassSemantics.objectClass(allowed).filter(LibraryDeclarations::isLibrary)
+                        .filter(cls -> cls.name().equals("bad_exception")).isPresent()) {
+                    var fallback = new AuxiliaryFlowVertex(fn, sequence++, AuxiliaryFlowVertex.Kind.BAD_EXCEPTION_REPLACEMENT, allowed, null);
+                    edge(unexpected, fallback, Branch.EXCEPTION);
+                    edge(fallback, exceptional, Branch.THROW);
+                }
             }
-            return exceptional;
+            if (type != null || fn.exceptionTypes().isEmpty()) return unexpected;
+            var check = new AuxiliaryFlowVertex(fn, sequence++, AuxiliaryFlowVertex.Kind.EXCEPTION_SPEC_CHECK, fn, null);
+            edge(check, exceptional, Branch.TRUE); // The unknown exception matches the specification.
+            edge(check, unexpected, Branch.FALSE);
+            return check;
         }
         boolean canThrow(Node node) {
             if (node instanceof ClassDeclaration || node instanceof CallableDeclaration) return false;
