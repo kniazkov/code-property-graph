@@ -11,7 +11,7 @@ class ExceptionBoundaryIT {
     @Test void gccOriginalAndGenerated() throws Exception { verify("g++"); }
     @Test void clangOriginalAndGenerated() throws Exception { verify("clang++"); }
     void verify(String compiler) throws Exception {
-        for(String name:List.of("allowed","bad","terminate","empty","local","overwrite","cleanup","saved","helper","throwing-helper","pointer-branch","helper-restore")) {
+        for(String name:List.of("allowed","bad","terminate","empty","local","overwrite","cleanup","saved","helper","throwing-helper","pointer-branch","helper-restore","outcome-allowed","outcome-bad","outcome-terminate","outcome-stop","outcome-catch","outcome-rethrow","outcome-pointer","outcome-function-pointer")) {
             String source=Files.readString(Path.of("src/test/resources/exception-boundary",name+".cpp"));
             var run=new CliSandbox(Files.createDirectory(temp.resolve(name))).source("main.cpp",source).run("cpp","--stage","resolved","--cpp-standard","c++03").expectStatus(0);
             assertTrue(Files.readString(run.work().resolve("snapshot.json")).contains("UNEXPECTED_CALL"));
@@ -19,7 +19,7 @@ class ExceptionBoundaryIT {
             for(String code:List.of(source,Files.readString(run.work().resolve("generated/main.cpp")))){
                 var input=logs.resolve("case"+(++i)+".cpp").toAbsolutePath();Files.writeString(input,code);var binary=temp.resolve(name+i);
                 execute(List.of(compiler,"-std=c++03","-pedantic-errors",input.toString(),"-o",binary.toString()),logs.resolve("compile"+i),0);
-                execute(List.of(binary.toString()),logs.resolve("run"+i),name.equals("terminate")||name.equals("empty")?42:0);
+                execute(List.of(binary.toString()),logs.resolve("run"+i),Set.of("terminate","empty","outcome-terminate","outcome-stop","outcome-function-pointer").contains(name)?42:0);
             }
         }
         verifyMultipleUnits(compiler);
