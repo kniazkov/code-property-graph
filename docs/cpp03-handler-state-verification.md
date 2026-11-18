@@ -88,3 +88,8 @@ portable paths and diff whitespace checks passed. Full CI is still required.
 Base revision: `1db82bacfacc90bf6d6c9b47036871f161939d18`.
 Fresh tested JAR SHA-256:
 `b21d2620f36d7435f0f94308680800c1c332bff099b98e2039699bb6df38e5b6`.
+
+
+Follow-up after PR #172: [known handler outcomes](cpp03-handler-outcomes-verification.md)
+adds bounded outcome narrowing. Exact memory and lifetime effects remain outside
+that proof; the historical results above retain their original scope.
