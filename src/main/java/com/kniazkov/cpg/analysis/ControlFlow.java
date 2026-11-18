@@ -34,7 +34,7 @@ public final class ControlFlow {
                         .orElseGet(() -> new FunctionFlow(fn, fn.exit(), List.of(), List.of(), false))));
             }
         });
-        return snapshot.withFlows(flows).invalidatePasses(Set.of("DataFlow")).recordPass("ControlFlow");
+        return snapshot.withFlows(UnexpectedHandlerFlow.bind(flows, contexts)).invalidatePasses(Set.of("DataFlow")).recordPass("ControlFlow");
     }
 
     /** Nonlocal transfers have neither ordinary return edges nor C++ unwind edges. */
@@ -411,7 +411,7 @@ public final class ControlFlow {
             var work = new ArrayDeque<FlowVertex>(); work.push(fn);
             while (!work.isEmpty()) { var vertex = work.pop(); if (reached.add(vertex)) work.addAll(successors.getOrDefault(vertex, List.of())); }
             edges.removeIf(e -> !reached.contains(e.from()));
-            return UnexpectedHandlerFlow.bind(new FunctionFlow(fn, exit, edges, List.of()), profile);
+            return new FunctionFlow(fn, exit, edges, List.of());
         }
         boolean containsThrow(Node node) {
             if (node instanceof SizeofExpression || node instanceof OffsetofExpression || node instanceof TypeidExpression typeid && TypeSemantics.typeidOperandUnevaluated(typeid, profile)) return false;

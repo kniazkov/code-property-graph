@@ -111,3 +111,8 @@ Fresh tested JAR SHA-256:
 `4642b25cf338befe5cb98cc96945fbe42f52a3189838b8917a606847bd5776f2`.
 The cleanup oracle expects the handler captured at throw evaluation, even when
 a destructor installs another one before unexpected is invoked (N1638 §18.6.2.4).
+
+
+Следующий пакет после PR #171 расширяет локальную модель сохранением указателей
+и контекстом прямых вызовов. Актуальные границы и результаты:
+[Saved handler state](cpp03-handler-state-verification.md).
