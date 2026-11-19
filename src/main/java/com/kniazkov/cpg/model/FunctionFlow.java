@@ -79,6 +79,8 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
         }
         evaluated.addAll(storage);
         evaluated.addAll(invokedStorage(entry, indices.values()));
+        for(var auxiliary:indices.values())for(var handler:auxiliary.unexpectedHandlers())
+            evaluated.addAll(calledNodes(handler,evaluated));
         // Implicit subobject lifetime operations evaluate their referenced object,
         // which remains owned by its class rather than by this callable.
         // Project.withFlows separately verifies every auxiliary object is project-owned.
@@ -99,7 +101,7 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
         }
     }
     /** Only bodies selected by this invocation can contribute contextual data. */
-    private static Set<Node> calledNodes(CallExpression site, Set<Node> local) {
+    private static Set<Node> calledNodes(Node site, Set<Node> local) {
         Set<Node> result = Collections.newSetFromMap(new IdentityHashMap<>());
         result.addAll(local);
         Set<Node> visited = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -108,6 +110,7 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
             Node node = pending.remove();
             if (!visited.add(node)) continue;
             result.add(node);
+            referencedCallable(node).ifPresent(pending::add);
             referencedStorage(node).ifPresent(result::add);
             pending.addAll(node.children());
             if (node instanceof CallExpression call) {
@@ -117,6 +120,13 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
             }
         }
         return result;
+    }
+
+    /** Function designators include qualified unexpected-handler installations. */
+    private static Optional<CallableDeclaration> referencedCallable(Node node) {
+        Optional<Declaration> target = node instanceof NameExpression name ? name.target()
+                : node instanceof MemberExpression member ? member.target() : Optional.empty();
+        return target.filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast);
     }
 
     /** Global/static initializers can reach reads bound to that exact declaration. */
@@ -141,6 +151,7 @@ public record FunctionFlow(CallableDeclaration entry, Exit exit, List<ControlEdg
             if (!seen.add(node)) continue;
             pending.addAll(node.children());
             referencedStorage(node).ifPresent(storage::add);
+            referencedCallable(node).ifPresent(pending::add);
             if (node instanceof CallableDeclaration callable) {
                 callable.definition().ifPresent(pending::add);
                 if (callable != entry) callable.walk(new NodeVisitor() {

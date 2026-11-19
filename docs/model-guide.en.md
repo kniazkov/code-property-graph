@@ -2193,3 +2193,13 @@ bool/enum, oversized and long-long fields are not added. Zero-width effects on
 ordinary members/trailing size are selected ABI/compiler facts, not universal
 2003 guarantees. #92/#48 and the five macro obligations remain open.
 [Original evidence and separate gates](cpp03-unnamed-bit-field-layout-verification.md).
+
+### Memory effects of unexpected handlers
+
+For a known `unexpected_handler`, the boundary flow includes may-definition edges
+from its body and ordinary helper calls. A caller's catch can therefore depend on
+writes performed by the handler. These are existing AST nodes, not synthetic calls.
+All candidate effects and reachable prefixes are joined; the opaque boundary effect
+remains. Do not interpret these edges as must-writes, exact lifetime effects, or
+proof that a particular replacement exception occurs.
+[Contract, bounds and examples](cpp03-handler-memory-verification.md).
