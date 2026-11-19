@@ -2203,3 +2203,9 @@ All candidate effects and reachable prefixes are joined; the opaque boundary eff
 remains. Do not interpret these edges as must-writes, exact lifetime effects, or
 proof that a particular replacement exception occurs.
 [Contract, bounds and examples](cpp03-handler-memory-verification.md).
+
+CFG outcomes also account for selected automatic-object cleanup and arrays of
+1–64 elements. A destructor exception on normal exit may be caught; one escaping
+during unwinding terminates. Failed constructions do not destroy the failed
+object; completed objects are cleaned up in reverse order.
+[Supported cases and limits](cpp03-handler-lifetime-verification.md).
