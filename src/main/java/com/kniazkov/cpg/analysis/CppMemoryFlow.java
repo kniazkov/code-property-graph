@@ -133,6 +133,8 @@ final class CppMemoryFlow {
             Node node=discover.remove(); if(!visited.add(node))continue;
             if(node instanceof OffsetofExpression)continue;
             discover.addAll(node.children());
+            if(node instanceof CallableDeclaration callable && flows.containsKey(callable))
+                for(var auxiliary:flows.get(callable).auxiliaryVertices())discover.addAll(auxiliary.unexpectedHandlers());
             if(node instanceof NameExpression name)name.target().filter(VariableDeclaration.class::isInstance).map(VariableDeclaration.class::cast)
                 .map(variable -> (VariableDeclaration)externalObjects.getOrDefault(variable,variable))
                 .filter(globals::contains).ifPresent(session.accessibleGlobals::add);
@@ -239,8 +241,13 @@ final class CppMemoryFlow {
         final Set<Key> active = new HashSet<>();
         final Map<Key, Result> summaries = new HashMap<>();
         boolean recursive, changed;
+        final Set<CallableDeclaration> activeHandlers = Collections.newSetFromMap(new IdentityHashMap<>());
 
         Result run(FunctionFlow flow, State initial, CallExpression frame, CallExpression provenance, Set<Loc> receiver) {
+            return run(flow, initial, frame, provenance, receiver, null);
+        }
+
+        Result run(FunctionFlow flow, State initial, CallExpression frame, CallExpression provenance, Set<Loc> receiver, State effects) {
             var context = new Context(flow, frame, provenance, receiver);
             Map<FlowVertex, State> inputs = new LinkedHashMap<>();
             inputs.put(flow.entry(), initial.copy());
@@ -250,6 +257,7 @@ final class CppMemoryFlow {
                 State before = inputs.get(vertex), after = before.copy();
                 context.exceptional = null; context.normal = true;
                 context.transfer(vertex, after);
+                if(effects != null) { effects.merge(after); effects.merge(context.exceptional); }
                 for (ControlEdge edge : context.successors.getOrDefault(vertex, List.of())) {
                     if (!context.normal && edge.kind() != Branch.EXCEPTION && edge.kind() != Branch.THROW) continue;
                     State propagated = after;
@@ -638,9 +646,29 @@ final class CppMemoryFlow {
                     opaqueUserEffect(variable,variable.initializer().map(List::of).orElse(List.of()),state);
                 if(vertex instanceof AuxiliaryFlowVertex auxiliary)auxiliary.object().ifPresent(object->{
                     inherit(object,state);
-                    if(auxiliary.kind()==AuxiliaryFlowVertex.Kind.UNEXPECTED_CALL)opaqueUserEffect(object,List.of(),state);
+                    if(auxiliary.kind()==AuxiliaryFlowVertex.Kind.UNEXPECTED_CALL)unexpectedEffects(auxiliary,object,state);
                     if(auxiliary.destructor().or(auxiliary::constructor).filter(t->!LibraryCallEffects.unknown(t)).isPresent())opaqueUserEffect(object,List.of(),state);
                 });
+            }
+            /** Publish bounded body effects without claiming a must-write or inventing a call AST.
+             * Prefix states include writes before termination; cleanup and unknown calls
+             * retain the ordinary memory engine's conservative effects. */
+            void unexpectedEffects(AuxiliaryFlowVertex event, Node producer, State state) {
+                State input=state.copy();
+                for(CallableDeclaration handler:event.unexpectedHandlers()) {
+                    FunctionFlow body=flows.get(handler);
+                    if(body==null || !body.complete() || !handler.parameters().isEmpty()
+                            || activeHandlers.size()>=8 || !activeHandlers.add(handler))continue;
+                    try {
+                        State effects=new State();
+                        run(body,input,frame,provenance,Set.of(),effects);
+                        restoreBindings(effects,input);
+                        state.merge(effects);
+                    } finally { activeHandlers.remove(handler); }
+                }
+                // Known bodies may copy exceptions, run destructors or call opaque code.
+                // Keep the boundary may-effect as well as concrete body definitions.
+                opaqueUserEffect(producer,List.of(),state);
             }
             void address(Expression target, State state) {
                 target = unwrap(target);
