@@ -135,31 +135,71 @@ final class UnexpectedHandlerOutcomes {
             }
             return result;
         }
-        /** Selected automatic, default-initialized complete objects; no copies or hidden subobjects. */
+        /** Selected automatic, default-initialized complete objects; copies remain unsupported. */
         Outcome local(VariableDeclaration variable, Outcome following, PlatformProfile profile,
                 Set<CallableDeclaration> active, Set<String> caught) {
             if (variable.initializer().isPresent() || variable.modifiers().contains("static")
                     || variable.modifiers().contains("extern")) return UNKNOWN;
-            TypeNode type = variable.type().map(TypeSemantics::unqualified).orElse(null);
-            int count = 1;
+            var lifetime = lifetime(variable.type().orElse(null), profile, active, new HashSet<>());
+            return lifetime.construct().then(cleanup(following, lifetime.destroy()));
+        }
+        private record Lifetime(Outcome construct, Outcome destroy) {}
+        private static final Lifetime UNKNOWN_LIFETIME = new Lifetime(UNKNOWN, UNKNOWN);
+
+        /** Complete objects with nonvirtual bases and default-initialized subobjects. */
+        Lifetime lifetime(TypeNode written, PlatformProfile profile, Set<CallableDeclaration> active,
+                Set<ClassDeclaration> owners) {
+            if (--remaining < 0 || written == null) return UNKNOWN_LIFETIME;
+            TypeNode type = TypeSemantics.unqualified(written);
+            if (type instanceof ReferenceType) return UNKNOWN_LIFETIME;
             if (type instanceof ArrayType array) {
                 var bound = array.bound().flatMap(e -> ConstantEvaluator.evaluate(e, profile)).map(v -> v.number());
                 if (TypeSemantics.unqualified(array.elementType()) instanceof ArrayType || bound.isEmpty()
-                        || bound.get().signum() <= 0 || bound.get().compareTo(java.math.BigInteger.valueOf(64)) > 0) return UNKNOWN;
-                count = bound.get().intValue(); type = TypeSemantics.unqualified(array.elementType());
+                        || bound.get().signum() <= 0 || bound.get().compareTo(java.math.BigInteger.valueOf(64)) > 0) return UNKNOWN_LIFETIME;
+                var element = lifetime(array.elementType(), profile, active, owners);
+                return compose(Collections.nCopies(bound.get().intValue(), element), NEXT, NEXT);
             }
-            if (type == null || type instanceof ReferenceType) return UNKNOWN;
             var owner = ClassSemantics.objectClass(type).orElse(null);
-            if (owner == null || LibraryDeclarations.isLibrary(owner) || !owner.bases().isEmpty()
-                    || ClassSemantics.fields(owner).stream().anyMatch(field -> field.type().map(TypeSemantics::unqualified)
-                        .filter(t -> t instanceof ArrayType || t instanceof ReferenceType || ClassSemantics.objectClass(t).isPresent()).isPresent())) return UNKNOWN;
-            Outcome construct = special(owner, ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR, active);
-            Outcome destroy = special(owner, ClassSemantics.SpecialKind.DESTRUCTOR, active);
-            // Each layer represents one successfully constructed element. A later
-            // constructor failure unwinds earlier layers only, in reverse order.
-            Outcome result = following;
-            for (int i = 0; i < count; i++) result = construct.then(cleanup(result, destroy));
-            return result;
+            if (owner == null) return TypeSemantics.scalar(type, profile) || type instanceof MemberPointerType
+                    ? new Lifetime(NEXT, NEXT) : UNKNOWN_LIFETIME;
+            if (LibraryDeclarations.isLibrary(owner) || owner.keyword().equals("union")
+                    || owners.size() >= 8 || owners.contains(owner) || owner.bases().stream().anyMatch(BaseSpecifier::isVirtual))
+                return UNKNOWN_LIFETIME;
+            var nested = new HashSet<>(owners); nested.add(owner);
+            var parts = new ArrayList<Lifetime>();
+            // Declaration order is construction order; destruction reverses it.
+            for (var base : owner.bases()) parts.add(lifetime(base.type(), profile, active, nested));
+            for (var field : ClassSemantics.fields(owner)) {
+                if (field.initializer().isPresent()) return UNKNOWN_LIFETIME;
+                parts.add(lifetime(field.type().orElse(null), profile, active, nested));
+            }
+            var result = compose(parts, special(owner, ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR, active),
+                    special(owner, ClassSemantics.SpecialKind.DESTRUCTOR, active));
+            // A written specification governs subobject operations as well as the body.
+            return new Lifetime(constrain(owner, ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR, result.construct()),
+                    constrain(owner, ClassSemantics.SpecialKind.DESTRUCTOR, result.destroy()));
+        }
+        Lifetime compose(List<Lifetime> parts, Outcome constructor, Outcome destructor) {
+            Outcome construct = constructor, destroy = destructor;
+            for (int i = parts.size() - 1; i >= 0; i--) {
+                var part = parts.get(i);
+                construct = part.construct().then(failedConstruction(construct, part.destroy()));
+                destroy = cleanup(destroy, part.destroy());
+            }
+            return new Lifetime(construct, destroy);
+        }
+        /** Successful construction retains subobjects; only an escaping exception cleans them. */
+        Outcome failedConstruction(Outcome body, Outcome destructor) {
+            if (body.unknown()) return UNKNOWN;
+            var failure = cleanup(new Outcome(false, false, false, false, body.thrown()), destructor);
+            return new Outcome(body.next(), body.returned(), body.terminated(), false, Set.of()).union(failure);
+        }
+        Outcome constrain(ClassDeclaration owner, ClassSemantics.SpecialKind kind, Outcome outcome) {
+            var member = ClassSemantics.specialMembers(owner).stream().filter(m -> m.kind() == kind).findFirst().orElseThrow();
+            for (var target : member.declarations()) if (target.hasExceptionSpecification()
+                    && outcome.thrown().stream().anyMatch(type -> target.exceptionTypes().stream()
+                        .noneMatch(allowed -> ExceptionMatching.catches(project, type, allowed.canonicalIdentity())))) return UNKNOWN;
+            return outcome;
         }
         Outcome special(ClassDeclaration owner, ClassSemantics.SpecialKind kind, Set<CallableDeclaration> active) {
             var member = ClassSemantics.specialMembers(owner).stream().filter(m -> m.kind() == kind).findFirst().orElseThrow();
