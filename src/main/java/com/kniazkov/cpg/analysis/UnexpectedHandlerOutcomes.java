@@ -37,9 +37,7 @@ final class UnexpectedHandlerOutcomes {
                 for (var target : event.unexpectedHandlers()) outcomes = outcomes.union(summaries.function(target, new HashSet<>()));
                 // Returning from an unexpected_handler violates its contract. Keep conservative
                 // alternatives instead of treating host termination as a portable positive oracle.
-                if (outcomes.unknown() || outcomes.next() || outcomes.returned()
-                        || outcomes.thrown().stream().anyMatch(UnexpectedHandlerOutcomes::complexPointer)
-                        || flow.entry().exceptionTypes().stream().map(TypeNode::canonicalIdentity).anyMatch(UnexpectedHandlerOutcomes::complexPointer)) continue;
+                if (outcomes.unknown() || outcomes.next() || outcomes.returned()) continue;
                 final var thrownTypes = outcomes.thrown();
                 boolean rejected = thrownTypes.stream().anyMatch(type -> flow.entry().exceptionTypes().stream()
                         .noneMatch(allowed -> ExceptionMatching.catches(project, type, allowed.canonicalIdentity())));
@@ -65,10 +63,6 @@ final class UnexpectedHandlerOutcomes {
             result.add(new FunctionFlow(flow.entry(), flow.exit(), edges.stream().filter(e -> reached.contains(e.from())).toList(), flow.data(), flow.complete()));
         }
         return List.copyOf(result);
-    }
-    /** Member-pointer conversions need a broader matching proof. */
-    private static boolean complexPointer(String type) {
-        return type.contains("member-pointer");
     }
     private static boolean badException(TypeNode type) {
         return ClassSemantics.objectClass(type).filter(LibraryDeclarations::isLibrary).filter(c -> c.name().equals("bad_exception")).isPresent();
@@ -113,13 +107,12 @@ final class UnexpectedHandlerOutcomes {
                             .map(other -> statement(other, profile, active, caught)).orElse(NEXT)));
             if (node instanceof TryStatement attempt) {
                 var body = statement(attempt.body(), profile, active, caught);
-                if (body.unknown() || body.thrown().stream().anyMatch(UnexpectedHandlerOutcomes::complexPointer)) return UNKNOWN;
+                if (body.unknown()) return UNKNOWN;
                 var remaining = new HashSet<>(body.thrown());
                 Outcome result = new Outcome(body.next(), body.returned(), body.terminated(), false, Set.of());
                 for (var handler : attempt.handlers()) {
                     var type = handler.parameter().flatMap(ParameterDeclaration::type);
-                    if (type.flatMap(ClassSemantics::objectClass).isPresent()
-                            || type.map(TypeNode::canonicalIdentity).filter(UnexpectedHandlerOutcomes::complexPointer).isPresent()) return UNKNOWN;
+                    if (type.flatMap(ClassSemantics::objectClass).isPresent()) return UNKNOWN;
                     var matching = new HashSet<String>();
                     for (var thrown : remaining) if (type.isEmpty() || ExceptionMatching.catches(project, thrown, type.orElseThrow().canonicalIdentity())) matching.add(thrown);
                     if (!matching.isEmpty()) { result = result.union(statement(handler.body(), profile, active, matching)); remaining.removeAll(matching); }

@@ -43,15 +43,32 @@ final class ExceptionMatching {
     /** Added deep qualifiers require const at every intervening destination level. */
     private static boolean qualifiedPointers(String source, String destination) {
         boolean interveningConst = true;
-        while (source.startsWith("pointer(") && destination.startsWith("pointer(")) {
-            source = source.substring(8, source.length() - 1);
-            destination = destination.substring(8, destination.length() - 1);
+        while (true) {
+            Layer fromLayer = layer(source), toLayer = layer(destination);
+            if (fromLayer == null || toLayer == null) break;
+            if (!fromLayer.kind().equals(toLayer.kind())) return false;
+            source = fromLayer.pointee(); destination = toLayer.pointee();
             int from = qualifiers(source), to = qualifiers(destination);
             if ((from & ~to) != 0 || from != to && !interveningConst) return false;
             interveningConst &= (to & 1) != 0;
             source = plain(source); destination = plain(destination);
         }
         return source.equals(destination);
+    }
+    private record Layer(String kind, String pointee) {}
+    /** Split only a top-level owner/pointee separator, never a function parameter comma. */
+    private static Layer layer(String type) {
+        if (type.startsWith("pointer(")) return new Layer("pointer", type.substring(8, type.length() - 1));
+        if (!type.startsWith("member-pointer(")) return null;
+        int depth = 0;
+        for (int i = 15; i < type.length() - 1; i++) {
+            char c = type.charAt(i);
+            if (c == '(') depth++;
+            else if (c == ')') depth--;
+            else if (c == ',' && depth == 0)
+                return new Layer(type.substring(0, i), type.substring(i + 1, type.length() - 1));
+        }
+        return null;
     }
     private static void basePaths(ClassDeclaration cls, String target, String path, boolean accessible, Map<String, Boolean> paths, Set<ClassDeclaration> active) {
         if (!active.add(cls)) return;
