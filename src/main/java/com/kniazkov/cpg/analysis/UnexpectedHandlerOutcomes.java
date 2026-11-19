@@ -80,6 +80,7 @@ final class UnexpectedHandlerOutcomes {
             if (!functions.containsKey(target)) target = target.definition().filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast).orElse(target);
             var flow = functions.get(target);
             if (--remaining < 0 || flow == null || !flow.complete() || target.functionTryBlock() || active.size() >= 8 || active.contains(target)) return UNKNOWN;
+            if (target.kind() == CallableDeclaration.Kind.CONSTRUCTOR && !target.initializers().isEmpty()) return UNKNOWN;
             var stack = new HashSet<>(active); stack.add(target);
             var profile = TypeSemantics.profile(SourceContexts.require(contexts, target));
             if (target.parameters().stream().anyMatch(p -> p.type().flatMap(ClassSemantics::objectClass).isPresent())) return UNKNOWN;
@@ -89,14 +90,8 @@ final class UnexpectedHandlerOutcomes {
             return result;
         }
         Outcome statement(Node node, PlatformProfile profile, Set<CallableDeclaration> active, Set<String> caught) {
-            if (node instanceof BlockStatement block) {
-                Outcome result = NEXT;
-                for (var item : block.items()) {
-                    if (!result.next()) break;
-                    result = result.then(statement(item, profile, active, caught));
-                }
-                return result;
-            }
+            if (--remaining < 0) return UNKNOWN;
+            if (node instanceof BlockStatement block) return sequence(block.items(), profile, active, caught);
             if (node instanceof ExpressionStatement expression) return expression(expression.expression(), profile, active, caught);
             if (node instanceof ReturnStatement returned) {
                 var value = returned.value().map(e -> expression(e, profile, active, caught)).orElse(NEXT);
@@ -120,12 +115,74 @@ final class UnexpectedHandlerOutcomes {
                 return result.union(new Outcome(false, false, false, false, remaining));
             }
             if (node instanceof VariableDeclaration variable) {
-                if (variable.type().flatMap(ClassSemantics::objectClass).isPresent()
-                        || variable.type().map(TypeSemantics::unqualified).filter(ArrayType.class::isInstance).isPresent()) return UNKNOWN;
+                if (variable.type().flatMap(ClassSemantics::objectClass).isPresent())
+                    return local(variable, NEXT, profile, active, caught);
+                if (variable.type().map(TypeSemantics::unqualified).filter(ArrayType.class::isInstance).isPresent()) return UNKNOWN;
                 return variable.initializer().map(e -> expression(e, profile, active, caught)).orElse(NEXT);
             }
             if (node instanceof EmptyStatement || node instanceof ClassDeclaration || node instanceof CallableDeclaration) return NEXT;
             return UNKNOWN; // loops, goto, lifetime operations and unsupported statements are not proofs
+        }
+        /** Fold scopes from the end so a failed construction never destroys that object. */
+        Outcome sequence(List<? extends Node> items, PlatformProfile profile, Set<CallableDeclaration> active, Set<String> caught) {
+            Outcome result = NEXT;
+            for (int i = items.size() - 1; i >= 0; i--) {
+                if (--remaining < 0) return UNKNOWN;
+                Node item = items.get(i);
+                if (item instanceof VariableDeclaration variable && variable.type().flatMap(ClassSemantics::objectClass).isPresent())
+                    result = local(variable, result, profile, active, caught);
+                else result = statement(item, profile, active, caught).then(result);
+            }
+            return result;
+        }
+        /** Selected automatic, default-initialized complete objects; no copies or hidden subobjects. */
+        Outcome local(VariableDeclaration variable, Outcome following, PlatformProfile profile,
+                Set<CallableDeclaration> active, Set<String> caught) {
+            if (variable.initializer().isPresent() || variable.modifiers().contains("static")
+                    || variable.modifiers().contains("extern")) return UNKNOWN;
+            TypeNode type = variable.type().map(TypeSemantics::unqualified).orElse(null);
+            int count = 1;
+            if (type instanceof ArrayType array) {
+                var bound = array.bound().flatMap(e -> ConstantEvaluator.evaluate(e, profile)).map(v -> v.number());
+                if (TypeSemantics.unqualified(array.elementType()) instanceof ArrayType || bound.isEmpty()
+                        || bound.get().signum() <= 0 || bound.get().compareTo(java.math.BigInteger.valueOf(64)) > 0) return UNKNOWN;
+                count = bound.get().intValue(); type = TypeSemantics.unqualified(array.elementType());
+            }
+            if (type == null || type instanceof ReferenceType) return UNKNOWN;
+            var owner = ClassSemantics.objectClass(type).orElse(null);
+            if (owner == null || LibraryDeclarations.isLibrary(owner) || !owner.bases().isEmpty()
+                    || ClassSemantics.fields(owner).stream().anyMatch(field -> field.type().map(TypeSemantics::unqualified)
+                        .filter(t -> t instanceof ArrayType || t instanceof ReferenceType || ClassSemantics.objectClass(t).isPresent()).isPresent())) return UNKNOWN;
+            Outcome construct = special(owner, ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR, active);
+            Outcome destroy = special(owner, ClassSemantics.SpecialKind.DESTRUCTOR, active);
+            // Each layer represents one successfully constructed element. A later
+            // constructor failure unwinds earlier layers only, in reverse order.
+            Outcome result = following;
+            for (int i = 0; i < count; i++) result = construct.then(cleanup(result, destroy));
+            return result;
+        }
+        Outcome special(ClassDeclaration owner, ClassSemantics.SpecialKind kind, Set<CallableDeclaration> active) {
+            var member = ClassSemantics.specialMembers(owner).stream().filter(m -> m.kind() == kind).findFirst().orElseThrow();
+            if (member.origin() == ClassSemantics.Origin.IMPLICIT) return NEXT;
+            if (member.origin() != ClassSemantics.Origin.USER_DECLARED || member.declarations().size() != 1) return UNKNOWN;
+            var target = member.declarations().getFirst();
+            // Default arguments, member/base initialization and function try blocks
+            // need their own evaluation/lifetime contract, not just the written body.
+            if (!target.parameters().isEmpty() || !target.initializers().isEmpty()) return UNKNOWN;
+            var outcome = function(target, active);
+            return new Outcome(outcome.next() || outcome.returned(), false, outcome.terminated(), outcome.unknown(), outcome.thrown());
+        }
+        /** Cleanup throws replace normal/return completion, but terminate during unwinding. */
+        Outcome cleanup(Outcome body, Outcome destructor) {
+            if (!body.next() && !body.returned() && body.thrown().isEmpty()) return body;
+            if (body.unknown() || destructor.unknown()) return UNKNOWN;
+            boolean completes = destructor.next();
+            var thrown = new HashSet<String>();
+            if (completes) thrown.addAll(body.thrown());
+            if (body.next() || body.returned()) thrown.addAll(destructor.thrown());
+            return new Outcome(completes && body.next(), completes && body.returned(),
+                    body.terminated() || destructor.terminated() || !body.thrown().isEmpty() && !destructor.thrown().isEmpty(),
+                    false, thrown);
         }
         Outcome expression(Expression expression, PlatformProfile profile, Set<CallableDeclaration> active, Set<String> caught) {
             if (expression instanceof SizeofExpression || expression instanceof OffsetofExpression

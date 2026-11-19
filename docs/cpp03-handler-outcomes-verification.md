@@ -32,9 +32,11 @@ try/catch и повторный throw уже известного пойманн
 ### Сохранённые границы
 
 Неизвестная установленная цель, неизвестный вызов/тело, рекурсия, циклы/goto,
-неподдержанная работа со временем жизни объектов, сложные многоуровневые и
-членовые указатели не дают права удалять альтернативы. Для каждого события
-анализ ограничен восемью активными функциями и 2000 посещениями функций.
+неподдержанная работа со временем жизни объектов не дают права удалять
+альтернативы. Поддержанные локальные объекты и массивы описаны в
+[контракте очистки](cpp03-handler-lifetime-verification.md), а смешанные
+указатели — в [контракте типов](cpp03-member-exceptions.md). Для каждого события
+анализ ограничен восемью активными функциями и 2000 посещениями функций/операторов.
 Обычный return из unexpected_handler нарушает его контракт; такой путь оставляет
 старую консервативную модель и не используется как корректный native oracle.
 Повторный throw исходного неизвестного исключения также остаётся неизвестным.
@@ -56,8 +58,9 @@ renumbering retained vertices or changing source syntax.
 
 Supported summaries include blocks, branches, scalar/pointer expressions, direct
 helper calls and local catch/rethrow. Unknown or unsupported behavior preserves
-all prior alternatives. Complex pointer conversions and object lifetime effects
-are outside the narrowing proof. Returning handlers are not positive native
+all prior alternatives. Selected automatic-object cleanup is covered by the
+[lifetime contract](cpp03-handler-lifetime-verification.md); mixed pointer matching
+is described in the [type contract](cpp03-member-exceptions.md). Returning handlers are not positive native
 oracles. Existing opaque memory effects remain; this is not exact handler-body
 execution or whole-program exception analysis. Issue #96 stays open.
 
