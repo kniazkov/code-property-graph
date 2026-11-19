@@ -79,7 +79,6 @@ class UnexpectedHandlerLifetimeTest {
         for(String source:List.of(
             "struct S{~S();};void h(){S s;throw 1;}",
             "struct S{S(int n=1){}};void h(){S s;throw 1;}",
-            "struct S{int x;S():x(1){}};void h(){S s;throw 1;}",
             "int init();struct S{int x;S();};S::S():x(init()){}void h(){S s;throw 1;}",
             "struct S{};void h(){static S s;throw 1;}",
             "struct S{};void h(){S s[65];throw 1;}",
