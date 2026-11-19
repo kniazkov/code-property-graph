@@ -2209,3 +2209,8 @@ CFG outcomes also account for selected automatic-object cleanup and arrays of
 during unwinding terminates. Failed constructions do not destroy the failed
 object; completed objects are cleaned up in reverse order.
 [Supported cases and limits](cpp03-handler-lifetime-verification.md).
+
+Nonvirtual bases, object fields and one-dimensional field arrays participate in
+these outcomes. Construction failure destroys only completed subobjects; destructor
+body failure still cleans fields and bases. A second escaping cleanup exception
+terminates. [Composite scope and limits](cpp03-composite-lifetime-verification.md).
