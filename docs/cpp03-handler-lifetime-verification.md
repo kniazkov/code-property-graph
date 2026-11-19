@@ -16,8 +16,10 @@
 программы не превращается в исключение из последующей очистки.
 
 Поддерживаются автоматические объекты без записанного инициализатора и
-одномерные массивы с постоянным размером от 1 до 64. Класс не должен иметь баз,
-полей-объектов, полей-массивов или полей-ссылок. Неявные специальные функции для
+одномерные массивы с постоянным размером от 1 до 64. Невиртуальные базы,
+поля-объекты и массивы полей теперь поддержаны отдельным
+[составным контрактом](cpp03-composite-lifetime-verification.md). Поля-ссылки
+остаются неподдержанными. Неявные специальные функции для
 этого выбранного случая считаются завершающимися нормально. Явные конструктор
 по умолчанию и деструктор требуют полного поддержанного тела, без параметров,
 списка инициализаторов конструктора и function-try-block. Список инициализаторов
@@ -26,7 +28,7 @@
 конкретными исполнениями.
 
 Статические объекты, копирование, временные объекты, аргументы по умолчанию,
-составные подобъекты, неизвестные тела и рекурсивные вызовы не дают оснований
+неподдержанные подобъекты, неизвестные тела и рекурсивные вызовы не дают оснований
 для удаления вариантов исхода. Нарушение спецификации исключений внутри
 специальной функции также оставляет консервативный результат. Сохраняются
 ограничения восьми активных функций и бюджета 2000 посещений функций/операторов.
@@ -49,11 +51,12 @@ without taking the bad_exception replacement path. Locally caught destructor
 exceptions may complete cleanup normally.
 
 The supported subset is default-initialized automatic complete objects and
-one-dimensional arrays of 1–64 elements. Classes have no bases or object, array,
-or reference fields. Implicit special members are normal in this subset; explicit
+one-dimensional arrays of 1–64 elements. Nonvirtual bases and object/array fields are covered by the
+[composite contract](cpp03-composite-lifetime-verification.md); reference fields
+remain unsupported. Implicit special members are normal in this subset; explicit
 ones require complete supported parameterless bodies, no constructor initializer
 list and no function-try-block. Out-of-class definitions are checked as well.
-Static storage, copies, temporaries, default arguments, hidden subobjects,
+Static storage, copies, temporaries, default arguments, unsupported subobjects,
 unknown/recursive bodies and special-member exception-specification violations
 retain conservative alternatives. Branch unions do not infer runtime values.
 The eight-active-function and 2000-visit bounds still apply.

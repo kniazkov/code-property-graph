@@ -78,8 +78,6 @@ class UnexpectedHandlerLifetimeTest {
     @Test void opaqueLifetimesAndHiddenSubobjectsStayUnknown() {
         for(String source:List.of(
             "struct S{~S();};void h(){S s;throw 1;}",
-            "struct B{~B(){throw 2;}};struct S:B{};void h(){S s;throw 1;}",
-            "struct A{~A(){throw 2;}};struct S{A a;};void h(){S s;throw 1;}",
             "struct S{S(int n=1){}};void h(){S s;throw 1;}",
             "struct S{int x;S():x(1){}};void h(){S s;throw 1;}",
             "int init();struct S{int x;S();};S::S():x(init()){}void h(){S s;throw 1;}",
