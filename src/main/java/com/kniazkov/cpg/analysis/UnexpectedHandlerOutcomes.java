@@ -76,10 +76,13 @@ final class UnexpectedHandlerOutcomes {
             this.project = project; flows.forEach(f -> functions.put(f.entry(), f)); this.contexts = contexts;
         }
         Outcome function(CallableDeclaration declaration, Set<CallableDeclaration> active) {
+            return function(declaration, active, false);
+        }
+        Outcome function(CallableDeclaration declaration, Set<CallableDeclaration> active, boolean lifetimeBody) {
             var target = declaration;
             if (!functions.containsKey(target)) target = target.definition().filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast).orElse(target);
             var flow = functions.get(target);
-            if (--remaining < 0 || flow == null || !flow.complete() || target.functionTryBlock() || active.size() >= 8 || active.contains(target)) return UNKNOWN;
+            if (--remaining < 0 || flow == null || !flow.complete() && !lifetimeBody || !target.bodyComplete() || target.functionTryBlock() || active.size() >= 8 || active.contains(target)) return UNKNOWN;
             if (target.kind() == CallableDeclaration.Kind.CONSTRUCTOR && !target.initializers().isEmpty()) return UNKNOWN;
             var stack = new HashSet<>(active); stack.add(target);
             var profile = TypeSemantics.profile(SourceContexts.require(contexts, target));
@@ -140,15 +143,15 @@ final class UnexpectedHandlerOutcomes {
                 Set<CallableDeclaration> active, Set<String> caught) {
             if (variable.initializer().isPresent() || variable.modifiers().contains("static")
                     || variable.modifiers().contains("extern")) return UNKNOWN;
-            var lifetime = lifetime(variable.type().orElse(null), profile, active, new HashSet<>());
+            var lifetime = lifetime(variable.type().orElse(null), profile, active, new HashSet<>(), true);
             return lifetime.construct().then(cleanup(following, lifetime.destroy()));
         }
         private record Lifetime(Outcome construct, Outcome destroy) {}
         private static final Lifetime UNKNOWN_LIFETIME = new Lifetime(UNKNOWN, UNKNOWN);
 
-        /** Complete objects with nonvirtual bases and default-initialized subobjects. */
+        /** Complete objects own virtual bases; base subobjects omit their shared virtual bases. */
         Lifetime lifetime(TypeNode written, PlatformProfile profile, Set<CallableDeclaration> active,
-                Set<ClassDeclaration> owners) {
+                Set<ClassDeclaration> owners, boolean completeObject) {
             if (--remaining < 0 || written == null) return UNKNOWN_LIFETIME;
             TypeNode type = TypeSemantics.unqualified(written);
             if (type instanceof ReferenceType) return UNKNOWN_LIFETIME;
@@ -156,22 +159,26 @@ final class UnexpectedHandlerOutcomes {
                 var bound = array.bound().flatMap(e -> ConstantEvaluator.evaluate(e, profile)).map(v -> v.number());
                 if (TypeSemantics.unqualified(array.elementType()) instanceof ArrayType || bound.isEmpty()
                         || bound.get().signum() <= 0 || bound.get().compareTo(java.math.BigInteger.valueOf(64)) > 0) return UNKNOWN_LIFETIME;
-                var element = lifetime(array.elementType(), profile, active, owners);
+                var element = lifetime(array.elementType(), profile, active, owners, true);
                 return compose(Collections.nCopies(bound.get().intValue(), element), NEXT, NEXT);
             }
             var owner = ClassSemantics.objectClass(type).orElse(null);
             if (owner == null) return TypeSemantics.scalar(type, profile) || type instanceof MemberPointerType
                     ? new Lifetime(NEXT, NEXT) : UNKNOWN_LIFETIME;
             if (LibraryDeclarations.isLibrary(owner) || owner.keyword().equals("union")
-                    || owners.size() >= 8 || owners.contains(owner) || owner.bases().stream().anyMatch(BaseSpecifier::isVirtual))
+                    || owners.size() >= 8 || owners.contains(owner) || !ClassSemantics.hasCompleteHierarchy(owner))
                 return UNKNOWN_LIFETIME;
             var nested = new HashSet<>(owners); nested.add(owner);
             var parts = new ArrayList<Lifetime>();
-            // Declaration order is construction order; destruction reverses it.
-            for (var base : owner.bases()) parts.add(lifetime(base.type(), profile, active, nested));
+            // Virtual bases are unique for a complete object, in depth-first order.
+            // Fields (including class-valued fields of a base) are complete objects.
+            if (completeObject) for (var base : ClassSemantics.virtualBases(owner))
+                parts.add(lifetime(base.type(), profile, active, nested, false));
+            for (var base : owner.bases()) if (!base.isVirtual())
+                parts.add(lifetime(base.type(), profile, active, nested, false));
             for (var field : ClassSemantics.fields(owner)) {
                 if (field.initializer().isPresent()) return UNKNOWN_LIFETIME;
-                parts.add(lifetime(field.type().orElse(null), profile, active, nested));
+                parts.add(lifetime(field.type().orElse(null), profile, active, nested, true));
             }
             var result = compose(parts, special(owner, ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR, active),
                     special(owner, ClassSemantics.SpecialKind.DESTRUCTOR, active));
@@ -209,7 +216,11 @@ final class UnexpectedHandlerOutcomes {
             // Default arguments, member/base initialization and function try blocks
             // need their own evaluation/lifetime contract, not just the written body.
             if (!target.parameters().isEmpty() || !target.initializers().isEmpty()) return UNKNOWN;
-            var outcome = function(target, active);
+            // Standalone CFGs deliberately leave virtual special members incomplete:
+            // their hidden operations depend on complete-object/base invocation.
+            // Here those operations are composed explicitly; summarize only the
+            // supported written body, without changing its standalone CFG.
+            var outcome = function(target, active, !ClassSemantics.hasCompleteNonvirtualHierarchy(owner));
             return new Outcome(outcome.next() || outcome.returned(), false, outcome.terminated(), outcome.unknown(), outcome.thrown());
         }
         /** Cleanup throws replace normal/return completion, but terminate during unwinding. */
