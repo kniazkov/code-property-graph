@@ -56,8 +56,6 @@ class UnexpectedHandlerCompositeLifetimeTest {
     }
     @Test void hiddenOrUnknownLifetimesKeepAlternatives() {
         for(String source:java.util.List.of(
-            "struct A{};struct S:virtual A{};void h(){S s;throw 1;}",
-            "struct A{};struct B:virtual A{};struct S:B{};void h(){S s;throw 1;}",
             "struct A{~A();};struct S{A a;};void h(){S s;throw 1;}",
             "struct A{};struct S{A a[65];};void h(){S s;throw 1;}",
             "struct A{};struct S{A a[2][2];};void h(){S s;throw 1;}",

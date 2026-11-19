@@ -2214,3 +2214,8 @@ Nonvirtual bases, object fields and one-dimensional field arrays participate in
 these outcomes. Construction failure destroys only completed subobjects; destructor
 body failure still cleans fields and bases. A second escaping cleanup exception
 terminates. [Composite scope and limits](cpp03-composite-lifetime-verification.md).
+
+Virtual-base summaries distinguish complete objects from base invocations. A shared
+diamond base is constructed/destroyed once; fields and array elements own separate
+virtual bases. Standalone virtual special-member CFGs remain incomplete until an
+invocation context is known. [Virtual-base contract](cpp03-virtual-lifetime-verification.md).
