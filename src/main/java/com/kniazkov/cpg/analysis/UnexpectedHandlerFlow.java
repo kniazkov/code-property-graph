@@ -141,6 +141,12 @@ final class UnexpectedHandlerFlow {
                 var target = unwrap(assignment.target());
                 if (target instanceof NameExpression name && name.target().filter(locals::contains).isPresent())
                     return new Evaluation(right.state().write(name.target().orElseThrow(), right.value()), right.value(), right.escaping());
+                // A direct integral object cannot alias a saved function pointer or
+                // change the process handler. Keep evaluating the RHS for real calls.
+                if(target instanceof NameExpression name && name.target().orElse(null) instanceof VariableDeclaration variable
+                        && variable.type().map(TypeSemantics::unqualified)
+                            .filter(type -> !(type instanceof ReferenceType) && TypeSemantics.integralOrEnum(type,profile)).isPresent())
+                    return new Evaluation(right.state(),right.value(),right.escaping());
                 return uncertain(); // alias writes may overwrite a saved handler pointer
             }
             if (value instanceof InitializationExpression init && init.arguments().size() == 1)
