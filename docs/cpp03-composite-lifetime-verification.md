@@ -24,7 +24,8 @@
 Поддержаны автоматические объекты без записанного инициализатора, невиртуальные
 базы и поля с аналогичным созданием по умолчанию. Массивы одномерные, 1–64 элемента.
 Скалярные поля, указатели и указатели на члены не требуют пользовательской очистки.
-Виртуальное наследование, union, поля-ссылки, неизвестные типы, копирование,
+Виртуальное наследование теперь описано отдельным
+[контрактом](cpp03-virtual-lifetime-verification.md). Union, поля-ссылки, неизвестные типы, копирование,
 временные объекты, списки инициализаторов конструкторов, параметры по умолчанию,
 function-try-block и неизвестные тела остаются за границей уточнения. Ограничение
 восемь уровней классов дополняет существующие ограничения на функции и бюджет
@@ -37,7 +38,7 @@ function-try-block и неизвестные тела остаются за гр
 Повторно просмотрен сохранённый N1638 (11 апреля 2004): §12.6.2/5 (порядок
 создания), §12.4/6 (разрушение тела, полей и баз), §15.2/2–3 (частичное создание
 и раскрутка). Это не новая сверка оригинальной печатной редакции 2003 года.
-#96 остаётся открытой: копирование исключений, виртуальные базы, оставшиеся
+#96 остаётся открытой: копирование исключений, оставшиеся
 формы инициализации, точные эффекты памяти и нормативная сверка ещё впереди.
 
 ## English
@@ -55,7 +56,8 @@ rule. The enclosing special member's exception specification applies to the comp
 result, not just its body; violations keep conservative boundary alternatives.
 
 The supported subset uses default initialization, nonvirtual bases and arrays of
-1–64 elements. Virtual inheritance, unions, references, unknown types, copies,
+1–64 elements. Virtual inheritance is covered by the [virtual-base contract](cpp03-virtual-lifetime-verification.md).
+Unions, references, unknown types, copies,
 temporaries, constructor initializer lists, default arguments, function try blocks
 and unknown bodies retain uncertainty. Class nesting is bounded at eight levels,
 in addition to the existing function-depth and 2000-visit limits. Reaching a limit
