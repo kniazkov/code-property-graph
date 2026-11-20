@@ -21,7 +21,7 @@ class UnexpectedHandlerObjectInitializerTest {
     }
     @Test void ignoredVirtualArgumentsDoNotThrow() {
         f.check("int fail(){throw true;}struct V{V(){}V(int){}};struct B:virtual V{B():V(fail()){}};struct D:B{};void h(){D d;throw 1;}",EXCEPTION_REPLACEMENT);
-        f.check("int fail(){throw true;}struct V{V(){}V(int){}};struct B:virtual V{B():V(fail()){}};void h(){B b;throw 1;}",EXCEPTION_REPLACEMENT,BAD_EXCEPTION_REPLACEMENT,TERMINATE_EXIT);
+        f.check("int fail(){throw true;}struct V{V(){}V(int){}};struct B:virtual V{B():V(fail()){}};void h(){B b;throw 1;}",BAD_EXCEPTION_REPLACEMENT);
     }
     @Test void writtenSpecificationIncludesInitializedBase() {
         f.check("struct A{A(){throw 1;}};struct S:A{S()throw():A(){}};void h(){S s;throw 1;}",EXCEPTION_REPLACEMENT,BAD_EXCEPTION_REPLACEMENT,TERMINATE_EXIT);
@@ -29,7 +29,7 @@ class UnexpectedHandlerObjectInitializerTest {
     @Test void outOfClassInitializerBinding() {
         f.check("struct A{};struct S:A{A a;S();};S::S():A(),a(){}void h(){S s;throw 1;}",EXCEPTION_REPLACEMENT);
     }
-    @Test void nonemptyObjectArgumentsStayUnknown() {
-        f.check("struct A{A(int){}};struct S{A a;S():a(1){}};void h(){S s;throw 1;}",EXCEPTION_REPLACEMENT,BAD_EXCEPTION_REPLACEMENT,TERMINATE_EXIT);
+    @Test void nonemptyScalarObjectArgumentsComplete() {
+        f.check("struct A{A(int){}};struct S{A a;S():a(1){}};void h(){S s;throw 1;}",EXCEPTION_REPLACEMENT);
     }
 }
