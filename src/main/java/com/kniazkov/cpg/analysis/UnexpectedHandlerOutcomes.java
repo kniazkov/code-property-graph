@@ -222,8 +222,27 @@ final class UnexpectedHandlerOutcomes {
             var result = compose(parts, special(owner, ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR, active),
                     special(owner, ClassSemantics.SpecialKind.DESTRUCTOR, active));
             // A written specification governs subobject operations as well as the body.
-            return new Lifetime(constrain(owner, ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR, result.construct()),
+            return new Lifetime(constructorArguments(owner, profile, active).then(
+                    constrain(owner, ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR, result.construct())),
                     constrain(owner, ClassSemantics.SpecialKind.DESTRUCTOR, result.destroy()));
+        }
+        /** Defaults are caller-side expressions: before subobjects and outside the callee specification. */
+        Outcome constructorArguments(ClassDeclaration owner, PlatformProfile profile, Set<CallableDeclaration> active) {
+            var member = ClassSemantics.specialMembers(owner).stream()
+                    .filter(m -> m.kind() == ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR).findFirst().orElseThrow();
+            if (member.origin() == ClassSemantics.Origin.IMPLICIT) return NEXT;
+            if (member.declarations().size() != 1) return UNKNOWN;
+            Outcome result = NEXT;
+            for (var parameter : member.declarations().getFirst().parameters()) {
+                if (parameter.defaultValue().isEmpty() || !parameter.type().map(t -> TypeSemantics.scalar(t, profile)
+                        || TypeSemantics.unqualified(t) instanceof MemberPointerType).orElse(false)) return UNKNOWN;
+                var argument = expression(parameter.defaultValue().orElseThrow(), profile, active, Set.of());
+                var union = result.union(argument);
+                // C++03 does not specify argument order. Any argument may throw,
+                // but the invocation is reachable only if all can complete.
+                result = new Outcome(result.next() && argument.next(), false, union.terminated(), union.unknown(), union.thrown());
+            }
+            return result;
         }
         Lifetime compose(List<Lifetime> parts, Outcome constructor, Outcome destructor) {
             Outcome construct = constructor, destroy = destructor;
@@ -254,7 +273,7 @@ final class UnexpectedHandlerOutcomes {
             var target = member.declarations().getFirst();
             // Default arguments, member/base initialization and function try blocks
             // need their own evaluation/lifetime contract, not just the written body.
-            if (!target.parameters().isEmpty()) return UNKNOWN;
+            if (target.parameters().stream().anyMatch(p -> p.defaultValue().isEmpty())) return UNKNOWN;
             // Standalone CFGs deliberately leave virtual special members incomplete:
             // their hidden operations depend on complete-object/base invocation.
             // Here those operations are composed explicitly; summarize only the
