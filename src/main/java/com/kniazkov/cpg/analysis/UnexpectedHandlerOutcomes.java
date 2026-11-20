@@ -138,16 +138,30 @@ final class UnexpectedHandlerOutcomes {
             }
             return result;
         }
-        /** Automatic default/direct construction; copy initialization remains unsupported. */
+        /** Automatic construction, including selected user-declared copies from named lvalues. */
         Outcome local(VariableDeclaration variable, Outcome following, PlatformProfile profile,
                 Set<CallableDeclaration> active, Set<String> caught) {
             if (variable.modifiers().contains("static")
                     || variable.modifiers().contains("extern")) return UNKNOWN;
             List<Expression> arguments = List.of();
             if (variable.initializer().isPresent()) {
-                if (!(variable.initializer().orElseThrow() instanceof InitializationExpression init)
-                        || init.form() != InitializationExpression.Form.DIRECT) return UNKNOWN;
-                arguments = init.arguments();
+                var value = variable.initializer().orElseThrow();
+                if (value instanceof InitializationExpression init && init.form() == InitializationExpression.Form.DIRECT) {
+                    arguments = init.arguments();
+                } else {
+                    // Same-class lvalue copy initialization has no conversion temporary
+                    // or optional copy-elision choice. Other copy forms remain unknown.
+                    var source = TypeSemantics.expressionType(value, profile).flatMap(ClassSemantics::objectClass);
+                    var destination = variable.type().flatMap(ClassSemantics::objectClass);
+                    if (!namedLvalue(value) || source.isEmpty() || destination.isEmpty()
+                            || !ClassSemantics.sameClass(source.orElseThrow(), destination.orElseThrow())) return UNKNOWN;
+                    var copies = ClassSemantics.specialMembers(destination.orElseThrow()).stream()
+                            .filter(m -> m.kind() == ClassSemantics.SpecialKind.COPY_CONSTRUCTOR)
+                            .flatMap(m -> m.declarations().stream()).toList();
+                    var copy = OverloadResolution.select(copies, List.of(value), profile).selected();
+                    if (copy.isEmpty() || copy.orElseThrow().modifiers().contains("explicit")) return UNKNOWN;
+                    arguments = List.of(value);
+                }
             }
             var lifetime = lifetime(variable.type().orElse(null), profile, active, new HashSet<>(), true, arguments);
             return lifetime.construct().then(cleanup(following, lifetime.destroy()));
@@ -242,32 +256,54 @@ final class UnexpectedHandlerOutcomes {
             var result = compose(parts, selected == null ? NEXT : constructorBody(selected, active),
                     special(owner, ClassSemantics.SpecialKind.DESTRUCTOR, active));
             // A written specification governs subobject operations as well as the body.
-            return new Lifetime(constructorArguments(selected, arguments, profile, active).then(
+            return new Lifetime(invocationArguments(selected, arguments, profile, active).then(
                     selected == null ? result.construct() : constrain(selected, result.construct())),
                     constrain(owner, ClassSemantics.SpecialKind.DESTRUCTOR, result.destroy()));
         }
         /** Arguments are caller-side expressions: before subobjects and outside the callee specification. */
-        Outcome constructorArguments(CallableDeclaration target, List<Expression> written,
+        Outcome invocationArguments(CallableDeclaration target, List<Expression> written,
                 PlatformProfile profile, Set<CallableDeclaration> active) {
             if (target == null) return written.isEmpty() ? NEXT : UNKNOWN;
             if (written.size() > target.parameters().size() || !target.templateParameters().isEmpty()) return UNKNOWN;
             Outcome result = NEXT;
             for (int i = 0; i < target.parameters().size(); i++) {
                 var parameter = target.parameters().get(i);
-                if (!parameter.type().map(t -> !(TypeSemantics.unqualified(t) instanceof ReferenceType)
-                        && (TypeSemantics.scalar(t, profile) || TypeSemantics.unqualified(t) instanceof MemberPointerType)).orElse(false)) return UNKNOWN;
                 var value = i < written.size() ? written.get(i) : parameter.defaultValue().orElse(null);
                 if (value == null) return UNKNOWN;
-                // User-defined argument conversions require their own lifetime summary.
-                if (!TypeSemantics.expressionType(value, profile).map(t -> TypeSemantics.scalar(TypeSemantics.decay(t), profile)
-                        || TypeSemantics.unqualified(TypeSemantics.decay(t)) instanceof MemberPointerType).orElse(false)) return UNKNOWN;
-                var argument = expression(value, profile, active, Set.of());
+                var parameterType = parameter.type().map(TypeSemantics::unqualified).orElse(null);
+                Outcome argument;
+                if (parameterType instanceof ReferenceType reference) {
+                    var source = TypeSemantics.expressionType(referenceOperand(value), profile).map(TypeSemantics::unqualified);
+                    var referred = TypeSemantics.unqualified(reference.referredType());
+                    // A named lvalue binds without construction, destruction or a read.
+                    // Reject temporaries, derived-to-base binding and user conversions.
+                    if (!namedLvalue(value) || source.isEmpty() || referred instanceof ArrayType
+                            || !source.orElseThrow().canonicalIdentity().equals(referred.canonicalIdentity())) return UNKNOWN;
+                    argument = NEXT;
+                } else {
+                    if (parameterType == null || !(TypeSemantics.scalar(parameterType, profile)
+                            || parameterType instanceof MemberPointerType)) return UNKNOWN;
+                    if (!TypeSemantics.expressionType(value, profile).map(t -> TypeSemantics.scalar(TypeSemantics.decay(t), profile)
+                            || TypeSemantics.unqualified(TypeSemantics.decay(t)) instanceof MemberPointerType).orElse(false)) return UNKNOWN;
+                    argument = expression(value, profile, active, Set.of());
+                }
                 var union = result.union(argument);
                 // C++03 does not specify argument order. Any argument may throw,
                 // but the invocation is reachable only if all can complete.
                 result = new Outcome(result.next() && argument.next(), false, union.terminated(), union.unknown(), union.thrown());
             }
             return result;
+        }
+        /** Only stable names are supported; member/index/call expressions need evaluation summaries. */
+        boolean namedLvalue(Expression value) {
+            return referenceOperand(value) instanceof NameExpression name && name.target()
+                    .filter(t -> t instanceof VariableDeclaration || t instanceof ParameterDeclaration).isPresent();
+        }
+        /** Strip only semantic reference binding, never a cast or value conversion. */
+        Expression referenceOperand(Expression value) {
+            while (value instanceof ConversionExpression conversion && !conversion.isExplicit()
+                    && conversion.kind() == ConversionExpression.Kind.REFERENCE_BINDING) value = conversion.operand();
+            return value;
         }
         Lifetime compose(List<Lifetime> parts, Outcome constructor, Outcome destructor) {
             Outcome construct = constructor, destroy = destructor;
@@ -339,19 +375,21 @@ final class UnexpectedHandlerOutcomes {
             }
             if (expression instanceof CallExpression call) {
                 if (!(call.callee() instanceof NameExpression || call.callee() instanceof ScopeMemberExpression)
-                        || call.isVirtualDispatch() || !call.defaultArguments().isEmpty() || call.target().isEmpty()) return UNKNOWN;
-                Outcome arguments = NEXT;
-                // No parameter values are used to prune branches. Union argument exceptions
-                // conservatively; do not infer a particular C++03 evaluation order.
-                for (var argument : call.arguments()) arguments = arguments.union(expression(argument, profile, active, caught));
-                if (arguments.unknown()) return UNKNOWN;
+                        || call.isVirtualDispatch() || call.target().isEmpty()) return UNKNOWN;
                 var target = call.target().orElseThrow();
+                var values = new ArrayList<>(call.arguments());
+                for (var value : call.defaultArguments()) {
+                    if (value.parameterIndex() != values.size() || value.parameter().defaultValue().isEmpty()) return UNKNOWN;
+                    values.add(value.parameter().defaultValue().orElseThrow());
+                }
+                var arguments = invocationArguments(target, values, profile, active);
+                if (arguments.unknown()) return UNKNOWN;
                 Outcome result;
                 if (LibraryDeclarations.isLibrary(target)) result = target.name().equals("terminate")
                         ? new Outcome(false, false, true, false, Set.of()) : UNKNOWN;
                 else result = function(target, active);
                 var invocation = new Outcome(result.next() || result.returned(), false, result.terminated(), result.unknown(), result.thrown());
-                return new Outcome(false, false, arguments.terminated(), arguments.unknown(), arguments.thrown()).union(invocation);
+                return arguments.then(invocation);
             }
             Outcome result = NEXT;
             for (var child : expression.children()) if (child instanceof Expression operand) result = result.union(expression(operand, profile, active, caught));
