@@ -4,7 +4,7 @@
 
 Итоговая сверка #48: [статус приёмки](docs/cpp03-acceptance.ru.md), [язык и главы](docs/cpp03-language-audit.ru.md), [обязательные заголовки](docs/cpp03-library-audit.ru.md). Поабзацное покрытие редакции 2003 года остаётся непроверенным; приведённые ниже реализации и успешный общий E2E не закрывают это условие.
 
-[Карточка издания ISO](https://www.iso.org/standard/38110.html) · [Текст издания 2003, доступные страницы](https://citeseerx.ist.psu.edu/document?doi=99ef5807a860d1ae879c40fbb6fb58e892808a8f&repid=rep1&type=pdf) · [Выдержка из главы 23](https://ptacts.uspto.gov/ptacts/public-informations/petitions/1558958/download-documents?artifactId=SRz9QsFyV54Nrszv6SwHEwmXBh6qAERkm3gtrRJ1kfXt1j79o7ohzcQ) · [Локальный рабочий текст и отличия редакций](docs/standards/cpp/cpp03/README.ru.md).
+[Карточка издания ISO](https://www.iso.org/standard/38110.html) · [Внешние источники и отличия редакций](docs/standards/cpp/cpp03/README.ru.md).
 
 Строки остаются открытыми до появления теста через штатный вход; подтверждённые части перечислены ниже по задачам и не означают закрытия всей нормативной главы. «База» отмечает лишь смежную возможность из [справочника модели](docs/model-guide.ru.md). Примеры — проектируемые проверки. Для ошибочных исходников проверять диагностику и статус графа; для программ с неопределённым поведением не задавать ожидаемый результат исполнения.
 
