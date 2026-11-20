@@ -56,8 +56,8 @@ class UnexpectedHandlerExplicitConstructionTest {
     @Test void outOfClassDefinitionUsesSelectedDeclaration() {
         f.check("struct S{S(int n);};S::S(int n){throw 1;}void h(){S s(2);throw true;}",EXCEPTION_REPLACEMENT);
     }
-    @Test void referenceParametersRemainConservative() {
-        f.check("struct S{S(int& n){throw 1;}};void h(){int n=1;S s(n);throw true;}",EXCEPTION_REPLACEMENT,BAD_EXCEPTION_REPLACEMENT,TERMINATE_EXIT);
+    @Test void namedScalarReferencesBindWithoutConstruction() {
+        f.check("struct S{S(int& n){throw 1;}};void h(){int n=1;S s(n);throw true;}",EXCEPTION_REPLACEMENT);
     }
     @Test void copyInitializationRemainsConservative() {
         f.check("struct S{S(int n){throw 1;}};void h(){S s=2;throw true;}",EXCEPTION_REPLACEMENT,BAD_EXCEPTION_REPLACEMENT,TERMINATE_EXIT);
