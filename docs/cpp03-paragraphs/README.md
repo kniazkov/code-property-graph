@@ -6,6 +6,13 @@ This directory records review of the privately supplied ISO/IEC 14882:2003 text.
 It does not redistribute that PDF or its extracted normative text. The verified
 source hash and pagination are recorded in `inventory.json`.
 
+These records describe CPG requirements and implementation evidence; they are not
+a replacement edition of the standard. The original edition remains authoritative.
+For external sources and the repository's storage rules, see
+[C++ source references](../standards/cpp/README.ru.md). Builds and the checks below
+do not need a copy of the standard. Keep separately obtained documents outside
+the Git working directory, subject to their terms of use.
+
 - `inventory.json` is a census of source locators, grouped by kind: numbered
   paragraphs (including original letter suffixes), unnumbered blocks, grammar
   productions, tables, footnotes and explicit numbering anomalies. It is not a
@@ -44,6 +51,12 @@ quality, paragraph interpretation, examples and evidence still require review.
 Здесь фиксируется сверка с предоставленным пользователем ISO/IEC 14882:2003.
 Сам PDF и извлечённый нормативный текст не распространяются. Проверенные хеш
 источника и пагинация указаны в `inventory.json`.
+
+Эти записи описывают требования и свидетельства реализации CPG; они не заменяют
+стандарт и не являются его новой редакцией. Определяющим остаётся первоисточник.
+[Внешние источники и правила хранения](../standards/cpp/README.ru.md). Сборка и
+проверки ниже не требуют копии стандарта. Отдельно полученные документы хранятся
+вне рабочей папки Git с соблюдением условий их использования.
 
 - Реестр локаторов отдельно считает нумерованные абзацы (включая буквенные суффиксы
   оригинала), ненумерованные блоки, грамматические продукции, таблицы, сноски и

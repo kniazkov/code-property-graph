@@ -82,4 +82,4 @@ java -jar target/cpg-0.0.1-SNAPSHOT.jar --from java --input examples/unread-writ
 
 Сквозные тесты исполняемого JAR входят в `mvn verify`. [Как добавить сценарий и сравнить результаты](docs/e2e.ru.md).
 
-[Спецификации C++23 и C++26 для разработки парсера](docs/standards/cpp/README.ru.md)
+[Источники требований C++03, C++23 и C++26: внешние ссылки и правила хранения](docs/standards/cpp/README.ru.md)
