@@ -138,12 +138,18 @@ final class UnexpectedHandlerOutcomes {
             }
             return result;
         }
-        /** Selected automatic, default-initialized complete objects; copies remain unsupported. */
+        /** Automatic default/direct construction; copy initialization remains unsupported. */
         Outcome local(VariableDeclaration variable, Outcome following, PlatformProfile profile,
                 Set<CallableDeclaration> active, Set<String> caught) {
-            if (variable.initializer().isPresent() || variable.modifiers().contains("static")
+            if (variable.modifiers().contains("static")
                     || variable.modifiers().contains("extern")) return UNKNOWN;
-            var lifetime = lifetime(variable.type().orElse(null), profile, active, new HashSet<>(), true);
+            List<Expression> arguments = List.of();
+            if (variable.initializer().isPresent()) {
+                if (!(variable.initializer().orElseThrow() instanceof InitializationExpression init)
+                        || init.form() != InitializationExpression.Form.DIRECT) return UNKNOWN;
+                arguments = init.arguments();
+            }
+            var lifetime = lifetime(variable.type().orElse(null), profile, active, new HashSet<>(), true, arguments);
             return lifetime.construct().then(cleanup(following, lifetime.destroy()));
         }
         private record Lifetime(Outcome construct, Outcome destroy) {}
@@ -152,10 +158,15 @@ final class UnexpectedHandlerOutcomes {
         /** Complete objects own virtual bases; base subobjects omit their shared virtual bases. */
         Lifetime lifetime(TypeNode written, PlatformProfile profile, Set<CallableDeclaration> active,
                 Set<ClassDeclaration> owners, boolean completeObject) {
+            return lifetime(written, profile, active, owners, completeObject, List.of());
+        }
+        Lifetime lifetime(TypeNode written, PlatformProfile profile, Set<CallableDeclaration> active,
+                Set<ClassDeclaration> owners, boolean completeObject, List<Expression> arguments) {
             if (--remaining < 0 || written == null) return UNKNOWN_LIFETIME;
             TypeNode type = TypeSemantics.unqualified(written);
             if (type instanceof ReferenceType) return UNKNOWN_LIFETIME;
             if (type instanceof ArrayType array) {
+                if (!arguments.isEmpty()) return UNKNOWN_LIFETIME;
                 var bound = array.bound().flatMap(e -> ConstantEvaluator.evaluate(e, profile)).map(v -> v.number());
                 if (TypeSemantics.unqualified(array.elementType()) instanceof ArrayType || bound.isEmpty()
                         || bound.get().signum() <= 0 || bound.get().compareTo(java.math.BigInteger.valueOf(64)) > 0) return UNKNOWN_LIFETIME;
@@ -170,18 +181,12 @@ final class UnexpectedHandlerOutcomes {
                 return UNKNOWN_LIFETIME;
             var nested = new HashSet<>(owners); nested.add(owner);
             var parts = new ArrayList<Lifetime>();
-            // Virtual bases are unique for a complete object, in depth-first order.
-            // Fields (including class-valued fields of a base) are complete objects.
-            if (completeObject) for (var base : ClassSemantics.virtualBases(owner))
-                parts.add(lifetime(base.type(), profile, active, nested, false));
-            for (var base : owner.bases()) if (!base.isVirtual())
-                parts.add(lifetime(base.type(), profile, active, nested, false));
-            var constructors = ClassSemantics.specialMembers(owner).stream()
-                    .filter(m -> m.kind() == ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR)
-                    .flatMap(m -> m.declarations().stream()).toList();
-            CallableDeclaration constructor = constructors.size() == 1 ? constructors.getFirst() : null;
-            if (constructor != null) constructor = constructor.definition().filter(CallableDeclaration.class::isInstance)
-                    .map(CallableDeclaration.class::cast).orElse(constructor);
+            var constructors = owner.members().stream().filter(CallableDeclaration.class::isInstance)
+                    .map(CallableDeclaration.class::cast).filter(c -> c.kind() == CallableDeclaration.Kind.CONSTRUCTOR).toList();
+            CallableDeclaration selected = OverloadResolution.select(constructors, arguments, profile).selected().orElse(null);
+            if (selected == null && (!constructors.isEmpty() || !arguments.isEmpty())) return UNKNOWN_LIFETIME;
+            CallableDeclaration constructor = selected == null ? null : selected.definition()
+                    .filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast).orElse(selected);
             var initializers = constructor == null ? List.<MemberInitializer>of() : constructor.initializers();
             var fields = ClassSemantics.fields(owner);
             var initialized = new HashSet<Declaration>();
@@ -199,44 +204,64 @@ final class UnexpectedHandlerOutcomes {
                     if ((!direct && !virtual) || direct && virtual || initializedBases.stream().anyMatch(c -> ClassSemantics.sameClass(c, cls)))
                         return UNKNOWN_LIFETIME;
                     initializedBases.add(cls);
-                    // An ignored virtual-base initializer does not evaluate arguments.
-                    if (!completeObject && virtual && !direct) continue;
-                    if (!initializer.arguments().isEmpty()) return UNKNOWN_LIFETIME;
                 } else if (!(target instanceof VariableDeclaration field) || !fields.contains(field)
                         || !initialized.add(field) || !initializer.arguments().isEmpty()
                         && !field.type().map(t -> TypeSemantics.scalar(t, profile)
-                            || TypeSemantics.unqualified(t) instanceof MemberPointerType).orElse(false))
+                            || TypeSemantics.unqualified(t) instanceof MemberPointerType
+                            || !(TypeSemantics.unqualified(t) instanceof ArrayType) && ClassSemantics.objectClass(t).isPresent()).orElse(false))
                     return UNKNOWN_LIFETIME;
+            }
+            // Construction order, not initializer-list order. Virtual base arguments
+            // are omitted entirely for base-subobject invocations.
+            var bases = new ArrayList<BaseSpecifier>();
+            if (completeObject) bases.addAll(virtualBases);
+            owner.bases().stream().filter(b -> !b.isVirtual()).forEach(bases::add);
+            for (var base : bases) {
+                var cls = ClassSemantics.objectClass(base.type()).orElseThrow();
+                var args = initializers.stream().filter(i -> ClassSemantics.initializedBase(i)
+                        .filter(c -> ClassSemantics.sameClass(c, cls)).isPresent()).findFirst()
+                        .map(MemberInitializer::arguments).orElse(List.of());
+                parts.add(lifetime(base.type(), profile, active, nested, false, args));
             }
             for (var field : fields) {
                 if (field.initializer().isPresent()) return UNKNOWN_LIFETIME;
-                var part = lifetime(field.type().orElse(null), profile, active, nested, true);
-                for (var initializer : initializers) if (initializer.target().orElse(null) == field) {
-                    if (initializer.arguments().size() > 1) return UNKNOWN_LIFETIME;
+                var initializer = initializers.stream().filter(i -> i.target().orElse(null) == field).findFirst();
+                var args = initializer.map(MemberInitializer::arguments).orElse(List.of());
+                Lifetime part;
+                if (field.type().flatMap(ClassSemantics::objectClass).isPresent()) {
+                    part = lifetime(field.type().orElseThrow(), profile, active, nested, true, args);
+                } else {
+                    if (args.size() > 1) return UNKNOWN_LIFETIME;
+                    part = lifetime(field.type().orElse(null), profile, active, nested, true);
                     Outcome evaluated = NEXT;
-                    for (var argument : initializer.arguments()) evaluated = evaluated.then(expression(argument, profile, active, Set.of()));
+                    for (var argument : args) evaluated = evaluated.then(expression(argument, profile, active, Set.of()));
                     part = new Lifetime(evaluated.then(part.construct()), part.destroy());
                 }
                 parts.add(part);
             }
-            var result = compose(parts, special(owner, ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR, active),
+            var result = compose(parts, selected == null ? NEXT : constructorBody(selected, active),
                     special(owner, ClassSemantics.SpecialKind.DESTRUCTOR, active));
             // A written specification governs subobject operations as well as the body.
-            return new Lifetime(constructorArguments(owner, profile, active).then(
-                    constrain(owner, ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR, result.construct())),
+            return new Lifetime(constructorArguments(selected, arguments, profile, active).then(
+                    selected == null ? result.construct() : constrain(selected, result.construct())),
                     constrain(owner, ClassSemantics.SpecialKind.DESTRUCTOR, result.destroy()));
         }
-        /** Defaults are caller-side expressions: before subobjects and outside the callee specification. */
-        Outcome constructorArguments(ClassDeclaration owner, PlatformProfile profile, Set<CallableDeclaration> active) {
-            var member = ClassSemantics.specialMembers(owner).stream()
-                    .filter(m -> m.kind() == ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR).findFirst().orElseThrow();
-            if (member.origin() == ClassSemantics.Origin.IMPLICIT) return NEXT;
-            if (member.declarations().size() != 1) return UNKNOWN;
+        /** Arguments are caller-side expressions: before subobjects and outside the callee specification. */
+        Outcome constructorArguments(CallableDeclaration target, List<Expression> written,
+                PlatformProfile profile, Set<CallableDeclaration> active) {
+            if (target == null) return written.isEmpty() ? NEXT : UNKNOWN;
+            if (written.size() > target.parameters().size() || !target.templateParameters().isEmpty()) return UNKNOWN;
             Outcome result = NEXT;
-            for (var parameter : member.declarations().getFirst().parameters()) {
-                if (parameter.defaultValue().isEmpty() || !parameter.type().map(t -> TypeSemantics.scalar(t, profile)
-                        || TypeSemantics.unqualified(t) instanceof MemberPointerType).orElse(false)) return UNKNOWN;
-                var argument = expression(parameter.defaultValue().orElseThrow(), profile, active, Set.of());
+            for (int i = 0; i < target.parameters().size(); i++) {
+                var parameter = target.parameters().get(i);
+                if (!parameter.type().map(t -> !(TypeSemantics.unqualified(t) instanceof ReferenceType)
+                        && (TypeSemantics.scalar(t, profile) || TypeSemantics.unqualified(t) instanceof MemberPointerType)).orElse(false)) return UNKNOWN;
+                var value = i < written.size() ? written.get(i) : parameter.defaultValue().orElse(null);
+                if (value == null) return UNKNOWN;
+                // User-defined argument conversions require their own lifetime summary.
+                if (!TypeSemantics.expressionType(value, profile).map(t -> TypeSemantics.scalar(TypeSemantics.decay(t), profile)
+                        || TypeSemantics.unqualified(TypeSemantics.decay(t)) instanceof MemberPointerType).orElse(false)) return UNKNOWN;
+                var argument = expression(value, profile, active, Set.of());
                 var union = result.union(argument);
                 // C++03 does not specify argument order. Any argument may throw,
                 // but the invocation is reachable only if all can complete.
@@ -259,12 +284,19 @@ final class UnexpectedHandlerOutcomes {
             var failure = cleanup(new Outcome(false, false, false, false, body.thrown()), destructor);
             return new Outcome(body.next(), body.returned(), body.terminated(), false, Set.of()).union(failure);
         }
+        Outcome constrain(CallableDeclaration target, Outcome outcome) {
+            if (target.hasExceptionSpecification() && outcome.thrown().stream().anyMatch(type -> target.exceptionTypes().stream()
+                    .noneMatch(allowed -> ExceptionMatching.catches(project, type, allowed.canonicalIdentity())))) return UNKNOWN;
+            return outcome;
+        }
         Outcome constrain(ClassDeclaration owner, ClassSemantics.SpecialKind kind, Outcome outcome) {
             var member = ClassSemantics.specialMembers(owner).stream().filter(m -> m.kind() == kind).findFirst().orElseThrow();
-            for (var target : member.declarations()) if (target.hasExceptionSpecification()
-                    && outcome.thrown().stream().anyMatch(type -> target.exceptionTypes().stream()
-                        .noneMatch(allowed -> ExceptionMatching.catches(project, type, allowed.canonicalIdentity())))) return UNKNOWN;
+            for (var target : member.declarations()) outcome = constrain(target, outcome);
             return outcome;
+        }
+        Outcome constructorBody(CallableDeclaration target, Set<CallableDeclaration> active) {
+            var outcome = function(target, active, true);
+            return new Outcome(outcome.next() || outcome.returned(), false, outcome.terminated(), outcome.unknown(), outcome.thrown());
         }
         Outcome special(ClassDeclaration owner, ClassSemantics.SpecialKind kind, Set<CallableDeclaration> active) {
             var member = ClassSemantics.specialMembers(owner).stream().filter(m -> m.kind() == kind).findFirst().orElseThrow();
