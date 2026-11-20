@@ -185,11 +185,27 @@ final class UnexpectedHandlerOutcomes {
             var initializers = constructor == null ? List.<MemberInitializer>of() : constructor.initializers();
             var fields = ClassSemantics.fields(owner);
             var initialized = new HashSet<Declaration>();
+            var initializedBases = new ArrayList<ClassDeclaration>();
+            var virtualBases = ClassSemantics.virtualBases(owner);
             for (var initializer : initializers) {
                 var target = initializer.target().orElse(null);
-                if (!(target instanceof VariableDeclaration field) || !fields.contains(field)
-                        || !initialized.add(field) || field.type().map(t -> TypeSemantics.scalar(t, profile)
-                            || TypeSemantics.unqualified(t) instanceof MemberPointerType).orElse(false) == false)
+                var base = ClassSemantics.initializedBase(initializer);
+                if (base.isPresent()) {
+                    var cls = base.orElseThrow();
+                    boolean direct = owner.bases().stream().filter(b -> !b.isVirtual())
+                            .anyMatch(b -> ClassSemantics.objectClass(b.type()).filter(c -> ClassSemantics.sameClass(c, cls)).isPresent());
+                    boolean virtual = virtualBases.stream().anyMatch(b -> ClassSemantics.objectClass(b.type())
+                            .filter(c -> ClassSemantics.sameClass(c, cls)).isPresent());
+                    if ((!direct && !virtual) || direct && virtual || initializedBases.stream().anyMatch(c -> ClassSemantics.sameClass(c, cls)))
+                        return UNKNOWN_LIFETIME;
+                    initializedBases.add(cls);
+                    // An ignored virtual-base initializer does not evaluate arguments.
+                    if (!completeObject && virtual && !direct) continue;
+                    if (!initializer.arguments().isEmpty()) return UNKNOWN_LIFETIME;
+                } else if (!(target instanceof VariableDeclaration field) || !fields.contains(field)
+                        || !initialized.add(field) || !initializer.arguments().isEmpty()
+                        && !field.type().map(t -> TypeSemantics.scalar(t, profile)
+                            || TypeSemantics.unqualified(t) instanceof MemberPointerType).orElse(false))
                     return UNKNOWN_LIFETIME;
             }
             for (var field : fields) {
