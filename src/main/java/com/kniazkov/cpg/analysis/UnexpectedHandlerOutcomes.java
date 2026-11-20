@@ -83,7 +83,7 @@ final class UnexpectedHandlerOutcomes {
             if (!functions.containsKey(target)) target = target.definition().filter(CallableDeclaration.class::isInstance).map(CallableDeclaration.class::cast).orElse(target);
             var flow = functions.get(target);
             if (--remaining < 0 || flow == null || !flow.complete() && !lifetimeBody || !target.bodyComplete() || target.functionTryBlock() || active.size() >= 8 || active.contains(target)) return UNKNOWN;
-            if (target.kind() == CallableDeclaration.Kind.CONSTRUCTOR && !target.initializers().isEmpty()) return UNKNOWN;
+            if (target.kind() == CallableDeclaration.Kind.CONSTRUCTOR && !lifetimeBody && !target.initializers().isEmpty()) return UNKNOWN;
             var stack = new HashSet<>(active); stack.add(target);
             var profile = TypeSemantics.profile(SourceContexts.require(contexts, target));
             if (target.parameters().stream().anyMatch(p -> p.type().flatMap(ClassSemantics::objectClass).isPresent())) return UNKNOWN;
@@ -176,9 +176,32 @@ final class UnexpectedHandlerOutcomes {
                 parts.add(lifetime(base.type(), profile, active, nested, false));
             for (var base : owner.bases()) if (!base.isVirtual())
                 parts.add(lifetime(base.type(), profile, active, nested, false));
-            for (var field : ClassSemantics.fields(owner)) {
+            var constructors = ClassSemantics.specialMembers(owner).stream()
+                    .filter(m -> m.kind() == ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR)
+                    .flatMap(m -> m.declarations().stream()).toList();
+            CallableDeclaration constructor = constructors.size() == 1 ? constructors.getFirst() : null;
+            if (constructor != null) constructor = constructor.definition().filter(CallableDeclaration.class::isInstance)
+                    .map(CallableDeclaration.class::cast).orElse(constructor);
+            var initializers = constructor == null ? List.<MemberInitializer>of() : constructor.initializers();
+            var fields = ClassSemantics.fields(owner);
+            var initialized = new HashSet<Declaration>();
+            for (var initializer : initializers) {
+                var target = initializer.target().orElse(null);
+                if (!(target instanceof VariableDeclaration field) || !fields.contains(field)
+                        || !initialized.add(field) || field.type().map(t -> TypeSemantics.scalar(t, profile)
+                            || TypeSemantics.unqualified(t) instanceof MemberPointerType).orElse(false) == false)
+                    return UNKNOWN_LIFETIME;
+            }
+            for (var field : fields) {
                 if (field.initializer().isPresent()) return UNKNOWN_LIFETIME;
-                parts.add(lifetime(field.type().orElse(null), profile, active, nested, true));
+                var part = lifetime(field.type().orElse(null), profile, active, nested, true);
+                for (var initializer : initializers) if (initializer.target().orElse(null) == field) {
+                    if (initializer.arguments().size() > 1) return UNKNOWN_LIFETIME;
+                    Outcome evaluated = NEXT;
+                    for (var argument : initializer.arguments()) evaluated = evaluated.then(expression(argument, profile, active, Set.of()));
+                    part = new Lifetime(evaluated.then(part.construct()), part.destroy());
+                }
+                parts.add(part);
             }
             var result = compose(parts, special(owner, ClassSemantics.SpecialKind.DEFAULT_CONSTRUCTOR, active),
                     special(owner, ClassSemantics.SpecialKind.DESTRUCTOR, active));
@@ -215,12 +238,12 @@ final class UnexpectedHandlerOutcomes {
             var target = member.declarations().getFirst();
             // Default arguments, member/base initialization and function try blocks
             // need their own evaluation/lifetime contract, not just the written body.
-            if (!target.parameters().isEmpty() || !target.initializers().isEmpty()) return UNKNOWN;
+            if (!target.parameters().isEmpty()) return UNKNOWN;
             // Standalone CFGs deliberately leave virtual special members incomplete:
             // their hidden operations depend on complete-object/base invocation.
             // Here those operations are composed explicitly; summarize only the
             // supported written body, without changing its standalone CFG.
-            var outcome = function(target, active, !ClassSemantics.hasCompleteNonvirtualHierarchy(owner));
+            var outcome = function(target, active, true);
             return new Outcome(outcome.next() || outcome.returned(), false, outcome.terminated(), outcome.unknown(), outcome.thrown());
         }
         /** Cleanup throws replace normal/return completion, but terminate during unwinding. */
