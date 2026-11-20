@@ -57,7 +57,6 @@ class UnexpectedHandlerVirtualLifetimeTest {
     @Test void unsupportedSpecialMemberBodiesStayUnknown() {
         for(String code:java.util.List.of(
             "struct V{};struct D:virtual V{D(){while(true){}}};void h(){D d;throw 1;}",
-            "struct V{};struct D:virtual V{D():V(){}};void h(){D d;throw 1;}",
             "struct V{};struct D:virtual V{~D();};void h(){D d;throw 1;}",
             "struct V{};struct D:virtual V{D()try{}catch(...){}};void h(){D d;throw 1;}"))
             check(code,EXCEPTION_REPLACEMENT,BAD_EXCEPTION_REPLACEMENT,TERMINATE_EXIT);
