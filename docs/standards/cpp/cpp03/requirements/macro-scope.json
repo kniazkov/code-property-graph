@@ -1,0 +1,45 @@
+{
+  "issue": 203,
+  "batch": "R013",
+  "checked_base_commit": "40faca5691ead4fa52397bc04780d00b8481c8d8",
+  "selected_locators": [
+    "cpp03:16.3:p1",
+    "cpp03:16.3:p2",
+    "cpp03:16.3:p3",
+    "cpp03:16.3:p4",
+    "cpp03:16.3:p5",
+    "cpp03:16.3:p6",
+    "cpp03:16.3:p7",
+    "cpp03:16.3:p10",
+    "cpp03:16.3:p8",
+    "cpp03:16.3:p9",
+    "cpp03:16.3.1:p1",
+    "cpp03:16.3.2:p1",
+    "cpp03:16.3.2:p2",
+    "cpp03:16.3.3:p1",
+    "cpp03:16.3.3:p2",
+    "cpp03:16.3.3:p3",
+    "cpp03:16.3.4:p1",
+    "cpp03:16.3.4:p2",
+    "cpp03:16.3.4:p3",
+    "cpp03:16.3.5:p1",
+    "cpp03:16.3.5:p2",
+    "cpp03:16.3.5:p3",
+    "cpp03:16.3.5:p4",
+    "cpp03:16.3.5:p5",
+    "cpp03:16.3.5:p6",
+    "cpp03:16.3.5:p7"
+  ],
+  "reused_requirements": [
+    "CPG-CPP03-REQ-000005",
+    "CPG-CPP03-REQ-000006",
+    "CPG-CPP03-REQ-000007",
+    "CPG-CPP03-REQ-000041"
+  ],
+  "source_sha256": "6314a2a25dad5a7ed43559261767ac51226113a0954aade3d8f24b35b9ff981a",
+  "context_locators": [
+    "cpp03:footnotes:footnote141",
+    "cpp03:footnotes:footnote142",
+    "cpp03:16:grammar:lparen"
+  ]
+}

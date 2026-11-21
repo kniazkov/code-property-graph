@@ -40,10 +40,33 @@ Indexes refer to catalogue editions, not interchangeable draft paragraph numbers
 | iso14882\-2003 | cpp03:12\.4:p6 | requirements | [CPG-CPP03-REQ-000011](REQUIREMENTS.md#cpg-cpp03-req-000011), [CPG-CPP03-REQ-000012](REQUIREMENTS.md#cpg-cpp03-req-000012) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
 | iso14882\-2003 | cpp03:14\.1:p2 | requirements | [CPG-CPP03-REQ-000013](REQUIREMENTS.md#cpg-cpp03-req-000013) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
 | iso14882\-2003 | cpp03:14\.3\.1:p1 | requirements | [CPG-CPP03-REQ-000014](REQUIREMENTS.md#cpg-cpp03-req-000014) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
-| iso14882\-2003 | cpp03:16\.3\.1:p1 | requirements | [CPG-CPP03-REQ-000005](REQUIREMENTS.md#cpg-cpp03-req-000005) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
-| iso14882\-2003 | cpp03:16\.3\.2:p2 | requirements | [CPG-CPP03-REQ-000006](REQUIREMENTS.md#cpg-cpp03-req-000006) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
-| iso14882\-2003 | cpp03:16\.3\.4:p1 | requirements | [CPG-CPP03-REQ-000005](REQUIREMENTS.md#cpg-cpp03-req-000005), [CPG-CPP03-REQ-000007](REQUIREMENTS.md#cpg-cpp03-req-000007) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
-| iso14882\-2003 | cpp03:16\.3\.4:p2 | requirements | [CPG-CPP03-REQ-000007](REQUIREMENTS.md#cpg-cpp03-req-000007) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
+| iso14882\-2003 | cpp03:16\.3\.1:p1 | requirements | [CPG-CPP03-REQ-000005](REQUIREMENTS.md#cpg-cpp03-req-000005) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3\.2:p1 | requirements | [CPG-CPP03-REQ-000065](REQUIREMENTS.md#cpg-cpp03-req-000065) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3\.2:p2 | requirements | [CPG-CPP03-REQ-000006](REQUIREMENTS.md#cpg-cpp03-req-000006), [CPG-CPP03-REQ-000066](REQUIREMENTS.md#cpg-cpp03-req-000066), [CPG-CPP03-REQ-000067](REQUIREMENTS.md#cpg-cpp03-req-000067) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3\.3:p1 | requirements | [CPG-CPP03-REQ-000068](REQUIREMENTS.md#cpg-cpp03-req-000068) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3\.3:p2 | requirements | [CPG-CPP03-REQ-000069](REQUIREMENTS.md#cpg-cpp03-req-000069) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3\.3:p3 | requirements | [CPG-CPP03-REQ-000067](REQUIREMENTS.md#cpg-cpp03-req-000067), [CPG-CPP03-REQ-000070](REQUIREMENTS.md#cpg-cpp03-req-000070), [CPG-CPP03-REQ-000071](REQUIREMENTS.md#cpg-cpp03-req-000071) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3\.4:p1 | requirements | [CPG-CPP03-REQ-000005](REQUIREMENTS.md#cpg-cpp03-req-000005), [CPG-CPP03-REQ-000007](REQUIREMENTS.md#cpg-cpp03-req-000007) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3\.4:p2 | requirements | [CPG-CPP03-REQ-000007](REQUIREMENTS.md#cpg-cpp03-req-000007) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3\.4:p3 | requirements | [CPG-CPP03-REQ-000072](REQUIREMENTS.md#cpg-cpp03-req-000072) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3\.5:p1 | requirements | [CPG-CPP03-REQ-000073](REQUIREMENTS.md#cpg-cpp03-req-000073) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3\.5:p2 | requirements | [CPG-CPP03-REQ-000074](REQUIREMENTS.md#cpg-cpp03-req-000074) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3\.5:p3 | no\_independent\_requirement | None | None | Part of an informative note illustrating earlier replacement, rescanning or redefinition rules; no copied example or independent obligation\. |
+| iso14882\-2003 | cpp03:16\.3\.5:p4 | no\_independent\_requirement | None | None | Part of an informative note illustrating earlier replacement, rescanning or redefinition rules; no copied example or independent obligation\. |
+| iso14882\-2003 | cpp03:16\.3\.5:p5 | no\_independent\_requirement | None | None | Part of an informative note illustrating earlier replacement, rescanning or redefinition rules; no copied example or independent obligation\. |
+| iso14882\-2003 | cpp03:16\.3\.5:p6 | no\_independent\_requirement | None | None | Part of an informative note illustrating earlier replacement, rescanning or redefinition rules; no copied example or independent obligation\. |
+| iso14882\-2003 | cpp03:16\.3\.5:p7 | no\_independent\_requirement | None | None | Part of an informative note illustrating earlier replacement, rescanning or redefinition rules; no copied example or independent obligation\. |
+| iso14882\-2003 | cpp03:16\.3:p1 | requirements | [CPG-CPP03-REQ-000052](REQUIREMENTS.md#cpg-cpp03-req-000052) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3:p10 | requirements | [CPG-CPP03-REQ-000062](REQUIREMENTS.md#cpg-cpp03-req-000062), [CPG-CPP03-REQ-000063](REQUIREMENTS.md#cpg-cpp03-req-000063), [CPG-CPP03-REQ-000064](REQUIREMENTS.md#cpg-cpp03-req-000064) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3:p2 | requirements | [CPG-CPP03-REQ-000053](REQUIREMENTS.md#cpg-cpp03-req-000053) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3:p3 | requirements | [CPG-CPP03-REQ-000054](REQUIREMENTS.md#cpg-cpp03-req-000054) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3:p4 | requirements | [CPG-CPP03-REQ-000055](REQUIREMENTS.md#cpg-cpp03-req-000055) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3:p5 | requirements | [CPG-CPP03-REQ-000056](REQUIREMENTS.md#cpg-cpp03-req-000056) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3:p6 | requirements | [CPG-CPP03-REQ-000057](REQUIREMENTS.md#cpg-cpp03-req-000057), [CPG-CPP03-REQ-000058](REQUIREMENTS.md#cpg-cpp03-req-000058) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3:p7 | requirements | [CPG-CPP03-REQ-000059](REQUIREMENTS.md#cpg-cpp03-req-000059) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3:p8 | requirements | [CPG-CPP03-REQ-000060](REQUIREMENTS.md#cpg-cpp03-req-000060) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16\.3:p9 | requirements | [CPG-CPP03-REQ-000056](REQUIREMENTS.md#cpg-cpp03-req-000056), [CPG-CPP03-REQ-000061](REQUIREMENTS.md#cpg-cpp03-req-000061), [CPG-CPP03-REQ-000075](REQUIREMENTS.md#cpg-cpp03-req-000075) | None | Macro contract; other directives remain \#204\. |
+| iso14882\-2003 | cpp03:16:grammar:lparen | requirements | [CPG-CPP03-REQ-000075](REQUIREMENTS.md#cpg-cpp03-req-000075) | None | Definition\-adjacency dependency; original allocation remains \#204\. |
 | iso14882\-2003 | cpp03:2\.1:p1 | requirements | [CPG-CPP03-REQ-000001](REQUIREMENTS.md#cpg-cpp03-req-000001), [CPG-CPP03-REQ-000002](REQUIREMENTS.md#cpg-cpp03-req-000002), [CPG-CPP03-REQ-000003](REQUIREMENTS.md#cpg-cpp03-req-000003), [CPG-CPP03-REQ-000035](REQUIREMENTS.md#cpg-cpp03-req-000035), [CPG-CPP03-REQ-000036](REQUIREMENTS.md#cpg-cpp03-req-000036), [CPG-CPP03-REQ-000037](REQUIREMENTS.md#cpg-cpp03-req-000037), [CPG-CPP03-REQ-000038](REQUIREMENTS.md#cpg-cpp03-req-000038), [CPG-CPP03-REQ-000039](REQUIREMENTS.md#cpg-cpp03-req-000039), [CPG-CPP03-REQ-000040](REQUIREMENTS.md#cpg-cpp03-req-000040), [CPG-CPP03-REQ-000041](REQUIREMENTS.md#cpg-cpp03-req-000041), [CPG-CPP03-REQ-000042](REQUIREMENTS.md#cpg-cpp03-req-000042), [CPG-CPP03-REQ-000043](REQUIREMENTS.md#cpg-cpp03-req-000043), [CPG-CPP03-REQ-000044](REQUIREMENTS.md#cpg-cpp03-req-000044), [CPG-CPP03-REQ-000045](REQUIREMENTS.md#cpg-cpp03-req-000045), [CPG-CPP03-REQ-000046](REQUIREMENTS.md#cpg-cpp03-req-000046), [CPG-CPP03-REQ-000047](REQUIREMENTS.md#cpg-cpp03-req-000047) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
 | iso14882\-2003 | cpp03:2\.3:p1 | requirements | [CPG-CPP03-REQ-000048](REQUIREMENTS.md#cpg-cpp03-req-000048) | None | Translation\-phase or lexical contract; detailed referenced clauses retain their owners\. |
 | iso14882\-2003 | cpp03:2\.3:p2 | no\_independent\_requirement | None | None | Illustrative trigraph example, not an additional independent obligation; no source example copied\. |
@@ -185,14 +208,9 @@ Counts group exact unprocessed locators by source and section. The JSON index li
 | iso14882\-2003 | 15\.5\.2 | 3 |
 | iso14882\-2003 | 15\.5\.3 | 1 |
 | iso14882\-2003 | 15\.6 | 2 |
-| iso14882\-2003 | 16 | 18 |
+| iso14882\-2003 | 16 | 17 |
 | iso14882\-2003 | 16\.1 | 6 |
 | iso14882\-2003 | 16\.2 | 8 |
-| iso14882\-2003 | 16\.3 | 10 |
-| iso14882\-2003 | 16\.3\.2 | 1 |
-| iso14882\-2003 | 16\.3\.3 | 3 |
-| iso14882\-2003 | 16\.3\.4 | 1 |
-| iso14882\-2003 | 16\.3\.5 | 7 |
 | iso14882\-2003 | 16\.4 | 5 |
 | iso14882\-2003 | 16\.5 | 1 |
 | iso14882\-2003 | 16\.6 | 1 |
