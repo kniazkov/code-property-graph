@@ -75,7 +75,7 @@ Inventory inputs:
   tables, and footnotes.
 - The existing [requirements matrix](../../../../CPP03-MATRIX.ru.md),
   [decisions](../../../../CPP03-DECISIONS.md), and
-  [implementation plan](../../../../CPP03-PLAN.ru.md); migrate these to English
+  [implementation plan](../../../../CPP03-PLAN.md); migrate these to English
   and update references, including obsolete bilingual-documentation obligations.
 - Existing language and library audit reports, the library macro registry,
   Java tests, and test-program sources.
