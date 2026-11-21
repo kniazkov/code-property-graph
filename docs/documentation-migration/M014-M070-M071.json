@@ -1,0 +1,114 @@
+{
+  "issue": 192,
+  "batches": [
+    "M014",
+    "M070",
+    "M071"
+  ],
+  "baseline": "479ef6fc16ee6dc0e16030bde94d6712ce217ab5",
+  "checked_base_commit": "537d965ce8952a96b270102904b32090ee236a7f",
+  "source_review_words": 2573,
+  "authored_document_words": {
+    "cfg-dfg": 625,
+    "node-hierarchy": 1066,
+    "node-model": 546
+  },
+  "new_normative_locators": 0,
+  "difficult_edition_dr_questions": 0,
+  "ranges": [
+    {
+      "source_range": "docs/node-hierarchy.ru.md:1-89",
+      "source_sha256": "0d75be0e223c45240ca3d190a45fdeb788f3c4f3ae342a12c60d70058067ba28",
+      "batch": "M070",
+      "destination": "docs/node-hierarchy.md",
+      "destination_headings": [
+        "Reading order",
+        "Inheritance",
+        "Builder contract",
+        "Children and references"
+      ]
+    },
+    {
+      "source_range": "docs/node-hierarchy.ru.md:90-169",
+      "source_sha256": "80b314d029a67dd2d173659fa378a9a5632069799e4d4bb8370d8da4ec5498e1",
+      "batch": "M070",
+      "destination": "docs/node-hierarchy.md",
+      "destination_headings": [
+        "Children and references",
+        "Recovery and incomplete syntax (#21)",
+        "Typed copying contexts",
+        "Structural checks and editing",
+        "Assignment and Visitor",
+        "DOT visualization"
+      ]
+    },
+    {
+      "source_range": "docs/node-hierarchy.ru.md:170-176",
+      "source_sha256": "7f46e4b55ae9173623fc969ee8e8cc7b1d945694af34fce10061ff656772c971",
+      "batch": "M070",
+      "destination": "docs/node-hierarchy.md",
+      "destination_headings": [
+        "DOT visualization",
+        "JavaDoc"
+      ]
+    },
+    {
+      "source_range": "docs/node-model.ru.md:1-59",
+      "source_sha256": "b4d0d826b9d3786c711ecfe830eb54f4095f51781d5a75f4033206160259c81c",
+      "batch": "M071",
+      "destination": "docs/node-model.md",
+      "destination_headings": [
+        "1. Classes for constructs",
+        "2. Return values",
+        "3. Nested builders and cycles",
+        "4. Implementation"
+      ]
+    },
+    {
+      "source_range": "docs/node-model.ru.md:60-60",
+      "source_sha256": "4fcc5d86f804503df1ddf8f457f2a95a664772fd29dfeec182750e23283a8be5",
+      "batch": "M071",
+      "destination": "docs/node-model.md",
+      "destination_headings": [
+        "4. Implementation"
+      ]
+    },
+    {
+      "source_range": "docs/cfg-dfg.ru.md:1-34",
+      "source_sha256": "bf611129f43a802700fae1afe29f0aee9f52168b034cd3b44c44997e94d131b2",
+      "batch": "M014",
+      "destination": "docs/cfg-dfg.md",
+      "destination_headings": [
+        "Control-flow granularity",
+        "Reaching definitions",
+        "Entry and exit",
+        "API and traversal",
+        "Stages and SVG"
+      ]
+    }
+  ],
+  "remaining_work": [],
+  "scope": "All ranges of these three documents are owned by #192 and migrated. No English counterparts or sibling ranges remain. Research documents with the same basename are distinct inputs.",
+  "api_reconciliation": [
+    "BinaryExpression is abstract and has no operator() accessor; the original proposal is labelled historical.",
+    "EditContext is public; its edge adaptation also contains unchecked casts.",
+    "Source positions distinguish one-based line/column from zero-based UTF-16 offset.",
+    "CFG endpoints are FlowVertex, including auxiliaries; incomplete flows publish no edges.",
+    "DataEdge.callSite() is nullable; the node-accessor design rule is not asserted for every auxiliary record.",
+    "Interprocedural/memory deferrals and C++17 ordering belong to the initial flow design; current code paths are distinguished.",
+    "Recovery can analyse complete bodies without rewriting erroneous syntax."
+  ],
+  "checks": [
+    "Frozen inventory reproduction",
+    "Portable tracked paths",
+    "Local documentation links/anchors and exact resolution of retired paths",
+    "All 33 retained hierarchy edges plus explicitly named operation variants match source",
+    "Documented Java snippets compile and run against freshly compiled main sources",
+    "Snapshot isolation, recursive identity, family Visitor, nonempty CFG/DFG and DOT/SVG output",
+    "Input range hashes, full-file ownership, English prose and word budget",
+    "git diff --cached --check"
+  ],
+  "validation_runtime": "OpenJDK 21.0.13 compiler module with -source 21 -target 21; cached json 2.0.0 dependency; Graphviz. No Maven/full CI run.",
+  "validation_scope": "Examples and API contracts, not an exhaustive runtime or conformance audit. Code and workflow are unchanged.",
+  "completion": "Tracked in #186 after merge into documents."
+}

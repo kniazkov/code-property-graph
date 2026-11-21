@@ -33,6 +33,8 @@ workflow and integration PR before merging to `master`.
   by #190, retaining historical states and linking the #238–#242 continuations.
 - [M003.json](M003.json) maps the initial matrix rows and evidence migrated by
   #191. Deep links into unmigrated sections stay with the retained Russian source.
+- [M014-M070-M071.json](M014-M070-M071.json) maps all three core-model documents
+  migrated by #192; their old paths are retired and examples checked against source.
 
 Every source line in every included document belongs to one range. Headings are
 recorded by line number; ranges prefer heading/paragraph boundaries but may split
