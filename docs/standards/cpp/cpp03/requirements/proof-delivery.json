@@ -1,0 +1,27 @@
+{
+  "issue": 200,
+  "checked_base_commit": "4216591e2648ad3a5225acea5f51aebb1d49ec70",
+  "authored_words_conservative": 1110,
+  "count_method": "Guide, README addition allowance, all Python string constants including synthetic fixtures, and every inspection string; generated report excluded.",
+  "generated_bytes": 17803,
+  "inspected_assertions": 3,
+  "recorded_executions": 0,
+  "new_researched_locators": 0,
+  "migration_source_words": 0,
+  "checks": [
+    "8 proof tests",
+    "9 requirement renderer tests",
+    "7 validator tests",
+    "baseline history validation",
+    "both renderer freshness checks",
+    "repeat generation byte equality",
+    "relative links and anchors",
+    "research and frozen migration inventories",
+    "git diff --check"
+  ],
+  "remaining_owners": [
+    202,
+    228,
+    229
+  ]
+}

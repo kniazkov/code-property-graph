@@ -1,0 +1,28 @@
+{
+  "issue": 200,
+  "checked_base_commit": "4216591e2648ad3a5225acea5f51aebb1d49ec70",
+  "inputs": [
+    "records/*.jsonl",
+    "dispositions.jsonl",
+    "ids.json",
+    "sources.json",
+    "proof-inspections.json"
+  ],
+  "outputs": [
+    "docs/PROOF.md"
+  ],
+  "inspected_test_file": "src/test/java/com/kniazkov/cpg/parser/CppLexerTest.java",
+  "inspected_methods": [
+    "replacesAllTrigraphsBeforeSplicingAndPreservesPhysicalRanges",
+    "commentsAreSpacesWithoutMergingTokensOrEndingDirectives",
+    "partialTokensReportTheirPhysicalBeginningAfterEarlierTransformations"
+  ],
+  "mapped_requirements": [
+    "CPG-CPP03-REQ-000001",
+    "CPG-CPP03-REQ-000002",
+    "CPG-CPP03-REQ-000003"
+  ],
+  "new_researched_locators": 0,
+  "migration_source_words": 0,
+  "scope": "Evidence rendering and three inspected assertion mappings; no native test execution or normative reinterpretation."
+}
