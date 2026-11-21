@@ -54,8 +54,8 @@ The project currently has two distinct reference bases:
 | ISO/IEC 14882:2003 | `inventory.json` identifies a 786-page PDF with SHA-256 `6314a2a25dad5a7ed43559261767ac51226113a0954aade3d8f24b35b9ff981a` | Target edition; verify access to this exact source and existing references before a new substantive audit |
 | WG21 N1638, 11 April 2004 | PDF removed from Git; 772 pages, SHA-256 `648c5ba99445f6df1a621ba4daec7e684d9c54f01df753610e01a329bac15096` | Auxiliary source; do not automatically treat it as the C++03 text |
 
-Use the existing [source record](README.ru.md) and [storage rules](../README.ru.md)
-as migration inputs; translate them and update these links during migration.
+Use the English [source record](README.md) and [storage rules](../README.md).
+The source record distinguishes verified file identity from requirement review.
 The reading copy remains outside Git. Check registry provenance and differences
 between editions, considering editor reports and applicable defect reports.
 An editor report helps locate changes but does not replace checking a disputed

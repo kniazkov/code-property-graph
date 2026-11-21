@@ -64,7 +64,7 @@ remain separate. No full-conformance percentage is inferred from these counts.
 Other clause ledgers are coordinated separately in the [language audit](cpp03-language-audit.en.md).
 
 [WG21 N1638, 11 April 2004](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2004/n1638.pdf)
-is a later working draft. The repository's [reference note](standards/cpp/cpp03/README.ru.md)
+is a later working draft. The repository's [reference note](standards/cpp/cpp03/README.md)
 links a tracked PDF whose working-tree file is **not materialized here**
 (`git ls-files -v` marks it skip-worktree). This is a checkout/restoration boundary,
 not a missing repository artifact. Its recorded hash is not a local-byte

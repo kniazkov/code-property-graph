@@ -117,7 +117,7 @@ Passing a fragment parse alone does not prove complete semantic support for all
 expressions using that fragment.
 
 Source basis: C++03 library synopsis, clauses 18–27 and Annex D, with applicable
-library defect corrections; [repository reference](standards/cpp/cpp03/README.ru.md).
+library defect corrections; [repository reference](standards/cpp/cpp03/README.md).
 
 The #39 common family model distinguishes deque/list, associative uniqueness and
 adapter ordering, with selected comparator links and scoped splice transfer.
