@@ -58,5 +58,25 @@
     "revision": "bc38519c1b076ddcfd121a01f4dcfcb96cc7a2bd",
     "property": "Selected template-body failure produces a project error with concrete-type details.",
     "limitations": "Does not establish every instantiation failure or general diagnostic exceptions."
+  },
+  {
+    "requirement_id": "CPG-CPP03-REQ-000055",
+    "check_id": "boundary",
+    "path": "src/test/java/com/kniazkov/cpg/parser/CppPreprocessorTest.java",
+    "method": "argumentsRespectNestedParenthesesAndCallsMaySpanNewlines",
+    "assertion": "failure(\"#define F(a,b) a+b\\nF(1)\", \"expects 2 arguments\");",
+    "revision": "40faca5691ead4fa52397bc04780d00b8481c8d8",
+    "property": "The helper expects a parse failure for the wrong argument count.",
+    "limitations": "One arity case, not all invocation boundaries."
+  },
+  {
+    "requirement_id": "CPG-CPP03-REQ-000070",
+    "check_id": "boundary",
+    "path": "src/test/java/com/kniazkov/cpg/parser/CppPreprocessorTest.java",
+    "method": "pasteUsesRawArgumentsThenRescansAndNeverPastesAnArgumentHashHash",
+    "assertion": "assertEquals(\"prefix tail\", expand(\"#define CAT(a,b) a ## b\\nCAT(pre,fix tail)\"));",
+    "revision": "40faca5691ead4fa52397bc04780d00b8481c8d8",
+    "property": "Pasting joins adjacent boundary tokens and retains the remaining argument token.",
+    "limitations": "Does not alone prove rescanning or argument-origin ## behavior."
   }
 ]

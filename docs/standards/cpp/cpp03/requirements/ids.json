@@ -202,5 +202,101 @@
   "CPG-CPP03-REQ-000051": {
     "semantic_key": "lex.linecomment.controls",
     "status": "active"
+  },
+  "CPG-CPP03-REQ-000052": {
+    "semantic_key": "macro.replacement.identity",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000053": {
+    "semantic_key": "macro.redefinition.object",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000054": {
+    "semantic_key": "macro.redefinition.function",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000055": {
+    "semantic_key": "macro.invocation.arity",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000056": {
+    "semantic_key": "macro.parameter.scope",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000057": {
+    "semantic_key": "macro.names.namespace",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000058": {
+    "semantic_key": "macro.replacement.trim",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000059": {
+    "semantic_key": "macro.directive.name",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000060": {
+    "semantic_key": "macro.object.replace",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000061": {
+    "semantic_key": "macro.function.invoke",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000062": {
+    "semantic_key": "macro.arguments.commas",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000063": {
+    "semantic_key": "macro.arguments.empty.ub",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000064": {
+    "semantic_key": "macro.arguments.directive.ub",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000065": {
+    "semantic_key": "macro.stringize.parameter",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000066": {
+    "semantic_key": "macro.stringize.invalid.ub",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000067": {
+    "semantic_key": "macro.operators.order",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000068": {
+    "semantic_key": "macro.paste.boundary",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000069": {
+    "semantic_key": "macro.paste.raw",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000070": {
+    "semantic_key": "macro.paste.rescan",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000071": {
+    "semantic_key": "macro.paste.invalid.ub",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000072": {
+    "semantic_key": "macro.rescan.notdirective",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000073": {
+    "semantic_key": "macro.definition.lifetime",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000074": {
+    "semantic_key": "macro.undef.effect",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000075": {
+    "semantic_key": "macro.definition.adjacency",
+    "status": "active"
   }
 }
