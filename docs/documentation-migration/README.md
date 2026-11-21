@@ -39,6 +39,9 @@ workflow and integration PR before merging to `master`.
 - [M052.json](M052.json) maps the opening model guide migrated by #193;
   originals retain later sections and counterpart reconciliation for #278–#294.
 
+- [M042.json](M042.json) maps E2E execution/evidence conventions migrated by #194;
+  #269–#272 retain ownership of the remaining sections and counterpart reconciliation.
+
 Every source line in every included document belongs to one range. Headings are
 recorded by line number; ranges prefer heading/paragraph boundaries but may split
 large sections between lines. Each range has a SHA-256, proposed destination,

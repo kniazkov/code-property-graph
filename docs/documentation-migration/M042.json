@@ -1,0 +1,112 @@
+{
+  "issue": 194,
+  "batch": "M042",
+  "baseline": "479ef6fc16ee6dc0e16030bde94d6712ce217ab5",
+  "checked_base_commit": "906db23b187cf36661749fa4b90d4231ec170abc",
+  "source_review_words": 2506,
+  "authored_document_words": 2454,
+  "new_normative_locators": 0,
+  "difficult_edition_dr_questions": 0,
+  "ranges": [
+    {
+      "source_range": "docs/e2e.en.md:1-35",
+      "source_sha256": "6d1ce6a7d37452dfcf27bc91ace9a25a86d529db9e6bd47c15a835c0e17b235d",
+      "destination": "docs/e2e.md",
+      "destination_headings": [
+        "Reproducible end-to-end tests",
+        "C++03 corpus"
+      ]
+    },
+    {
+      "source_range": "docs/e2e.en.md:36-56",
+      "source_sha256": "bf4b565e9a939ece6ba84bfd9326cbfa352ef6c3e39d4c1964214251ee3906fb",
+      "destination": "docs/e2e.md",
+      "destination_headings": [
+        "C++03 corpus",
+        "Parser recovery and diagnostic exports (#21)"
+      ]
+    },
+    {
+      "source_range": "docs/e2e.en.md:57-92",
+      "source_sha256": "db30d8e2f99166ead67f1d8e877da44184b1a2b1f794562a24bf4ad4483e173e",
+      "destination": "docs/e2e.md",
+      "destination_headings": [
+        "Parser recovery and diagnostic exports (#21)",
+        "Diagnostic provenance and grouped summaries (#22)",
+        "Platform profiles and declarators (#23)"
+      ]
+    },
+    {
+      "source_range": "docs/e2e.en.md:93-125",
+      "source_sha256": "75aeeb99a64e3ba0623ad823b752a115aa1cc5f5a72479f116cc2db849644d14",
+      "destination": "docs/e2e.md",
+      "destination_headings": [
+        "Platform profiles and declarators (#23)",
+        "Scopes, declarations and linkage (#24)"
+      ]
+    }
+  ],
+  "remaining_work": [
+    {
+      "source": "docs/e2e.en.md",
+      "batch": "M043",
+      "issue": 269,
+      "first_line": 126,
+      "last_line": 412
+    },
+    {
+      "source": "docs/e2e.en.md",
+      "batch": "M044",
+      "issue": 270,
+      "first_line": 413,
+      "last_line": 548
+    },
+    {
+      "source": "docs/e2e.ru.md",
+      "batch": "M044",
+      "issue": 270,
+      "first_line": 1,
+      "last_line": 62
+    },
+    {
+      "source": "docs/e2e.ru.md",
+      "batch": "M045",
+      "issue": 271,
+      "first_line": 63,
+      "last_line": 273
+    },
+    {
+      "source": "docs/e2e.ru.md",
+      "batch": "M046",
+      "issue": 272,
+      "first_line": 274,
+      "last_line": 576
+    }
+  ],
+  "scope": "M042 only. Both original editions remain byte-identical. #269 continues the linkage section at English line 126; #270 owns the English tail and Russian opening; #271-#272 own the remaining Russian ranges. Counterpart parity is not claimed. #272 consolidates final paths after sibling reconciliation. All owners are already in #186.",
+  "preservation": [
+    "All five original section anchors are preserved.",
+    "Scenario IDs, historical milestone counts, diagnostics, source positions, before/after values and scoped native/API distinctions are retained.",
+    "The 42 scenarios/44 expected results are an inventory count at the checked base, not a report of full execution.",
+    "Only whole-guide references in the root README, migrated plan and canonical model guide are redirected. Unmigrated deep links and original guides stay intact."
+  ],
+  "reconciliation": [
+    "CI is explicitly inactive on documents; trigger/install instructions describe the saved workflow.",
+    "Full evidence uses clean unfiltered verify followed by the report guard; focused commands do not constitute full acceptance.",
+    "The report guard checks counts and failure/error/skip totals, not scenario names or report freshness.",
+    "Current recovering pipeline can analyze complete bodies at requested later stages while blocking source emission; original #21 no-analysis scope is historical.",
+    "New language support updates canonical English documentation, not two technical editions."
+  ],
+  "checks": [
+    "All five shell blocks pass bash -n; all test selectors, scenario selectors, fixture paths and POM artifact/lifecycle settings were checked.",
+    "42 unique inventory entries match all corpus directories and have scenario.properties.",
+    "The documented arithmetic CLI arguments ran using a temporary executable JAR of unchanged current main classes plus cached json 2.0.0; generated graph contains PrintStatement. Original/generated programs compiled under strict GCC and both returned 0 with stdout 40 followed by newline.",
+    "Invalid-token CLI returned 1 at main.cpp:2:5, emitted readable JSON/SVG and no source directory.",
+    "Recovering API checked at PARSED/RESOLVED/FOLDED: errors retained, usable neighbor analyzed at later stages, incomplete flows expose no edges, source generation rejected.",
+    "The unchanged report guard accepted a synthetic complete report and rejected failure, error, skip, filtered-count and missing-entry variants in scratch; these are not corpus results.",
+    "Frozen range hashes/inventory, portable paths, local links/anchors, original preservation, word budget and git diff --cached --check."
+  ],
+  "validation_runtime": "OpenJDK 21.0.13; existing main classes from #192 with source-tree identity verified against this base; Python 3; Bash; GCC; Graphviz. Temporary JAR assembled locally, not a Maven packaging verification.",
+  "validation_limits": "Maven and Clang are unavailable in this environment. No Failsafe/full corpus, two-compiler conformance or CI run is claimed. Focused CLI/API checks and source inspection validate this documentation migration only.",
+  "completion": "Track review in #186; complete only after merge into documents."
+}

@@ -184,7 +184,7 @@ remains limited to supported Java/C++ forms. The Java main parameter name may va
 
 [Grammar implementation](../src/main/java/com/kniazkov/cpg/parser) · [Analysis passes](../src/main/java/com/kniazkov/cpg/analysis) · [Model classes](../src/main/java/com/kniazkov/cpg/model)
 
-The [C++03 file corpus](e2e.en.md) now checks the public API and packaged CLI against the same ordinary source files, with strict GCC and Clang execution oracles. Initial cases covered a return literal, arithmetic/console normalization and an invalid token; those are historical examples, not the current corpus size.
+The [C++03 file corpus](e2e.md) now checks the public API and packaged CLI against the same ordinary source files, with strict GCC and Clang execution oracles. Initial cases covered a return literal, arithmetic/console normalization and an invalid token; those are historical examples, not the current corpus size.
 
 The [SQUARE fixture](../src/test/resources/cpp03/square/README.md) adds a reproducible two-unit macro project and compilation database. Strict native execution verifies 58 before editing and 64 for a hand-written edited oracle. Import and macro preprocessing are implemented by #13–#15; graph provenance and macro-aware editing are implemented in #16–#17.
 
