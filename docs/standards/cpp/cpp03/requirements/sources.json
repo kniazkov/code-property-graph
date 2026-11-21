@@ -1,0 +1,7 @@
+{
+  "iso14882-2003": {
+    "kind": "iso2003",
+    "inventory": "docs/cpp03-paragraphs/inventory.json",
+    "source_sha256": "6314a2a25dad5a7ed43559261767ac51226113a0954aade3d8f24b35b9ff981a"
+  }
+}

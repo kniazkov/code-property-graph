@@ -1,0 +1,23 @@
+{
+  "issue": 197,
+  "checked_base_commit": "84b904271c58a75c419a93681764154dc318304f",
+  "scope": [
+    "requirement/disposition schemas",
+    "permanent ID ledger",
+    "source catalogue",
+    "cross-file and state/evidence validation",
+    "isolated synthetic fixtures"
+  ],
+  "new_normative_locators_reviewed": 0,
+  "difficult_edition_dr_questions": 0,
+  "authored_readme_words": 979,
+  "production_records": 0,
+  "tests": "7 test methods, including 18 malformed-record variants, five pinned-evidence failures, historical ID reuse/deletion/reactivation, many-to-many mappings and non-applicability/question dispositions.",
+  "continuations": {
+    "pilot": 198,
+    "generation": 199,
+    "evidence": 200,
+    "ci_integration": 228
+  },
+  "limits": "Schema validation is not proof of source interpretation, actual command execution, assertion completeness or current implementation conformance. No runtime or workflow changes."
+}

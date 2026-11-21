@@ -1,0 +1,50 @@
+{
+  "type": "object",
+  "required": [
+    "source_id",
+    "locator",
+    "status",
+    "requirement_ids",
+    "justification",
+    "question_issue"
+  ],
+  "properties": {
+    "source_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "locator": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "requirements",
+        "no_independent_requirement",
+        "unresolved"
+      ]
+    },
+    "requirement_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "justification": {
+      "type": "string",
+      "minLength": 1
+    },
+    "question_issue": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 1
+    }
+  },
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}
