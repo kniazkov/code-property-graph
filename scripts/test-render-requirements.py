@@ -66,7 +66,8 @@ class Rendering(unittest.TestCase):
     def test_invalid_input_prevents_render(self):
         self.rows[0]['dependencies']=['CPG-CPP03-REQ-999999']
         with self.assertRaisesRegex(ValueError,'dangling'): self.render()
-        self.rows[0]['dependencies']=[];self.ds.pop()
+        self.rows[0]['dependencies']=[]
+        self.ds.remove(next(d for d in self.ds if d['status']=='requirements'))
         with self.assertRaisesRegex(ValueError,'missing reverse'): self.render()
     def test_empty_registry_has_no_false_completion(self):
         out=g.render([],[],{},self.sources)

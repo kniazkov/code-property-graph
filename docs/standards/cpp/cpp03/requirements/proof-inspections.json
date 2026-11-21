@@ -28,5 +28,35 @@
     "revision": "4216591e2648ad3a5225acea5f51aebb1d49ec70",
     "property": "The helper checks lexical failure, location and reason for an unfinished block comment.",
     "limitations": "One comment case; literal/header cases and the whole requirement need separate coverage review."
+  },
+  {
+    "requirement_id": "CPG-CPP03-REQ-000036",
+    "check_id": "boundary",
+    "path": "src/test/java/com/kniazkov/cpg/parser/CppLexerTest.java",
+    "method": "splicingIsSinglePassAndTrigraphRecognitionIsNotRepeated",
+    "assertion": "assertEquals(List.of(\"ab\"), spellings(\"a\\\\\\nb\"));",
+    "revision": "bc38519c1b076ddcfd121a01f4dcfcb96cc7a2bd",
+    "property": "A backslash-newline joins identifier fragments.",
+    "limitations": "One existing splice case, not all phase ordering or the proposed longname case."
+  },
+  {
+    "requirement_id": "CPG-CPP03-REQ-000048",
+    "check_id": "boundary",
+    "path": "src/test/java/com/kniazkov/cpg/parser/CppLexerTest.java",
+    "method": "replacesAllTrigraphsBeforeSplicingAndPreservesPhysicalRanges",
+    "assertion": "assertEquals(\"ab # ^ [ ] | { } ~\\n\", result.text());",
+    "revision": "bc38519c1b076ddcfd121a01f4dcfcb96cc7a2bd",
+    "property": "All nine trigraph replacements and a trigraph-created splice affect logical text.",
+    "limitations": "A single combined fixture; no execution or complete lexical coverage claim."
+  },
+  {
+    "requirement_id": "CPG-CPP03-REQ-000046",
+    "check_id": "boundary",
+    "path": "src/test/java/com/kniazkov/cpg/TemplateInstantiationSemanticsTest.java",
+    "method": "selectedBodyFailureContainsConcreteTypeAndOrderedRequests",
+    "assertion": "assertTrue(p.hasErrors());assertTrue(error.message().contains(\"int\"));assertTrue(error.message().contains(\"size\"));",
+    "revision": "bc38519c1b076ddcfd121a01f4dcfcb96cc7a2bd",
+    "property": "Selected template-body failure produces a project error with concrete-type details.",
+    "limitations": "Does not establish every instantiation failure or general diagnostic exceptions."
   }
 ]

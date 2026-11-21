@@ -44,9 +44,15 @@ Indexes refer to catalogue editions, not interchangeable draft paragraph numbers
 | iso14882\-2003 | cpp03:16\.3\.2:p2 | requirements | [CPG-CPP03-REQ-000006](REQUIREMENTS.md#cpg-cpp03-req-000006) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
 | iso14882\-2003 | cpp03:16\.3\.4:p1 | requirements | [CPG-CPP03-REQ-000005](REQUIREMENTS.md#cpg-cpp03-req-000005), [CPG-CPP03-REQ-000007](REQUIREMENTS.md#cpg-cpp03-req-000007) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
 | iso14882\-2003 | cpp03:16\.3\.4:p2 | requirements | [CPG-CPP03-REQ-000007](REQUIREMENTS.md#cpg-cpp03-req-000007) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
-| iso14882\-2003 | cpp03:2\.1:p1 | requirements | [CPG-CPP03-REQ-000001](REQUIREMENTS.md#cpg-cpp03-req-000001), [CPG-CPP03-REQ-000002](REQUIREMENTS.md#cpg-cpp03-req-000002), [CPG-CPP03-REQ-000003](REQUIREMENTS.md#cpg-cpp03-req-000003) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
-| iso14882\-2003 | cpp03:2\.7:p1 | requirements | [CPG-CPP03-REQ-000004](REQUIREMENTS.md#cpg-cpp03-req-000004) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
+| iso14882\-2003 | cpp03:2\.1:p1 | requirements | [CPG-CPP03-REQ-000001](REQUIREMENTS.md#cpg-cpp03-req-000001), [CPG-CPP03-REQ-000002](REQUIREMENTS.md#cpg-cpp03-req-000002), [CPG-CPP03-REQ-000003](REQUIREMENTS.md#cpg-cpp03-req-000003), [CPG-CPP03-REQ-000035](REQUIREMENTS.md#cpg-cpp03-req-000035), [CPG-CPP03-REQ-000036](REQUIREMENTS.md#cpg-cpp03-req-000036), [CPG-CPP03-REQ-000037](REQUIREMENTS.md#cpg-cpp03-req-000037), [CPG-CPP03-REQ-000038](REQUIREMENTS.md#cpg-cpp03-req-000038), [CPG-CPP03-REQ-000039](REQUIREMENTS.md#cpg-cpp03-req-000039), [CPG-CPP03-REQ-000040](REQUIREMENTS.md#cpg-cpp03-req-000040), [CPG-CPP03-REQ-000041](REQUIREMENTS.md#cpg-cpp03-req-000041), [CPG-CPP03-REQ-000042](REQUIREMENTS.md#cpg-cpp03-req-000042), [CPG-CPP03-REQ-000043](REQUIREMENTS.md#cpg-cpp03-req-000043), [CPG-CPP03-REQ-000044](REQUIREMENTS.md#cpg-cpp03-req-000044), [CPG-CPP03-REQ-000045](REQUIREMENTS.md#cpg-cpp03-req-000045), [CPG-CPP03-REQ-000046](REQUIREMENTS.md#cpg-cpp03-req-000046), [CPG-CPP03-REQ-000047](REQUIREMENTS.md#cpg-cpp03-req-000047) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
+| iso14882\-2003 | cpp03:2\.3:p1 | requirements | [CPG-CPP03-REQ-000048](REQUIREMENTS.md#cpg-cpp03-req-000048) | None | Translation\-phase or lexical contract; detailed referenced clauses retain their owners\. |
+| iso14882\-2003 | cpp03:2\.3:p2 | no\_independent\_requirement | None | None | Illustrative trigraph example, not an additional independent obligation; no source example copied\. |
+| iso14882\-2003 | cpp03:2\.3:p3 | requirements | [CPG-CPP03-REQ-000049](REQUIREMENTS.md#cpg-cpp03-req-000049) | None | Translation\-phase or lexical contract; detailed referenced clauses retain their owners\. |
+| iso14882\-2003 | cpp03:2\.3:table1 | requirements | [CPG-CPP03-REQ-000048](REQUIREMENTS.md#cpg-cpp03-req-000048) | None | Translation\-phase or lexical contract; detailed referenced clauses retain their owners\. |
+| iso14882\-2003 | cpp03:2\.7:p1 | requirements | [CPG-CPP03-REQ-000004](REQUIREMENTS.md#cpg-cpp03-req-000004), [CPG-CPP03-REQ-000050](REQUIREMENTS.md#cpg-cpp03-req-000050), [CPG-CPP03-REQ-000051](REQUIREMENTS.md#cpg-cpp03-req-000051) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
 | iso14882\-2003 | cpp03:23\.2\.4:p1 | requirements | [CPG-CPP03-REQ-000015](REQUIREMENTS.md#cpg-cpp03-req-000015) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
+| iso14882\-2003 | cpp03:2:p1 | requirements | [CPG-CPP03-REQ-000034](REQUIREMENTS.md#cpg-cpp03-req-000034) | None | Translation\-phase or lexical contract; detailed referenced clauses retain their owners\. |
+| iso14882\-2003 | cpp03:2:p2 | no\_independent\_requirement | None | None | Informative note on separately translated units; phase\-9 obligations are linked at 2\.1/1\. |
 | iso14882\-2003 | cpp03:5\.14:p1 | requirements | [CPG-CPP03-REQ-000008](REQUIREMENTS.md#cpg-cpp03-req-000008) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
 | iso14882\-2003 | cpp03:5\.14:p2 | requirements | [CPG-CPP03-REQ-000008](REQUIREMENTS.md#cpg-cpp03-req-000008) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
 | iso14882\-2003 | cpp03:5\.15:p1 | requirements | [CPG-CPP03-REQ-000009](REQUIREMENTS.md#cpg-cpp03-req-000009) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
@@ -306,7 +312,6 @@ Counts group exact unprocessed locators by source and section. The JSON index li
 | iso14882\-2003 | 19\.1\.9 | 4 |
 | iso14882\-2003 | 19\.2 | 4 |
 | iso14882\-2003 | 19\.3 | 3 |
-| iso14882\-2003 | 2 | 2 |
 | iso14882\-2003 | 2\.10 | 6 |
 | iso14882\-2003 | 2\.11 | 4 |
 | iso14882\-2003 | 2\.12 | 2 |
@@ -317,7 +322,6 @@ Counts group exact unprocessed locators by source and section. The JSON index li
 | iso14882\-2003 | 2\.13\.4 | 9 |
 | iso14882\-2003 | 2\.13\.5 | 3 |
 | iso14882\-2003 | 2\.2 | 5 |
-| iso14882\-2003 | 2\.3 | 4 |
 | iso14882\-2003 | 2\.4 | 7 |
 | iso14882\-2003 | 2\.5 | 3 |
 | iso14882\-2003 | 2\.6 | 3 |

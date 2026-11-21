@@ -130,5 +130,77 @@
   "CPG-CPP03-REQ-000033": {
     "semantic_key": "conformance.extensions.diagnose",
     "status": "active"
+  },
+  "CPG-CPP03-REQ-000034": {
+    "semantic_key": "translation.unit.inputs",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000035": {
+    "semantic_key": "translation.source.mapping",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000036": {
+    "semantic_key": "translation.splice.singlepass",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000037": {
+    "semantic_key": "translation.splice.ucn.ub",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000038": {
+    "semantic_key": "translation.source.termination",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000039": {
+    "semantic_key": "translation.whitespace.phase3",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000040": {
+    "semantic_key": "translation.preprocessing.recursion",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000041": {
+    "semantic_key": "translation.paste.ucn.ub",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000042": {
+    "semantic_key": "translation.literal.executioncharset",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000043": {
+    "semantic_key": "translation.literal.concatenate",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000044": {
+    "semantic_key": "translation.tokens.analysis",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000045": {
+    "semantic_key": "translation.instantiation.phase8",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000046": {
+    "semantic_key": "translation.instantiation.failure",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000047": {
+    "semantic_key": "translation.external.resolution",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000048": {
+    "semantic_key": "lex.trigraph.exactset",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000049": {
+    "semantic_key": "lex.trigraph.otherquestion",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000050": {
+    "semantic_key": "lex.linecomment.end",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000051": {
+    "semantic_key": "lex.linecomment.controls",
+    "status": "active"
   }
 }

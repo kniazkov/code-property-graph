@@ -5,7 +5,7 @@ This is a traceability report, not a certificate of C++03 conformance. A test na
 
 [Requirements](standards/cpp/cpp03/REQUIREMENTS.md) · [Source index](standards/cpp/cpp03/SOURCE-INDEX.md) · [Evidence conventions](standards/cpp/cpp03/requirements/proof.md)
 
-33 requirements; 0 recorded execution entries; 3 inspected assertion mappings. Inspections are not executions.
+51 requirements; 0 recorded execution entries; 6 inspected assertion mappings. Inspections are not executions.
 
 ## Requirement navigation
 
@@ -44,6 +44,24 @@ This is a traceability report, not a certificate of C++03 conformance. A test na
 | [CPG-CPP03-REQ-000031](#cpg-cpp03-req-000031) | iso14882\-2003 / cpp03:1\.4:p7 | not\_run | 0 |
 | [CPG-CPP03-REQ-000032](#cpg-cpp03-req-000032) | iso14882\-2003 / cpp03:1\.4:p8 | not\_run | 0 |
 | [CPG-CPP03-REQ-000033](#cpg-cpp03-req-000033) | iso14882\-2003 / cpp03:1\.4:p8 | not\_run | 0 |
+| [CPG-CPP03-REQ-000034](#cpg-cpp03-req-000034) | iso14882\-2003 / cpp03:2:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000035](#cpg-cpp03-req-000035) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000036](#cpg-cpp03-req-000036) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000037](#cpg-cpp03-req-000037) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000038](#cpg-cpp03-req-000038) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000039](#cpg-cpp03-req-000039) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000040](#cpg-cpp03-req-000040) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000041](#cpg-cpp03-req-000041) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000042](#cpg-cpp03-req-000042) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000043](#cpg-cpp03-req-000043) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000044](#cpg-cpp03-req-000044) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000045](#cpg-cpp03-req-000045) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000046](#cpg-cpp03-req-000046) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000047](#cpg-cpp03-req-000047) | iso14882\-2003 / cpp03:2\.1:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000048](#cpg-cpp03-req-000048) | iso14882\-2003 / cpp03:2\.3:p1, cpp03:2\.3:table1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000049](#cpg-cpp03-req-000049) | iso14882\-2003 / cpp03:2\.3:p3 | not\_run | 0 |
+| [CPG-CPP03-REQ-000050](#cpg-cpp03-req-000050) | iso14882\-2003 / cpp03:2\.7:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000051](#cpg-cpp03-req-000051) | iso14882\-2003 / cpp03:2\.7:p1 | not\_run | 0 |
 
 <a id="cpg-cpp03-req-000001"></a>
 ## CPG-CPP03-REQ-000001
@@ -909,10 +927,502 @@ Pinned results are historical records. This generation did not execute them; the
 
 None. Proposed checks and inspected assertions cannot supply a pass result.
 
+<a id="cpg-cpp03-req-000034"></a>
+## CPG-CPP03-REQ-000034
+
+[CPG-CPP03-REQ-000034](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000034) — Form translation units after conditional inclusion
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: Include a declaration from a header and skip another under \#if 0; only the active declaration participates in the translation unit\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000035"></a>
+## CPG-CPP03-REQ-000035
+
+[CPG-CPP03-REQ-000035](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000035) — Map physical source and preserve UCN equivalence
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: Compare an accepted extended character with its UCN spelling under one source profile; logical meaning agrees while physical spans differ\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000036"></a>
+## CPG-CPP03-REQ-000036
+
+[CPG-CPP03-REQ-000036](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000036) — Splice adjacent backslash and newline
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: The identifier parts longna and me separated by backslash\-newline form longname; a space after the backslash prevents this splice\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+[src/test/java/com/kniazkov/cpg/parser/CppLexerTest\.java](https://github.com/kniazkov/code-property-graph/blob/bc38519c1b076ddcfd121a01f4dcfcb96cc7a2bd/src/test/java/com/kniazkov/cpg/parser/CppLexerTest.java)
+
+**Method:** splicingIsSinglePassAndTrigraphRecognitionIsNotRepeated; **check:** boundary
+
+**Inspected revision:** bc38519c1b076ddcfd121a01f4dcfcb96cc7a2bd
+
+```text
+assertEquals(List.of("ab"), spellings("a\\\nb"));
+```
+
+**Exact property:** A backslash\-newline joins identifier fragments\.
+
+**Coverage limits:** One existing splice case, not all phase ordering or the proposed longname case\.
+
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000037"></a>
+## CPG-CPP03-REQ-000037
+
+[CPG-CPP03-REQ-000037](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000037) — Classify UCN creation by splicing as undefined
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: Split the characters of a UCN across a backslash\-newline pair; classify the newly formed sequence without assigning a required translation result\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000038"></a>
+## CPG-CPP03-REQ-000038
+
+[CPG-CPP03-REQ-000038](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000038) — Classify invalid source termination as undefined
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: Compare empty input, a newline\-terminated declaration, and the same declaration without its final newline; the last has no fixed ISO outcome\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000039"></a>
+## CPG-CPP03-REQ-000039
+
+[CPG-CPP03-REQ-000039](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000039) — Retain newlines and document whitespace normalization
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: For token, tab\-space run, token, newline, compare retained versus collapsed spacing under a declared policy; the separating newline remains\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000040"></a>
+## CPG-CPP03-REQ-000040
+
+[CPG-CPP03-REQ-000040](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000040) — Apply preprocessing recursively to included input
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: An included header containing a trigraph\-produced directive must undergo early phases before its macro is used by the including file\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000041"></a>
+## CPG-CPP03-REQ-000041
+
+[CPG-CPP03-REQ-000041](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000041) — Classify UCN creation by token pasting as undefined
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: Construct a preprocessing test that joins UCN fragments; assert classification only, never a mandatory resulting identifier\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000042"></a>
+## CPG-CPP03-REQ-000042
+
+[CPG-CPP03-REQ-000042](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000042) — Convert literal characters to the execution set
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: Under a documented profile, compare equivalent literal character and UCN spellings; do not assume host encoding values\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000043"></a>
+## CPG-CPP03-REQ-000043
+
+[CPG-CPP03-REQ-000043](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000043) — Concatenate adjacent literals of matching width
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: "red" "oak" becomes the same sequence as "redoak"; test the corresponding pair of wide literals independently\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000044"></a>
+## CPG-CPP03-REQ-000044
+
+[CPG-CPP03-REQ-000044](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000044) — Analyze tokens after preprocessing
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: Two valid token streams differing only in separating spaces have the same syntax; this does not permit merging adjacent identifier tokens\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000045"></a>
+## CPG-CPP03-REQ-000045
+
+[CPG-CPP03-REQ-000045](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000045) — Perform required template instantiations
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: One used specialization creates an instantiation obligation; an unrelated unused template does not create one merely by existing\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000046"></a>
+## CPG-CPP03-REQ-000046
+
+[CPG-CPP03-REQ-000046](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000046) — Reject failed required instantiation as ill\-formed
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: Given an established failing required instantiation, do not label the complete program well\-formed just because its generic declaration parsed\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+[src/test/java/com/kniazkov/cpg/TemplateInstantiationSemanticsTest\.java](https://github.com/kniazkov/code-property-graph/blob/bc38519c1b076ddcfd121a01f4dcfcb96cc7a2bd/src/test/java/com/kniazkov/cpg/TemplateInstantiationSemanticsTest.java)
+
+**Method:** selectedBodyFailureContainsConcreteTypeAndOrderedRequests; **check:** boundary
+
+**Inspected revision:** bc38519c1b076ddcfd121a01f4dcfcb96cc7a2bd
+
+```text
+assertTrue(p.hasErrors());assertTrue(error.message().contains("int"));assertTrue(error.message().contains("size"));
+```
+
+**Exact property:** Selected template\-body failure produces a project error with concrete\-type details\.
+
+**Coverage limits:** Does not establish every instantiation failure or general diagnostic exceptions\.
+
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000047"></a>
+## CPG-CPP03-REQ-000047
+
+[CPG-CPP03-REQ-000047](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000047) — Resolve external references when forming a program
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.1:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: Two units where one refers to a function defined in the other must resolve that reference when forming the complete program\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000048"></a>
+## CPG-CPP03-REQ-000048
+
+[CPG-CPP03-REQ-000048](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000048) — Replace the defined trigraph set
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.3:p1, cpp03:2\.3:table1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: Use int data??\(3??\); as an independent bracket case; test every defined pair against the existing nine\-pair lexer assertion\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+[src/test/java/com/kniazkov/cpg/parser/CppLexerTest\.java](https://github.com/kniazkov/code-property-graph/blob/bc38519c1b076ddcfd121a01f4dcfcb96cc7a2bd/src/test/java/com/kniazkov/cpg/parser/CppLexerTest.java)
+
+**Method:** replacesAllTrigraphsBeforeSplicingAndPreservesPhysicalRanges; **check:** boundary
+
+**Inspected revision:** bc38519c1b076ddcfd121a01f4dcfcb96cc7a2bd
+
+```text
+assertEquals("ab # ^ [ ] | { } ~\n", result.text());
+```
+
+**Exact property:** All nine trigraph replacements and a trigraph\-created splice affect logical text\.
+
+**Coverage limits:** A single combined fixture; no execution or complete lexical coverage claim\.
+
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000049"></a>
+## CPG-CPP03-REQ-000049
+
+[CPG-CPP03-REQ-000049](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000049) — Leave other question marks unchanged
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.3:p3
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: For the phase\-1 fragment ??q, keep all three characters; do not invent a replacement or claim the fragment is a valid complete program\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000050"></a>
+## CPG-CPP03-REQ-000050
+
+[CPG-CPP03-REQ-000050](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000050) — Terminate line comments at the next logical newline
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.7:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: A // comment ending in backslash\-newline consumes the next physical line up to its logical newline; an embedded /\* does not open a nested comment\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000051"></a>
+## CPG-CPP03-REQ-000051
+
+[CPG-CPP03-REQ-000051](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000051) — Restrict text after form feed or vertical tab
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:2\.7:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #202
+
+### Proposed checks
+
+- boundary: Compare //, vertical\-tab, spaces, newline with //, vertical\-tab, letter, newline; only the latter violates this restriction\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
 ## Reverse navigation: test file to requirement
 
 | Test file | Requirement | Relationship |
 |---|---|---|
+| src/test/java/com/kniazkov/cpg/TemplateInstantiationSemanticsTest\.java | [CPG-CPP03-REQ-000046](#cpg-cpp03-req-000046) | Inspected only |
 | src/test/java/com/kniazkov/cpg/parser/CppLexerTest\.java | [CPG-CPP03-REQ-000001](#cpg-cpp03-req-000001) | Inspected only |
 | src/test/java/com/kniazkov/cpg/parser/CppLexerTest\.java | [CPG-CPP03-REQ-000002](#cpg-cpp03-req-000002) | Inspected only |
 | src/test/java/com/kniazkov/cpg/parser/CppLexerTest\.java | [CPG-CPP03-REQ-000003](#cpg-cpp03-req-000003) | Inspected only |
+| src/test/java/com/kniazkov/cpg/parser/CppLexerTest\.java | [CPG-CPP03-REQ-000036](#cpg-cpp03-req-000036) | Inspected only |
+| src/test/java/com/kniazkov/cpg/parser/CppLexerTest\.java | [CPG-CPP03-REQ-000048](#cpg-cpp03-req-000048) | Inspected only |
