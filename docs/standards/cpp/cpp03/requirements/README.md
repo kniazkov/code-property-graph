@@ -9,6 +9,9 @@ The pilot is #198, document/reverse-index generation #199, evidence publication
 See [rendering and freshness checks](rendering.md) for the generated
 [requirements](../REQUIREMENTS.md) and [source index](../SOURCE-INDEX.md).
 
+See [evidence conventions](proof.md) and the generated
+[proof report](../../../../PROOF.md) for assertion mappings and execution gaps.
+
 ## Files and identity
 
 - `records/*.jsonl`: one requirement object per line, using `record.schema.json`.

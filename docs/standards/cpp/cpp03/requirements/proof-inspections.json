@@ -1,0 +1,32 @@
+[
+  {
+    "requirement_id": "CPG-CPP03-REQ-000001",
+    "check_id": "example",
+    "path": "src/test/java/com/kniazkov/cpg/parser/CppLexerTest.java",
+    "method": "replacesAllTrigraphsBeforeSplicingAndPreservesPhysicalRanges",
+    "assertion": "assertEquals(\"ab\", first.spelling());",
+    "revision": "4216591e2648ad3a5225acea5f51aebb1d49ec70",
+    "property": "The first token combines characters across a trigraph-produced splice.",
+    "limitations": "Only this input and assertion; not all translation-phase interactions."
+  },
+  {
+    "requirement_id": "CPG-CPP03-REQ-000002",
+    "check_id": "example",
+    "path": "src/test/java/com/kniazkov/cpg/parser/CppLexerTest.java",
+    "method": "commentsAreSpacesWithoutMergingTokensOrEndingDirectives",
+    "assertion": "assertEquals(List.of(\"a\", \"b\", \"1\", \"e\", \"+\", \"2\"), spellings(\"a/**/b 1/**/e+2\"));",
+    "revision": "4216591e2648ad3a5225acea5f51aebb1d49ec70",
+    "property": "Comment replacement does not merge the neighbouring tokens.",
+    "limitations": "Does not execute the new long/value example or establish all comment contexts."
+  },
+  {
+    "requirement_id": "CPG-CPP03-REQ-000003",
+    "check_id": "example",
+    "path": "src/test/java/com/kniazkov/cpg/parser/CppLexerTest.java",
+    "method": "partialTokensReportTheirPhysicalBeginningAfterEarlierTransformations",
+    "assertion": "assertFailure(\"x\\n  /*bad\", 2, 3, \"Unterminated comment\");",
+    "revision": "4216591e2648ad3a5225acea5f51aebb1d49ec70",
+    "property": "The helper checks lexical failure, location and reason for an unfinished block comment.",
+    "limitations": "One comment case; literal/header cases and the whole requirement need separate coverage review."
+  }
+]
