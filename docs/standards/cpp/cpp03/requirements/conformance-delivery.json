@@ -1,0 +1,34 @@
+{
+  "issue": 201,
+  "checked_base_commit": "60771087c73f6a4a5e81569c407b4c8d5fb813fb",
+  "cards": 18,
+  "authored_words_conservative": 2426,
+  "count_method": "Whitespace words in all new card/disposition string values and full conformance.md; metadata and generated mirrors excluded.",
+  "selected_locators": 28,
+  "context_locators": 3,
+  "new_researched_locators": 31,
+  "difficult_edition_dr_questions": 0,
+  "migration_source_words": 0,
+  "continuation_issue": 425,
+  "external_dependencies": {
+    "vocabulary": 425,
+    "c_library": 225,
+    "character_set": 202
+  },
+  "checks": [
+    "requirement schema and baseline history",
+    "24 validator/renderer tests",
+    "both generation freshness checks",
+    "repeat generation byte equality",
+    "scope partition, local links and stable anchors",
+    "research and frozen migration inventories",
+    "git diff --check"
+  ],
+  "execution_evidence_added": 0,
+  "generated_bytes": {
+    "docs/standards/cpp/cpp03/REQUIREMENTS.md": 50851,
+    "docs/standards/cpp/cpp03/SOURCE-INDEX.md": 43560,
+    "docs/standards/cpp/cpp03/requirements/source-index.json": 142867,
+    "docs/PROOF.md": 35046
+  }
+}

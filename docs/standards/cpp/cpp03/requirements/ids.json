@@ -58,5 +58,77 @@
   "CPG-CPP03-REQ-000015": {
     "semantic_key": "library.vector.contiguous",
     "status": "active"
+  },
+  "CPG-CPP03-REQ-000016": {
+    "semantic_key": "conformance.reference.edition",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000017": {
+    "semantic_key": "conformance.diagnostic.identity",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000018": {
+    "semantic_key": "conformance.defined.documented",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000019": {
+    "semantic_key": "conformance.locale.documented",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000020": {
+    "semantic_key": "conformance.undefined.no.oracle",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000021": {
+    "semantic_key": "conformance.unspecified.choice",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000022": {
+    "semantic_key": "conformance.wellformed.odr",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000023": {
+    "semantic_key": "conformance.diagnosable.rules",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000024": {
+    "semantic_key": "conformance.diagnostic.minimum",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000025": {
+    "semantic_key": "conformance.ifndr.exemption",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000026": {
+    "semantic_key": "conformance.acceptance.resources",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000027": {
+    "semantic_key": "conformance.library.classes",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000028": {
+    "semantic_key": "conformance.library.definitions",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000029": {
+    "semantic_key": "conformance.library.headers",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000030": {
+    "semantic_key": "conformance.library.linkage",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000031": {
+    "semantic_key": "conformance.environment.kind",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000032": {
+    "semantic_key": "conformance.extensions.preserve",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000033": {
+    "semantic_key": "conformance.extensions.diagnose",
+    "status": "active"
   }
 }

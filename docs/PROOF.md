@@ -5,7 +5,7 @@ This is a traceability report, not a certificate of C++03 conformance. A test na
 
 [Requirements](standards/cpp/cpp03/REQUIREMENTS.md) · [Source index](standards/cpp/cpp03/SOURCE-INDEX.md) · [Evidence conventions](standards/cpp/cpp03/requirements/proof.md)
 
-15 requirements; 0 recorded execution entries; 3 inspected assertion mappings. Inspections are not executions.
+33 requirements; 0 recorded execution entries; 3 inspected assertion mappings. Inspections are not executions.
 
 ## Requirement navigation
 
@@ -26,6 +26,24 @@ This is a traceability report, not a certificate of C++03 conformance. A test na
 | [CPG-CPP03-REQ-000013](#cpg-cpp03-req-000013) | iso14882\-2003 / cpp03:14\.1:p2 | not\_run | 0 |
 | [CPG-CPP03-REQ-000014](#cpg-cpp03-req-000014) | iso14882\-2003 / cpp03:14\.3\.1:p1 | not\_run | 0 |
 | [CPG-CPP03-REQ-000015](#cpg-cpp03-req-000015) | iso14882\-2003 / cpp03:23\.2\.4:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000016](#cpg-cpp03-req-000016) | iso14882\-2003 / cpp03:1\.2:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000017](#cpg-cpp03-req-000017) | iso14882\-2003 / cpp03:1\.3\.2:u1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000018](#cpg-cpp03-req-000018) | iso14882\-2003 / cpp03:1\.3\.5:u1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000019](#cpg-cpp03-req-000019) | iso14882\-2003 / cpp03:1\.3\.7:u1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000020](#cpg-cpp03-req-000020) | iso14882\-2003 / cpp03:1\.3\.12:u1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000021](#cpg-cpp03-req-000021) | iso14882\-2003 / cpp03:1\.3\.13:u1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000022](#cpg-cpp03-req-000022) | iso14882\-2003 / cpp03:1\.3\.14:u1, cpp03:1\.3\.4:u1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000023](#cpg-cpp03-req-000023) | iso14882\-2003 / cpp03:1\.4:p1 | not\_run | 0 |
+| [CPG-CPP03-REQ-000024](#cpg-cpp03-req-000024) | iso14882\-2003 / cpp03:1\.4:p2 | not\_run | 0 |
+| [CPG-CPP03-REQ-000025](#cpg-cpp03-req-000025) | iso14882\-2003 / cpp03:1\.4:p2 | not\_run | 0 |
+| [CPG-CPP03-REQ-000026](#cpg-cpp03-req-000026) | iso14882\-2003 / cpp03:1\.3\.6:u1, cpp03:1\.4:p2 | not\_run | 0 |
+| [CPG-CPP03-REQ-000027](#cpg-cpp03-req-000027) | iso14882\-2003 / cpp03:1\.4:p3 | not\_run | 0 |
+| [CPG-CPP03-REQ-000028](#cpg-cpp03-req-000028) | iso14882\-2003 / cpp03:1\.4:p4 | not\_run | 0 |
+| [CPG-CPP03-REQ-000029](#cpg-cpp03-req-000029) | iso14882\-2003 / cpp03:1\.4:p5 | not\_run | 0 |
+| [CPG-CPP03-REQ-000030](#cpg-cpp03-req-000030) | iso14882\-2003 / cpp03:1\.4:p6 | not\_run | 0 |
+| [CPG-CPP03-REQ-000031](#cpg-cpp03-req-000031) | iso14882\-2003 / cpp03:1\.4:p7 | not\_run | 0 |
+| [CPG-CPP03-REQ-000032](#cpg-cpp03-req-000032) | iso14882\-2003 / cpp03:1\.4:p8 | not\_run | 0 |
+| [CPG-CPP03-REQ-000033](#cpg-cpp03-req-000033) | iso14882\-2003 / cpp03:1\.4:p8 | not\_run | 0 |
 
 <a id="cpg-cpp03-req-000001"></a>
 ## CPG-CPP03-REQ-000001
@@ -430,6 +448,456 @@ None. Proposed checks and inspected assertions cannot supply a pass result.
 ### Proposed checks
 
 - example: For std::vector&lt;int&gt; v\(4,9\), &amp;v\[3\] == &amp;v\[0\] \+ 3 must hold\. Do not use v\[4\] or an empty vector as a positive check\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000016"></a>
+## CPG-CPP03-REQ-000016
+
+[CPG-CPP03-REQ-000016](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000016) — Respect reference editions
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.2:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: Compare a dated C99 reference with the C90/Amd\.1 library designation; do not merge their identities\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000017"></a>
+## CPG-CPP03-REQ-000017
+
+[CPG-CPP03-REQ-000017](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000017) — Identify diagnostic output
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.3\.2:u1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: A progress line alone must not satisfy a required\-diagnostic check\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000018"></a>
+## CPG-CPP03-REQ-000018
+
+[CPG-CPP03-REQ-000018](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000018) — Document implementation\-defined choices
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.3\.5:u1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: Different int widths may be valid profiles; each choice must be identifiable rather than inferred from the host\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000019"></a>
+## CPG-CPP03-REQ-000019
+
+[CPG-CPP03-REQ-000019](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000019) — Document locale\-dependent behavior
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.3\.7:u1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: A locale\-sensitive scenario must state the selected conventions before assigning an expected result\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000020"></a>
+## CPG-CPP03-REQ-000020
+
+[CPG-CPP03-REQ-000020](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000020) — Do not assign an ISO\-required outcome to UB
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.3\.12:u1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: An already\-established UB case must not receive a mandatory output merely because one compiler printed it\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000021"></a>
+## CPG-CPP03-REQ-000021
+
+[CPG-CPP03-REQ-000021](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000021) — Keep unspecified choices distinct
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.3\.13:u1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: A test with two permitted outcomes accepts either; it must not demand a documented selection\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000022"></a>
+## CPG-CPP03-REQ-000022
+
+[CPG-CPP03-REQ-000022](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000022) — Well\-formedness includes the ODR
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.3\.14:u1, cpp03:1\.3\.4:u1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: A syntactically accepted project with an independently established ODR violation is not well\-formed\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000023"></a>
+## CPG-CPP03-REQ-000023
+
+[CPG-CPP03-REQ-000023](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000023) — Classify diagnosable rules
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.4:p1
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: Classify three rule records: ordinary violation, explicit IFNDR and UB; only the first is ordinarily diagnosable\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000024"></a>
+## CPG-CPP03-REQ-000024
+
+[CPG-CPP03-REQ-000024](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000024) — Issue at least one required diagnostic
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.4:p2
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: For an established diagnosable violation, zero diagnostics fails; one qualifying diagnostic satisfies this minimum only\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000025"></a>
+## CPG-CPP03-REQ-000025
+
+[CPG-CPP03-REQ-000025](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000025) — Preserve the no\-diagnostic exemption
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.4:p2
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: A case established as IFNDR may produce no diagnostic without failing an ISO diagnostic oracle\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000026"></a>
+## CPG-CPP03-REQ-000026
+
+[CPG-CPP03-REQ-000026](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000026) — Accept conforming programs within resource limits
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.3\.6:u1, cpp03:1\.4:p2
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: A valid small program must not be labelled ill\-formed because analysis lacks support; execution claims need an actual execution oracle\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000027"></a>
+## CPG-CPP03-REQ-000027
+
+[CPG-CPP03-REQ-000027](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000027) — Complete library class definitions
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.4:p3
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: Two private layouts may both satisfy the same public contract; a missing required operation cannot be excused as layout choice\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000028"></a>
+## CPG-CPP03-REQ-000028
+
+[CPG-CPP03-REQ-000028](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000028) — Supply library entity definitions
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.4:p4
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: Finding a declared function name is insufficient evidence that its specified effect is implemented\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000029"></a>
+## CPG-CPP03-REQ-000029
+
+[CPG-CPP03-REQ-000029](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000029) — Obtain library names through headers
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.4:p5
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: With the appropriate header included, resolve the declared library name in its specified namespace\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000030"></a>
+## CPG-CPP03-REQ-000030
+
+[CPG-CPP03-REQ-000030](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000030) — Provide library definitions across translation units
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.4:p6
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: Two translation units referring to the same external library entity must not create unrelated per\-file identities\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000031"></a>
+## CPG-CPP03-REQ-000031
+
+[CPG-CPP03-REQ-000031](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000031) — Distinguish hosted and freestanding libraries
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.4:p7
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: An empty freestanding\-library claim cannot pass merely because no operating system is present\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000032"></a>
+## CPG-CPP03-REQ-000032
+
+[CPG-CPP03-REQ-000032](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000032) — Extensions preserve well\-formed behavior
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.4:p8
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: Compare a well\-formed input with extension support enabled and disabled; its standard\-defined behavior must agree\. No recorded execution\.
+
+### Inspected existing assertions — not run
+
+No inspected mapping recorded.
+
+### Recorded execution evidence
+
+Pinned results are historical records. This generation did not execute them; they do not prove the current head behaves identically.
+
+None. Proposed checks and inspected assertions cannot supply a pass result.
+
+<a id="cpg-cpp03-req-000033"></a>
+## CPG-CPP03-REQ-000033
+
+[CPG-CPP03-REQ-000033](standards/cpp/cpp03/REQUIREMENTS.md#cpg-cpp03-req-000033) — Diagnose ill\-formed extension use
+
+**Source:** iso14882\-2003; iso2003; original\_reviewed; cpp03:1\.4:p8
+
+**States:** readiness=reviewed; implementation=partial; verification=not\_run
+
+**Verification owner:** #201
+
+### Proposed checks
+
+- boundary: An extension\-only construct accepted silently fails this obligation; acceptance with a qualifying diagnostic may satisfy it\. No recorded execution\.
 
 ### Inspected existing assertions — not run
 

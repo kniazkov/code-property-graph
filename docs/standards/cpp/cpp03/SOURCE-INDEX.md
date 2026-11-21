@@ -9,6 +9,34 @@ Indexes refer to catalogue editions, not interchangeable draft paragraph numbers
 
 | Source | Locator | Status | Requirements | Question | Justification |
 |---|---|---|---|---|---|
+| iso14882\-2003 | cpp03:1\.1:p1 | no\_independent\_requirement | None | None | Scope of implementation obligations; applicability is explained in conformance\.md, not a separate language operation\. |
+| iso14882\-2003 | cpp03:1\.1:p2 | no\_independent\_requirement | None | None | Background description of C\+\+ facilities; detailed obligations belong to their clauses\. |
+| iso14882\-2003 | cpp03:1\.2:p1 | requirements | [CPG-CPP03-REQ-000016](REQUIREMENTS.md#cpg-cpp03-req-000016) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.2:p2 | no\_independent\_requirement | None | None | Defines the historical Standard C Library identity; dependency reconciliation belongs to \#225\. |
+| iso14882\-2003 | cpp03:1\.3\.10:u1 | no\_independent\_requirement | None | None | Signature terminology; overload rules remain with \#213 and template rules with \#214\. |
+| iso14882\-2003 | cpp03:1\.3\.11:u1 | no\_independent\_requirement | None | None | Static\-type terminology; type analysis obligations remain with \#205\. |
+| iso14882\-2003 | cpp03:1\.3\.12:u1 | requirements | [CPG-CPP03-REQ-000020](REQUIREMENTS.md#cpg-cpp03-req-000020) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.3\.13:u1 | requirements | [CPG-CPP03-REQ-000021](REQUIREMENTS.md#cpg-cpp03-req-000021) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.3\.14:u1 | requirements | [CPG-CPP03-REQ-000022](REQUIREMENTS.md#cpg-cpp03-req-000022) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.3\.1:u1 | no\_independent\_requirement | None | None | Argument terminology; operational obligations belong to calls, macros, exceptions and templates \(\#210/\#203/\#216/\#214\)\. |
+| iso14882\-2003 | cpp03:1\.3\.2:u1 | requirements | [CPG-CPP03-REQ-000017](REQUIREMENTS.md#cpg-cpp03-req-000017) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.3\.3:u1 | no\_independent\_requirement | None | None | Dynamic\-type terminology; object/type rules remain with \#205\. |
+| iso14882\-2003 | cpp03:1\.3\.4:u1 | requirements | [CPG-CPP03-REQ-000022](REQUIREMENTS.md#cpg-cpp03-req-000022) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.3\.5:u1 | requirements | [CPG-CPP03-REQ-000018](REQUIREMENTS.md#cpg-cpp03-req-000018) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.3\.6:u1 | requirements | [CPG-CPP03-REQ-000026](REQUIREMENTS.md#cpg-cpp03-req-000026) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.3\.7:u1 | requirements | [CPG-CPP03-REQ-000019](REQUIREMENTS.md#cpg-cpp03-req-000019) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.3\.8:u1 | no\_independent\_requirement | None | None | Multibyte\-character terminology; encoding obligations remain with \#202/\#225\. |
+| iso14882\-2003 | cpp03:1\.3\.9:u1 | no\_independent\_requirement | None | None | Parameter terminology; detailed function, handler, macro and template contracts remain with their topic owners\. |
+| iso14882\-2003 | cpp03:1\.3:p2 | no\_independent\_requirement | None | None | Editorial convention for local definitions, not an independent program obligation\. |
+| iso14882\-2003 | cpp03:1\.3:u1 | no\_independent\_requirement | None | None | Terminology sources and library glossary routing; ISO 2382 dependency triage belongs to \#425, library terminology to \#217\. |
+| iso14882\-2003 | cpp03:1\.4:p1 | requirements | [CPG-CPP03-REQ-000023](REQUIREMENTS.md#cpg-cpp03-req-000023) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.4:p2 | requirements | [CPG-CPP03-REQ-000024](REQUIREMENTS.md#cpg-cpp03-req-000024), [CPG-CPP03-REQ-000025](REQUIREMENTS.md#cpg-cpp03-req-000025), [CPG-CPP03-REQ-000026](REQUIREMENTS.md#cpg-cpp03-req-000026) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.4:p3 | requirements | [CPG-CPP03-REQ-000027](REQUIREMENTS.md#cpg-cpp03-req-000027) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.4:p4 | requirements | [CPG-CPP03-REQ-000028](REQUIREMENTS.md#cpg-cpp03-req-000028) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.4:p5 | requirements | [CPG-CPP03-REQ-000029](REQUIREMENTS.md#cpg-cpp03-req-000029) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.4:p6 | requirements | [CPG-CPP03-REQ-000030](REQUIREMENTS.md#cpg-cpp03-req-000030) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.4:p7 | requirements | [CPG-CPP03-REQ-000031](REQUIREMENTS.md#cpg-cpp03-req-000031) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
+| iso14882\-2003 | cpp03:1\.4:p8 | requirements | [CPG-CPP03-REQ-000032](REQUIREMENTS.md#cpg-cpp03-req-000032), [CPG-CPP03-REQ-000033](REQUIREMENTS.md#cpg-cpp03-req-000033) | None | Bounded compliance contract; referenced detailed rules remain with their allocated topic owners\. |
 | iso14882\-2003 | cpp03:12\.4:p6 | requirements | [CPG-CPP03-REQ-000011](REQUIREMENTS.md#cpg-cpp03-req-000011), [CPG-CPP03-REQ-000012](REQUIREMENTS.md#cpg-cpp03-req-000012) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
 | iso14882\-2003 | cpp03:14\.1:p2 | requirements | [CPG-CPP03-REQ-000013](REQUIREMENTS.md#cpg-cpp03-req-000013) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
 | iso14882\-2003 | cpp03:14\.3\.1:p1 | requirements | [CPG-CPP03-REQ-000014](REQUIREMENTS.md#cpg-cpp03-req-000014) | None | Pilot obligations only; remaining paragraph content stays with the allocated research owner\. |
@@ -31,25 +59,7 @@ Counts group exact unprocessed locators by source and section. The JSON index li
 
 | Source | Section | Unprocessed locators |
 |---|---|---:|
-| iso14882\-2003 | 1\.1 | 2 |
 | iso14882\-2003 | 1\.10 | 3 |
-| iso14882\-2003 | 1\.2 | 2 |
-| iso14882\-2003 | 1\.3 | 2 |
-| iso14882\-2003 | 1\.3\.1 | 1 |
-| iso14882\-2003 | 1\.3\.10 | 1 |
-| iso14882\-2003 | 1\.3\.11 | 1 |
-| iso14882\-2003 | 1\.3\.12 | 1 |
-| iso14882\-2003 | 1\.3\.13 | 1 |
-| iso14882\-2003 | 1\.3\.14 | 1 |
-| iso14882\-2003 | 1\.3\.2 | 1 |
-| iso14882\-2003 | 1\.3\.3 | 1 |
-| iso14882\-2003 | 1\.3\.4 | 1 |
-| iso14882\-2003 | 1\.3\.5 | 1 |
-| iso14882\-2003 | 1\.3\.6 | 1 |
-| iso14882\-2003 | 1\.3\.7 | 1 |
-| iso14882\-2003 | 1\.3\.8 | 1 |
-| iso14882\-2003 | 1\.3\.9 | 1 |
-| iso14882\-2003 | 1\.4 | 8 |
 | iso14882\-2003 | 1\.5 | 6 |
 | iso14882\-2003 | 1\.6 | 2 |
 | iso14882\-2003 | 1\.7 | 2 |
