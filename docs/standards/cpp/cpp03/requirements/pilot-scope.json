@@ -1,0 +1,161 @@
+{
+  "issue": 198,
+  "checked_base_commit": "4ff5b91ade8aca9cd78566d0bb26ce63f9e4596e",
+  "source_sha256": "6314a2a25dad5a7ed43559261767ac51226113a0954aade3d8f24b35b9ff981a",
+  "frozen_locators": [
+    {
+      "id": "cpp03:2.1:p1",
+      "section": "2.1",
+      "tag": "lex.phases",
+      "printed_page": 9,
+      "pdf_page": 37,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 1
+    },
+    {
+      "id": "cpp03:2.7:p1",
+      "section": "2.7",
+      "tag": "lex.comment",
+      "printed_page": 12,
+      "pdf_page": 40,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 1
+    },
+    {
+      "id": "cpp03:5.3.3:p1",
+      "section": "5.3.3",
+      "tag": "expr.sizeof",
+      "printed_page": 79,
+      "pdf_page": 107,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 1
+    },
+    {
+      "id": "cpp03:5.14:p1",
+      "section": "5.14",
+      "tag": "expr.log.and",
+      "printed_page": 89,
+      "pdf_page": 117,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 1
+    },
+    {
+      "id": "cpp03:5.14:p2",
+      "section": "5.14",
+      "tag": "expr.log.and",
+      "printed_page": 89,
+      "pdf_page": 117,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 2
+    },
+    {
+      "id": "cpp03:5.15:p1",
+      "section": "5.15",
+      "tag": "expr.log.or",
+      "printed_page": 90,
+      "pdf_page": 118,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 1
+    },
+    {
+      "id": "cpp03:5.15:p2",
+      "section": "5.15",
+      "tag": "expr.log.or",
+      "printed_page": 90,
+      "pdf_page": 118,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 2
+    },
+    {
+      "id": "cpp03:12.4:p5",
+      "section": "12.4",
+      "tag": "class.dtor",
+      "printed_page": 196,
+      "pdf_page": 224,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 5
+    },
+    {
+      "id": "cpp03:12.4:p6",
+      "section": "12.4",
+      "tag": "class.dtor",
+      "printed_page": 196,
+      "pdf_page": 224,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 6
+    },
+    {
+      "id": "cpp03:12.4:p7",
+      "section": "12.4",
+      "tag": "class.dtor",
+      "printed_page": 196,
+      "pdf_page": 224,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 7
+    },
+    {
+      "id": "cpp03:14.1:p2",
+      "section": "14.1",
+      "tag": "temp.param",
+      "printed_page": 240,
+      "pdf_page": 268,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 2
+    },
+    {
+      "id": "cpp03:14.3.1:p1",
+      "section": "14.3.1",
+      "tag": "temp.arg.type",
+      "printed_page": 245,
+      "pdf_page": 273,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 1
+    },
+    {
+      "id": "cpp03:16.3.1:p1",
+      "section": "16.3.1",
+      "tag": "cpp.subst",
+      "printed_page": 311,
+      "pdf_page": 339,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 1
+    },
+    {
+      "id": "cpp03:16.3.2:p2",
+      "section": "16.3.2",
+      "tag": "cpp.stringize",
+      "printed_page": 311,
+      "pdf_page": 339,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 2
+    },
+    {
+      "id": "cpp03:16.3.4:p1",
+      "section": "16.3.4",
+      "tag": "cpp.rescan",
+      "printed_page": 312,
+      "pdf_page": 340,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 1
+    },
+    {
+      "id": "cpp03:16.3.4:p2",
+      "section": "16.3.4",
+      "tag": "cpp.rescan",
+      "printed_page": 312,
+      "pdf_page": 340,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 2
+    },
+    {
+      "id": "cpp03:23.2.4:p1",
+      "section": "23.2.4",
+      "tag": "lib.vector",
+      "printed_page": 489,
+      "pdf_page": 517,
+      "unit_kind": "numbered_paragraph",
+      "paragraph": 1
+    }
+  ],
+  "scope_note": "17 reviewed selected locators; 12.4/5 and /7 are context only. Incidental page text was not exhaustively reviewed. No source text committed."
+}
