@@ -1,0 +1,41 @@
+{
+  "issue": 188,
+  "batch": "M095",
+  "baseline": "479ef6fc16ee6dc0e16030bde94d6712ce217ab5",
+  "source_review_words": 513,
+  "new_normative_locators": 0,
+  "difficult_edition_dr_questions": 0,
+  "scope": "Translation and source-identity verification; no normative comparison or confidence promotion. Completion is tracked in GitHub issue #186 after merge.",
+  "ranges": [
+    {
+      "source_range": "docs/standards/cpp/README.ru.md:1-41",
+      "source_sha256": "e427e73bebb75ec85c7cd90b3b36e4460043894452dd6c12de169527cd33af0e",
+      "destination": "docs/standards/cpp/README.md",
+      "destination_scope": "Whole document; original content preserved in English with provenance clarification."
+    },
+    {
+      "source_range": "docs/standards/cpp/cpp03/README.ru.md:1-17",
+      "source_sha256": "e6570d6c157c5ea4e123f005cc529e9d7c96809ec0d297d7151b76096096f23d",
+      "destination": "docs/standards/cpp/cpp03/README.md",
+      "destination_scope": "Whole document; original content preserved in English with provenance clarification."
+    }
+  ],
+  "authored_source_card_words": 948,
+  "added_markdown_words_including_link_edits": 1090,
+  "checked_base_commit": "277de512135fd6fd7a73760d8f6d61efabb985a9",
+  "source_identity_verified_on": "2026-11-21",
+  "checks": [
+    "Frozen inventory reproduction",
+    "Portable tracked paths",
+    "Added relative Markdown links resolve",
+    "No live references to the two retired source-card paths",
+    "Baseline range hashes and destination presence",
+    "No Cyrillic prose in the two English cards",
+    "No workflow or normative inventory changes",
+    "git diff --cached --check"
+  ],
+  "limitations": [
+    "File identity and two ISO pagination endpoints checked; no complete locator or normative audit.",
+    "The existing audit-results link to build.yml remains temporarily unresolved while CI is disabled; restoration is part of existing final-integration issue #232."
+  ]
+}

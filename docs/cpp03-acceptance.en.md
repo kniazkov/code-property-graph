@@ -21,7 +21,7 @@ compiler or demonstration cannot replace missing paragraph-specific evidence.
 
 The repository's N1638 working draft is dated April 2004 and incorporates changes
 after C++03. It is useful historical material but is not interchangeable with the
-published 2003 edition. See the [source record](standards/cpp/cpp03/README.ru.md)
+published 2003 edition. See the [source record](standards/cpp/cpp03/README.md)
 and the edition notes in the language audit. No undocumented later correction is
 claimed to be an intentionally adopted C++03 rule.
 

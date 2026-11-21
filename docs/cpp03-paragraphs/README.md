@@ -9,7 +9,7 @@ source hash and pagination are recorded in `inventory.json`.
 These records describe CPG requirements and implementation evidence; they are not
 a replacement edition of the standard. The original edition remains authoritative.
 For external sources and the repository's storage rules, see
-[C++ source references](../standards/cpp/README.ru.md). Builds and the checks below
+[C++ source references](../standards/cpp/README.md). Builds and the checks below
 do not need a copy of the standard. Keep separately obtained documents outside
 the Git working directory, subject to their terms of use.
 
@@ -54,7 +54,7 @@ quality, paragraph interpretation, examples and evidence still require review.
 
 Эти записи описывают требования и свидетельства реализации CPG; они не заменяют
 стандарт и не являются его новой редакцией. Определяющим остаётся первоисточник.
-[Внешние источники и правила хранения](../standards/cpp/README.ru.md). Сборка и
+[Внешние источники и правила хранения](../standards/cpp/README.md). Сборка и
 проверки ниже не требуют копии стандарта. Отдельно полученные документы хранятся
 вне рабочей папки Git с соблюдением условий их использования.
 
