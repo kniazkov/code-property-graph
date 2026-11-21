@@ -15,7 +15,7 @@ until consolidation. Historical evidence and counts below are preserved, not
 revalidated by this translation; no row or chapter gains coverage status.
 
 Final audit #48: [acceptance status](docs/cpp03-acceptance.ru.md),
-[language/clauses](docs/cpp03-language-audit.ru.md),
+[language/clauses](docs/cpp03-language-audit.md),
 [mandatory headers](docs/cpp03-library-audit.ru.md). Paragraph-level coverage of
 the 2003 edition remains unverified; implementations and successful general E2E
 runs do not satisfy that condition.

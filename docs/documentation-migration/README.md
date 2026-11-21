@@ -42,6 +42,9 @@ workflow and integration PR before merging to `master`.
 - [M042.json](M042.json) maps E2E execution/evidence conventions migrated by #194;
   #269–#272 retain ownership of the remaining sections and counterpart reconciliation.
 
+- [M017.json](M017.json) maps the historical language-audit opening migrated by #195;
+  #245–#247 own the remaining ranges and counterpart reconciliation.
+
 Every source line in every included document belongs to one range. Headings are
 recorded by line number; ranges prefer heading/paragraph boundaries but may split
 large sections between lines. Each range has a SHA-256, proposed destination,

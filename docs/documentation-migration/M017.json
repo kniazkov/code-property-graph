@@ -1,0 +1,84 @@
+{
+  "issue": 195,
+  "batch": "M017",
+  "baseline": "479ef6fc16ee6dc0e16030bde94d6712ce217ab5",
+  "checked_base_commit": "cb09b95270fe98c894bb9122076993001053d4b9",
+  "source_review_words": 1815,
+  "authored_document_words": 2027,
+  "new_normative_locators": 0,
+  "difficult_edition_dr_questions": 0,
+  "ranges": [
+    {
+      "source_range": "docs/cpp03-language-audit.en.md:1-77",
+      "source_sha256": "ca4a121de1136ab242a571cc0ab251ff7c5d71e6a9ffd5956e995e9e922df6fd",
+      "destination": "docs/cpp03-language-audit.md"
+    },
+    {
+      "source_range": "docs/cpp03-language-audit.en.md:78-134",
+      "source_sha256": "49558ee892fe47f0dcdba6cc36f2c9dfa294693fbab01e89fc9a893ac77031f1",
+      "destination": "docs/cpp03-language-audit.md"
+    }
+  ],
+  "remaining_work": [
+    {
+      "id": "docs/cpp03-language-audit.en.md:135-156",
+      "batch": "M018",
+      "issue": 245
+    },
+    {
+      "id": "docs/cpp03-language-audit.en.md:157-215",
+      "batch": "M018",
+      "issue": 245
+    },
+    {
+      "id": "docs/cpp03-language-audit.en.md:216-375",
+      "batch": "M018",
+      "issue": 245
+    },
+    {
+      "id": "docs/cpp03-language-audit.en.md:376-455",
+      "batch": "M019",
+      "issue": 246
+    },
+    {
+      "id": "docs/cpp03-language-audit.ru.md:1-90",
+      "batch": "M019",
+      "issue": 246
+    },
+    {
+      "id": "docs/cpp03-language-audit.ru.md:91-134",
+      "batch": "M019",
+      "issue": 246
+    },
+    {
+      "id": "docs/cpp03-language-audit.ru.md:135-154",
+      "batch": "M020",
+      "issue": 247
+    },
+    {
+      "id": "docs/cpp03-language-audit.ru.md:155-214",
+      "batch": "M020",
+      "issue": 247
+    },
+    {
+      "id": "docs/cpp03-language-audit.ru.md:215-374",
+      "batch": "M020",
+      "issue": 247
+    },
+    {
+      "id": "docs/cpp03-language-audit.ru.md:375-456",
+      "batch": "M020",
+      "issue": 247
+    }
+  ],
+  "scope": "M017 only; both originals unchanged. Reference definitions are mechanically copied for used labels. #246 owns Russian opening parity; #247 final consolidation. Other audit/library/research migrations retain their owners in owners.json and #186.",
+  "preservation": "All original tables, 17 group IDs, source identifiers, hashes, historical counts and evidence limits are preserved. Only migration framing, counterpart-parity wording and a dangling continuation reference change. No audit or normative review is rerun.",
+  "checks": [
+    "Frozen range hashes and inventory reproduction",
+    "Local inline/reference targets and retained headings",
+    "Original tables and both original files unchanged",
+    "Portable paths and whitespace; English prose; word budget"
+  ],
+  "validation_limits": "Documentation-only checks; no Maven, native conformance or CI run. Historical source and test claims are preserved, not independently recertified.",
+  "completion": "Only after PR merge into documents."
+}
