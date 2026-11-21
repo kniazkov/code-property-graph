@@ -31,6 +31,8 @@ workflow and integration PR before merging to `master`.
   source ranges belong to #233; the original file stays until consolidation.
 - [M008.json](M008.json) maps the opening implementation-plan ranges migrated
   by #190, retaining historical states and linking the #238–#242 continuations.
+- [M003.json](M003.json) maps the initial matrix rows and evidence migrated by
+  #191. Deep links into unmigrated sections stay with the retained Russian source.
 
 Every source line in every included document belongs to one range. Headings are
 recorded by line number; ranges prefer heading/paragraph boundaries but may split

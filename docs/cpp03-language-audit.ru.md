@@ -1,7 +1,7 @@
 <!-- CPG C++03 source and language audit. MIT License. -->
 # Аудит языка C++03: источник, записи по абзацам и открытые пробелы (#48)
 
-[English](cpp03-language-audit.en.md) · [Основная матрица](../CPP03-MATRIX.ru.md) · [Данные и значения полей](cpp03-paragraphs/README.md)
+[English](cpp03-language-audit.en.md) · [Основная матрица](../CPP03-MATRIX.md) · [Данные и значения полей](cpp03-paragraphs/README.md)
 
 **Результат: исходная редакция прочитана; полная приёмка реализации остаётся открытой.**
 2026-11-06 пользователь предоставил читаемый PDF ISO/IEC 14882:2003. Редакция и

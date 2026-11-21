@@ -31,7 +31,7 @@ The machine-checkable [paragraph audit](cpp03-paragraphs/README.md) records each
 
 - [Language rule groups and chapter evidence](cpp03-language-audit.en.md).
 - [Mandatory library headers, signatures and effects](cpp03-library-audit.en.md).
-- [Detailed implementation matrix](../CPP03-MATRIX.ru.md).
+- [Detailed implementation matrix](../CPP03-MATRIX.md).
 - [Reproducible end-to-end harness](e2e.en.md).
 
 A recognized header or declaration does not establish complete overload coverage,
