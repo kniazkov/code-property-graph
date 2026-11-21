@@ -1,0 +1,32 @@
+{
+  "issue": 202,
+  "checked_base_commit": "bc38519c1b076ddcfd121a01f4dcfcb96cc7a2bd",
+  "new_cards": 18,
+  "reused_cards": 4,
+  "authored_words_conservative": 2071,
+  "count_method": "All new card and inspection strings, all selected disposition strings, full translation.md; generated mirrors excluded.",
+  "selected_locators": 8,
+  "context_locators": 2,
+  "reviewed_locators": 10,
+  "difficult_edition_dr_questions": 0,
+  "migration_source_words": 0,
+  "continuation_issue": 427,
+  "inspected_assertions_added": 3,
+  "execution_evidence_added": 0,
+  "checks": [
+    "schema and baseline ledger history",
+    "24 validator/renderer tests",
+    "both freshness checks",
+    "byte-identical repeat generation",
+    "scope partition and links/anchors",
+    "research and frozen migration inventory checks",
+    "git diff --check"
+  ],
+  "test_fix": "Select a requirements disposition for the missing-reverse-link negative test instead of assuming the last row has that status.",
+  "generated_bytes": {
+    "docs/standards/cpp/cpp03/REQUIREMENTS.md": 78098,
+    "docs/standards/cpp/cpp03/SOURCE-INDEX.md": 45636,
+    "docs/standards/cpp/cpp03/requirements/source-index.json": 144672,
+    "docs/PROOF.md": 55113
+  }
+}
