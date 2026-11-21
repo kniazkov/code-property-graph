@@ -74,7 +74,7 @@ Inventory inputs:
   `inventory.json`: 5,250 locators for paragraphs, blocks, grammar productions,
   tables, and footnotes.
 - The existing [requirements matrix](../../../../CPP03-MATRIX.ru.md),
-  [decisions](../../../../CPP03-DECISIONS.ru.md), and
+  [decisions](../../../../CPP03-DECISIONS.md), and
   [implementation plan](../../../../CPP03-PLAN.ru.md); migrate these to English
   and update references, including obsolete bilingual-documentation obligations.
 - Existing language and library audit reports, the library macro registry,

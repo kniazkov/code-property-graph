@@ -1,0 +1,102 @@
+{
+  "issue": 189,
+  "batch": "M001",
+  "baseline": "479ef6fc16ee6dc0e16030bde94d6712ce217ab5",
+  "checked_base_commit": "6a43e3c0593616d8cadb3f39eb955ef40f573de0",
+  "source_review_words": 2619,
+  "authored_document_words": 2032,
+  "new_normative_locators": 0,
+  "difficult_edition_dr_questions": 0,
+  "scope": "Translate the opening context and decisions 1–73; retain decision numbers, examples, alternatives and historical scope. No implementation or conformance claims are revalidated.",
+  "ranges": [
+    {
+      "source_range": "CPP03-DECISIONS.ru.md:1-36",
+      "source_sha256": "b7f39ed095bdd90b86e5bb5edd62fd51d28449c6ac9c9bc2f6d9995b76e8ef40",
+      "destination": "CPP03-DECISIONS.md",
+      "decisions": [
+        1,
+        19
+      ],
+      "destination_headings": [
+        "Starting point",
+        "1–5. Standard library and preprocessing",
+        "6–11. Macro provenance and build variants",
+        "12–19. Types and flow analysis"
+      ]
+    },
+    {
+      "source_range": "CPP03-DECISIONS.ru.md:37-62",
+      "source_sha256": "d0a41e5882c426bb46aa1941bc8025e57ed93b74d0db8fc4cd65df6a819616c7",
+      "destination": "CPP03-DECISIONS.md",
+      "decisions": [
+        20,
+        36
+      ],
+      "destination_headings": [
+        "20–26. Verification, editions and generation",
+        "27–34. Source branches, external data and templates",
+        "35–36. Instantiation reasons"
+      ]
+    },
+    {
+      "source_range": "CPP03-DECISIONS.ru.md:63-98",
+      "source_sha256": "e96f36aa481730b4b52e467bfa525fbe75b0343d9776e146d748742416577ab7",
+      "destination": "CPP03-DECISIONS.md",
+      "decisions": [
+        37,
+        54
+      ],
+      "destination_headings": [
+        "37–39. Diagnostics and implicit operations",
+        "40–42. Virtual methods",
+        "43–45. Name-resolution chains",
+        "46–48. Incomplete types and comments",
+        "49–51. Comment attachment and Doxygen",
+        "52–54. Documentation parameter names"
+      ]
+    },
+    {
+      "source_range": "CPP03-DECISIONS.ru.md:99-140",
+      "source_sha256": "aca52911a4deb7d3e745345b551ac170bb6515733853d71cf4f7f36f67d66bf4",
+      "destination": "CPP03-DECISIONS.md",
+      "decisions": [
+        55,
+        73
+      ],
+      "destination_headings": [
+        "55–57. Function documentation and unambiguous output",
+        "58–60. Renaming and erroneous graphs",
+        "61–63. Parser recovery and export",
+        "64–66. Viewing, analysing and repairing errors",
+        "67–69. Error ranges and token provenance",
+        "70. Diagnostic summaries and block completion",
+        "71–73. Operator calls and container copying"
+      ]
+    }
+  ],
+  "remaining_work": {
+    "issue": 233,
+    "batch": "M002",
+    "source_ranges": [
+      "CPP03-DECISIONS.ru.md:141-182",
+      "CPP03-DECISIONS.ru.md:183-247",
+      "CPP03-DECISIONS.ru.md:248-261"
+    ],
+    "action": "Append the remaining decisions and implementation notes to CPP03-DECISIONS.md, reconcile references and remove the original only after all ranges are migrated."
+  },
+  "preservation": [
+    "The original Russian source is byte-for-byte unchanged for continuation #233.",
+    "The original Russian-checklist assignment is retained as history and explicitly superseded by the current English documentation policy.",
+    "The illustrative comment in decision 50 is translated to English; identifiers and code semantics are unchanged."
+  ],
+  "checks": [
+    "Frozen inventory reproduction",
+    "Portable tracked paths",
+    "All local links and referenced anchors in the English document resolve",
+    "Decisions 1–73 appear exactly once and in source order",
+    "Range hashes, headings and decision ownership agree",
+    "Original Russian source, workflows and code unchanged",
+    "git diff --cached --check"
+  ],
+  "completion": "Tracked in #186 only after the PR merges into documents."
+}
