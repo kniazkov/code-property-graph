@@ -1,0 +1,27 @@
+{
+  "issue": 199,
+  "checked_base_commit": "b2fa90fbfd543573e819f2e7ad1c4ad05bb7aa61",
+  "authored_words_conservative": 867,
+  "count_method": "Rendering guide, added README sentence and all Python string constants including fixtures/code fragments; generated copies excluded.",
+  "normative_research_locators": 0,
+  "migration_source_words": 0,
+  "generated_files": {
+    "REQUIREMENTS.md": 22975,
+    "SOURCE-INDEX.md": 38209,
+    "requirements/source-index.json": 136082
+  },
+  "remaining_owners": [
+    200,
+    228,
+    229
+  ],
+  "checks": [
+    "renderer tests",
+    "requirement validator and tests",
+    "byte freshness and repeated generation",
+    "research ownership inventory",
+    "frozen documentation inventory",
+    "relative links and anchors",
+    "git diff --check"
+  ]
+}
