@@ -1,0 +1,210 @@
+{
+  "issue": 193,
+  "batch": "M052",
+  "baseline": "479ef6fc16ee6dc0e16030bde94d6712ce217ab5",
+  "checked_base_commit": "10eb6fd7a6394fee1ddc5e4bfc96e9eb040066dc",
+  "source_review_words": 2503,
+  "authored_document_words": 2345,
+  "new_normative_locators": 0,
+  "difficult_edition_dr_questions": 0,
+  "ranges": [
+    {
+      "source_range": "docs/model-guide.en.md:1-58",
+      "source_sha256": "c6ee3d2d4aa161433786ac8e4f2d6506cf91b54fa7162a398263289602a9a01f",
+      "destination": "docs/model-guide.md",
+      "destination_headings": [
+        "Read a project snapshot",
+        "Node structure and properties"
+      ]
+    },
+    {
+      "source_range": "docs/model-guide.en.md:59-151",
+      "source_sha256": "e9225eb7527be11782688bced28742887a0d2d7c87c3b1b797220471eba6824f",
+      "destination": "docs/model-guide.md",
+      "destination_headings": [
+        "Traversing the CFG and DFG",
+        "Pass results and editing"
+      ]
+    },
+    {
+      "source_range": "docs/model-guide.en.md:152-196",
+      "source_sha256": "5d79fd74ef062adb3f42dbe7668163ff7b525e65fb817207935e7ca2225919ed",
+      "destination": "docs/model-guide.md",
+      "destination_headings": [
+        "Pass results and editing",
+        "Input language coverage",
+        "C++03 edition and compilation databases"
+      ]
+    },
+    {
+      "source_range": "docs/model-guide.en.md:197-262",
+      "source_sha256": "8586e3885c572c6992d48baa9b7b4fdc68c82eeadca63caa3d9d1664d748ab3c",
+      "destination": "docs/model-guide.md",
+      "destination_headings": [
+        "C++03 edition and compilation databases",
+        "C++03 lexical phases and physical positions",
+        "Header inclusion and macro expansion (C++03 #15)"
+      ]
+    }
+  ],
+  "remaining_work": [
+    {
+      "source": "docs/model-guide.en.md",
+      "batch": "M053",
+      "issue": 278,
+      "first_line": 263,
+      "last_line": 354
+    },
+    {
+      "source": "docs/model-guide.en.md",
+      "batch": "M054",
+      "issue": 279,
+      "first_line": 355,
+      "last_line": 466
+    },
+    {
+      "source": "docs/model-guide.en.md",
+      "batch": "M055",
+      "issue": 280,
+      "first_line": 467,
+      "last_line": 581
+    },
+    {
+      "source": "docs/model-guide.en.md",
+      "batch": "M056",
+      "issue": 281,
+      "first_line": 582,
+      "last_line": 876
+    },
+    {
+      "source": "docs/model-guide.en.md",
+      "batch": "M057",
+      "issue": 282,
+      "first_line": 877,
+      "last_line": 1176
+    },
+    {
+      "source": "docs/model-guide.en.md",
+      "batch": "M058",
+      "issue": 283,
+      "first_line": 1177,
+      "last_line": 1472
+    },
+    {
+      "source": "docs/model-guide.en.md",
+      "batch": "M059",
+      "issue": 284,
+      "first_line": 1473,
+      "last_line": 1799
+    },
+    {
+      "source": "docs/model-guide.en.md",
+      "batch": "M060",
+      "issue": 285,
+      "first_line": 1800,
+      "last_line": 2127
+    },
+    {
+      "source": "docs/model-guide.en.md",
+      "batch": "M061",
+      "issue": 286,
+      "first_line": 2128,
+      "last_line": 2221
+    },
+    {
+      "source": "docs/model-guide.ru.md",
+      "batch": "M061",
+      "issue": 286,
+      "first_line": 1,
+      "last_line": 215
+    },
+    {
+      "source": "docs/model-guide.ru.md",
+      "batch": "M062",
+      "issue": 287,
+      "first_line": 216,
+      "last_line": 348
+    },
+    {
+      "source": "docs/model-guide.ru.md",
+      "batch": "M063",
+      "issue": 288,
+      "first_line": 349,
+      "last_line": 464
+    },
+    {
+      "source": "docs/model-guide.ru.md",
+      "batch": "M064",
+      "issue": 289,
+      "first_line": 465,
+      "last_line": 592
+    },
+    {
+      "source": "docs/model-guide.ru.md",
+      "batch": "M065",
+      "issue": 290,
+      "first_line": 593,
+      "last_line": 923
+    },
+    {
+      "source": "docs/model-guide.ru.md",
+      "batch": "M066",
+      "issue": 291,
+      "first_line": 924,
+      "last_line": 1248
+    },
+    {
+      "source": "docs/model-guide.ru.md",
+      "batch": "M067",
+      "issue": 292,
+      "first_line": 1249,
+      "last_line": 1596
+    },
+    {
+      "source": "docs/model-guide.ru.md",
+      "batch": "M068",
+      "issue": 293,
+      "first_line": 1597,
+      "last_line": 1937
+    },
+    {
+      "source": "docs/model-guide.ru.md",
+      "batch": "M069",
+      "issue": 294,
+      "first_line": 1938,
+      "last_line": 2233
+    }
+  ],
+  "scope": "Only M052 is migrated. Both original guides remain byte-identical. #278 starts at line 263, including the end of the header section. #286 owns the Russian opening counterpart comparison; #287-#294 own its remaining ranges. #294 owns final consolidation after sibling parity checks. All owners are already in #186.",
+  "preservation": [
+    "All eight original level-two headings keep their English anchors.",
+    "The obsolete input-coverage table is summarized as historical, with its exact rows and exclusions retained at model-guide.en.md#input-language-coverage; no current grammar audit is claimed. #286 must reconcile this historical material with its Russian counterpart before final retirement.",
+    "Historical corpus cases and SQUARE 58/64 oracles are retained as prior evidence, not rerun native results.",
+    "Root README and migrated English plan/matrix route to the canonical guide. Deep links and contextual references to later sections keep the originals."
+  ],
+  "api_reconciliation": [
+    "Strict success does not imply absence of semantic errors; invalid/partial snapshots bypass syntax rewrites.",
+    "All 14 Branch values, auxiliary vertices, incomplete flows and exceptional traversal starts are distinguished.",
+    "DFG can contain contextual call effects; callSite is nullable and the node-only examples aggregate contexts.",
+    "Typed custom products and freshness are distinguished from discarded built-in flows/findings on edit/build.",
+    "CppLexer.Result includes comments; missing modeled angle headers are selected by StandardLibraryCatalogue rather than iostream alone."
+  ],
+  "source_evidence": [
+    "src/main/java/com/kniazkov/cpg/Cpg.java",
+    "src/main/java/com/kniazkov/cpg/model/Node.java",
+    "src/main/java/com/kniazkov/cpg/model/Project.java",
+    "src/main/java/com/kniazkov/cpg/model/FunctionFlow.java",
+    "src/main/java/com/kniazkov/cpg/build/CompilationDatabase.java",
+    "src/main/java/com/kniazkov/cpg/parser/CppLexer.java",
+    "src/main/java/com/kniazkov/cpg/parser/CppPreprocessor.java",
+    "src/main/java/com/kniazkov/cpg/analysis/StandardLibraryCatalogue.java"
+  ],
+  "checks": [
+    "Seven Java code blocks extracted verbatim, compiled and executed together against current main sources.",
+    "Assertions: resolved snapshot, CFG/DFG, reaching assignment identity, unread initializer, edit/reanalysis isolation, pass freshness, parsed-stage emptiness, lexer comments and physical spliced-token positions.",
+    "Main-source tree identical to the classes compiled during #192 verification.",
+    "Frozen range hashes and inventory reproduction; portable paths; local links/anchors and preserved original headings; git diff --cached --check."
+  ],
+  "validation_runtime": "OpenJDK 21.0.13 source launcher; main classes from #192 with unchanged source tree, cached json 2.0.0. No Maven, native corpus or full CI run.",
+  "completion": "Track review in #186; complete only after merge into documents."
+}

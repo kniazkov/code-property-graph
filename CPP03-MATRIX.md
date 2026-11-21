@@ -25,7 +25,7 @@ runs do not satisfy that condition.
 
 Rows remain open until tested through the normal entry point. Task-specific
 verified portions do not close entire normative clauses. “Baseline” denotes only
-an adjacent capability in the [model guide](docs/model-guide.ru.md). Examples are
+an adjacent capability in the [model guide](docs/model-guide.md). Examples are
 planned checks. For erroneous input, check diagnostics and graph status; for UB,
 do not prescribe an execution result.
 

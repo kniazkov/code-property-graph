@@ -3,7 +3,7 @@
 
 Рукописный парсер Java и C++ строит единый неизменяемый `Project` из исходников одной папки. Парсер, разрешение ссылок, озеленение, свёртка, генерация исходников и визуализация используют классы из `com.kniazkov.cpg.model`.
 
-[Справочник модели, CFG и DFG](docs/model-guide.ru.md) · [Model, CFG and DFG guide (English)](docs/model-guide.en.md)
+[Model, CFG and DFG guide](docs/model-guide.md)
 
 ## Запуск из консоли
 

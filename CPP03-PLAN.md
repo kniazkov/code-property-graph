@@ -156,7 +156,7 @@ others once dependencies are met.
 ## 0. Starting point and acceptance per change
 
 - [x] Handwritten Java parser; parsed/resolved/green/folded stages; C++ generation, JSON/SVG, intraprocedural CFG/DFG, E2E infrastructure.
-- [x] Recorded [coverage](docs/model-guide.ru.md), [model rules](docs/requirements.ru.md), [E2E scenarios](docs/e2e.ru.md), [C++03 sources](docs/standards/cpp/cpp03/README.md).
+- [x] Recorded [coverage](docs/model-guide.md), [model rules](docs/requirements.ru.md), [E2E scenarios](docs/e2e.ru.md), [C++03 sources](docs/standards/cpp/cpp03/README.md).
 - [x] [Clauses 1–27/annexes A–E matrix](CPP03-MATRIX.md), linked to stages/scenarios.
 - [ ] Complete ISO 2003 paragraph review: example, expected diagnostic, parser/model/resolution/analysis/generator status and test per rule; distinguish no-required-diagnostic rules. [#48](https://github.com/kniazkov/code-property-graph/issues/48)
 - [ ] Check disputed rules against 2003; N1638 includes later corrections. Record each adopted difference and test. [#48](https://github.com/kniazkov/code-property-graph/issues/48)

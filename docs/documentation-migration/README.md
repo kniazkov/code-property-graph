@@ -36,6 +36,9 @@ workflow and integration PR before merging to `master`.
 - [M014-M070-M071.json](M014-M070-M071.json) maps all three core-model documents
   migrated by #192; their old paths are retired and examples checked against source.
 
+- [M052.json](M052.json) maps the opening model guide migrated by #193;
+  originals retain later sections and counterpart reconciliation for #278–#294.
+
 Every source line in every included document belongs to one range. Headings are
 recorded by line number; ranges prefer heading/paragraph boundaries but may split
 large sections between lines. Each range has a SHA-256, proposed destination,
