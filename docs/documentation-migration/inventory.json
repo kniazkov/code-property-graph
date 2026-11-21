@@ -1,0 +1,1188 @@
+{
+  "schema_version": 1,
+  "baseline": "479ef6fc16ee6dc0e16030bde94d6712ce217ab5",
+  "batches": [
+    {
+      "id": "M001",
+      "group": "CPP03-DECISIONS.md",
+      "words": 2619,
+      "sections": [
+        "CPP03-DECISIONS.ru.md:1-36",
+        "CPP03-DECISIONS.ru.md:37-62",
+        "CPP03-DECISIONS.ru.md:63-98",
+        "CPP03-DECISIONS.ru.md:99-140"
+      ],
+      "issue": 189
+    },
+    {
+      "id": "M002",
+      "group": "CPP03-DECISIONS.md",
+      "words": 1356,
+      "sections": [
+        "CPP03-DECISIONS.ru.md:141-182",
+        "CPP03-DECISIONS.ru.md:183-247",
+        "CPP03-DECISIONS.ru.md:248-261"
+      ],
+      "issue": 233
+    },
+    {
+      "id": "M003",
+      "group": "CPP03-MATRIX.md",
+      "words": 2451,
+      "sections": [
+        "CPP03-MATRIX.ru.md:1-50",
+        "CPP03-MATRIX.ru.md:51-72",
+        "CPP03-MATRIX.ru.md:73-118"
+      ],
+      "issue": 191
+    },
+    {
+      "id": "M004",
+      "group": "CPP03-MATRIX.md",
+      "words": 2408,
+      "sections": [
+        "CPP03-MATRIX.ru.md:119-148",
+        "CPP03-MATRIX.ru.md:149-173",
+        "CPP03-MATRIX.ru.md:174-194"
+      ],
+      "issue": 234
+    },
+    {
+      "id": "M005",
+      "group": "CPP03-MATRIX.md",
+      "words": 2683,
+      "sections": [
+        "CPP03-MATRIX.ru.md:195-238",
+        "CPP03-MATRIX.ru.md:239-336",
+        "CPP03-MATRIX.ru.md:337-432",
+        "CPP03-MATRIX.ru.md:433-529"
+      ],
+      "issue": 235
+    },
+    {
+      "id": "M006",
+      "group": "CPP03-MATRIX.md",
+      "words": 2571,
+      "sections": [
+        "CPP03-MATRIX.ru.md:530-624",
+        "CPP03-MATRIX.ru.md:625-720",
+        "CPP03-MATRIX.ru.md:721-793",
+        "CPP03-MATRIX.ru.md:794-883"
+      ],
+      "issue": 236
+    },
+    {
+      "id": "M007",
+      "group": "CPP03-MATRIX.md",
+      "words": 580,
+      "sections": [
+        "CPP03-MATRIX.ru.md:884-954"
+      ],
+      "issue": 237
+    },
+    {
+      "id": "M008",
+      "group": "CPP03-PLAN.md",
+      "words": 2691,
+      "sections": [
+        "CPP03-PLAN.ru.md:1-72",
+        "CPP03-PLAN.ru.md:73-115",
+        "CPP03-PLAN.ru.md:116-148"
+      ],
+      "issue": 190
+    },
+    {
+      "id": "M009",
+      "group": "CPP03-PLAN.md",
+      "words": 2627,
+      "sections": [
+        "CPP03-PLAN.ru.md:149-180",
+        "CPP03-PLAN.ru.md:181-201",
+        "CPP03-PLAN.ru.md:202-232"
+      ],
+      "issue": 238
+    },
+    {
+      "id": "M010",
+      "group": "CPP03-PLAN.md",
+      "words": 2046,
+      "sections": [
+        "CPP03-PLAN.ru.md:233-261",
+        "CPP03-PLAN.ru.md:262-282",
+        "CPP03-PLAN.ru.md:283-300"
+      ],
+      "issue": 239
+    },
+    {
+      "id": "M011",
+      "group": "CPP03-PLAN.md",
+      "words": 2301,
+      "sections": [
+        "CPP03-PLAN.ru.md:301-327",
+        "CPP03-PLAN.ru.md:328-358"
+      ],
+      "issue": 240
+    },
+    {
+      "id": "M012",
+      "group": "CPP03-PLAN.md",
+      "words": 2307,
+      "sections": [
+        "CPP03-PLAN.ru.md:359-444",
+        "CPP03-PLAN.ru.md:445-585",
+        "CPP03-PLAN.ru.md:586-653"
+      ],
+      "issue": 241
+    },
+    {
+      "id": "M013",
+      "group": "CPP03-PLAN.md",
+      "words": 794,
+      "sections": [
+        "CPP03-PLAN.ru.md:654-749",
+        "CPP03-PLAN.ru.md:750-779"
+      ],
+      "issue": 242
+    },
+    {
+      "id": "M014",
+      "group": "docs/cfg-dfg.md",
+      "words": 587,
+      "sections": [
+        "docs/cfg-dfg.ru.md:1-34"
+      ],
+      "issue": 192
+    },
+    {
+      "id": "M015",
+      "group": "docs/cpp03-acceptance.md",
+      "words": 1527,
+      "sections": [
+        "docs/cpp03-acceptance.en.md:1-95",
+        "docs/cpp03-acceptance.en.md:96-100",
+        "docs/cpp03-acceptance.ru.md:1-100",
+        "docs/cpp03-acceptance.ru.md:101-106"
+      ],
+      "issue": 243
+    },
+    {
+      "id": "M016",
+      "group": "docs/cpp03-audit-results.md",
+      "words": 1620,
+      "sections": [
+        "docs/cpp03-audit-results.ru.md:1-138",
+        "docs/cpp03-audit-results.ru.md:139-234",
+        "docs/cpp03-audit-results.ru.md:235-258"
+      ],
+      "issue": 244
+    },
+    {
+      "id": "M017",
+      "group": "docs/cpp03-language-audit.md",
+      "words": 1815,
+      "sections": [
+        "docs/cpp03-language-audit.en.md:1-77",
+        "docs/cpp03-language-audit.en.md:78-134"
+      ],
+      "issue": 195
+    },
+    {
+      "id": "M018",
+      "group": "docs/cpp03-language-audit.md",
+      "words": 2306,
+      "sections": [
+        "docs/cpp03-language-audit.en.md:135-156",
+        "docs/cpp03-language-audit.en.md:157-215",
+        "docs/cpp03-language-audit.en.md:216-375"
+      ],
+      "issue": 245
+    },
+    {
+      "id": "M019",
+      "group": "docs/cpp03-language-audit.md",
+      "words": 2485,
+      "sections": [
+        "docs/cpp03-language-audit.en.md:376-455",
+        "docs/cpp03-language-audit.ru.md:1-90",
+        "docs/cpp03-language-audit.ru.md:91-134"
+      ],
+      "issue": 246
+    },
+    {
+      "id": "M020",
+      "group": "docs/cpp03-language-audit.md",
+      "words": 2710,
+      "sections": [
+        "docs/cpp03-language-audit.ru.md:135-154",
+        "docs/cpp03-language-audit.ru.md:155-214",
+        "docs/cpp03-language-audit.ru.md:215-374",
+        "docs/cpp03-language-audit.ru.md:375-456"
+      ],
+      "issue": 247
+    },
+    {
+      "id": "M021",
+      "group": "docs/cpp03-library-audit.md",
+      "words": 2774,
+      "sections": [
+        "docs/cpp03-library-audit.en.md:1-86",
+        "docs/cpp03-library-audit.en.md:87-159",
+        "docs/cpp03-library-audit.en.md:160-180"
+      ],
+      "issue": 248
+    },
+    {
+      "id": "M022",
+      "group": "docs/cpp03-library-audit.md",
+      "words": 2294,
+      "sections": [
+        "docs/cpp03-library-audit.en.md:181-210",
+        "docs/cpp03-library-audit.en.md:211-265",
+        "docs/cpp03-library-audit.en.md:266-352"
+      ],
+      "issue": 249
+    },
+    {
+      "id": "M023",
+      "group": "docs/cpp03-library-audit.md",
+      "words": 2548,
+      "sections": [
+        "docs/cpp03-library-audit.en.md:353-431",
+        "docs/cpp03-library-audit.en.md:432-505",
+        "docs/cpp03-library-audit.en.md:506-587",
+        "docs/cpp03-library-audit.en.md:588-676"
+      ],
+      "issue": 250
+    },
+    {
+      "id": "M024",
+      "group": "docs/cpp03-library-audit.md",
+      "words": 2252,
+      "sections": [
+        "docs/cpp03-library-audit.en.md:677-750",
+        "docs/cpp03-library-audit.en.md:751-819",
+        "docs/cpp03-library-audit.en.md:820-878",
+        "docs/cpp03-library-audit.ru.md:1-89"
+      ],
+      "issue": 251
+    },
+    {
+      "id": "M025",
+      "group": "docs/cpp03-library-audit.md",
+      "words": 2624,
+      "sections": [
+        "docs/cpp03-library-audit.ru.md:90-168",
+        "docs/cpp03-library-audit.ru.md:169-187",
+        "docs/cpp03-library-audit.ru.md:188-217"
+      ],
+      "issue": 252
+    },
+    {
+      "id": "M026",
+      "group": "docs/cpp03-library-audit.md",
+      "words": 2659,
+      "sections": [
+        "docs/cpp03-library-audit.ru.md:218-272",
+        "docs/cpp03-library-audit.ru.md:273-370",
+        "docs/cpp03-library-audit.ru.md:371-456",
+        "docs/cpp03-library-audit.ru.md:457-551"
+      ],
+      "issue": 253
+    },
+    {
+      "id": "M027",
+      "group": "docs/cpp03-library-audit.md",
+      "words": 2629,
+      "sections": [
+        "docs/cpp03-library-audit.ru.md:552-640",
+        "docs/cpp03-library-audit.ru.md:641-723",
+        "docs/cpp03-library-audit.ru.md:724-807",
+        "docs/cpp03-library-audit.ru.md:808-879",
+        "docs/cpp03-library-audit.ru.md:880-911"
+      ],
+      "issue": 254
+    },
+    {
+      "id": "M028",
+      "group": "docs/cpp03-macro-acceptance.md",
+      "words": 2402,
+      "sections": [
+        "docs/cpp03-macro-acceptance.md:1-65",
+        "docs/cpp03-macro-acceptance.md:66-161",
+        "docs/cpp03-macro-acceptance.md:162-199"
+      ],
+      "issue": 255
+    },
+    {
+      "id": "M029",
+      "group": "docs/cpp03-macro-acceptance.md",
+      "words": 2632,
+      "sections": [
+        "docs/cpp03-macro-acceptance.md:200-238",
+        "docs/cpp03-macro-acceptance.md:239-266",
+        "docs/cpp03-macro-acceptance.md:267-352",
+        "docs/cpp03-macro-acceptance.md:353-353"
+      ],
+      "issue": 256
+    },
+    {
+      "id": "M030",
+      "group": "docs/cpp03-macro-acceptance.md",
+      "words": 1807,
+      "sections": [
+        "docs/cpp03-macro-acceptance.ru.md:1-84",
+        "docs/cpp03-macro-acceptance.ru.md:85-185"
+      ],
+      "issue": 257
+    },
+    {
+      "id": "M031",
+      "group": "docs/cpp03-macro-acceptance.md",
+      "words": 2355,
+      "sections": [
+        "docs/cpp03-macro-acceptance.ru.md:186-220",
+        "docs/cpp03-macro-acceptance.ru.md:221-264"
+      ],
+      "issue": 258
+    },
+    {
+      "id": "M032",
+      "group": "docs/cpp03-macro-acceptance.md",
+      "words": 583,
+      "sections": [
+        "docs/cpp03-macro-acceptance.ru.md:265-350"
+      ],
+      "issue": 259
+    },
+    {
+      "id": "M033",
+      "group": "docs/cpp03-oracle-policy.md",
+      "words": 895,
+      "sections": [
+        "docs/cpp03-oracle-policy.md:1-54",
+        "docs/cpp03-oracle-policy.ru.md:1-63"
+      ],
+      "issue": 260
+    },
+    {
+      "id": "M034",
+      "group": "docs/cpp03-paragraphs/README.md",
+      "words": 917,
+      "sections": [
+        "docs/cpp03-paragraphs/README.md:1-80",
+        "docs/cpp03-paragraphs/README.md:81-121"
+      ],
+      "issue": 261
+    },
+    {
+      "id": "M035",
+      "group": "docs/cpp03-paragraphs/clause-27.README.md",
+      "words": 1016,
+      "sections": [
+        "docs/cpp03-paragraphs/clause-27.README.md:1-98",
+        "docs/cpp03-paragraphs/clause-27.README.md:99-140"
+      ],
+      "issue": 262
+    },
+    {
+      "id": "M036",
+      "group": "docs/cpp03-paragraphs/clauses-11-16.jsonl",
+      "words": 1982,
+      "sections": [
+        "docs/cpp03-paragraphs/clauses-11-16.jsonl:1-9",
+        "docs/cpp03-paragraphs/clauses-11-16.jsonl:10-18",
+        "docs/cpp03-paragraphs/clauses-11-16.jsonl:19-27",
+        "docs/cpp03-paragraphs/clauses-11-16.jsonl:28-35",
+        "docs/cpp03-paragraphs/clauses-11-16.jsonl:634-642",
+        "docs/cpp03-paragraphs/clauses-11-16.jsonl:652-660",
+        "docs/cpp03-paragraphs/clauses-11-16.jsonl:661-669",
+        "docs/cpp03-paragraphs/clauses-11-16.jsonl:670-678",
+        "docs/cpp03-paragraphs/clauses-11-16.jsonl:679-687",
+        "docs/cpp03-paragraphs/clauses-11-16.jsonl:688-696",
+        "docs/cpp03-paragraphs/clauses-11-16.jsonl:697-705",
+        "docs/cpp03-paragraphs/clauses-11-16.jsonl:706-711"
+      ],
+      "issue": 263
+    },
+    {
+      "id": "M037",
+      "group": "docs/cpp03-paragraphs/clauses-17-22.jsonl",
+      "words": 2653,
+      "sections": [
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:1-11",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:12-20",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:21-29",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:30-38",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:39-46",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:47-55",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:56-63",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:64-67",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:68-76",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:77-85",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:86-94",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:95-103",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:104-109",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:110-118",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:119-127",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:326-334",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:335-344"
+      ],
+      "issue": 264
+    },
+    {
+      "id": "M038",
+      "group": "docs/cpp03-paragraphs/clauses-17-22.jsonl",
+      "words": 363,
+      "sections": [
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:345-354",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:355-362",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:363-371",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:558-566",
+        "docs/cpp03-paragraphs/clauses-17-22.jsonl:770-777"
+      ],
+      "issue": 265
+    },
+    {
+      "id": "M039",
+      "group": "docs/cpp03-paragraphs/clauses-23-27.jsonl",
+      "words": 2576,
+      "sections": [
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:1-16",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:17-32",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:33-48",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:49-63",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:64-78",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:79-92",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:93-107",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:108-123"
+      ],
+      "issue": 266
+    },
+    {
+      "id": "M040",
+      "group": "docs/cpp03-paragraphs/clauses-23-27.jsonl",
+      "words": 2571,
+      "sections": [
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:124-138",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:139-154",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:155-170",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:171-185",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:186-199",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:200-215",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:216-231",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:232-248",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:580-593"
+      ],
+      "issue": 267
+    },
+    {
+      "id": "M041",
+      "group": "docs/cpp03-paragraphs/clauses-23-27.jsonl",
+      "words": 637,
+      "sections": [
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:594-610",
+        "docs/cpp03-paragraphs/clauses-23-27.jsonl:611-628"
+      ],
+      "issue": 268
+    },
+    {
+      "id": "M042",
+      "group": "docs/e2e.md",
+      "words": 2506,
+      "sections": [
+        "docs/e2e.en.md:1-35",
+        "docs/e2e.en.md:36-56",
+        "docs/e2e.en.md:57-92",
+        "docs/e2e.en.md:93-125"
+      ],
+      "issue": 194
+    },
+    {
+      "id": "M043",
+      "group": "docs/e2e.md",
+      "words": 2570,
+      "sections": [
+        "docs/e2e.en.md:126-167",
+        "docs/e2e.en.md:168-250",
+        "docs/e2e.en.md:251-329",
+        "docs/e2e.en.md:330-412"
+      ],
+      "issue": 269
+    },
+    {
+      "id": "M044",
+      "group": "docs/e2e.md",
+      "words": 2268,
+      "sections": [
+        "docs/e2e.en.md:413-490",
+        "docs/e2e.en.md:491-548",
+        "docs/e2e.ru.md:1-41",
+        "docs/e2e.ru.md:42-62"
+      ],
+      "issue": 270
+    },
+    {
+      "id": "M045",
+      "group": "docs/e2e.md",
+      "words": 2557,
+      "sections": [
+        "docs/e2e.ru.md:63-95",
+        "docs/e2e.ru.md:96-141",
+        "docs/e2e.ru.md:142-185",
+        "docs/e2e.ru.md:186-273"
+      ],
+      "issue": 271
+    },
+    {
+      "id": "M046",
+      "group": "docs/e2e.md",
+      "words": 2130,
+      "sections": [
+        "docs/e2e.ru.md:274-352",
+        "docs/e2e.ru.md:353-439",
+        "docs/e2e.ru.md:440-534",
+        "docs/e2e.ru.md:535-576"
+      ],
+      "issue": 272
+    },
+    {
+      "id": "M047",
+      "group": "docs/library-catalogue.md",
+      "words": 2448,
+      "sections": [
+        "docs/library-catalogue.en.md:1-90",
+        "docs/library-catalogue.en.md:91-160",
+        "docs/library-catalogue.en.md:161-245"
+      ],
+      "issue": 273
+    },
+    {
+      "id": "M048",
+      "group": "docs/library-catalogue.md",
+      "words": 2509,
+      "sections": [
+        "docs/library-catalogue.en.md:246-323",
+        "docs/library-catalogue.en.md:324-399",
+        "docs/library-catalogue.en.md:400-482",
+        "docs/library-catalogue.en.md:483-563"
+      ],
+      "issue": 274
+    },
+    {
+      "id": "M049",
+      "group": "docs/library-catalogue.md",
+      "words": 2466,
+      "sections": [
+        "docs/library-catalogue.en.md:564-649",
+        "docs/library-catalogue.en.md:650-722",
+        "docs/library-catalogue.ru.md:1-96"
+      ],
+      "issue": 275
+    },
+    {
+      "id": "M050",
+      "group": "docs/library-catalogue.md",
+      "words": 2490,
+      "sections": [
+        "docs/library-catalogue.ru.md:97-182",
+        "docs/library-catalogue.ru.md:183-272",
+        "docs/library-catalogue.ru.md:273-359",
+        "docs/library-catalogue.ru.md:360-443"
+      ],
+      "issue": 276
+    },
+    {
+      "id": "M051",
+      "group": "docs/library-catalogue.md",
+      "words": 2173,
+      "sections": [
+        "docs/library-catalogue.ru.md:444-524",
+        "docs/library-catalogue.ru.md:525-617",
+        "docs/library-catalogue.ru.md:618-699",
+        "docs/library-catalogue.ru.md:700-742"
+      ],
+      "issue": 277
+    },
+    {
+      "id": "M052",
+      "group": "docs/model-guide.md",
+      "words": 2503,
+      "sections": [
+        "docs/model-guide.en.md:1-58",
+        "docs/model-guide.en.md:59-151",
+        "docs/model-guide.en.md:152-196",
+        "docs/model-guide.en.md:197-262"
+      ],
+      "issue": 193
+    },
+    {
+      "id": "M053",
+      "group": "docs/model-guide.md",
+      "words": 2635,
+      "sections": [
+        "docs/model-guide.en.md:263-284",
+        "docs/model-guide.en.md:285-307",
+        "docs/model-guide.en.md:308-323",
+        "docs/model-guide.en.md:324-354"
+      ],
+      "issue": 278
+    },
+    {
+      "id": "M054",
+      "group": "docs/model-guide.md",
+      "words": 2515,
+      "sections": [
+        "docs/model-guide.en.md:355-376",
+        "docs/model-guide.en.md:377-417",
+        "docs/model-guide.en.md:418-452",
+        "docs/model-guide.en.md:453-466"
+      ],
+      "issue": 279
+    },
+    {
+      "id": "M055",
+      "group": "docs/model-guide.md",
+      "words": 2587,
+      "sections": [
+        "docs/model-guide.en.md:467-502",
+        "docs/model-guide.en.md:503-534",
+        "docs/model-guide.en.md:535-555",
+        "docs/model-guide.en.md:556-581"
+      ],
+      "issue": 280
+    },
+    {
+      "id": "M056",
+      "group": "docs/model-guide.md",
+      "words": 2653,
+      "sections": [
+        "docs/model-guide.en.md:582-644",
+        "docs/model-guide.en.md:645-723",
+        "docs/model-guide.en.md:724-802",
+        "docs/model-guide.en.md:803-876"
+      ],
+      "issue": 281
+    },
+    {
+      "id": "M057",
+      "group": "docs/model-guide.md",
+      "words": 2533,
+      "sections": [
+        "docs/model-guide.en.md:877-948",
+        "docs/model-guide.en.md:949-1030",
+        "docs/model-guide.en.md:1031-1102",
+        "docs/model-guide.en.md:1103-1176"
+      ],
+      "issue": 282
+    },
+    {
+      "id": "M058",
+      "group": "docs/model-guide.md",
+      "words": 2552,
+      "sections": [
+        "docs/model-guide.en.md:1177-1254",
+        "docs/model-guide.en.md:1255-1326",
+        "docs/model-guide.en.md:1327-1401",
+        "docs/model-guide.en.md:1402-1472"
+      ],
+      "issue": 283
+    },
+    {
+      "id": "M059",
+      "group": "docs/model-guide.md",
+      "words": 2549,
+      "sections": [
+        "docs/model-guide.en.md:1473-1557",
+        "docs/model-guide.en.md:1558-1639",
+        "docs/model-guide.en.md:1640-1722",
+        "docs/model-guide.en.md:1723-1799"
+      ],
+      "issue": 284
+    },
+    {
+      "id": "M060",
+      "group": "docs/model-guide.md",
+      "words": 2570,
+      "sections": [
+        "docs/model-guide.en.md:1800-1883",
+        "docs/model-guide.en.md:1884-1967",
+        "docs/model-guide.en.md:1968-2049",
+        "docs/model-guide.en.md:2050-2127"
+      ],
+      "issue": 285
+    },
+    {
+      "id": "M061",
+      "group": "docs/model-guide.md",
+      "words": 2576,
+      "sections": [
+        "docs/model-guide.en.md:2128-2212",
+        "docs/model-guide.en.md:2213-2221",
+        "docs/model-guide.ru.md:1-64",
+        "docs/model-guide.ru.md:65-163",
+        "docs/model-guide.ru.md:164-215"
+      ],
+      "issue": 286
+    },
+    {
+      "id": "M062",
+      "group": "docs/model-guide.md",
+      "words": 2541,
+      "sections": [
+        "docs/model-guide.ru.md:216-268",
+        "docs/model-guide.ru.md:269-294",
+        "docs/model-guide.ru.md:295-313",
+        "docs/model-guide.ru.md:314-348"
+      ],
+      "issue": 287
+    },
+    {
+      "id": "M063",
+      "group": "docs/model-guide.md",
+      "words": 2510,
+      "sections": [
+        "docs/model-guide.ru.md:349-366",
+        "docs/model-guide.ru.md:367-402",
+        "docs/model-guide.ru.md:403-446",
+        "docs/model-guide.ru.md:447-464"
+      ],
+      "issue": 288
+    },
+    {
+      "id": "M064",
+      "group": "docs/model-guide.md",
+      "words": 2583,
+      "sections": [
+        "docs/model-guide.ru.md:465-512",
+        "docs/model-guide.ru.md:513-534",
+        "docs/model-guide.ru.md:535-563",
+        "docs/model-guide.ru.md:564-592"
+      ],
+      "issue": 289
+    },
+    {
+      "id": "M065",
+      "group": "docs/model-guide.md",
+      "words": 2547,
+      "sections": [
+        "docs/model-guide.ru.md:593-669",
+        "docs/model-guide.ru.md:670-753",
+        "docs/model-guide.ru.md:754-840",
+        "docs/model-guide.ru.md:841-923"
+      ],
+      "issue": 290
+    },
+    {
+      "id": "M066",
+      "group": "docs/model-guide.md",
+      "words": 2477,
+      "sections": [
+        "docs/model-guide.ru.md:924-1006",
+        "docs/model-guide.ru.md:1007-1086",
+        "docs/model-guide.ru.md:1087-1174",
+        "docs/model-guide.ru.md:1175-1248"
+      ],
+      "issue": 291
+    },
+    {
+      "id": "M067",
+      "group": "docs/model-guide.md",
+      "words": 2587,
+      "sections": [
+        "docs/model-guide.ru.md:1249-1336",
+        "docs/model-guide.ru.md:1337-1423",
+        "docs/model-guide.ru.md:1424-1504",
+        "docs/model-guide.ru.md:1505-1596"
+      ],
+      "issue": 292
+    },
+    {
+      "id": "M068",
+      "group": "docs/model-guide.md",
+      "words": 2469,
+      "sections": [
+        "docs/model-guide.ru.md:1597-1687",
+        "docs/model-guide.ru.md:1688-1770",
+        "docs/model-guide.ru.md:1771-1851",
+        "docs/model-guide.ru.md:1852-1937"
+      ],
+      "issue": 293
+    },
+    {
+      "id": "M069",
+      "group": "docs/model-guide.md",
+      "words": 2061,
+      "sections": [
+        "docs/model-guide.ru.md:1938-2035",
+        "docs/model-guide.ru.md:2036-2131",
+        "docs/model-guide.ru.md:2132-2224",
+        "docs/model-guide.ru.md:2225-2233"
+      ],
+      "issue": 294
+    },
+    {
+      "id": "M070",
+      "group": "docs/node-hierarchy.md",
+      "words": 1368,
+      "sections": [
+        "docs/node-hierarchy.ru.md:1-89",
+        "docs/node-hierarchy.ru.md:90-169",
+        "docs/node-hierarchy.ru.md:170-176"
+      ],
+      "issue": 192
+    },
+    {
+      "id": "M071",
+      "group": "docs/node-model.md",
+      "words": 618,
+      "sections": [
+        "docs/node-model.ru.md:1-59",
+        "docs/node-model.ru.md:60-60"
+      ],
+      "issue": 192
+    },
+    {
+      "id": "M072",
+      "group": "docs/requirements.md",
+      "words": 2485,
+      "sections": [
+        "docs/requirements.ru.md:1-68",
+        "docs/requirements.ru.md:69-123",
+        "docs/requirements.ru.md:124-162",
+        "docs/requirements.ru.md:163-229"
+      ],
+      "issue": 295
+    },
+    {
+      "id": "M073",
+      "group": "docs/requirements.md",
+      "words": 2482,
+      "sections": [
+        "docs/requirements.ru.md:230-290",
+        "docs/requirements.ru.md:291-344",
+        "docs/requirements.ru.md:345-396",
+        "docs/requirements.ru.md:397-456"
+      ],
+      "issue": 296
+    },
+    {
+      "id": "M074",
+      "group": "docs/requirements.md",
+      "words": 446,
+      "sections": [
+        "docs/requirements.ru.md:457-495"
+      ],
+      "issue": 297
+    },
+    {
+      "id": "M075",
+      "group": "examples",
+      "words": 1909,
+      "sections": [
+        "examples/cpp03-builds/README.md:1-48",
+        "examples/cpp03-custom-passes/README.md:1-88",
+        "examples/cpp03-integer-ranges/README.md:1-87",
+        "examples/cpp03-integer-ranges/README.md:88-94",
+        "examples/cpp03-square/README.md:1-45"
+      ],
+      "issue": 298
+    },
+    {
+      "id": "M076",
+      "group": "fixture-readmes",
+      "words": 2703,
+      "sections": [
+        "src/test/resources/cpp03/build-variants/README.md:1-23",
+        "src/test/resources/cpp03/compilation-database/README.md:1-34",
+        "src/test/resources/cpp03/conditional-catalog/README.md:1-46",
+        "src/test/resources/cpp03/diagnostic-provenance/README.md:1-33",
+        "src/test/resources/cpp03/diagnostic-provenance/README.md:34-58",
+        "src/test/resources/cpp03/final-acceptance/README.md:1-33",
+        "src/test/resources/cpp03/final-acceptance/README.md:34-48",
+        "src/test/resources/cpp03/functions-defaults/README.md:1-55"
+      ],
+      "issue": 299
+    },
+    {
+      "id": "M077",
+      "group": "fixture-readmes",
+      "words": 2506,
+      "sections": [
+        "src/test/resources/cpp03/inactive-extension/README.md:1-19",
+        "src/test/resources/cpp03/lexical-phases/README.md:1-28",
+        "src/test/resources/cpp03/literals-expressions/README.md:1-62",
+        "src/test/resources/cpp03/macros/README.md:1-9",
+        "src/test/resources/cpp03/missing-header/README.md:1-9",
+        "src/test/resources/cpp03/parser-recovery/README.md:1-21",
+        "src/test/resources/cpp03/platform-declarators/README.md:1-41",
+        "src/test/resources/cpp03/provenance/README.md:1-39",
+        "src/test/resources/cpp03/scopes-linkage/README.md:1-70"
+      ],
+      "issue": 300
+    },
+    {
+      "id": "M078",
+      "group": "fixture-readmes",
+      "words": 717,
+      "sections": [
+        "src/test/resources/cpp03/square/README.md:1-53",
+        "src/test/resources/cpp03/unterminated-literal/README.md:1-17",
+        "src/test/resources/nonpublic-padding/README.md:1-16",
+        "src/test/resources/padding-bitfield/README.md:1-16",
+        "src/test/resources/wide-bitfield/README.md:1-16"
+      ],
+      "issue": 301
+    },
+    {
+      "id": "M079",
+      "group": "implementation-evidence-reports",
+      "words": 2611,
+      "sections": [
+        "docs/cpp03-array-cleanup-verification.md:1-87",
+        "docs/cpp03-array-cleanup-verification.md:88-111",
+        "docs/cpp03-assert-verification.md:1-85",
+        "docs/cpp03-assert-verification.md:86-155",
+        "docs/cpp03-boolean-partial-arguments-verification.md:1-95",
+        "docs/cpp03-boolean-partial-arguments-verification.md:96-99"
+      ],
+      "issue": 302
+    },
+    {
+      "id": "M080",
+      "group": "implementation-evidence-reports",
+      "words": 2331,
+      "sections": [
+        "docs/cpp03-clock-scale-verification.md:1-95",
+        "docs/cpp03-clock-scale-verification.md:96-158",
+        "docs/cpp03-composite-lifetime-verification.md:1-87",
+        "docs/cpp03-composite-lifetime-verification.md:88-88",
+        "docs/cpp03-concrete-partial-parameter-types-verification.md:1-98",
+        "docs/cpp03-concrete-partial-parameter-types-verification.md:99-108"
+      ],
+      "issue": 303
+    },
+    {
+      "id": "M081",
+      "group": "implementation-evidence-reports",
+      "words": 2467,
+      "sections": [
+        "docs/cpp03-constant-template-arguments-verification.md:1-89",
+        "docs/cpp03-constant-template-arguments-verification.md:90-102",
+        "docs/cpp03-constructor-defaults.md:1-51",
+        "docs/cpp03-copy-outcomes.md:1-84",
+        "docs/cpp03-enum-storage-verification.md:1-94",
+        "docs/cpp03-enum-storage-verification.md:95-131"
+      ],
+      "issue": 304
+    },
+    {
+      "id": "M082",
+      "group": "implementation-evidence-reports",
+      "words": 2722,
+      "sections": [
+        "docs/cpp03-errno-verification.md:1-77",
+        "docs/cpp03-errno-verification.md:78-160",
+        "docs/cpp03-exception-boundary-verification.md:1-91",
+        "docs/cpp03-exception-boundary-verification.md:92-118",
+        "docs/cpp03-exception-qualification.md:1-40",
+        "docs/cpp03-explicit-construction.md:1-72"
+      ],
+      "issue": 305
+    },
+    {
+      "id": "M083",
+      "group": "implementation-evidence-reports",
+      "words": 2365,
+      "sections": [
+        "docs/cpp03-handler-lifetime-verification.md:1-87",
+        "docs/cpp03-handler-lifetime-verification.md:88-92",
+        "docs/cpp03-handler-memory-verification.md:1-74",
+        "docs/cpp03-handler-outcomes-verification.md:1-95",
+        "docs/cpp03-handler-state-verification.md:1-95"
+      ],
+      "issue": 306
+    },
+    {
+      "id": "M084",
+      "group": "implementation-evidence-reports",
+      "words": 2415,
+      "sections": [
+        "docs/cpp03-huge-val-verification.md:1-90",
+        "docs/cpp03-huge-val-verification.md:91-148",
+        "docs/cpp03-iosfwd-verification.md:1-83",
+        "docs/cpp03-is-open-verification.md:1-87",
+        "docs/cpp03-library-macros-verification.md:1-86"
+      ],
+      "issue": 307
+    },
+    {
+      "id": "M085",
+      "group": "implementation-evidence-reports",
+      "words": 2765,
+      "sections": [
+        "docs/cpp03-library-macros-verification.md:87-147",
+        "docs/cpp03-mb-cur-max-verification.md:1-92",
+        "docs/cpp03-mb-cur-max-verification.md:93-163",
+        "docs/cpp03-mb-cur-max-verification.md:164-189",
+        "docs/cpp03-member-exceptions.md:1-44",
+        "docs/cpp03-member-pointer-layout-verification.md:1-94"
+      ],
+      "issue": 308
+    },
+    {
+      "id": "M086",
+      "group": "implementation-evidence-reports",
+      "words": 2717,
+      "sections": [
+        "docs/cpp03-member-pointer-layout-verification.md:95-156",
+        "docs/cpp03-nested-partial-arguments-verification.md:1-95",
+        "docs/cpp03-nested-partial-arguments-verification.md:96-150",
+        "docs/cpp03-object-initializers.md:1-43",
+        "docs/cpp03-offset-layout-verification.md:1-87",
+        "docs/cpp03-offset-layout-verification.md:88-140"
+      ],
+      "issue": 309
+    },
+    {
+      "id": "M087",
+      "group": "implementation-evidence-reports",
+      "words": 2797,
+      "sections": [
+        "docs/cpp03-offsetof-builtin-verification.md:1-91",
+        "docs/cpp03-offsetof-builtin-verification.md:92-173",
+        "docs/cpp03-offsetof-contexts-verification.md:1-91",
+        "docs/cpp03-offsetof-contexts-verification.md:92-146",
+        "docs/cpp03-partial-constant-template-arguments-verification.md:1-94"
+      ],
+      "issue": 310
+    },
+    {
+      "id": "M088",
+      "group": "implementation-evidence-reports",
+      "words": 2470,
+      "sections": [
+        "docs/cpp03-partial-constant-template-arguments-verification.md:95-105",
+        "docs/cpp03-rel-ops-verification.md:1-101",
+        "docs/cpp03-rel-ops-verification.md:102-125",
+        "docs/cpp03-runtime-integer-macros-verification.md:1-84",
+        "docs/cpp03-runtime-integer-macros-verification.md:85-172",
+        "docs/cpp03-scalar-initializers.md:1-44"
+      ],
+      "issue": 311
+    },
+    {
+      "id": "M089",
+      "group": "implementation-evidence-reports",
+      "words": 2236,
+      "sections": [
+        "docs/cpp03-signal-dispositions-verification.md:1-95",
+        "docs/cpp03-signal-dispositions-verification.md:96-150",
+        "docs/cpp03-standard-streams-verification.md:1-93",
+        "docs/cpp03-standard-streams-verification.md:94-137",
+        "docs/cpp03-stream-copy-verification.md:1-75"
+      ],
+      "issue": 312
+    },
+    {
+      "id": "M090",
+      "group": "implementation-evidence-reports",
+      "words": 2532,
+      "sections": [
+        "docs/cpp03-stream-types-verification.md:1-82",
+        "docs/cpp03-stream-types-verification.md:83-110",
+        "docs/cpp03-strstream-verification.md:1-88",
+        "docs/cpp03-typed-pointer-varargs-verification.md:1-79",
+        "docs/cpp03-typed-pointer-varargs-verification.md:80-154"
+      ],
+      "issue": 313
+    },
+    {
+      "id": "M091",
+      "group": "implementation-evidence-reports",
+      "words": 2324,
+      "sections": [
+        "docs/cpp03-unsigned-template-arguments-verification.md:1-97",
+        "docs/cpp03-virtual-lifetime-verification.md:1-84",
+        "docs/cpp03-weof-verification.md:1-95",
+        "docs/cpp03-weof-verification.md:96-160"
+      ],
+      "issue": 314
+    },
+    {
+      "id": "M092",
+      "group": "research",
+      "words": 2597,
+      "sections": [
+        "docs/research/ascend-c.ru.md:1-24",
+        "docs/research/language-nodes/README.ru.md:1-57",
+        "docs/research/language-nodes/README.ru.md:58-60",
+        "docs/research/language-nodes/cases-and-roadmap.ru.md:1-91",
+        "docs/research/language-nodes/cases-and-roadmap.ru.md:92-146",
+        "docs/research/language-nodes/cases-and-roadmap.ru.md:147-169"
+      ],
+      "issue": 315
+    },
+    {
+      "id": "M093",
+      "group": "research",
+      "words": 2201,
+      "sections": [
+        "docs/research/language-nodes/node-model.ru.md:1-60",
+        "docs/research/language-nodes/node-model.ru.md:61-107",
+        "docs/research/language-nodes/node-model.ru.md:108-127",
+        "docs/research/language-nodes/sources-and-versions.ru.md:1-49"
+      ],
+      "issue": 316
+    },
+    {
+      "id": "M094",
+      "group": "research",
+      "words": 2514,
+      "sections": [
+        "docs/research/language-nodes/sources-and-versions.ru.md:50-111",
+        "docs/research/language-nodes/sources-and-versions.ru.md:112-116",
+        "docs/research/language-nodes/syntax-matrix.ru.md:1-37",
+        "docs/research/language-nodes/syntax-matrix.ru.md:38-89",
+        "docs/research/language-nodes/syntax-matrix.ru.md:90-96"
+      ],
+      "issue": 317
+    },
+    {
+      "id": "M095",
+      "group": "standard-reference-cards",
+      "words": 513,
+      "sections": [
+        "docs/standards/cpp/README.ru.md:1-41",
+        "docs/standards/cpp/cpp03/README.ru.md:1-17"
+      ],
+      "issue": 188
+    }
+  ],
+  "collections": {
+    "files": [
+      "files-01.jsonl",
+      "files-02.jsonl"
+    ],
+    "sections": [
+      "sections-01.jsonl",
+      "sections-02.jsonl",
+      "sections-03.jsonl",
+      "sections-04.jsonl"
+    ],
+    "reference_candidates": [
+      "reference_candidates-01.jsonl",
+      "reference_candidates-02.jsonl",
+      "reference_candidates-03.jsonl",
+      "reference_candidates-04.jsonl",
+      "reference_candidates-05.jsonl",
+      "reference_candidates-06.jsonl",
+      "reference_candidates-07.jsonl",
+      "reference_candidates-08.jsonl",
+      "reference_candidates-09.jsonl"
+    ],
+    "excluded_files": [
+      "excluded_files-01.jsonl",
+      "excluded_files-02.jsonl"
+    ]
+  }
+}
