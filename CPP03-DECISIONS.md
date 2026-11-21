@@ -1,6 +1,6 @@
 # C++03 questions and decisions
 
-[Implementation plan and acceptance criteria](CPP03-PLAN.ru.md).
+[Implementation plan and acceptance criteria](CPP03-PLAN.md).
 Decisions retain their original numbers; examples clarify the agreement. Update
 this log and the checklist at least once per three questions. Separate open
 questions from adopted decisions.

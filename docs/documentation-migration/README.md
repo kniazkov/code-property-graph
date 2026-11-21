@@ -29,6 +29,8 @@ workflow and integration PR before merging to `master`.
   census; they do not rewrite its paths or hashes. Merge progress lives in #186.
 - [M001.json](M001.json) maps decisions 1–73 migrated by #189. The remaining
   source ranges belong to #233; the original file stays until consolidation.
+- [M008.json](M008.json) maps the opening implementation-plan ranges migrated
+  by #190, retaining historical states and linking the #238–#242 continuations.
 
 Every source line in every included document belongs to one range. Headings are
 recorded by line number; ranges prefer heading/paragraph boundaries but may split
