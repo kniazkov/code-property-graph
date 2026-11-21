@@ -266,3 +266,6 @@ Before final integration:
    to pass on its final revision, then merge. Do not integrate disabled CI.
 
 The final verification/publication tasks #228 and #232 must enforce this sequence.
+
+The [requirement record contract](requirements/README.md) and local validator are
+available from #197. The production registry remains empty until the #198 pilot.
