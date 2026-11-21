@@ -1,0 +1,12 @@
+{
+  "issue": 196,
+  "checked_base_commit": "e6d490326ef0dc0652b1a7fa796280ad80a9e92d",
+  "metadata_locators_scanned": 5250,
+  "batches": 119,
+  "existing_topic_issues": 26,
+  "new_continuation_issues": 93,
+  "new_normative_locators_reviewed": 0,
+  "difficult_edition_dr_questions": 0,
+  "readme_words": 482,
+  "validation": "Seven positive/corruption tests, allocation reproduction, frozen migration inventory and portable paths. No normative research or execution evidence inferred. Runtime and CI unchanged."
+}
