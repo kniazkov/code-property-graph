@@ -1,4 +1,5 @@
 # Authored records
 
-Add production JSONL cards after the bounded pilot (#198). This directory contains
-no synthetic requirements. See [the record contract](../README.md).
+`pilot.jsonl` contains the first 15 production cards from #198. See the
+[pilot review](../pilot.md) and [record contract](../README.md). Synthetic fixtures
+remain outside this directory.

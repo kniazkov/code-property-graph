@@ -1,1 +1,62 @@
-{}
+{
+  "CPG-CPP03-REQ-000001": {
+    "semantic_key": "lex.trigraph.splice",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000002": {
+    "semantic_key": "lex.comment.separator",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000003": {
+    "semantic_key": "lex.partial.eof",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000004": {
+    "semantic_key": "lex.comment.nesting",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000005": {
+    "semantic_key": "cpp.argument.prescan",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000006": {
+    "semantic_key": "cpp.stringize.raw",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000007": {
+    "semantic_key": "cpp.rescan.disabled",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000008": {
+    "semantic_key": "expr.and.shortcircuit",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000009": {
+    "semantic_key": "expr.or.shortcircuit",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000010": {
+    "semantic_key": "expr.sizeof.unevaluated",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000011": {
+    "semantic_key": "lifetime.destruction.reverse",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000012": {
+    "semantic_key": "lifetime.virtualbase.owner",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000013": {
+    "semantic_key": "template.typeparam.spelling",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000014": {
+    "semantic_key": "template.typearg.typeid",
+    "status": "active"
+  },
+  "CPG-CPP03-REQ-000015": {
+    "semantic_key": "library.vector.contiguous",
+    "status": "active"
+  }
+}

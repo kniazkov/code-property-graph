@@ -1,0 +1,34 @@
+{
+  "issue": 198,
+  "checked_base_commit": "4ff5b91ade8aca9cd78566d0bb26ce63f9e4596e",
+  "cards": 15,
+  "reviewed_locators": 17,
+  "context_only_locators": [
+    "cpp03:12.4:p5",
+    "cpp03:12.4:p7"
+  ],
+  "difficult_edition_dr_questions": 0,
+  "migration_source_words": 0,
+  "authored_word_count": 2293,
+  "word_count_method": "Whitespace tokens in every string value of cards/dispositions, whole pilot and records Markdown, changed README introduction and scope note; metadata strings included conservatively. Ledger and locator metadata excluded.",
+  "checks": [
+    "python3 scripts/check-requirements.py --baseline-ref origin/documents",
+    "python3 scripts/test-requirements.py",
+    "python3 scripts/inventory-research-ownership.py --check",
+    "python3 scripts/inventory-documentation.py --check",
+    "Existing test paths/methods and Markdown relative links checked",
+    "git diff --check"
+  ],
+  "execution_evidence_added": 0,
+  "remaining_owners": [
+    199,
+    200,
+    202,
+    203,
+    212,
+    214,
+    346,
+    348,
+    385
+  ]
+}

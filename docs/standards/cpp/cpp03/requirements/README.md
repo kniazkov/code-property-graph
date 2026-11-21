@@ -1,7 +1,7 @@
 # Requirement records and validation
 
 This format implements #197 under [checklist #186](https://github.com/kniazkov/code-property-graph/issues/186).
-The production registry starts empty. Synthetic examples exist only in
+The production registry contains the [bounded pilot](pilot.md). Synthetic examples exist only in
 `scripts/test-requirements.py`; they are not C++ requirements or evidence.
 The pilot is #198, document/reverse-index generation #199, evidence publication
 #200, and CI integration #228. Do not bulk-import historical audit statuses.
