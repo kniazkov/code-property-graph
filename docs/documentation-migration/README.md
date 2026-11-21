@@ -27,6 +27,8 @@ workflow and integration PR before merging to `master`.
 - [M095.json](M095.json) maps the two source-card ranges migrated by #188 to
   their English destinations. Task migration records supplement the frozen
   census; they do not rewrite its paths or hashes. Merge progress lives in #186.
+- [M001.json](M001.json) maps decisions 1–73 migrated by #189. The remaining
+  source ranges belong to #233; the original file stays until consolidation.
 
 Every source line in every included document belongs to one range. Headings are
 recorded by line number; ranges prefer heading/paragraph boundaries but may split
