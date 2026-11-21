@@ -1,0 +1,19 @@
+{
+  "issue": 199,
+  "inputs": [
+    "requirements/records/*.jsonl",
+    "requirements/dispositions.jsonl",
+    "requirements/ids.json",
+    "requirements/sources.json",
+    "catalogue inventory metadata"
+  ],
+  "outputs": [
+    "REQUIREMENTS.md",
+    "SOURCE-INDEX.md",
+    "requirements/source-index.json"
+  ],
+  "normative_research_locators": 0,
+  "migration_source_words": 0,
+  "scope": "Render the 15 pilot records and inventory metadata; no new normative interpretation or evidence execution.",
+  "checked_base_commit": "b2fa90fbfd543573e819f2e7ad1c4ad05bb7aa61"
+}

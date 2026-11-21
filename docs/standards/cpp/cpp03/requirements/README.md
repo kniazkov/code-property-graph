@@ -6,6 +6,9 @@ The production registry contains the [bounded pilot](pilot.md). Synthetic exampl
 The pilot is #198, document/reverse-index generation #199, evidence publication
 #200, and CI integration #228. Do not bulk-import historical audit statuses.
 
+See [rendering and freshness checks](rendering.md) for the generated
+[requirements](../REQUIREMENTS.md) and [source index](../SOURCE-INDEX.md).
+
 ## Files and identity
 
 - `records/*.jsonl`: one requirement object per line, using `record.schema.json`.
