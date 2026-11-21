@@ -1,7 +1,7 @@
 <!-- CPG C++03 source and language audit. MIT License. -->
 # C++03 language audit: source, paragraph records and open gaps (#48)
 
-[Русский](cpp03-language-audit.ru.md) · [Main matrix](../CPP03-MATRIX.ru.md) · [Dataset and field semantics](cpp03-paragraphs/README.md)
+[Русский](cpp03-language-audit.ru.md) · [Main matrix](../CPP03-MATRIX.md) · [Dataset and field semantics](cpp03-paragraphs/README.md)
 
 **Result: original-edition source review is available; full implementation acceptance remains open.**
 On 2026-11-06 the user supplied a readable ISO/IEC 14882:2003 PDF. Its edition and

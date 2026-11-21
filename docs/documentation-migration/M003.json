@@ -1,0 +1,180 @@
+{
+  "issue": 191,
+  "batch": "M003",
+  "baseline": "479ef6fc16ee6dc0e16030bde94d6712ce217ab5",
+  "checked_base_commit": "564d76f80d2be1fac06b279c9d07eb5cdb4cf0a9",
+  "source_review_words": 2451,
+  "authored_document_words": 2239,
+  "new_normative_locators": 0,
+  "difficult_edition_dr_questions": 0,
+  "scope": "Translate matrix structure, 59 clause rows, annexes A–E, eight header groups, closure rules and evidence #11–#13. Preserve original coverage/confidence distinctions; no new normative audit.",
+  "ranges": [
+    {
+      "source_range": "CPP03-MATRIX.ru.md:1-50",
+      "baseline_sha256": "3b7cef7dec0a2cd4a19128e665d6eb9b83c48a954767418920e1bda31946a798",
+      "current_input_sha256": "1331affd0507135adb1ddff6f77f8d02aa29cda6bb46096b45716751c0012a34",
+      "destination": "CPP03-MATRIX.md",
+      "row_ids_and_tags": [
+        "1a [intro.compliance]",
+        "1b [intro.execution]",
+        "2a [lex.phases]",
+        "2b [lex.pptoken]",
+        "2c [lex.literal]",
+        "2d [lex.string]",
+        "3a [basic.scope]",
+        "3b [basic.link]",
+        "3c [basic.def.odr]",
+        "3d [basic.life]",
+        "4a [conv.array], [conv.func]",
+        "4b [conv.prom], [conv.integral]",
+        "4c [conv.qual]",
+        "5a [expr.log.and]",
+        "5b [expr.sizeof]",
+        "5c [expr.new], [expr.delete]",
+        "5d [expr.dynamic.cast]",
+        "6a [stmt.iter]",
+        "6b [stmt.switch]",
+        "6c [stmt.jump]",
+        "7a [dcl.typedef]",
+        "7b [namespace.def], [namespace.udir]",
+        "7c [dcl.link]",
+        "8a [dcl.meaning]",
+        "8b [dcl.init.aggr]",
+        "8c [dcl.fct.default]",
+        "9a [class.mem]",
+        "9b [class.union]",
+        "10a [class.mi]",
+        "10b [class.virtual]",
+        "11a [class.access]",
+        "11b [class.friend]",
+        "12a [class.base.init]",
+        "12b [class.copy]",
+        "13a [over.match]",
+        "13b [over.oper]",
+        "14a [temp.res]",
+        "14b [temp.deduct]"
+      ]
+    },
+    {
+      "source_range": "CPP03-MATRIX.ru.md:51-72",
+      "baseline_sha256": "2858f2ee436bc21b613d9e4dfee8b13b6c94d9e12baa25b3d9e2ab74e507698c",
+      "current_input_sha256": "2858f2ee436bc21b613d9e4dfee8b13b6c94d9e12baa25b3d9e2ab74e507698c",
+      "destination": "CPP03-MATRIX.md",
+      "row_ids_and_tags": [
+        "14c [temp.class.spec]",
+        "14d [temp]",
+        "15a [except.handle]",
+        "15b [except.ctor]",
+        "15c [except.spec]",
+        "16a [cpp.replace]",
+        "16b [cpp.cond]",
+        "16c [cpp.include], [cpp.line]",
+        "17 [lib.library]",
+        "18 [lib.support]",
+        "19 [lib.diagnostics]",
+        "20 [lib.utilities]",
+        "21 [lib.strings]",
+        "22 [lib.locales]",
+        "23a [lib.vector]",
+        "23b [lib.associative.reqmts]",
+        "23c [lib.list], [lib.queue]",
+        "24 [lib.iterators]",
+        "25 [lib.algorithms]",
+        "26 [lib.numerics]",
+        "27 [lib.input.output]"
+      ]
+    },
+    {
+      "source_range": "CPP03-MATRIX.ru.md:73-118",
+      "baseline_sha256": "b2b924fc7ba22fd68ff686b1757eeb6c6dcc41c0d5f3b945ce25821a4bef68e3",
+      "current_input_sha256": "b2b924fc7ba22fd68ff686b1757eeb6c6dcc41c0d5f3b945ce25821a4bef68e3",
+      "destination": "CPP03-MATRIX.md",
+      "destination_headings": [
+        "Annexes",
+        "Header inventory for stage 8",
+        "Closing a row",
+        "Executable corpus baseline (#11)",
+        "Original SQUARE fixture (#12)",
+        "Input configuration (#13)"
+      ],
+      "annex_ids": [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E"
+      ],
+      "header_groups": [
+        "Language support/diagnostics",
+        "Utilities",
+        "Strings/locales",
+        "Containers/adapters",
+        "Iterators/algorithms",
+        "Numerics",
+        "Streams",
+        "C library"
+      ]
+    }
+  ],
+  "remaining_work": [
+    {
+      "batch": "M004",
+      "issue": 234,
+      "source_ranges": [
+        "CPP03-MATRIX.ru.md:119-148",
+        "CPP03-MATRIX.ru.md:149-173",
+        "CPP03-MATRIX.ru.md:174-194"
+      ]
+    },
+    {
+      "batch": "M005",
+      "issue": 235,
+      "source_ranges": [
+        "CPP03-MATRIX.ru.md:195-238",
+        "CPP03-MATRIX.ru.md:239-336",
+        "CPP03-MATRIX.ru.md:337-432",
+        "CPP03-MATRIX.ru.md:433-529"
+      ]
+    },
+    {
+      "batch": "M006",
+      "issue": 236,
+      "source_ranges": [
+        "CPP03-MATRIX.ru.md:530-624",
+        "CPP03-MATRIX.ru.md:625-720",
+        "CPP03-MATRIX.ru.md:721-793",
+        "CPP03-MATRIX.ru.md:794-883"
+      ]
+    },
+    {
+      "batch": "M007",
+      "issue": 237,
+      "source_ranges": [
+        "CPP03-MATRIX.ru.md:884-954"
+      ]
+    }
+  ],
+  "continuation_action": "Append remaining evidence in source order, migrate retained deep links and remove the Russian copy only after full consolidation.",
+  "input_drift": "Since the frozen baseline, only plan (line 3, #190) and source-card (line 7, #188) links changed; their English destinations are retained.",
+  "clarifications": [
+    "Historical counts and evidence are labelled as such rather than presented as a new audit.",
+    "Row 23a requires at least two vector elements for the existing &v[1] check; the original nonempty condition was insufficient. This narrows fixture setup without claiming implementation coverage.",
+    "References to evidence below the migrated range now explicitly identify the retained continuation."
+  ],
+  "preservation": [
+    "Clause row IDs, tags and plan-stage cells are identical and in original order.",
+    "Annex IDs and all header spellings/group membership are preserved.",
+    "Seven whole-matrix inbound links move to English; five deep links into untranslated evidence remain valid at the Russian path.",
+    "Original matrix, code, workflows and normative inventories remain unchanged."
+  ],
+  "checks": [
+    "Frozen inventory reproduction",
+    "Portable tracked paths",
+    "Local Markdown links and anchors",
+    "Clause ID/tag/stage parity, annex order and header-group parity",
+    "Input hashes, continuation ownership and source preservation",
+    "English prose and word budget",
+    "git diff --cached --check"
+  ],
+  "completion": "Tracked in #186 only after merge into documents."
+}
