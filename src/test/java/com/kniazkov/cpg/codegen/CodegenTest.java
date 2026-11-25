@@ -139,7 +139,6 @@ class CodegenTest {
         Node node = new TestNode(
                 null,
                 List.of(TestNode.leaf(fragment("a")), TestNode.leaf(fragment("b"))),
-                List.of(),
                 List.of());
 
         assertEquals("a b", generator.generate(node));
@@ -151,9 +150,8 @@ class CodegenTest {
         Node node = new TestNode(
                 null,
                 List.of(TestNode.leaf(fragment("a")), TestNode.leaf(fragment("b"))),
-                List.of(),
                 List.of());
-        Node empty = new TestNode(null, List.of(), List.of(), List.of());
+        Node empty = new TestNode(null, List.of(), List.of());
 
         assertEquals("a,b", generator.generate(node));
         assertEquals("", generator.generate(empty));
@@ -180,3 +178,4 @@ class CodegenTest {
         assertFalse(Languages.CPP03.isEmpty());
     }
 }
+

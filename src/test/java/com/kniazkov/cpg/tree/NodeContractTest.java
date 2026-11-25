@@ -137,7 +137,7 @@ class NodeContractTest {
         private final Node wrong;
 
         MismatchNode(Fragment fragment, Node child, Node wrong) {
-            super(fragment, List.of(child), List.of("child"), List.of());
+            super(fragment, List.of(child), List.of("child"));
             this.wrong = wrong;
         }
 

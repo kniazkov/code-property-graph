@@ -61,21 +61,6 @@ public interface Node {
     List<Node> children();
 
     /**
-     * Returns the outgoing non-AST references of this node.
-     *
-     * <p>AST child edges are exposed by {@link #children()}. This method adds
-     * the remaining code property graph edges, such as control flow, data
-     * flow, calls, declarations, scopes, and semantic relations.</p>
-     *
-     * <p>The returned list must not be modified by callers.</p>
-     *
-     * @return an immutable list of references, never {@code null}
-     */
-    default List<Reference> references() {
-        return List.of();
-    }
-
-    /**
      * Returns whether this node has no children.
      *
      * @return {@code true} if this node is a leaf

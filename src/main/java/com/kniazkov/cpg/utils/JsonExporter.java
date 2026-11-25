@@ -3,10 +3,11 @@ package com.kniazkov.cpg.utils;
 import com.kniazkov.json.Json;
 import com.kniazkov.json.JsonObject;
 import com.kniazkov.json.JsonObjectBuilder;
+import com.kniazkov.cpg.graph.Graph;
+import com.kniazkov.cpg.graph.Relations;
 import com.kniazkov.cpg.tree.Fragment;
 import com.kniazkov.cpg.tree.Node;
 import com.kniazkov.cpg.tree.Position;
-import com.kniazkov.cpg.tree.Reference;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -17,26 +18,26 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Exports a syntax tree or a subtree as a JSON code property graph.
+ * Exports a syntax tree or a code property graph as JSON.
  *
  * <p>The exporter assigns one integer identifier to every node reachable from
- * the root through {@link Node#children()} and {@link Node#references()}. The
+ * the root through {@link Node#children()} and through the graph relations. The
  * root always receives identifier {@code 0}; identifiers increase monotonically
- * in pre-order traversal order. References always point to an identifier that
- * is present in the exported {@code nodes} array.</p>
+ * in pre-order traversal order.</p>
  *
  * <p>Each node object also contains its {@link Node#tags()} array. Tags are
- * unique within a node; list nodes have an empty tag array.</p>
+ * unique within a node; list nodes have an empty tag array. Graph relations are
+ * written to a separate {@code relations} object, one array per relation type.</p>
  */
 public final class JsonExporter {
 
     private static final String FORMAT = "cpp03-cpg";
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
 
     private JsonExporter() { }
 
     /**
-     * Exports a syntax tree or subtree as a JSON object.
+     * Exports a syntax tree or subtree as a JSON object without relations.
      *
      * @param root the root of the tree or subtree
      * @return the JSON code property graph
@@ -44,8 +45,21 @@ public final class JsonExporter {
      */
     public static JsonObject toJson(Node root) {
         Objects.requireNonNull(root, "root");
+        return toJson(Graph.builder(root).build());
+    }
 
-        List<Node> nodes = collect(root);
+    /**
+     * Exports a code property graph as a JSON object.
+     *
+     * @param graph the graph to export
+     * @return the JSON code property graph
+     * @throws NullPointerException if {@code graph} is {@code null}
+     */
+    public static JsonObject toJson(Graph graph) {
+        Objects.requireNonNull(graph, "graph");
+
+        Map<String, Relations> relations = graph.relations();
+        List<Node> nodes = collect(graph.root(), relations);
         Map<Node, Integer> ids = new IdentityHashMap<>();
         for (int index = 0; index < nodes.size(); index++) {
             ids.put(nodes.get(index), index);
@@ -62,6 +76,21 @@ public final class JsonExporter {
             }
         });
 
+        document.object("relations", object -> {
+            for (Map.Entry<String, Relations> entry : relations.entrySet()) {
+                object.array(entry.getKey(), array -> {
+                    for (Node source : nodes) {
+                        for (Node target : entry.getValue().targets(source)) {
+                            array.object(edge -> {
+                                edge.put("from", ids.get(source));
+                                edge.put("to", ids.get(target));
+                            });
+                        }
+                    }
+                });
+            }
+        });
+
         return document.build();
     }
 
@@ -73,10 +102,23 @@ public final class JsonExporter {
      * @throws NullPointerException if {@code root} is {@code null}
      */
     public static String toJsonString(Node root) {
+        Objects.requireNonNull(root, "root");
         return Json.serialize(toJson(root), "  ");
     }
 
-    private static List<Node> collect(Node root) {
+    /**
+     * Exports a code property graph as an indented JSON string.
+     *
+     * @param graph the graph to export
+     * @return the JSON code property graph as text
+     * @throws NullPointerException if {@code graph} is {@code null}
+     */
+    public static String toJsonString(Graph graph) {
+        Objects.requireNonNull(graph, "graph");
+        return Json.serialize(toJson(graph), "  ");
+    }
+
+    private static List<Node> collect(Node root, Map<String, Relations> relations) {
         List<Node> nodes = new ArrayList<>();
         Map<Node, Boolean> visited = new IdentityHashMap<>();
         Deque<Node> stack = new ArrayDeque<>();
@@ -89,14 +131,14 @@ public final class JsonExporter {
             }
             nodes.add(node);
 
-            List<Reference> references = node.references();
-            for (int index = references.size() - 1; index >= 0; index--) {
-                stack.push(references.get(index).target());
+            List<Node> next = new ArrayList<>();
+            for (Relations relation : relations.values()) {
+                next.addAll(relation.targets(node));
             }
+            next.addAll(node.children());
 
-            List<Node> children = node.children();
-            for (int index = children.size() - 1; index >= 0; index--) {
-                stack.push(children.get(index));
+            for (int index = next.size() - 1; index >= 0; index--) {
+                stack.push(next.get(index));
             }
         }
 
@@ -128,15 +170,6 @@ public final class JsonExporter {
         object.array("children", array -> {
             for (Node child : node.children()) {
                 array.add(ids.get(child));
-            }
-        });
-
-        object.array("references", array -> {
-            for (Reference reference : node.references()) {
-                array.object(value -> {
-                    value.put("kind", reference.kind().name());
-                    value.put("target", ids.get(reference.target()));
-                });
             }
         });
     }

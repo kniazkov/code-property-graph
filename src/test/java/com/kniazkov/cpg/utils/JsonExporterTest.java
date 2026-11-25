@@ -1,10 +1,9 @@
 package com.kniazkov.cpg.utils;
 
-import com.kniazkov.cpg.tree.EdgeKind;
+import com.kniazkov.cpg.graph.Graph;
 import com.kniazkov.cpg.tree.Fragment;
 import com.kniazkov.cpg.tree.Node;
 import com.kniazkov.cpg.tree.Position;
-import com.kniazkov.cpg.tree.Reference;
 import com.kniazkov.cpg.tree.Source;
 import com.kniazkov.cpg.tree.TestNode;
 import com.kniazkov.cpg.tree.Visitor;
@@ -33,14 +32,13 @@ class JsonExporterTest {
     }
 
     @Test
-    void exportsTagsFragmentsChildrenAndReferences() {
+    void exportsTagsFragmentsAndChildren() {
         TestNode left = TestNode.leaf(fragment("a"));
         TestNode right = TestNode.leaf(fragment("b"));
         TestNode root = new TestNode(
                 fragment("ab"),
                 List.of(left, right),
-                List.of("left", "right"),
-                List.of(new Reference(EdgeKind.REFERS_TO, right)));
+                List.of("left", "right"));
 
         JsonObject json = JsonExporter.toJson(root);
         String text = json.toString();
@@ -49,8 +47,7 @@ class JsonExporterTest {
         assertTrue(text.contains("\"root\": 0"));
         assertTrue(text.contains("\"tags\": [\"left\", \"right\"]"));
         assertTrue(text.contains("\"code\": \"a\""));
-        assertTrue(text.contains("\"kind\": \"REFERS_TO\""));
-        assertTrue(text.contains("\"target\": 2"));
+        assertTrue(text.contains("\"children\": [1, 2]"));
     }
 
     @Test
@@ -62,14 +59,60 @@ class JsonExporterTest {
     }
 
     @Test
+    void exportsRelations() {
+        TestNode use = TestNode.leaf(fragment("a"));
+        TestNode declaration = TestNode.leaf(fragment("b"));
+        TestNode root = new TestNode(
+                fragment("ab"), List.of(use), List.of("use"));
+        Graph graph = Graph.builder(root).declaration(use, declaration).build();
+
+        String text = JsonExporter.toJson(graph).toString();
+
+        assertTrue(text.contains("\"version\": 2"));
+        assertTrue(text.contains("\"declarations\": ["));
+        assertTrue(text.contains("\"from\": 1, \"to\": 2"));
+        assertTrue(text.contains("\"calls\": []"));
+    }
+
+    @Test
+    void relationTargetsOutsideChildrenAreIncluded() {
+        TestNode root = TestNode.leaf(fragment("x"));
+        TestNode target = TestNode.leaf(fragment("y"));
+        Graph graph = Graph.builder(root).call(root, target).build();
+
+        String text = JsonExporter.toJson(graph).toString();
+
+        assertTrue(text.contains("\"id\": 1"));
+        assertTrue(text.contains("\"calls\": ["));
+        assertTrue(text.contains("\"from\": 0, \"to\": 1"));
+    }
+
+    @Test
+    void duplicateNodesAreExportedOnce() {
+        TestNode shared = TestNode.leaf(fragment("a"));
+        TestNode root = new TestNode(
+                fragment("aa"), List.of(shared, shared), List.of("first", "second"));
+
+        String text = JsonExporter.toJson(root).toString();
+
+        assertEquals(2, count(text, "\"id\":"));
+    }
+
+    @Test
     void nullRootIsRejected() {
-        assertThrows(NullPointerException.class, () -> JsonExporter.toJson(null));
-        assertThrows(NullPointerException.class, () -> JsonExporter.toJsonString(null));
+        assertThrows(NullPointerException.class, () -> JsonExporter.toJson((Node) null));
+        assertThrows(NullPointerException.class, () -> JsonExporter.toJsonString((Node) null));
+    }
+
+    @Test
+    void nullGraphIsRejected() {
+        assertThrows(NullPointerException.class, () -> JsonExporter.toJson((Graph) null));
+        assertThrows(NullPointerException.class, () -> JsonExporter.toJsonString((Graph) null));
     }
 
     @Test
     void nullFragmentIsExportedAsNull() {
-        TestNode node = new TestNode(null, List.of(), List.of(), List.of());
+        TestNode node = new TestNode(null, List.of(), List.of());
 
         String text = JsonExporter.toJsonString(node);
 
@@ -77,77 +120,9 @@ class JsonExporterTest {
     }
 
     @Test
-    void referencedNodesAreIncludedInClosure() {
-        TestNode target = TestNode.leaf(fragment("x"));
-        TestNode root = new TestNode(
-                fragment("x"),
-                List.of(),
-                List.of(),
-                List.of(new Reference(EdgeKind.CALL, target)));
-
-        String text = JsonExporter.toJsonString(root);
-
-        assertTrue(text.contains("\"target\": 1"));
-        assertTrue(text.contains("\"id\": 1"));
-    }
-
-    @Test
-    void cyclesAreExportedOnlyOnce() {
-        Node cycle = new Node() {
-            @Override
-            public Fragment fragment() {
-                return JsonExporterTest.fragment("a");
-            }
-
-            @Override
-            public List<Node> children() {
-                return List.of();
-            }
-
-            @Override
-            public List<Reference> references() {
-                return List.of(new Reference(EdgeKind.NEXT, this));
-            }
-
-            @Override
-            public <R> R accept(Visitor<R> visitor) {
-                return visitor.visit(this);
-            }
-        };
-        TestNode root = new TestNode(
-                fragment("r"),
-                List.of(),
-                List.of(),
-                List.of(new Reference(EdgeKind.NEXT, cycle)));
-
-        String text = JsonExporter.toJsonString(root);
-
-        assertEquals(2, count(text, "\"id\":"));
-    }
-
-    @Test
-    void multipleChildrenAndReferencesKeepOrder() {
-        TestNode first = TestNode.leaf(fragment("a"));
-        TestNode second = TestNode.leaf(fragment("b"));
-        TestNode root = new TestNode(
-                fragment("ab"),
-                List.of(first, second),
-                List.of("first", "second"),
-                List.of(
-                        new Reference(EdgeKind.NEXT, second),
-                        new Reference(EdgeKind.CALL, first)));
-
-        String text = JsonExporter.toJson(root).toString();
-
-        assertTrue(text.contains("\"children\": [1, 2]"));
-        assertTrue(text.contains("\"kind\": \"NEXT\", \"target\": 2"));
-        assertTrue(text.contains("\"kind\": \"CALL\", \"target\": 1"));
-    }
-
-    @Test
     void customNameIsUsedAsType() {
         TestNode node = new TestNode(
-                fragment("x"), List.of(), List.of(), List.of(), "Custom", "data");
+                fragment("x"), List.of(), List.of(), "Custom", "data");
 
         String text = JsonExporter.toJsonString(node);
 
@@ -185,8 +160,7 @@ class JsonExporterTest {
         TestNode root = new TestNode(
                 fragment("ab"),
                 List.of(first, second),
-                List.of("first", "second"),
-                List.of());
+                List.of("first", "second"));
 
         String text = JsonExporter.toJsonString(root);
         Matcher matcher = Pattern.compile("\"id\": (\\d+)").matcher(text);

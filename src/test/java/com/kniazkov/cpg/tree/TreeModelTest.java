@@ -26,19 +26,19 @@ class TreeModelTest {
 
     private static final class Stmt extends TestNode implements Statement {
         Stmt(Fragment fragment) {
-            super(fragment, List.of(), List.of(), List.of());
+            super(fragment, List.of(), List.of());
         }
     }
 
     private static final class Decl extends TestNode implements Declaration {
         Decl(Fragment fragment) {
-            super(fragment, List.of(), List.of(), List.of());
+            super(fragment, List.of(), List.of());
         }
     }
 
     private static final class Expr extends TestNode implements Expression {
         Expr(Fragment fragment) {
-            super(fragment, List.of(), List.of(), List.of());
+            super(fragment, List.of(), List.of());
         }
     }
 
@@ -97,32 +97,11 @@ class TreeModelTest {
     }
 
     @Test
-    void referenceStoresKindAndTarget() {
-        TestNode target = TestNode.leaf(fragment("x", 0, 1));
-        Reference reference = new Reference(EdgeKind.REFERS_TO, target);
-
-        assertEquals(EdgeKind.REFERS_TO, reference.kind());
-        assertEquals(target, reference.target());
-        assertEquals(reference, new Reference(EdgeKind.REFERS_TO, target));
-        assertEquals(reference.hashCode(), new Reference(EdgeKind.REFERS_TO, target).hashCode());
-        assertTrue(reference.toString().contains("REFERS_TO"));
-    }
-
-    @Test
-    void referenceRejectsNulls() {
-        TestNode target = TestNode.leaf(fragment("x", 0, 1));
-
-        assertThrows(NullPointerException.class, () -> new Reference(null, target));
-        assertThrows(NullPointerException.class, () -> new Reference(EdgeKind.CALL, null));
-    }
-
-    @Test
     void nodeDefaultsWorkForLeaves() {
         TestNode node = TestNode.leaf(fragment("x", 0, 1));
 
         assertEquals("TestNode", node.name());
         assertEquals("", node.data());
-        assertTrue(node.references().isEmpty());
         assertTrue(node.tags().isEmpty());
         assertTrue(node.isLeaf());
         assertTrue(node.child(-1).isEmpty());
@@ -148,7 +127,7 @@ class TreeModelTest {
     @Test
     void nodeChildByTagHandlesTagBeyondChildren() {
         TestNode node = new TestNode(
-                fragment("x", 0, 1), List.of(), List.of("ghost"), List.of());
+                fragment("x", 0, 1), List.of(), List.of("ghost"));
 
         assertTrue(node.child("ghost").isEmpty());
     }
@@ -283,9 +262,7 @@ class TreeModelTest {
     }
 
     @Test
-    void edgeKindsAndLanguageConstantsAreAvailable() {
-        assertTrue(EdgeKind.values().length > 0);
-        assertEquals(EdgeKind.CALL, EdgeKind.valueOf("CALL"));
+    void languageConstantsAreAvailable() {
         assertEquals("cpp03", Languages.CPP03);
         assertEquals("c", Languages.C);
         assertEquals("java", Languages.JAVA);
