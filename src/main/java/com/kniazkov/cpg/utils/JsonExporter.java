@@ -33,7 +33,7 @@ public final class JsonExporter {
     private static final String FORMAT = "cpp03-cpg";
     private static final int VERSION = 1;
 
-    private JsonExporter() {}
+    private JsonExporter() { }
 
     /**
      * Exports a syntax tree or subtree as a JSON object.

@@ -17,5 +17,5 @@ public final class Languages {
     /** Java language identifier. */
     public static final String JAVA = "java";
 
-    private Languages() {}
+    private Languages() { }
 }

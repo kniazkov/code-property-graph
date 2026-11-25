@@ -6,4 +6,4 @@ package com.kniazkov.cpg.tree;
  * <p>Expressions are a semantic category of {@link Node}. Concrete expression
  * nodes provide their own structure and rendering behavior.</p>
  */
-public interface Expression extends Node {}
+public interface Expression extends Node { }

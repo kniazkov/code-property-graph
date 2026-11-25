@@ -19,7 +19,7 @@ import java.util.Set;
  */
 public final class NodeContract {
 
-    private NodeContract() {}
+    private NodeContract() { }
 
     /**
      * Returns all contract violations in the tree rooted at {@code root}.

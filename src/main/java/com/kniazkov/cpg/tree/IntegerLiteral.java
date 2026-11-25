@@ -244,5 +244,5 @@ public final class IntegerLiteral implements Expression {
         return ch == 'u' || ch == 'U' || ch == 'l' || ch == 'L';
     }
 
-    private record Parsed(BigInteger value, int radix, String suffix) {}
+    private record Parsed(BigInteger value, int radix, String suffix) { }
 }
