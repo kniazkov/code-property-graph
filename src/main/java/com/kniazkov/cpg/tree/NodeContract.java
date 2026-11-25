@@ -41,11 +41,14 @@ public final class NodeContract {
                 continue;
             }
             checkNode(node, violations);
-            for (Node child : node.children()) {
-                if (child == null) {
-                    violations.add(label(node) + " has a null child");
-                } else {
-                    stack.push(child);
+            List<Node> children = node.children();
+            if (children != null) {
+                for (Node child : children) {
+                    if (child == null) {
+                        violations.add(label(node) + " has a null child");
+                    } else {
+                        stack.push(child);
+                    }
                 }
             }
         }
@@ -102,11 +105,12 @@ public final class NodeContract {
         int count = Math.min(tags.size(), children.size());
         for (int index = 0; index < count; index++) {
             String tag = tags.get(index);
-            if (tag == null) {
+            Node expected = children.get(index);
+            if (tag == null || expected == null) {
                 continue;
             }
             Node byTag = node.child(tag).orElse(null);
-            if (byTag != children.get(index)) {
+            if (byTag != expected) {
                 violations.add(label + " child('" + tag + "') does not match "
                         + "children().get(" + index + ")");
             }
