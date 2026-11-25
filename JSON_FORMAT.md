@@ -8,7 +8,7 @@
 
 Документ описывает JSON-представление синтаксического дерева или поддерева, которое превращается в code property graph (CPG) за счёт дополнительных типизированных ссылок между узлами.
 
-Экспорт выполняет класс `com.kniazkov.cpg.ast.json.JsonExporter`:
+Экспорт выполняет класс `com.kniazkov.cpg.utils.JsonExporter`:
 
 ```java
 JsonObject json = JsonExporter.toJson(root);
@@ -109,7 +109,7 @@ String text = JsonExporter.toJsonString(root);
 }
 ```
 
-- `kind` — имя константы `com.kniazkov.cpg.ast.EdgeKind`.
+- `kind` — имя константы `com.kniazkov.cpg.tree.EdgeKind`.
 - `target` — идентификатор узла, на который указывает ссылка.
 
 Ссылка всегда направлена от узла-владельца (того, в чьём массиве `references` она находится) к узлу `target`.

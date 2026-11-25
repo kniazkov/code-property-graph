@@ -1,4 +1,4 @@
-package com.kniazkov.cpg.ast;
+package com.kniazkov.cpg.tree;
 
 import java.math.BigInteger;
 import java.util.List;

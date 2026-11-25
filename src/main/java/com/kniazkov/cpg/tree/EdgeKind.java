@@ -1,4 +1,4 @@
-package com.kniazkov.cpg.ast;
+package com.kniazkov.cpg.tree;
 
 /**
  * The kind of a non-AST reference between two syntax tree nodes.

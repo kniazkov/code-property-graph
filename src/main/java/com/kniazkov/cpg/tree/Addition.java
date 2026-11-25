@@ -1,4 +1,4 @@
-package com.kniazkov.cpg.ast;
+package com.kniazkov.cpg.tree;
 
 /**
  * An addition expression {@code left + right}.

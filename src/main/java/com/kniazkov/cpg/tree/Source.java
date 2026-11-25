@@ -1,4 +1,4 @@
-package com.kniazkov.cpg.ast;
+package com.kniazkov.cpg.tree;
 
 /**
  * A source text that can be queried by absolute character offsets.

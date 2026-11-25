@@ -1,12 +1,12 @@
-package com.kniazkov.cpg.ast.json;
+package com.kniazkov.cpg.utils;
 
 import com.kniazkov.json.Json;
 import com.kniazkov.json.JsonObject;
 import com.kniazkov.json.JsonObjectBuilder;
-import com.kniazkov.cpg.ast.Fragment;
-import com.kniazkov.cpg.ast.Node;
-import com.kniazkov.cpg.ast.Position;
-import com.kniazkov.cpg.ast.Reference;
+import com.kniazkov.cpg.tree.Fragment;
+import com.kniazkov.cpg.tree.Node;
+import com.kniazkov.cpg.tree.Position;
+import com.kniazkov.cpg.tree.Reference;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;

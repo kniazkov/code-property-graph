@@ -1,7 +1,7 @@
 package com.kniazkov.cpg.codegen;
 
-import com.kniazkov.cpg.ast.Fragment;
-import com.kniazkov.cpg.ast.Node;
+import com.kniazkov.cpg.tree.Fragment;
+import com.kniazkov.cpg.tree.Node;
 
 import java.util.List;
 import java.util.Objects;

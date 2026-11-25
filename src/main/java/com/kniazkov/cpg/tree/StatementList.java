@@ -1,21 +1,21 @@
-package com.kniazkov.cpg.ast;
+package com.kniazkov.cpg.tree;
 
 import java.util.List;
 
 /**
- * A list of parameter declarations.
+ * A list of statements.
  */
-public final class ParameterList extends NodeList<Declaration> {
+public final class StatementList extends NodeList<Statement> {
 
     /**
-     * Creates a parameter list.
+     * Creates a statement list.
      *
      * @param fragment the source fragment covered by the list
-     * @param elements the parameter declarations
+     * @param elements the statements
      * @throws NullPointerException if any argument is {@code null} or an
      *         element is {@code null}
      */
-    public ParameterList(Fragment fragment, List<Declaration> elements) {
+    public StatementList(Fragment fragment, List<Statement> elements) {
         super(fragment, elements);
     }
 

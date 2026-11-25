@@ -1,6 +1,6 @@
 package com.kniazkov.cpg.codegen;
 
-import com.kniazkov.cpg.ast.Node;
+import com.kniazkov.cpg.tree.Node;
 
 import java.util.LinkedHashMap;
 import java.util.Locale;
