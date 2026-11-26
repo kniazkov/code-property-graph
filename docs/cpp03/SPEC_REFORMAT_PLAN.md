@@ -80,15 +80,15 @@ Outputs per clause:
 
 ### Phase 1 — Inventory and partitioning
 
-- [ ] Build a clause map: number, title, subclauses, annexes, page range.
-- [ ] Record the page range and fingerprint of each subclause in the private map.
-- [ ] Count paragraphs, grammar blocks, tables, examples, and notes per
+- [x] Build a clause map: number, title, subclauses, annexes, page range.
+- [x] Record the page range and fingerprint of each subclause in the private map.
+- [x] Count paragraphs, grammar blocks, tables, examples, and notes per
       subclause.
-- [ ] Mark clauses that are mostly library descriptions and need a different
+- [x] Mark clauses that are mostly library descriptions and need a different
       extraction cadence.
-- [ ] Assign a batch and an owner to each clause.
-- [ ] Record dependencies between clauses.
-- [ ] Produce the initial coverage baseline.
+- [x] Assign a batch and an owner to each clause.
+- [x] Record dependencies between clauses.
+- [x] Produce the initial coverage baseline.
 
 ### Phase 2 — Extraction
 

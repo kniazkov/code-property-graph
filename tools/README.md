@@ -11,6 +11,15 @@ python -m pip install -r tools/requirements.txt
 ## Commands
 
 ```text
+python tools/inventory.py --source path/to/wg21-n1638.txt [--private-out path]
+```
+
+Builds `languages/cpp03/clause-map.yaml` and `reports/cpp03/inventory.json` from
+the private N1638 TXT. With `--private-out` it also writes a private map with
+line ranges and SHA-256 fingerprints. The tool never copies source text into the
+public repository.
+
+```text
 python tools/validate.py
 ```
 

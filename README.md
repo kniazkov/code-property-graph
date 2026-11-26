@@ -23,9 +23,9 @@ src/                  parser implementation
 | --- | --- | --- | --- |
 | CPP03 | C++03 | N1638 | `languages/cpp03/` |
 
-Each language root has a `language.yaml` manifest and its own `statements/`,
-`grammar/`, `tables/`, `checks/`, `tests/`, `oracles/`, and `provenance/`
-directories.
+Each language root has a `language.yaml` manifest, a `clause-map.yaml` inventory,
+and its own `statements/`, `grammar/`, `tables/`, `checks/`, `tests/`,
+`oracles/`, and `provenance/` directories.
 
 ## Parser
 
@@ -64,4 +64,6 @@ C++03:
 
 - `docs/cpp03/SPEC_REFORMAT_PLAN.md` — checklist-plan for reformatting the full
   C++03 specification.
+- `docs/cpp03/PHASE1_REPORT.md` — clause inventory, partitioning, and coverage
+  baseline.
 - `docs/cpp03/PARSER_COVERAGE.md` — statement-to-test map for the literal parser.

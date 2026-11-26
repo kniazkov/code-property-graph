@@ -1,0 +1,68 @@
+{
+  "language": "CPP03",
+  "edition": "N1638",
+  "clauses": 32,
+  "subclauses": 898,
+  "informative_subclauses": 3,
+  "library_clauses": 11,
+  "paragraphs": 3967,
+  "grammar_productions": 700,
+  "tables": 109,
+  "examples": 485,
+  "notes": 432,
+  "batches": {
+    "A": [
+      "1",
+      "2",
+      "3"
+    ],
+    "B": [
+      "4",
+      "5",
+      "6"
+    ],
+    "C": [
+      "7",
+      "8",
+      "9",
+      "10"
+    ],
+    "D": [
+      "11",
+      "12",
+      "13",
+      "14",
+      "15",
+      "16"
+    ],
+    "E": [
+      "17",
+      "18",
+      "19",
+      "20"
+    ],
+    "F": [
+      "21",
+      "22",
+      "23"
+    ],
+    "G": [
+      "24",
+      "25",
+      "26",
+      "27"
+    ],
+    "H": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E"
+    ]
+  },
+  "coverage_baseline": {
+    "normative_statements": 60,
+    "covered": 4,
+    "uncovered": 56
+  }
+}
