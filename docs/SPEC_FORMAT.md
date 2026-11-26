@@ -310,7 +310,9 @@ consistency but cannot be required of an implementation.
 - `verified` — all mandatory checks pass.
 - `disputed` — there is a dispute about the wording or the oracle.
 - `deprecated` — the statement was replaced or removed from a new edition.
-- `waived` — a check was officially deferred with a stated reason.
+
+Waivers are not used in this project: every normative statement must have a
+check.
 
 ## 8. Check model
 
@@ -385,7 +387,6 @@ Statement trust is computed as follows:
 - `fail` — the result did not match.
 - `error` — the check could not run.
 - `skipped` — the check is not applicable in this environment.
-- `waived` — the check was officially deferred.
 - `disputed` — the result requires manual review.
 
 ### 8.6 Evidence
@@ -1060,7 +1061,7 @@ the type test must fail.
 
 1. Load all statements.
 2. For each one, find checks by `statement_id`.
-3. Build a report: covered, uncovered, waived.
+3. Build a report: covered and uncovered.
 4. For uncovered normative statements — CI error.
 5. For informative ones — warning.
 
@@ -1109,7 +1110,7 @@ review is needed.
 `trust: low`.
 
 **Limitation.** Not all statements can be checked without a compiler; they need
-a waiver.
+a compiler-based check or manual review.
 
 ### 10.28 Dependency closure
 
@@ -1268,7 +1269,6 @@ CI may warn on:
 
 - an informative statement without a check;
 - a statement with `trust: low`;
-- a waived check;
 - a missing optional differential check.
 
 ## 15. Satisfactory-parser criterion
@@ -1277,7 +1277,7 @@ A parser is considered satisfactory if:
 
 - every normative statement has at least one check;
 - every normative statement has at least one check with an oracle other than a
-  compiler, or an official waiver;
+  compiler;
 - all mandatory checks pass;
 - all checks are deterministic and reproducible;
 - statement and production coverage is recorded in the report;

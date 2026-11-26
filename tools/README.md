@@ -22,7 +22,8 @@ python tools/coverage.py [--strict]
 ```
 
 Writes `reports/<language>/coverage.json` and prints statement coverage.
-`--strict` fails when a normative statement has no check and is not waived.
+`--strict` fails when a normative statement has no check. Waivers are not used
+in this project.
 
 ```text
 python tools/verify.py [--strict]

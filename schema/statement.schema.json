@@ -140,8 +140,7 @@
             "reviewed",
             "verified",
             "disputed",
-            "deprecated",
-            "waived"
+            "deprecated"
           ]
         },
         "deprecated": {

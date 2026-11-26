@@ -32,7 +32,7 @@ Out of scope:
 - [ ] Normative and informative statements are separated.
 - [ ] No source text, long quotation, or paraphrase chain enters the repository.
 - [ ] Every statement has provenance: private locator and fingerprint.
-- [ ] Every normative statement has at least one check or an official waiver.
+- [ ] Every normative statement has at least one check.
 - [ ] Checks use independent oracles where possible.
 - [ ] Identifiers are unique, stable, and never reused.
 - [ ] The process is deterministic and reproducible.
@@ -126,7 +126,7 @@ For each subclause:
 - [ ] Add a negative control for every check.
 - [ ] Record trust level.
 - [ ] Mark checks that need parser support as `pending` with a reason.
-- [ ] Add an official waiver for statements that cannot be checked yet.
+- [ ] Never waive a normative statement: every one must end with a check.
 - [ ] Verify that no statement is checked only by a compiler.
 
 ### Phase 5 — Tests
@@ -162,7 +162,7 @@ For each subclause:
 
 ### Phase 8 — Release
 
-- [ ] All normative statements have checks or waivers.
+- [ ] All normative statements have checks.
 - [ ] Coverage targets are met.
 - [ ] No verbatim matches.
 - [ ] No orphan checks.
@@ -319,7 +319,7 @@ Check rules:
 - [ ] Every check records evidence.
 - [ ] No statement relies only on `compiler`.
 - [ ] `trust: high` is reserved for tables, invariants, and formal models.
-- [ ] `trust: low` requires review or a waiver.
+- [ ] `trust: low` requires review.
 
 ## 11. Test plan
 
@@ -349,7 +349,7 @@ A batch cannot move to the next gate until the previous gate is green.
 - [ ] Validate YAML against schemas.
 - [ ] Check ID uniqueness.
 - [ ] Check `depends_on` and `related` integrity.
-- [ ] Check that every normative statement has a check or waiver.
+- [ ] Check that every normative statement has a check.
 - [ ] Check oracle diversity.
 - [ ] Run all checks.
 - [ ] Build coverage and result reports.
@@ -360,7 +360,7 @@ A batch cannot move to the next gate until the previous gate is green.
 
 ## 14. Metrics and targets
 
-- [ ] 100% of normative statements have at least one check or waiver.
+- [ ] 100% of normative statements have at least one check.
 - [ ] 100% of grammar productions are covered.
 - [ ] 100% of tables are covered.
 - [ ] 0 verbatim matches.
@@ -378,7 +378,7 @@ A clause is done when:
 - [ ] every subclause is inventoried;
 - [ ] every normative statement is extracted and atomized;
 - [ ] every statement has provenance;
-- [ ] every normative statement has a check or waiver;
+- [ ] every normative statement has a check;
 - [ ] every check has a negative control;
 - [ ] every check has a test;
 - [ ] technical, legal, and consistency reviews passed;
@@ -395,7 +395,7 @@ A clause is done when:
 | Ambiguous source wording | record ambiguity in `disputed`, require reviewer decision |
 | Implementation-defined behavior | model as `implementation_defined`, never as a fixed value |
 | Undefined behavior | model as `undefined`, do not invent requirements |
-| Parser gaps | mark checks `pending`, add waivers, keep extraction independent |
+| Parser gaps | mark checks `pending`, keep extraction independent |
 | Reviewer capacity | batch size limits, reviewer registry, rotation |
 | Tooling gaps | build schemas and tools in Phase 0 |
 | ID churn | freeze IDs early, never reuse, use `supersedes` |

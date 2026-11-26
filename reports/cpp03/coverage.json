@@ -3,7 +3,6 @@
   "statements": 62,
   "normative": 60,
   "covered": 4,
-  "waived": 0,
   "uncovered": 56,
   "uncovered_ids": [
     "CPP03-2.13.1-001",

@@ -26,11 +26,6 @@ def main() -> int:
             for _, check in load_checks(language)
         }
         normative = [statement for statement in statements if statement.get("normative") is True]
-        waived = [
-            statement
-            for statement in normative
-            if statement.get("status") == "waived"
-        ]
         covered = [
             statement
             for statement in normative
@@ -39,7 +34,7 @@ def main() -> int:
         uncovered = [
             statement
             for statement in normative
-            if statement not in covered and statement not in waived
+            if statement not in covered
         ]
 
         report = {
@@ -47,7 +42,6 @@ def main() -> int:
             "statements": len(statements),
             "normative": len(normative),
             "covered": len(covered),
-            "waived": len(waived),
             "uncovered": len(uncovered),
             "uncovered_ids": [statement["id"] for statement in uncovered],
         }
@@ -57,8 +51,7 @@ def main() -> int:
 
         print(
             f"{language.name}: {report['covered']}/{report['normative']} normative "
-            f"statements covered, {report['waived']} waived, "
-            f"{report['uncovered']} uncovered"
+            f"statements covered, {report['uncovered']} uncovered"
         )
         print(f"  report: {relative(target)}")
 

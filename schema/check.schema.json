@@ -79,7 +79,7 @@
       "type": "boolean"
     },
     "status": {
-      "enum": ["draft", "active", "pending", "waived", "retired"]
+      "enum": ["draft", "active", "pending", "retired"]
     }
   }
 }
