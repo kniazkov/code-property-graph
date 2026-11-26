@@ -55,6 +55,8 @@ The schemas cover the fields used by the pilot and the rules in
 - [x] Fingerprint normalization recorded.
 - [x] Source lock and reviewer registry defined.
 - [x] Sign-off rules recorded in `provenance/reviewers.yaml`.
+- [x] Single reviewer registered: Ivan Kniazkov, with technical, legal, and
+      consistency roles.
 
 ### Pilot freeze
 

@@ -64,8 +64,8 @@ Sign-off rules:
 
 - `reviewed` requires technical and consistency sign-off.
 - `verified` requires technical, consistency, and legal sign-off.
-- A reviewer cannot sign off a statement they extracted without a second
-  reviewer.
+- While only one reviewer is registered, self-sign-off is allowed.
+- Add a second reviewer before the first public release.
 
 ## Pre-publication check
 

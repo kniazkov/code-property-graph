@@ -1,5 +1,12 @@
 schema_version: 1
-reviewers: []
+reviewers:
+  - id: "ivan.kniazkov"
+    name: "Ivan Kniazkov"
+    roles:
+      - technical
+      - legal
+      - consistency
+    since: "2026-11-26"
 sign_off:
   roles:
     - technical
@@ -8,9 +15,12 @@ sign_off:
   required_for_status:
     - reviewed
     - verified
+  sole_reviewer: true
   record: "private vault"
   rules:
     - "A statement cannot move to reviewed without technical and consistency sign-off."
     - "A statement cannot move to verified without legal sign-off."
     - "The reviewer identifier is stored in provenance.reviewer."
     - "Reviewer identities and dates are recorded in the private map."
+    - "While only one reviewer is registered, self-sign-off is allowed."
+    - "Add a second reviewer before the first public release."
