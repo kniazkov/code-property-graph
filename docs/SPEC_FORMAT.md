@@ -85,6 +85,9 @@ root; everything language-specific lives under `languages/<lang>/`.
   docs/
     SPEC_FORMAT.md
     JSON_FORMAT.md
+    cpp03/
+      SPEC_REFORMAT_PLAN.md
+      PARSER_COVERAGE.md
   schema/
     statement.schema.json
     check.schema.json
