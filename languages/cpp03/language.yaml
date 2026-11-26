@@ -1,0 +1,18 @@
+schema_version: 1
+id: CPP03
+name: "C++03"
+edition: N1638
+id_prefix: CPP03
+status: draft
+source:
+  document: "ISO/IEC 14882:2003 working draft N1638"
+  private_locator: "private vault"
+  extracted_at: "2026-11-25"
+directories:
+  statements: statements
+  grammar: grammar
+  tables: tables
+  checks: checks
+  tests: tests
+  oracles: oracles
+  provenance: provenance

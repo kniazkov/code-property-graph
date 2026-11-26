@@ -1,0 +1,62 @@
+schema_version: 1
+table: escape-sequences
+edition: N1638
+source_statement: CPP03-2.13.2-019
+entries:
+  - name: new-line
+    abbreviation: NL
+    control: LF
+    escape: "\\n"
+    code: 10
+  - name: horizontal-tab
+    abbreviation: HT
+    control: HT
+    escape: "\\t"
+    code: 9
+  - name: vertical-tab
+    abbreviation: VT
+    control: VT
+    escape: "\\v"
+    code: 11
+  - name: backspace
+    abbreviation: BS
+    control: BS
+    escape: "\\b"
+    code: 8
+  - name: carriage-return
+    abbreviation: CR
+    control: CR
+    escape: "\\r"
+    code: 13
+  - name: form-feed
+    abbreviation: FF
+    control: FF
+    escape: "\\f"
+    code: 12
+  - name: alert
+    abbreviation: BEL
+    control: BEL
+    escape: "\\a"
+    code: 7
+  - name: backslash
+    character: "\\"
+    escape: "\\\\"
+    code: 92
+  - name: question-mark
+    character: "?"
+    escape: "\\?"
+    code: 63
+  - name: single-quote
+    character: "'"
+    escape: "\\'"
+    code: 39
+  - name: double-quote
+    character: "\""
+    escape: "\\\""
+    code: 34
+  - name: octal-number
+    form: ooo
+    escape: "\\ooo"
+  - name: hex-number
+    form: hhh
+    escape: "\\xhhh"

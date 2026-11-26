@@ -1,0 +1,25 @@
+schema_version: 1
+test_id: char-literal-type
+statement_id: CPP03-2.13.2-010
+cases:
+  - name: ordinary-single
+    source: "'a'"
+    expected:
+      kind: CharacterLiteral
+      prefix: none
+      cchars: ["a"]
+      type: char
+  - name: wide-single
+    source: "L'a'"
+    expected:
+      kind: CharacterLiteral
+      prefix: wide
+      cchars: ["a"]
+      type: wchar_t
+  - name: multichar
+    source: "'ab'"
+    expected:
+      kind: CharacterLiteral
+      prefix: none
+      cchars: ["a", "b"]
+      type: int

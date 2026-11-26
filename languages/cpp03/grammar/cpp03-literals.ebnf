@@ -1,0 +1,63 @@
+(*
+  Independent grammar for the literal subset covered by statements
+  CPP03-2.13.1, CPP03-2.13.2 and CPP03-2.13.5.
+
+  This grammar is written separately from the parser and is used only as an
+  oracle for generation and coverage checks. Do not derive the parser from it.
+*)
+
+integer-literal      = decimal-literal, [ integer-suffix ]
+                     | octal-literal, [ integer-suffix ]
+                     | hexadecimal-literal, [ integer-suffix ] ;
+
+decimal-literal      = nonzero-digit, { digit } ;
+
+octal-literal        = "0", { octal-digit } ;
+
+hexadecimal-literal  = ( "0x" | "0X" ), hexadecimal-digit, { hexadecimal-digit } ;
+
+nonzero-digit        = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+
+octal-digit          = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" ;
+
+hexadecimal-digit    = digit
+                     | "a" | "b" | "c" | "d" | "e" | "f"
+                     | "A" | "B" | "C" | "D" | "E" | "F" ;
+
+digit                = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+
+integer-suffix       = unsigned-suffix, [ long-suffix ]
+                     | long-suffix, [ unsigned-suffix ] ;
+
+unsigned-suffix      = "u" | "U" ;
+
+long-suffix          = "l" | "L" ;
+
+character-literal    = "'", c-char-sequence, "'"
+                     | "L", "'", c-char-sequence, "'" ;
+
+c-char-sequence      = c-char, { c-char } ;
+
+c-char               = source-char - ( "'" | "\" | newline )
+                     | escape-sequence
+                     | universal-character-name ;
+
+escape-sequence      = simple-escape-sequence
+                     | octal-escape-sequence
+                     | hexadecimal-escape-sequence ;
+
+simple-escape-sequence = "\\'" | "\\\"" | "\\?" | "\\\\"
+                       | "\\a" | "\\b" | "\\f" | "\\n"
+                       | "\\r" | "\\t" | "\\v" ;
+
+octal-escape-sequence = "\", octal-digit, [ octal-digit, [ octal-digit ] ] ;
+
+hexadecimal-escape-sequence = "\\x", hexadecimal-digit, { hexadecimal-digit } ;
+
+universal-character-name = "\\u", hex-quad
+                         | "\\U", hex-quad, hex-quad ;
+
+hex-quad             = hexadecimal-digit, hexadecimal-digit,
+                       hexadecimal-digit, hexadecimal-digit ;
+
+boolean-literal      = "false" | "true" ;

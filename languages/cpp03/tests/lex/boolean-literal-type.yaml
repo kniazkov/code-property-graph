@@ -1,0 +1,18 @@
+schema_version: 1
+test_id: boolean-literal-type
+statement_id: CPP03-2.13.5-003
+cases:
+  - name: true-literal
+    source: "true"
+    expected:
+      kind: BooleanLiteral
+      value: true
+      type: bool
+      lvalue: false
+  - name: false-literal
+    source: "false"
+    expected:
+      kind: BooleanLiteral
+      value: false
+      type: bool
+      lvalue: false

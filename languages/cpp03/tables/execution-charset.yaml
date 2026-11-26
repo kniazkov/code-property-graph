@@ -1,0 +1,23 @@
+schema_version: 1
+table: execution-charset
+edition: N1638
+charset: ascii
+note: >
+  Example table for checking statements about character literal values.
+  The real table depends on the execution character set of a specific
+  implementation.
+entries:
+  "a": 97
+  "b": 98
+  "A": 65
+  "B": 66
+  "0": 48
+  "1": 49
+  "9": 57
+  " ": 32
+  "\\n": 10
+  "\\t": 9
+  "\\0": 0
+  "\\\\": 92
+  "\\'": 39
+  "\\\"": 34

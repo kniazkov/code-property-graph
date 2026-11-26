@@ -1,0 +1,49 @@
+schema_version: 1
+test_id: integer-literal-type
+statement_id: CPP03-2.13.1-021
+model:
+  int_bits: 32
+  long_bits: 32
+cases:
+  - name: decimal-int
+    source: "42"
+    expected:
+      base: 10
+      value: 42
+      type: int
+  - name: decimal-long
+    source: "2147483648"
+    expected:
+      base: 10
+      value: 2147483648
+      type: long int
+  - name: octal-int
+    source: "052"
+    expected:
+      base: 8
+      value: 42
+      type: int
+  - name: hexadecimal-int
+    source: "0x2A"
+    expected:
+      base: 16
+      value: 42
+      type: int
+  - name: unsigned-suffix
+    source: "42u"
+    expected:
+      base: 10
+      value: 42
+      type: unsigned int
+  - name: long-suffix
+    source: "42L"
+    expected:
+      base: 10
+      value: 42
+      type: long int
+  - name: unsigned-long-suffix
+    source: "42UL"
+    expected:
+      base: 10
+      value: 42
+      type: unsigned long int

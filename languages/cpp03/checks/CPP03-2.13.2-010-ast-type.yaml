@@ -1,0 +1,20 @@
+schema_version: 1
+check_id: CPP03-2.13.2-010-ast-type
+statement_id: CPP03-2.13.2-010
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  source: "'a'"
+expected:
+  ast:
+    kind: CharacterLiteral
+    prefix: none
+    cchars: ["a"]
+    type: char
+negative_control:
+  mutate: "type: int"
+  expected: fail
+evidence:
+  - parser_version
+  - ast_dump

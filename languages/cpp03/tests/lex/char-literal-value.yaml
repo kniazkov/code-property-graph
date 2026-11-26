@@ -1,0 +1,33 @@
+schema_version: 1
+test_id: char-literal-value
+statement_id: CPP03-2.13.2-011
+charset: ascii
+cases:
+  - name: letter-a
+    source: "'a'"
+    expected:
+      value: 97
+  - name: letter-A
+    source: "'A'"
+    expected:
+      value: 65
+  - name: digit-0
+    source: "'0'"
+    expected:
+      value: 48
+  - name: newline
+    source: "'\\n'"
+    expected:
+      value: 10
+  - name: nul
+    source: "'\\0'"
+    expected:
+      value: 0
+  - name: hex-escape
+    source: "'\\x61'"
+    expected:
+      value: 97
+  - name: octal-escape
+    source: "'\\141'"
+    expected:
+      value: 97

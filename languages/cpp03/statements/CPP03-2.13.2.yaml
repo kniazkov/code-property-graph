@@ -1,0 +1,654 @@
+schema_version: 1
+edition: N1638
+clause: "2.13.2"
+title: "Character literals"
+statements:
+  - id: CPP03-2.13.2-001
+    type: grammar
+    modality: is
+    normative: true
+    title: "character-literal production"
+    statement: >
+      character-literal is a c-char-sequence in single quotes, or a
+      c-char-sequence in single quotes preceded by L.
+    subject: "character-literal"
+    condition: "any character-literal"
+    requirement: "'c-char-sequence' | L'c-char-sequence'"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-002]
+    related: []
+    provenance:
+      private_locator: "2.13.2/grammar"
+      fingerprint: "sha256:0bb9ea3ab2b6ccd21cfa05d46f3e44d3fffcfcaf5c0b84bb7325dc29fe94e303"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-002
+    type: grammar
+    modality: is
+    normative: true
+    title: "c-char-sequence production"
+    statement: >
+      c-char-sequence is either a single c-char or a c-char-sequence followed
+      by a c-char.
+    subject: "c-char-sequence"
+    condition: "any c-char-sequence"
+    requirement: "c-char | c-char-sequence c-char"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-003]
+    related: []
+    provenance:
+      private_locator: "2.13.2/grammar"
+      fingerprint: "sha256:0bb9ea3ab2b6ccd21cfa05d46f3e44d3fffcfcaf5c0b84bb7325dc29fe94e303"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-003
+    type: grammar
+    modality: is
+    normative: true
+    title: "c-char production"
+    statement: >
+      c-char is any member of the source character set except the single quote,
+      the backslash, and the new-line character; or an escape-sequence; or a
+      universal-character-name.
+    subject: "c-char"
+    condition: "any c-char"
+    requirement: "source char except ' \\ newline | escape-sequence | universal-character-name"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-004]
+    related: []
+    provenance:
+      private_locator: "2.13.2/grammar"
+      fingerprint: "sha256:0bb9ea3ab2b6ccd21cfa05d46f3e44d3fffcfcaf5c0b84bb7325dc29fe94e303"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-004
+    type: grammar
+    modality: is
+    normative: true
+    title: "escape-sequence production"
+    statement: >
+      escape-sequence is a simple-escape-sequence, an octal-escape-sequence, or
+      a hexadecimal-escape-sequence.
+    subject: "escape-sequence"
+    condition: "any escape-sequence"
+    requirement: "simple-escape-sequence | octal-escape-sequence | hexadecimal-escape-sequence"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-005, CPP03-2.13.2-006, CPP03-2.13.2-007]
+    related: []
+    provenance:
+      private_locator: "2.13.2/grammar"
+      fingerprint: "sha256:0bb9ea3ab2b6ccd21cfa05d46f3e44d3fffcfcaf5c0b84bb7325dc29fe94e303"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-005
+    type: grammar
+    modality: is
+    normative: true
+    title: "simple-escape-sequence set"
+    statement: >
+      simple-escape-sequence is one of the sequences \' \" \? \\ \a \b \f \n
+      \r \t \v.
+    subject: "simple-escape-sequence"
+    condition: "any simple-escape-sequence"
+    requirement: "one of \\' \\\" \\? \\\\ \\a \\b \\f \\n \\r \\t \\v"
+    exceptions: []
+    depends_on: []
+    related: [CPP03-2.13.2-019]
+    provenance:
+      private_locator: "2.13.2/grammar"
+      fingerprint: "sha256:0bb9ea3ab2b6ccd21cfa05d46f3e44d3fffcfcaf5c0b84bb7325dc29fe94e303"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-006
+    type: grammar
+    modality: is
+    normative: true
+    title: "octal-escape-sequence production"
+    statement: >
+      octal-escape-sequence is a backslash followed by one, two, or three octal
+      digits.
+    subject: "octal-escape-sequence"
+    condition: "any octal-escape-sequence"
+    requirement: "\\ octal-digit | \\ octal-digit octal-digit | \\ octal-digit octal-digit octal-digit"
+    exceptions: []
+    depends_on: [CPP03-2.13.1-006]
+    related: [CPP03-2.13.2-024]
+    provenance:
+      private_locator: "2.13.2/grammar"
+      fingerprint: "sha256:0bb9ea3ab2b6ccd21cfa05d46f3e44d3fffcfcaf5c0b84bb7325dc29fe94e303"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-007
+    type: grammar
+    modality: is
+    normative: true
+    title: "hexadecimal-escape-sequence production"
+    statement: >
+      hexadecimal-escape-sequence is \x followed by at least one
+      hexadecimal-digit; further hexadecimal-digits continue the sequence.
+    subject: "hexadecimal-escape-sequence"
+    condition: "any hexadecimal-escape-sequence"
+    requirement: "\\x hexadecimal-digit | hexadecimal-escape-sequence hexadecimal-digit"
+    exceptions: []
+    depends_on: [CPP03-2.13.1-007]
+    related: [CPP03-2.13.2-025]
+    provenance:
+      private_locator: "2.13.2/grammar"
+      fingerprint: "sha256:0bb9ea3ab2b6ccd21cfa05d46f3e44d3fffcfcaf5c0b84bb7325dc29fe94e303"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-008
+    type: definition
+    modality: is
+    normative: true
+    title: "Form of a character literal"
+    statement: >
+      A character literal is one or more characters enclosed in single quotes,
+      optionally preceded by the letter L.
+    subject: "character literal"
+    condition: "any character literal"
+    requirement: "one or more characters in single quotes; optional L prefix"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-001]
+    related: []
+    provenance:
+      private_locator: "2.13.2/1"
+      fingerprint: "sha256:15179602323662c186717753d942a86fd62c7d938007186f6832df1c918d97e4"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-009
+    type: definition
+    modality: is
+    normative: true
+    title: "Ordinary character literal"
+    statement: >
+      A character literal that does not begin with L is an ordinary character
+      literal, also called a narrow-character literal.
+    subject: "character literal without L prefix"
+    condition: "the literal does not begin with L"
+    requirement: "ordinary (narrow) character literal"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-008]
+    related: [CPP03-2.13.2-015]
+    provenance:
+      private_locator: "2.13.2/1"
+      fingerprint: "sha256:15179602323662c186717753d942a86fd62c7d938007186f6832df1c918d97e4"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-010
+    type: requirement
+    modality: is
+    normative: true
+    title: "Type of an ordinary literal with one c-char"
+    statement: >
+      An ordinary character literal that contains exactly one c-char has type
+      char.
+    subject: "ordinary character literal with one c-char"
+    condition: "ordinary literal; exactly one c-char"
+    requirement: "type char"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-009]
+    related: [CPP03-2.13.2-012, CPP03-2.13.2-013]
+    provenance:
+      private_locator: "2.13.2/1"
+      fingerprint: "sha256:15179602323662c186717753d942a86fd62c7d938007186f6832df1c918d97e4"
+      extracted_at: "2026-11-25"
+    verification: ["check:CPP03-2.13.2-010-ast-type"]
+    status: draft
+
+  - id: CPP03-2.13.2-011
+    type: requirement
+    modality: is
+    normative: true
+    title: "Value of an ordinary literal with one c-char"
+    statement: >
+      The value of an ordinary character literal with one c-char equals the
+      numerical value of the encoding of that c-char in the execution character
+      set.
+    subject: "ordinary character literal with one c-char"
+    condition: "ordinary literal; exactly one c-char"
+    requirement: "value = code of the c-char in the execution character set"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-010]
+    related: [CPP03-2.13.2-029]
+    provenance:
+      private_locator: "2.13.2/1"
+      fingerprint: "sha256:15179602323662c186717753d942a86fd62c7d938007186f6832df1c918d97e4"
+      extracted_at: "2026-11-25"
+    verification: ["check:CPP03-2.13.2-011-value-table"]
+    status: draft
+
+  - id: CPP03-2.13.2-012
+    type: definition
+    modality: is
+    normative: true
+    title: "Multicharacter literal"
+    statement: >
+      An ordinary character literal that contains more than one c-char is a
+      multicharacter literal.
+    subject: "ordinary character literal with multiple c-chars"
+    condition: "ordinary literal; more than one c-char"
+    requirement: "multicharacter literal"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-009]
+    related: [CPP03-2.13.2-013, CPP03-2.13.2-014]
+    provenance:
+      private_locator: "2.13.2/1"
+      fingerprint: "sha256:15179602323662c186717753d942a86fd62c7d938007186f6832df1c918d97e4"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-013
+    type: requirement
+    modality: is
+    normative: true
+    title: "Type of a multicharacter literal"
+    statement: "A multicharacter literal has type int."
+    subject: "multicharacter literal"
+    condition: "any multicharacter literal"
+    requirement: "type int"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-012]
+    related: []
+    provenance:
+      private_locator: "2.13.2/1"
+      fingerprint: "sha256:15179602323662c186717753d942a86fd62c7d938007186f6832df1c918d97e4"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-014
+    type: behavior_implementation_defined
+    modality: implementation_defined
+    normative: true
+    title: "Value of a multicharacter literal"
+    statement: "The value of a multicharacter literal is implementation-defined."
+    subject: "multicharacter literal"
+    condition: "any multicharacter literal"
+    requirement: "value is implementation-defined"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-012]
+    related: []
+    provenance:
+      private_locator: "2.13.2/1"
+      fingerprint: "sha256:15179602323662c186717753d942a86fd62c7d938007186f6832df1c918d97e4"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-015
+    type: definition
+    modality: is
+    normative: true
+    title: "Wide-character literal"
+    statement: >
+      A character literal that begins with the letter L is a wide-character
+      literal.
+    subject: "character literal with L prefix"
+    condition: "the literal begins with L"
+    requirement: "wide-character literal"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-008]
+    related: [CPP03-2.13.2-016, CPP03-2.13.2-017, CPP03-2.13.2-018]
+    provenance:
+      private_locator: "2.13.2/2"
+      fingerprint: "sha256:3bf231d192270759a4425ea52deb56d5e35bede43cc19de6381ce23653364cc7"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-016
+    type: requirement
+    modality: is
+    normative: true
+    title: "Type of a wide-character literal"
+    statement: "A wide-character literal has type wchar_t."
+    subject: "wide-character literal"
+    condition: "any wide-character literal"
+    requirement: "type wchar_t"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-015]
+    related: []
+    provenance:
+      private_locator: "2.13.2/2"
+      fingerprint: "sha256:3bf231d192270759a4425ea52deb56d5e35bede43cc19de6381ce23653364cc7"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-017
+    type: requirement
+    modality: is
+    normative: true
+    title: "Value of a wide literal with one c-char"
+    statement: >
+      The value of a wide-character literal with one c-char equals the numerical
+      value of the encoding of that c-char in the execution wide-character set.
+    subject: "wide-character literal with one c-char"
+    condition: "wide literal; exactly one c-char"
+    requirement: "value = code of the c-char in the execution wide-character set"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-015]
+    related: []
+    provenance:
+      private_locator: "2.13.2/2"
+      fingerprint: "sha256:3bf231d192270759a4425ea52deb56d5e35bede43cc19de6381ce23653364cc7"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-018
+    type: behavior_implementation_defined
+    modality: implementation_defined
+    normative: true
+    title: "Value of a wide literal with multiple c-chars"
+    statement: >
+      The value of a wide-character literal that contains multiple c-chars is
+      implementation-defined.
+    subject: "wide-character literal with multiple c-chars"
+    condition: "wide literal; more than one c-char"
+    requirement: "value is implementation-defined"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-015]
+    related: []
+    provenance:
+      private_locator: "2.13.2/2"
+      fingerprint: "sha256:3bf231d192270759a4425ea52deb56d5e35bede43cc19de6381ce23653364cc7"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-019
+    type: requirement
+    modality: may
+    normative: true
+    title: "Representing special characters with escape sequences"
+    statement: >
+      Certain nongraphic characters, the single quote, the double quote, the
+      question mark, and the backslash can be represented according to the
+      escape-sequence table.
+    subject: "nongraphic characters and quote/backslash characters"
+    condition: "the character is listed in the escape-sequence table"
+    requirement: "representation according to tables/escape-sequences.yaml"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-005]
+    related: [CPP03-2.13.2-020, CPP03-2.13.2-021]
+    provenance:
+      private_locator: "2.13.2/3"
+      fingerprint: "sha256:d33dfc8eb59d59d9d20081f7276e30ad49a7fb0315fba304d54857fda9eb1906"
+      extracted_at: "2026-11-25"
+    verification: ["check:CPP03-2.13.2-019-table"]
+    status: draft
+
+  - id: CPP03-2.13.2-020
+    type: requirement
+    modality: may
+    normative: true
+    title: "Representing the double quote and question mark"
+    statement: >
+      The double quote and the question mark can be represented either as
+      themselves or by the escape sequences \" and \? respectively.
+    subject: "double quote and question mark"
+    condition: "inside a character literal"
+    requirement: "the character itself, or \\\" and \\? respectively"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-019]
+    related: []
+    provenance:
+      private_locator: "2.13.2/3"
+      fingerprint: "sha256:d33dfc8eb59d59d9d20081f7276e30ad49a7fb0315fba304d54857fda9eb1906"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-021
+    type: requirement
+    modality: shall
+    normative: true
+    title: "Mandatory escaping of the single quote and backslash"
+    statement: >
+      The single quote and the backslash shall be represented by the escape
+      sequences \' and \\ respectively.
+    subject: "single quote and backslash"
+    condition: "inside a character literal"
+    requirement: "only \\' and \\\\ respectively"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-019]
+    related: []
+    provenance:
+      private_locator: "2.13.2/3"
+      fingerprint: "sha256:d33dfc8eb59d59d9d20081f7276e30ad49a7fb0315fba304d54857fda9eb1906"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-022
+    type: behavior_undefined
+    modality: undefined
+    normative: true
+    title: "Unknown escape sequence"
+    statement: >
+      If the character following a backslash is not one of the specified
+      characters, the behavior is undefined.
+    subject: "escape sequence"
+    condition: "the character after the backslash is not specified"
+    requirement: "behavior is undefined"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-004]
+    related: []
+    provenance:
+      private_locator: "2.13.2/3"
+      fingerprint: "sha256:d33dfc8eb59d59d9d20081f7276e30ad49a7fb0315fba304d54857fda9eb1906"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-023
+    type: requirement
+    modality: is
+    normative: true
+    title: "An escape sequence specifies one character"
+    statement: "An escape sequence specifies exactly one character."
+    subject: "escape sequence"
+    condition: "any escape sequence"
+    requirement: "denotes one character"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-004]
+    related: []
+    provenance:
+      private_locator: "2.13.2/3"
+      fingerprint: "sha256:d33dfc8eb59d59d9d20081f7276e30ad49a7fb0315fba304d54857fda9eb1906"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-024
+    type: definition
+    modality: is
+    normative: true
+    title: "Meaning of an octal escape"
+    statement: >
+      The sequence \ooo consists of a backslash followed by one, two, or three
+      octal digits that specify the value of the desired character.
+    subject: "octal-escape-sequence"
+    condition: "any octal escape sequence"
+    requirement: "one to three octal digits specify the character value"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-006]
+    related: [CPP03-2.13.2-027]
+    provenance:
+      private_locator: "2.13.2/4"
+      fingerprint: "sha256:735afd5921cc7cb126b34418aabf01ecb5b470cc9e54603470a32c56d05dad02"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-025
+    type: definition
+    modality: is
+    normative: true
+    title: "Meaning of a hexadecimal escape"
+    statement: >
+      The sequence \xhhh consists of a backslash, the letter x, and one or more
+      hexadecimal digits that specify the value of the desired character.
+    subject: "hexadecimal-escape-sequence"
+    condition: "any hexadecimal escape sequence"
+    requirement: "x and one or more hexadecimal digits specify the character value"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-007]
+    related: [CPP03-2.13.2-026, CPP03-2.13.2-027]
+    provenance:
+      private_locator: "2.13.2/4"
+      fingerprint: "sha256:735afd5921cc7cb126b34418aabf01ecb5b470cc9e54603470a32c56d05dad02"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-026
+    type: requirement
+    modality: is
+    normative: true
+    title: "No limit on the number of hex digits"
+    statement: >
+      There is no limit to the number of hexadecimal digits in a hexadecimal
+      escape sequence.
+    subject: "hexadecimal-escape-sequence"
+    condition: "any hexadecimal escape sequence"
+    requirement: "the number of hex digits is unlimited"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-025]
+    related: []
+    provenance:
+      private_locator: "2.13.2/4"
+      fingerprint: "sha256:735afd5921cc7cb126b34418aabf01ecb5b470cc9e54603470a32c56d05dad02"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-027
+    type: requirement
+    modality: is
+    normative: true
+    title: "Termination of an octal/hex escape"
+    statement: >
+      A sequence of octal or hexadecimal digits is terminated by the first
+      character that is not an octal digit or a hexadecimal digit,
+      respectively.
+    subject: "octal or hexadecimal escape sequence"
+    condition: "after the digit sequence"
+    requirement: "the terminator is the first non-octal/non-hexadecimal character"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-024, CPP03-2.13.2-025]
+    related: []
+    provenance:
+      private_locator: "2.13.2/4"
+      fingerprint: "sha256:735afd5921cc7cb126b34418aabf01ecb5b470cc9e54603470a32c56d05dad02"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-028
+    type: behavior_implementation_defined
+    modality: implementation_defined
+    normative: true
+    title: "Value outside the char/wchar_t range"
+    statement: >
+      The value of a character literal is implementation-defined if it falls
+      outside the implementation-defined range of char for ordinary literals or
+      wchar_t for wide literals.
+    subject: "character literal value"
+    condition: "the value is outside the implementation-defined char/wchar_t range"
+    requirement: "value is implementation-defined"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-010, CPP03-2.13.2-016]
+    related: []
+    provenance:
+      private_locator: "2.13.2/4"
+      fingerprint: "sha256:735afd5921cc7cb126b34418aabf01ecb5b470cc9e54603470a32c56d05dad02"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-029
+    type: requirement
+    modality: is
+    normative: true
+    title: "Translation of a universal-character-name"
+    statement: >
+      A universal-character-name is translated to the encoding of the named
+      character in the execution character set.
+    subject: "universal-character-name"
+    condition: "an encoding of the character exists"
+    requirement: "the result is the character encoding in the execution character set"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-003]
+    related: [CPP03-2.13.2-030]
+    provenance:
+      private_locator: "2.13.2/5"
+      fingerprint: "sha256:b02a569c9c459767fa1fc7304aedbe7703d70c59306e900094ff5a1e2d1f89c7"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-030
+    type: behavior_implementation_defined
+    modality: implementation_defined
+    normative: true
+    title: "No encoding for a universal-character-name"
+    statement: >
+      If there is no encoding for a universal-character-name in the execution
+      character set, it is translated to an implementation-defined encoding.
+    subject: "universal-character-name"
+    condition: "no encoding of the character exists"
+    requirement: "implementation-defined encoding"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-029]
+    related: []
+    provenance:
+      private_locator: "2.13.2/5"
+      fingerprint: "sha256:b02a569c9c459767fa1fc7304aedbe7703d70c59306e900094ff5a1e2d1f89c7"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft
+
+  - id: CPP03-2.13.2-031
+    type: informative_note
+    modality: informative
+    normative: false
+    title: "Note on translation phase 1"
+    statement: >
+      In translation phase 1, a universal-character-name is introduced whenever
+      the corresponding extended character is encountered in the source text;
+      therefore all extended characters are described in terms of
+      universal-character-names.
+    subject: "universal-character-name"
+    condition: "translation phase 1"
+    requirement: "informative clarification"
+    exceptions: []
+    depends_on: [CPP03-2.13.2-029]
+    related: []
+    provenance:
+      private_locator: "2.13.2/5"
+      fingerprint: "sha256:b02a569c9c459767fa1fc7304aedbe7703d70c59306e900094ff5a1e2d1f89c7"
+      extracted_at: "2026-11-25"
+    verification: []
+    status: draft

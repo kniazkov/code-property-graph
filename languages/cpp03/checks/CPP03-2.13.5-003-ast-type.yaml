@@ -1,0 +1,20 @@
+schema_version: 1
+check_id: CPP03-2.13.5-003-ast-type
+statement_id: CPP03-2.13.5-003
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+    - source: "true"
+    - source: "false"
+expected:
+  ast:
+    kind: BooleanLiteral
+    type: bool
+negative_control:
+  mutate: "type: int"
+  expected: fail
+evidence:
+  - parser_version
+  - ast_dump
