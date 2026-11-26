@@ -59,6 +59,16 @@ class JsonExporterTest {
     }
 
     @Test
+    void toJsonStringGraphIsIndented() {
+        Graph graph = Graph.builder(TestNode.leaf(fragment("x"))).build();
+
+        String text = JsonExporter.toJsonString(graph);
+
+        assertTrue(text.contains("\n"));
+        assertTrue(text.contains("\"relations\""));
+    }
+
+    @Test
     void exportsRelations() {
         TestNode use = TestNode.leaf(fragment("a"));
         TestNode declaration = TestNode.leaf(fragment("b"));
