@@ -232,10 +232,10 @@ statements:
     modality: may
     normative: true
     title: "Base prefix"
-    statement: "An integer literal may have a prefix that specifies its base."
+    statement: "A base prefix is optional on an integer literal and selects the radix."
     subject: "integer literal"
     condition: "integer literal with a prefix"
-    requirement: "the prefix specifies the base"
+    requirement: "the prefix selects the radix"
     exceptions: []
     depends_on: []
     related: [CPP03-2.13.1-015, CPP03-2.13.1-016, CPP03-2.13.1-017]
@@ -290,8 +290,8 @@ statements:
     normative: true
     title: "Decimal integer literal"
     statement: >
-      A decimal integer literal (base ten) begins with a digit other than 0 and
-      consists of a sequence of decimal digits.
+      A base-ten literal starts with a non-zero digit; every following
+      character is a decimal digit.
     subject: "decimal integer literal"
     condition: "any decimal integer literal"
     requirement: "first digit is not 0; the rest are decimal digits"
@@ -311,8 +311,8 @@ statements:
     normative: true
     title: "Octal integer literal"
     statement: >
-      An octal integer literal (base eight) begins with the digit 0 and
-      consists of a sequence of octal digits.
+      A base-eight literal starts with 0; every following character is an
+      octal digit.
     subject: "octal integer literal"
     condition: "any octal integer literal"
     requirement: "first digit is 0; the rest are octal digits"
@@ -332,8 +332,8 @@ statements:
     normative: true
     title: "Hexadecimal integer literal"
     statement: >
-      A hexadecimal integer literal (base sixteen) begins with 0x or 0X and
-      consists of a sequence of hexadecimal digits.
+      A base-sixteen literal starts with 0x or 0X; every following character is
+      a hexadecimal digit.
     subject: "hexadecimal integer literal"
     condition: "any hexadecimal integer literal"
     requirement: "prefix 0x or 0X; the rest are hexadecimal digits"
@@ -393,7 +393,8 @@ statements:
     normative: true
     title: "Type depends on form"
     statement: >
-      The type of an integer literal depends on its form, value, and suffix.
+      Type resolution for an integer literal uses three inputs: its spelling
+      form, its numeric value, and its suffix.
     subject: "integer literal"
     condition: "determining the type of an integer literal"
     requirement: "form, value, and suffix are taken into account"
@@ -540,8 +541,8 @@ statements:
     normative: true
     title: "An unrepresentable integer literal makes the program ill-formed"
     statement: >
-      A program is ill-formed if one of its translation units contains an
-      integer literal that cannot be represented by any of the allowed types.
+      A translation unit must not contain an integer literal whose value
+      exceeds every permitted type; otherwise the program is ill-formed.
     subject: "translation unit"
     condition: "an integer literal cannot be represented by any allowed type"
     requirement: "the program is ill-formed"

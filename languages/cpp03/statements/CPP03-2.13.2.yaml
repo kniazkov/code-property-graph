@@ -178,8 +178,7 @@ statements:
     normative: true
     title: "Ordinary character literal"
     statement: >
-      A character literal that does not begin with L is an ordinary character
-      literal, also called a narrow-character literal.
+      A literal without the leading L is called ordinary, or narrow.
     subject: "character literal without L prefix"
     condition: "the literal does not begin with L"
     requirement: "ordinary (narrow) character literal"
@@ -242,8 +241,7 @@ statements:
     normative: true
     title: "Multicharacter literal"
     statement: >
-      An ordinary character literal that contains more than one c-char is a
-      multicharacter literal.
+      An ordinary literal with two or more c-chars is called multicharacter.
     subject: "ordinary character literal with multiple c-chars"
     condition: "ordinary literal; more than one c-char"
     requirement: "multicharacter literal"
@@ -345,7 +343,7 @@ statements:
       value of the encoding of that c-char in the execution wide-character set.
     subject: "wide-character literal with one c-char"
     condition: "wide literal; exactly one c-char"
-    requirement: "value = code of the c-char in the execution wide-character set"
+    requirement: "value = code point of the single c-char in the wide execution set"
     exceptions: []
     depends_on: [CPP03-2.13.2-015]
     related: []
@@ -383,9 +381,8 @@ statements:
     normative: true
     title: "Representing special characters with escape sequences"
     statement: >
-      Certain nongraphic characters, the single quote, the double quote, the
-      question mark, and the backslash can be represented according to the
-      escape-sequence table.
+      The escape-sequence table lists spellings for control characters, both
+      quote marks, the question mark, and the backslash.
     subject: "nongraphic characters and quote/backslash characters"
     condition: "the character is listed in the escape-sequence table"
     requirement: "representation according to tables/escape-sequences.yaml"
@@ -405,8 +402,7 @@ statements:
     normative: true
     title: "Representing the double quote and question mark"
     statement: >
-      The double quote and the question mark can be represented either as
-      themselves or by the escape sequences \" and \? respectively.
+      A double quote or question mark may appear literally, or as \" or \?.
     subject: "double quote and question mark"
     condition: "inside a character literal"
     requirement: "the character itself, or \\\" and \\? respectively"
@@ -426,8 +422,7 @@ statements:
     normative: true
     title: "Mandatory escaping of the single quote and backslash"
     statement: >
-      The single quote and the backslash shall be represented by the escape
-      sequences \' and \\ respectively.
+      Inside a literal, ' and \ must be written as \' and \\.
     subject: "single quote and backslash"
     condition: "inside a character literal"
     requirement: "only \\' and \\\\ respectively"
@@ -447,8 +442,7 @@ statements:
     normative: true
     title: "Unknown escape sequence"
     statement: >
-      If the character following a backslash is not one of the specified
-      characters, the behavior is undefined.
+      An unrecognized character after a backslash yields undefined behavior.
     subject: "escape sequence"
     condition: "the character after the backslash is not specified"
     requirement: "behavior is undefined"
@@ -487,8 +481,7 @@ statements:
     normative: true
     title: "Meaning of an octal escape"
     statement: >
-      The sequence \ooo consists of a backslash followed by one, two, or three
-      octal digits that specify the value of the desired character.
+      The \ooo form uses one to three octal digits to give the character code.
     subject: "octal-escape-sequence"
     condition: "any octal escape sequence"
     requirement: "one to three octal digits specify the character value"
@@ -550,9 +543,8 @@ statements:
     normative: true
     title: "Termination of an octal/hex escape"
     statement: >
-      A sequence of octal or hexadecimal digits is terminated by the first
-      character that is not an octal digit or a hexadecimal digit,
-      respectively.
+      Digit collection ends at the first character outside the octal or
+      hexadecimal set.
     subject: "octal or hexadecimal escape sequence"
     condition: "after the digit sequence"
     requirement: "the terminator is the first non-octal/non-hexadecimal character"
@@ -636,10 +628,8 @@ statements:
     normative: false
     title: "Note on translation phase 1"
     statement: >
-      In translation phase 1, a universal-character-name is introduced whenever
-      the corresponding extended character is encountered in the source text;
-      therefore all extended characters are described in terms of
-      universal-character-names.
+      Phase 1 turns each extended source character into a
+      universal-character-name, so later phases only see that spelling.
     subject: "universal-character-name"
     condition: "translation phase 1"
     requirement: "informative clarification"

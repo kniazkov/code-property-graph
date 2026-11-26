@@ -524,7 +524,7 @@ independent grammar and builds the expected structure.
 
 **Oracle.** The independent grammar and its derivation tree.
 
-**Example.** For the production `nonzero-digit: one of 1 2 3 4 5 6 7 8 9`, the
+**Example.** The `nonzero-digit` production accepts the digits 1 through 9. The
 generator creates the string `7`. The parser must build a `nonzero-digit` node
 with value `7`, not an `integer-literal` with a different parse.
 

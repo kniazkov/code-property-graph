@@ -62,25 +62,27 @@ def public_files(root: Path):
             yield path
 
 
-def prose_text(path: Path) -> str:
+def prose_chunks(path: Path) -> list[str]:
     text = path.read_text(encoding="utf-8", errors="ignore")
+    if path.suffix.lower() in {".md", ".markdown"}:
+        text = re.sub(r"```.*?```", " ", text, flags=re.DOTALL)
     if path.suffix.lower() not in {".yaml", ".yml"} or "statements" not in path.parts:
-        return text
+        return [text]
     document = yaml.safe_load(text)
     if not isinstance(document, dict):
-        return text
-    parts: list[str] = []
+        return [text]
+    chunks: list[str] = []
     for statement in document.get("statements", []):
         if statement.get("type") in {"grammar", "table_row"}:
             continue
         for field in ("title", "statement", "subject", "condition", "requirement"):
             value = statement.get(field)
             if isinstance(value, str):
-                parts.append(value)
+                chunks.append(value)
         for value in statement.get("exceptions", []):
             if isinstance(value, str):
-                parts.append(value)
-    return " ".join(parts)
+                chunks.append(value)
+    return chunks
 
 
 def main() -> int:
@@ -101,8 +103,9 @@ def main() -> int:
     root = Path(__file__).resolve().parent.parent
     matches: list[tuple[Path, int, str]] = []
     for path in public_files(root):
-        text = prose_text(path)
-        found = shingles(tokens(text)) & known
+        found: set[str] = set()
+        for chunk in prose_chunks(path):
+            found |= shingles(tokens(chunk)) & known
         if found:
             matches.append((path, len(found), sorted(found)[0]))
 

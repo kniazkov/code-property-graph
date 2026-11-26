@@ -26,4 +26,4 @@ jobs:
       - run: python tools/validate.py
       - run: python tools/coverage.py
       - run: python tools/verify.py
-      - run: python tools/license_check.py
+      - run: python tools/license_check.py --strict

@@ -89,8 +89,7 @@ python tools/license_check.py
 - `tools/validate.py`: passed; 62 statements, 4 checks, 4 tests.
 - `tools/coverage.py`: 4 of 60 normative statements covered, 56 uncovered.
 - `tools/verify.py`: 4 checks, 4 tests, 1 check without a test.
-- `tools/license_check.py`: report-only; 10-word matches remain in some prose
-  statements and in `docs/SPEC_FORMAT.md`. Strict mode is not enabled yet.
+- `tools/license_check.py --strict`: passed; no 10-word matches in public prose.
 
 ## Current baseline
 
@@ -101,8 +100,8 @@ python tools/license_check.py
   reports them without failing.
 - Strict coverage and strict check wiring are intentionally disabled in CI
   until the pilot checks are complete.
-- Strict license checking is intentionally disabled until the pilot prose is
-  rephrased.
+- Strict license checking is enabled in CI; the local check passes with the
+  private corpus available.
 
 ## Remaining work before Phase 1
 
