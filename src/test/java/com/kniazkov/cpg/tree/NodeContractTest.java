@@ -24,6 +24,12 @@ class NodeContractTest {
                 new Position(text.length(), 1, text.length() + 1));
     }
 
+    private static final class Expr extends TestNode implements Expression {
+        Expr(Fragment fragment) {
+            super(fragment, List.of(), List.of());
+        }
+    }
+
     private static final class NullTagsNode implements Node {
         private final Fragment fragment;
 
@@ -268,7 +274,7 @@ class NodeContractTest {
     @Test
     void taggedListIsReported() {
         TaggedList list = new TaggedList(
-                fragment("1"), List.of(new IntegerLiteral(fragment("1"), "1")));
+                fragment("1"), List.of(new Expr(fragment("1"))));
 
         List<String> violations = NodeContract.violations(list);
 

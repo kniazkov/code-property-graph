@@ -26,6 +26,11 @@ Each language root has a `language.yaml` manifest and its own `statements/`,
 `grammar/`, `tables/`, `checks/`, `tests/`, `oracles/`, and `provenance/`
 directories.
 
+## Parser
+
+`com.kniazkov.cpg.parser.cpp.LiteralParser` parses C++03 integer, character, and
+boolean literals. The statement-to-test map is in `docs/PARSER_COVERAGE.md`.
+
 ## Build
 
 ```text
