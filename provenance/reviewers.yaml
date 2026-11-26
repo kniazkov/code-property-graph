@@ -1,0 +1,16 @@
+schema_version: 1
+reviewers: []
+sign_off:
+  roles:
+    - technical
+    - legal
+    - consistency
+  required_for_status:
+    - reviewed
+    - verified
+  record: "private vault"
+  rules:
+    - "A statement cannot move to reviewed without technical and consistency sign-off."
+    - "A statement cannot move to verified without legal sign-off."
+    - "The reviewer identifier is stored in provenance.reviewer."
+    - "Reviewer identities and dates are recorded in the private map."

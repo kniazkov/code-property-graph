@@ -1,0 +1,147 @@
+schema_version: 1
+language: CPP03
+edition: N1638
+status: draft
+pilot_subclauses:
+  - "2.13.1"
+  - "2.13.2"
+  - "2.13.5"
+batches:
+  A: ["1", "2", "3"]
+  B: ["4", "5", "6"]
+  C: ["7", "8", "9", "10"]
+  D: ["11", "12", "13", "14", "15", "16"]
+  E: ["17", "18", "19", "20"]
+  F: ["21", "22", "23"]
+  G: ["24", "25", "26", "27"]
+  H: ["A", "B", "C", "D", "E"]
+clauses:
+  - number: "1"
+    title: "General"
+    batch: A
+    status: not_started
+  - number: "2"
+    title: "Lexical conventions"
+    batch: A
+    status: pilot
+  - number: "3"
+    title: "Basic concepts"
+    batch: A
+    status: not_started
+  - number: "4"
+    title: "Standard conversions"
+    batch: B
+    status: not_started
+  - number: "5"
+    title: "Expressions"
+    batch: B
+    status: not_started
+  - number: "6"
+    title: "Statements"
+    batch: B
+    status: not_started
+  - number: "7"
+    title: "Declarations"
+    batch: C
+    status: not_started
+  - number: "8"
+    title: "Declarators"
+    batch: C
+    status: not_started
+  - number: "9"
+    title: "Classes"
+    batch: C
+    status: not_started
+  - number: "10"
+    title: "Derived classes"
+    batch: C
+    status: not_started
+  - number: "11"
+    title: "Member access control"
+    batch: D
+    status: not_started
+  - number: "12"
+    title: "Special member functions"
+    batch: D
+    status: not_started
+  - number: "13"
+    title: "Overloading"
+    batch: D
+    status: not_started
+  - number: "14"
+    title: "Templates"
+    batch: D
+    status: not_started
+  - number: "15"
+    title: "Exception handling"
+    batch: D
+    status: not_started
+  - number: "16"
+    title: "Preprocessing directives"
+    batch: D
+    status: not_started
+  - number: "17"
+    title: "Library introduction"
+    batch: E
+    status: not_started
+  - number: "18"
+    title: "Language support library"
+    batch: E
+    status: not_started
+  - number: "19"
+    title: "Diagnostics library"
+    batch: E
+    status: not_started
+  - number: "20"
+    title: "General utilities library"
+    batch: E
+    status: not_started
+  - number: "21"
+    title: "Strings library"
+    batch: F
+    status: not_started
+  - number: "22"
+    title: "Localization library"
+    batch: F
+    status: not_started
+  - number: "23"
+    title: "Containers library"
+    batch: F
+    status: not_started
+  - number: "24"
+    title: "Iterators library"
+    batch: G
+    status: not_started
+  - number: "25"
+    title: "Algorithms library"
+    batch: G
+    status: not_started
+  - number: "26"
+    title: "Numerics library"
+    batch: G
+    status: not_started
+  - number: "27"
+    title: "Input/output library"
+    batch: G
+    status: not_started
+annexes:
+  - id: "A"
+    title: "Grammar summary"
+    batch: H
+    status: not_started
+  - id: "B"
+    title: "Implementation quantities"
+    batch: H
+    status: not_started
+  - id: "C"
+    title: "Compatibility"
+    batch: H
+    status: not_started
+  - id: "D"
+    title: "Compatibility features"
+    batch: H
+    status: not_started
+  - id: "E"
+    title: "Universal character names for identifiers"
+    batch: H
+    status: not_started

@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kniazkov/code-property-graph/schema/statement.schema.json",
+  "title": "Statement file",
+  "type": "object",
+  "required": ["schema_version", "edition", "clause", "title", "statements"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "edition": {
+      "type": "string",
+      "minLength": 1
+    },
+    "clause": {
+      "type": "string",
+      "minLength": 1
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "statements": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/statement"
+      }
+    }
+  },
+  "$defs": {
+    "statement": {
+      "type": "object",
+      "required": [
+        "id",
+        "type",
+        "modality",
+        "normative",
+        "title",
+        "statement",
+        "subject",
+        "condition",
+        "requirement",
+        "exceptions",
+        "depends_on",
+        "related",
+        "provenance",
+        "verification",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^CPP03-[A-Za-z0-9.]+-[0-9]{3}$"
+        },
+        "type": {
+          "enum": [
+            "requirement",
+            "definition",
+            "grammar",
+            "constraint",
+            "behavior_undefined",
+            "behavior_implementation_defined",
+            "behavior_unspecified",
+            "informative_note",
+            "informative_example",
+            "table_row",
+            "cross_reference"
+          ]
+        },
+        "modality": {
+          "enum": [
+            "shall",
+            "shall_not",
+            "may",
+            "is",
+            "is_not",
+            "implementation_defined",
+            "undefined",
+            "unspecified",
+            "informative"
+          ]
+        },
+        "normative": {
+          "type": "boolean"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "condition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requirement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exceptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^CPP03-[A-Za-z0-9.]+-[0-9]{3}$"
+          }
+        },
+        "related": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^CPP03-[A-Za-z0-9.]+-[0-9]{3}$"
+          }
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "verification": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "reviewed",
+            "verified",
+            "disputed",
+            "deprecated",
+            "waived"
+          ]
+        },
+        "deprecated": {
+          "type": "boolean"
+        },
+        "supersedes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^CPP03-[A-Za-z0-9.]+-[0-9]{3}$"
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["private_locator", "fingerprint", "extracted_at"],
+      "additionalProperties": false,
+      "properties": {
+        "private_locator": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fingerprint": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "extracted_at": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "reviewer": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

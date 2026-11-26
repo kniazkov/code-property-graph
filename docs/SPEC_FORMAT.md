@@ -82,17 +82,24 @@ root; everything language-specific lives under `languages/<lang>/`.
   LICENSE
   NOTICE
   CONTRIBUTING.md
+  .github/
+    workflows/
+      verify.yml
   docs/
     SPEC_FORMAT.md
     JSON_FORMAT.md
     cpp03/
       SPEC_REFORMAT_PLAN.md
       PARSER_COVERAGE.md
+      PHASE0_REPORT.md
   schema/
     statement.schema.json
     check.schema.json
     test.schema.json
   tools/
+    README.md
+    requirements.txt
+    spec_common.py
     validate.py
     verify.py
     coverage.py
@@ -100,9 +107,13 @@ root; everything language-specific lives under `languages/<lang>/`.
     license_check.py
   provenance/
     README.md
+    source-lock.yaml
+    reviewers.yaml
   languages/
     cpp03/
       language.yaml
+      inventory.yaml
+      pilot.lock.yaml
       statements/
         CPP03-2.13.yaml
         CPP03-5.1.yaml

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kniazkov/code-property-graph/schema/check.schema.json",
+  "title": "Check",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "check_id",
+    "statement_id",
+    "kind",
+    "oracle",
+    "trust",
+    "inputs",
+    "expected",
+    "negative_control",
+    "evidence"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "check_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "statement_id": {
+      "type": "string",
+      "pattern": "^CPP03-[A-Za-z0-9.]+-[0-9]{3}$"
+    },
+    "kind": {
+      "enum": [
+        "parser_ast",
+        "parser_diagnostic",
+        "compile_pass",
+        "compile_fail",
+        "runtime",
+        "table_driven",
+        "property",
+        "metamorphic",
+        "round_trip",
+        "differential",
+        "formal",
+        "manual"
+      ]
+    },
+    "oracle": {
+      "enum": [
+        "spec_rule",
+        "spec_table",
+        "independent_grammar",
+        "independent_evaluator",
+        "formal_model",
+        "metamorphic_relation",
+        "compiler",
+        "manual"
+      ]
+    },
+    "trust": {
+      "enum": ["high", "medium", "low"]
+    },
+    "inputs": {
+      "type": "object"
+    },
+    "expected": {
+      "type": "object"
+    },
+    "negative_control": {
+      "type": "object",
+      "required": ["mutate", "expected"]
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "optional": {
+      "type": "boolean"
+    },
+    "status": {
+      "enum": ["draft", "active", "pending", "waived", "retired"]
+    }
+  }
+}

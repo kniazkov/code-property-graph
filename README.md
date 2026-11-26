@@ -41,6 +41,18 @@ mvn verify
 
 The build runs unit tests, Checkstyle, and the JaCoCo coverage gate.
 
+## Specification tooling
+
+```text
+python -m pip install -r tools/requirements.txt
+python tools/validate.py
+python tools/coverage.py
+python tools/verify.py
+```
+
+See `tools/README.md` for the full command list and `provenance/README.md` for
+the provenance policy.
+
 ## Documentation
 
 Shared:

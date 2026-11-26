@@ -1,0 +1,19 @@
+schema_version: 1
+edition: N1638
+document: "ISO/IEC 14882:2003 working draft N1638"
+frozen_at: "2026-11-26"
+storage: private
+files:
+  - role: primary_text
+    name: "wg21-n1638-2004-04-11.txt"
+    sha256: "a5108d7a7df5965b8441d6ac9046189f7172b81509fffcf8bd7e08f84ff8401a"
+    bytes: 2473716
+    lines: 35663
+  - role: tables_and_index
+    name: "wg21-n1638-2004-04-11.html"
+    sha256: "76f1e237f501653119e09d3c2bf03a3c87c6d20ca916fe2e8147c6b28d783fe5"
+    bytes: 11590942
+  - role: confirmation
+    name: "wg21-n1638-2004-04-11-486a405fb9a145879a772a8a1c22c4cc.pdf"
+    sha256: "648c5ba99445f6df1a621ba4daec7e684d9c54f01df753610e01a329bac15096"
+    bytes: 2009827

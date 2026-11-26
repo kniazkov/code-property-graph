@@ -157,11 +157,11 @@ statements:
     normative: true
     title: "Form of a character literal"
     statement: >
-      A character literal is one or more characters enclosed in single quotes,
-      optionally preceded by the letter L.
+      The spelling of a character literal consists of one or more characters
+      between single quote marks, with an optional leading L.
     subject: "character literal"
     condition: "any character literal"
-    requirement: "one or more characters in single quotes; optional L prefix"
+    requirement: "one or more characters between single quote marks; optional L prefix"
     exceptions: []
     depends_on: [CPP03-2.13.2-001]
     related: []
@@ -572,12 +572,12 @@ statements:
     normative: true
     title: "Value outside the char/wchar_t range"
     statement: >
-      The value of a character literal is implementation-defined if it falls
-      outside the implementation-defined range of char for ordinary literals or
-      wchar_t for wide literals.
+      When an ordinary literal's value exceeds the implementation-defined char
+      range, the result is implementation-defined. For a wide literal the same
+      rule applies to the wchar_t range.
     subject: "character literal value"
-    condition: "the value is outside the implementation-defined char/wchar_t range"
-    requirement: "value is implementation-defined"
+    condition: "the value exceeds the implementation-defined range of the target character type"
+    requirement: "the result is implementation-defined"
     exceptions: []
     depends_on: [CPP03-2.13.2-010, CPP03-2.13.2-016]
     related: []

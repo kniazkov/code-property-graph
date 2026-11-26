@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kniazkov/code-property-graph/schema/test.schema.json",
+  "title": "Test manifest",
+  "type": "object",
+  "required": ["schema_version", "test_id", "statement_id", "cases"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "test_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "statement_id": {
+      "type": "string",
+      "pattern": "^CPP03-[A-Za-z0-9.]+-[0-9]{3}$"
+    },
+    "charset": {
+      "type": "string",
+      "minLength": 1
+    },
+    "model": {
+      "type": "object"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "source", "expected"],
+        "additionalProperties": true,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source": {
+            "type": "string"
+          },
+          "expected": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}
