@@ -66,4 +66,5 @@ C++03:
   C++03 specification.
 - `docs/cpp03/PHASE1_REPORT.md` — clause inventory, partitioning, and coverage
   baseline.
+- `docs/cpp03/PHASE2_REPORT.md` — batch A statement extraction report.
 - `docs/cpp03/PARSER_COVERAGE.md` — statement-to-test map for the literal parser.

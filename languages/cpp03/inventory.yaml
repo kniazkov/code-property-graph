@@ -32,7 +32,7 @@ clauses:
     title: "General"
     batch: A
     owner: "ivan.kniazkov"
-    status: not_started
+    status: extracted
   - number: "2"
     title: "Lexical conventions"
     batch: A
@@ -42,7 +42,7 @@ clauses:
     title: "Basic concepts"
     batch: A
     owner: "ivan.kniazkov"
-    status: not_started
+    status: extracted
   - number: "4"
     title: "Standard conversions"
     batch: B

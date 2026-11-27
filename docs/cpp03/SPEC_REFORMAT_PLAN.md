@@ -94,19 +94,22 @@ Outputs per clause:
 
 For each subclause:
 
-- [ ] Extract definitions.
-- [ ] Extract grammar productions, one production per statement.
-- [ ] Extract requirements with `shall`, `shall not`, and `may`.
-- [ ] Extract constraints and diagnosable rules.
-- [ ] Extract undefined, implementation-defined, and unspecified behavior.
+- [x] Extract definitions.
+- [x] Extract grammar productions, one production per statement.
+- [x] Extract requirements with `shall`, `shall not`, and `may`.
+- [x] Extract constraints and diagnosable rules.
+- [x] Extract undefined, implementation-defined, and unspecified behavior.
 - [ ] Extract table rows as `table_row` statements or table files.
 - [ ] Extract examples as `informative_example`.
 - [ ] Extract notes as `informative_note`.
 - [ ] Extract cross-references into `depends_on` and `related`.
-- [ ] Atomize compound sentences.
-- [ ] Assign IDs.
-- [ ] Add provenance.
-- [ ] Set `status: draft`.
+- [x] Atomize compound sentences.
+- [x] Assign IDs.
+- [x] Add provenance.
+- [x] Set `status: draft`.
+
+Batch A (clauses 1-3) is extracted: 308 new statements. Table rows,
+examples, notes, and cross-reference links remain for a follow-up pass.
 
 ### Phase 3 — Provenance
 

@@ -1,0 +1,1305 @@
+schema_version: 1
+edition: N1638
+clause: '2'
+title: Lexical conventions
+statements:
+- id: CPP03-2-001
+  type: definition
+  modality: is
+  normative: true
+  title: source file and translation unit
+  statement: Program text is kept in source files. A source file together with the headers
+    and included source files, after skipping excluded conditional lines, forms a translation
+    unit.
+  subject: translation unit
+  condition: always
+  requirement: is a source file plus its included headers and sources
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2/1
+    fingerprint: sha256:f742644e29dd6d2d1d201b2056815b405dd59650cec96ea406519dd61280dd1f
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2-002
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Separate translation
+  statement: Translation units may be translated separately and later linked; they communicate
+    through external-linkage functions and objects or through data files.
+  subject: translation units
+  condition: when translated separately
+  requirement: communicate through external linkage or files
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2/2
+    fingerprint: sha256:e3555e0bde1eba46b2ad5102d39961f789daa4e1c0cc1c0f3f473916f790c083
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-001
+  type: requirement
+  modality: is
+  normative: true
+  title: Translation phase order
+  statement: The precedence among translation syntax rules is given by nine ordered translation
+    phases.
+  subject: translation
+  condition: always
+  requirement: follows the nine ordered phases
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-002
+  type: requirement
+  modality: is
+  normative: true
+  title: 'Phase 1: character mapping'
+  statement: In phase 1, physical source characters are mapped in an implementation-defined
+    way to the basic source character set, trigraphs are replaced, and characters outside
+    that set become universal-character-names; any internal encoding is allowed if it treats
+    an extended character and its universal-character-name equivalently.
+  subject: source characters
+  condition: phase 1
+  requirement: are mapped to the basic source character set
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-003
+  type: requirement
+  modality: is
+  normative: true
+  title: 'Phase 2: line splicing'
+  statement: In phase 2, each new-line preceded by a backslash is deleted, splicing physical
+    lines into logical lines.
+  subject: source lines
+  condition: phase 2
+  requirement: are spliced by removing backslash-new-line
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-004
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Line splicing hazards
+  statement: The behavior is undefined if line splicing produces a universal-character-name,
+    or if a non-empty source file lacks a final new-line or ends in a backslash-new-line.
+  subject: source file
+  condition: line splicing produces a UCN or the file ends abnormally
+  requirement: has undefined behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-005
+  type: requirement
+  modality: shall
+  normative: true
+  title: 'Phase 3: tokenization'
+  statement: In phase 3, the file becomes preprocessing tokens and white-space runs; it must
+    not stop inside a token or comment, and a comment becomes a single space.
+  subject: source file
+  condition: phase 3
+  requirement: shall not end in a partial token or comment
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-006
+  type: behavior_implementation_defined
+  modality: implementation_defined
+  normative: true
+  title: 'Phase 3: white space retention'
+  statement: Whether a non-new-line white-space run is kept or collapsed to one space is implementation-defined.
+  subject: white space
+  condition: phase 3
+  requirement: is implementation-defined
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-007
+  type: requirement
+  modality: is
+  normative: true
+  title: 'Phase 4: directives and macros'
+  statement: Phase 4 runs preprocessing directives and expands macro calls; an included file
+    is reprocessed from phase 1 to phase 4.
+  subject: preprocessing
+  condition: phase 4
+  requirement: executes directives and expands macros
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-008
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: 'Phase 4: token concatenation hazard'
+  statement: The behavior is undefined if token concatenation produces a universal-character-name.
+  subject: token concatenation
+  condition: phase 4
+  requirement: has undefined behavior when it forms a UCN
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-009
+  type: requirement
+  modality: is
+  normative: true
+  title: 'Phase 5: execution character set'
+  statement: In phase 5, each source character, escape sequence, or universal-character-name
+    in character and string literals is converted to the execution character set.
+  subject: literal characters
+  condition: phase 5
+  requirement: are converted to the execution character set
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-010
+  type: requirement
+  modality: is
+  normative: true
+  title: 'Phase 6: string concatenation'
+  statement: Phase 6 joins neighboring ordinary string literals and, separately, neighboring
+    wide string literals.
+  subject: string literals
+  condition: phase 6
+  requirement: are concatenated when adjacent and of the same kind
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-011
+  type: requirement
+  modality: is
+  normative: true
+  title: 'Phase 7: token conversion and analysis'
+  statement: In phase 7, separating white space is no longer significant, each preprocessing
+    token becomes a token, and the tokens are analyzed and translated.
+  subject: preprocessing tokens
+  condition: phase 7
+  requirement: become tokens and are analyzed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-012
+  type: requirement
+  modality: is
+  normative: true
+  title: 'Phase 8: instantiation'
+  statement: In phase 8, translated translation units are examined for required instantiations,
+    the needed template definitions are located, and the instantiations are performed; whether
+    the definition source must be available is implementation-defined.
+  subject: translation units
+  condition: phase 8
+  requirement: produce required instantiations
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-013
+  type: constraint
+  modality: is
+  normative: true
+  title: Instantiation failure
+  statement: The program is ill-formed if any required instantiation fails.
+  subject: program
+  condition: instantiation fails
+  requirement: is ill-formed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-014
+  type: requirement
+  modality: is
+  normative: true
+  title: 'Phase 9: linking'
+  statement: In phase 9, external object and function references are resolved, library components
+    satisfy external references, and translator output is collected into a program image.
+  subject: translation
+  condition: phase 9
+  requirement: resolves external references and builds the program image
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-015
+  type: requirement
+  modality: shall
+  normative: true
+  title: Phases are conceptual
+  statement: Implementations must behave as if the separate translation phases occur, even
+    if they are folded together in practice.
+  subject: implementation
+  condition: always
+  requirement: shall behave as if the phases are separate
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.1/1
+    fingerprint: sha256:3c3b364ce64e0e0d920197245af46123c0facec7b9dbc256790d1e72d72c7d62
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.2-001
+  type: definition
+  modality: is
+  normative: true
+  title: Basic source character set
+  statement: 'The basic source character set has 96 characters: space, four control characters,
+    and 91 graphical characters.'
+  subject: basic source character set
+  condition: always
+  requirement: contains 96 characters
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.2/1
+    fingerprint: sha256:562249f8795b504a6a18dc89cbd811287a5b9d035ae4e596f29318dae4f6ab1d
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.2-002
+  type: grammar
+  modality: is
+  normative: true
+  title: universal-character-name production
+  statement: A universal-character-name is either \u followed by one hex-quad or \U followed
+    by two hex-quads; a hex-quad is four hexadecimal digits.
+  subject: universal-character-name
+  condition: always
+  requirement: has the \u or \U form
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.2/grammar
+    fingerprint: sha256:3128d9727b2ce2d2894fce0d2c42c811de297157d3f13712a0711c2b0ca2dee0
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.2-003
+  type: definition
+  modality: is
+  normative: true
+  title: Universal character naming
+  statement: \UNNNNNNNN names the ISO/IEC 10646 character with short name NNNNNNNN, and \uNNNN
+    names the character with short name 0000NNNN.
+  subject: universal-character-name
+  condition: always
+  requirement: names the corresponding ISO/IEC 10646 character
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.2/2
+    fingerprint: sha256:11851112f478bfc499f8218dead279468319d99dadd952bc916b5249059e07ee
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.2-004
+  type: constraint
+  modality: is
+  normative: true
+  title: Invalid universal character names
+  statement: A program is ill-formed if a universal-character-name has a value below 0x20,
+    in 0x7F through 0x9F, or names a character of the basic source character set.
+  subject: program
+  condition: universal-character-name is in a forbidden range
+  requirement: is ill-formed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.2/2
+    fingerprint: sha256:11851112f478bfc499f8218dead279468319d99dadd952bc916b5249059e07ee
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.2-005
+  type: requirement
+  modality: shall
+  normative: true
+  title: Basic execution character sets
+  statement: The basic execution character set and basic execution wide-character set shall
+    each contain the basic source characters, alert, backspace, carriage return, and a null
+    character with all-zero representation.
+  subject: basic execution character sets
+  condition: always
+  requirement: shall contain the listed characters
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.2/3
+    fingerprint: sha256:f52872f849533727ae604e92f4083492bb92c203a7881a4f4fd73ec28c3331bb
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.2-006
+  type: requirement
+  modality: shall
+  normative: true
+  title: Character values
+  statement: Members of a basic execution character set shall have non-negative, mutually
+    distinct values, and decimal digit values shall increase by one from 0 onward.
+  subject: basic execution character values
+  condition: always
+  requirement: shall be non-negative, distinct, and consecutive for digits
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.2/3
+    fingerprint: sha256:f52872f849533727ae604e92f4083492bb92c203a7881a4f4fd73ec28c3331bb
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.2-007
+  type: behavior_implementation_defined
+  modality: implementation_defined
+  normative: true
+  title: Execution character set values
+  statement: The execution character set and execution wide-character set are supersets of
+    the basic sets; their member values are implementation-defined and additional members
+    are locale-specific.
+  subject: execution character sets
+  condition: always
+  requirement: have implementation-defined values and locale-specific additions
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.2/3
+    fingerprint: sha256:f52872f849533727ae604e92f4083492bb92c203a7881a4f4fd73ec28c3331bb
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.3-001
+  type: requirement
+  modality: is
+  normative: true
+  title: Trigraph replacement
+  statement: Before any other processing, each listed trigraph sequence is replaced by the
+    single character shown in Table 1.
+  subject: trigraph sequence
+  condition: before other processing
+  requirement: is replaced by its single-character equivalent
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.3/1
+    fingerprint: sha256:ff56d4ab8fbb551c5e767e1058621605c4727470f3c4e138b972c9ee9ca18b42
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.3-002
+  type: requirement
+  modality: is
+  normative: true
+  title: No other trigraphs
+  statement: No trigraph other than those listed exists; a question mark that does not begin
+    a listed trigraph is unchanged.
+  subject: question mark
+  condition: not beginning a listed trigraph
+  requirement: is unchanged
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.3/3
+    fingerprint: sha256:db819c9ea53f81b55f9ee9a2ad6bf5abbd1b4f439db8360111a999066c5d5a9d
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.3-003
+  type: informative_example
+  modality: informative
+  normative: false
+  title: Trigraph example
+  statement: The trigraph example shows a macro definition being transformed into its expanded
+    punctuation form.
+  subject: trigraph example
+  condition: always
+  requirement: illustrates trigraph replacement
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.3/2
+    fingerprint: sha256:f7cbc5c2b69a67bd0acad67df28e794681e6ac4740d9e8caac7a8b852f209d13
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.4-001
+  type: grammar
+  modality: is
+  normative: true
+  title: preprocessing-token production
+  statement: A preprocessing-token is a header-name, identifier, pp-number, character-literal,
+    string-literal, preprocessing-op-or-punc, or a single non-white-space character that cannot
+    be one of those.
+  subject: preprocessing-token
+  condition: always
+  requirement: is one of the listed categories
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.4/grammar
+    fingerprint: sha256:ec2d8a9fe506038df1b8f3327239fd6d2b99ac9e5d33ec4525ebd5c79e68129e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.4-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Converted token form
+  statement: Each preprocessing token that is converted to a token shall have the lexical
+    form of a keyword, identifier, literal, operator, or punctuator.
+  subject: converted preprocessing token
+  condition: at conversion
+  requirement: shall have a token lexical form
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.4/1
+    fingerprint: sha256:78f14eae9cd6b68133b5a6a39fce31963121cfafafa5d44c873dfc43f28af04d
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.4-003
+  type: definition
+  modality: is
+  normative: true
+  title: Preprocessing token categories
+  statement: A preprocessing token is the smallest lexical unit in phases 3-6; categories
+    include header names, identifiers, preprocessing numbers, character and string literals,
+    preprocessing-op-or-punc, and lone non-white-space characters outside those categories.
+  subject: preprocessing token
+  condition: phases 3 through 6
+  requirement: is the minimal lexical element
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.4/2
+    fingerprint: sha256:873a0f03af2be3ec3dc248565fd9b5ed73856177f4d86dcdf2726f2266bd9f42
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.4-004
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Quote as a single-character token
+  statement: The behavior is undefined if a single-quote or double-quote character matches
+    the single-character preprocessing-token category.
+  subject: single-character preprocessing token
+  condition: the character is ' or "
+  requirement: has undefined behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.4/2
+    fingerprint: sha256:873a0f03af2be3ec3dc248565fd9b5ed73856177f4d86dcdf2726f2266bd9f42
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.4-005
+  type: definition
+  modality: is
+  normative: true
+  title: White space in preprocessing
+  statement: Preprocessing tokens may be separated by white space, which consists of comments,
+    white-space characters, or both; white space can occur inside a token only in a header
+    name or between the quotes of a character or string literal.
+  subject: white space
+  condition: between preprocessing tokens
+  requirement: separates tokens
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.4/2
+    fingerprint: sha256:873a0f03af2be3ec3dc248565fd9b5ed73856177f4d86dcdf2726f2266bd9f42
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.4-006
+  type: requirement
+  modality: is
+  normative: true
+  title: Maximal munch
+  statement: The next preprocessing token is the longest character sequence that can form
+    one, even if later lexical analysis then fails.
+  subject: preprocessing token
+  condition: when tokenizing
+  requirement: is the longest possible sequence
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.4/3
+    fingerprint: sha256:0cda873cc6b353b361a761334e712a47e5b67b5ff53548efee07e329a2f8ff72
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.4-007
+  type: informative_example
+  modality: informative
+  normative: false
+  title: Preprocessing number example
+  statement: The fragment 1Ex is one preprocessing number, even though splitting it into 1
+    and Ex could yield a valid expression.
+  subject: 1Ex
+  condition: always
+  requirement: is a single preprocessing number
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.4/4
+    fingerprint: sha256:8727a1f9addbe9e22e68203c70f01e598cdb760a0491d0177637c17bf936921e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.4-008
+  type: informative_example
+  modality: informative
+  normative: false
+  title: Increment example
+  statement: The fragment x+++++y is parsed as x ++ ++ + y, not as x ++ + ++ y.
+  subject: x+++++y
+  condition: always
+  requirement: is tokenized by maximal munch
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.4/5
+    fingerprint: sha256:e0392dd130918faab463c00d15a427d2c79ea3c6f2c23889aa3e7724748bda81
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.5-001
+  type: definition
+  modality: is
+  normative: true
+  title: Alternative tokens
+  statement: Alternative token representations exist for some operators and punctuators.
+  subject: alternative token
+  condition: always
+  requirement: is an alternative spelling of a primary token
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.5/1
+    fingerprint: sha256:38495acc4ee1356d550a6e153c8d3ff9557e197ac04d05e1e4da62438367367b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.5-002
+  type: requirement
+  modality: is
+  normative: true
+  title: Alternative token equivalence
+  statement: Each alternative token behaves exactly like its primary token except for spelling;
+    Table 2 defines the set.
+  subject: alternative token
+  condition: in all language respects
+  requirement: behaves like its primary token except in spelling
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.5/2
+    fingerprint: sha256:a10a2b8e80a7e96bf0ab3951f44f188bb0d163208976386217543bb0207b81ce
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.6-001
+  type: grammar
+  modality: is
+  normative: true
+  title: token production
+  statement: A token is an identifier, keyword, literal, operator, or punctuator.
+  subject: token
+  condition: always
+  requirement: is one of the five token kinds
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.6/grammar
+    fingerprint: sha256:347a85f6f016f14ea7085899beb555fc127ec78ebb14d1630de20aab8707e84d
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.6-002
+  type: definition
+  modality: is
+  normative: true
+  title: Token kinds and white space
+  statement: There are five token kinds; white space is ignored except where it separates
+    tokens, and some white space is required between adjacent identifiers, keywords, numeric
+    literals, and alphabetic alternative tokens.
+  subject: token
+  condition: always
+  requirement: is one of five kinds separated by optional white space
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.6/1
+    fingerprint: sha256:dd6499157806ed8e28e844cc4fcb62fe6000a619b7810bd8be39f3319bf9602c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.7-001
+  type: definition
+  modality: is
+  normative: true
+  title: Comment forms
+  statement: /* starts a comment ending at */, and // starts a comment ending at the next
+    new-line; such comments do not nest.
+  subject: comment
+  condition: always
+  requirement: uses the /* */ or // form
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.7/1
+    fingerprint: sha256:03c4f202650257b41808e4e183e2e987a739289d2c322c1a58ae99fc4bf1e839
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.7-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Form-feed in a line comment
+  statement: Inside a // comment, if a form-feed or vertical-tab occurs, only white space
+    may follow it up to the new-line; no diagnostic is needed.
+  subject: line comment
+  condition: contains form-feed or vertical-tab
+  requirement: shall have only white space before the new-line
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.7/1
+    fingerprint: sha256:03c4f202650257b41808e4e183e2e987a739289d2c322c1a58ae99fc4bf1e839
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.7-003
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Comment characters inside comments
+  statement: The characters //, /*, and */ have no special meaning inside a comment of the
+    same or another form.
+  subject: comment characters
+  condition: inside a comment
+  requirement: are ordinary characters
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.7/1
+    fingerprint: sha256:03c4f202650257b41808e4e183e2e987a739289d2c322c1a58ae99fc4bf1e839
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.8-001
+  type: grammar
+  modality: is
+  normative: true
+  title: header-name production
+  statement: A header-name is either <h-char-sequence> or "q-char-sequence"; h-char and q-char
+    exclude new-line and their closing delimiter.
+  subject: header-name
+  condition: always
+  requirement: has the angle or quoted form
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.8/grammar
+    fingerprint: sha256:dd07496e497ea808e147806726b3388a35f41bf6dc346c3663525d7198e8f142
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.8-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Header-name placement
+  statement: 'Header-name preprocessing tokens shall appear only within a #include directive;
+    both forms map in an implementation-defined way to headers or external source files.'
+  subject: header-name token
+  condition: always
+  requirement: 'shall appear only in #include'
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.8/1
+    fingerprint: sha256:d58326cb8c10d428d2568aa54e7d5941edac7de66ec656c250071f1fb08a7f49
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.8-003
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Forbidden header-name characters
+  statement: The behavior is undefined if ', \, /*, or // appears in a q-char-sequence or
+    h-char-sequence, or if " appears in an h-char-sequence.
+  subject: header-name
+  condition: contains a forbidden character or sequence
+  requirement: has undefined behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.8/2
+    fingerprint: sha256:05376ed18865d4b5a00b0004fcc7c5d53a05c707c0573008ff27d73e6ba97716
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.9-001
+  type: grammar
+  modality: is
+  normative: true
+  title: pp-number production
+  statement: A pp-number is a digit, a dot followed by a digit, or a pp-number followed by
+    a digit, nondigit, e or E with sign, or dot.
+  subject: pp-number
+  condition: always
+  requirement: has the listed lexical forms
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.9/grammar
+    fingerprint: sha256:32293e334c3f12ca89c0dee4b1ea384618bc9d53638ae225d5af7abe6b78f727
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.9-002
+  type: definition
+  modality: is
+  normative: true
+  title: Preprocessing number coverage
+  statement: Preprocessing number tokens include all integral and floating literal tokens.
+  subject: preprocessing number
+  condition: always
+  requirement: includes integral and floating literal tokens
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.9/1
+    fingerprint: sha256:336356900a3e62f6c4e40a86c23ce992947b156f3dcb4f8410012059a253b8b0
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.9-003
+  type: definition
+  modality: is
+  normative: true
+  title: Preprocessing number type
+  statement: A preprocessing number has no type or value until it is successfully converted
+    to an integral or floating literal token in phase 7.
+  subject: preprocessing number
+  condition: before conversion
+  requirement: has no type or value
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.9/2
+    fingerprint: sha256:3b0beb936e35e7a29222028c5aa6a2d8389aca0e0deda237008e156d914b9e53
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.10-001
+  type: grammar
+  modality: is
+  normative: true
+  title: identifier production
+  statement: An identifier is a nondigit or an identifier followed by a nondigit or digit;
+    a nondigit is a universal-character-name, underscore, or letter.
+  subject: identifier
+  condition: always
+  requirement: has the listed lexical form
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.10/grammar
+    fingerprint: sha256:a799acb3d9bc67bfd4b46e847d9540343880f2df43321091675e3a20c9a42de1
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.10-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Identifier characters
+  statement: An identifier is an arbitrarily long letter-and-digit sequence; each universal-character-name
+    in it shall name a character in an Annex E range; case is significant and all characters
+    count.
+  subject: identifier
+  condition: always
+  requirement: shall use permitted characters and be case-sensitive
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.10/1
+    fingerprint: sha256:aea2cd523ecb16d23ce711735a2d1a31dc99f76a9e9deae908cd14ddc92aa055
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.10-003
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: Reserved identifiers
+  statement: Certain identifiers are reserved for implementations and standard libraries;
+    programs must not use them, and no diagnostic is required.
+  subject: reserved identifier
+  condition: always
+  requirement: shall not be used by programs
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.10/2
+    fingerprint: sha256:35958c45985b55419987aebfbf9836e000ffa428269821491bca69d3c6392154
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.11-001
+  type: requirement
+  modality: is
+  normative: true
+  title: Keywords
+  statement: The identifiers in Table 3 are reserved as keywords and are unconditionally treated
+    as keywords in phase 7.
+  subject: keyword
+  condition: always
+  requirement: is reserved and recognized in phase 7
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.11/1
+    fingerprint: sha256:be6bb5d66a8c774fe1ec93ecf55d7df987bf6bbafe45e1c76d633ed7fc407854
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.11-002
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: Alternative representation keywords
+  statement: The alternative representations in Table 4 are reserved and shall not be used
+    otherwise.
+  subject: alternative representation
+  condition: always
+  requirement: shall not be used as identifiers
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.11/2
+    fingerprint: sha256:3d82e5b0a06b6f6cde5c7c8d22292938683155fa38c94d7a6339147d45c0d3fd
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.12-001
+  type: definition
+  modality: is
+  normative: true
+  title: Operator and punctuator tokens
+  statement: The lexical representation includes preprocessing-op-or-punc tokens used by the
+    preprocessor or converted into operator and punctuator tokens; each becomes a single token
+    in phase 7.
+  subject: operator and punctuator
+  condition: always
+  requirement: is formed from a preprocessing-op-or-punc token
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.12/1
+    fingerprint: sha256:82aa706a733849f7124b7b18c6b8dfb4607daa3507c5e0fce4ca500762c64465
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13-001
+  type: grammar
+  modality: is
+  normative: true
+  title: literal production
+  statement: A literal is an integer-literal, character-literal, floating-literal, string-literal,
+    or boolean-literal.
+  subject: literal
+  condition: always
+  requirement: is one of the five literal kinds
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13/grammar
+    fingerprint: sha256:4e5146903bb72044e57eec9696932037d16b936729b8f53315e963e3f1205136
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.3-001
+  type: grammar
+  modality: is
+  normative: true
+  title: floating-literal production
+  statement: A floating-literal is a fractional-constant with optional exponent and suffix,
+    or a digit-sequence with exponent and optional suffix; the exponent is e or E with optional
+    sign and digits.
+  subject: floating-literal
+  condition: always
+  requirement: has the listed lexical forms
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.3/grammar
+    fingerprint: sha256:a3559d26c5e0cd46f5e1d8595374862f07608c0c865c67da638e26175de933de
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.3-002
+  type: definition
+  modality: is
+  normative: true
+  title: Floating literal composition
+  statement: A floating literal has an integer part, decimal point, fraction part, optional
+    exponent, and optional type suffix; either the integer or fraction part may be omitted,
+    and either the point or the exponent may be omitted.
+  subject: floating literal
+  condition: always
+  requirement: is composed of the listed parts
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.3/1
+    fingerprint: sha256:0d0ade685ad721b566043527c18aedd783f25fb2fca8ffbefd433a82b1318db9
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.3-003
+  type: requirement
+  modality: is
+  normative: true
+  title: Floating literal type
+  statement: 'A floating literal has type double unless a suffix selects another type: f or
+    F selects float, and l or L selects long double.'
+  subject: floating literal
+  condition: always
+  requirement: has type double unless suffixed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.3/1
+    fingerprint: sha256:0d0ade685ad721b566043527c18aedd783f25fb2fca8ffbefd433a82b1318db9
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.3-004
+  type: behavior_implementation_defined
+  modality: implementation_defined
+  normative: true
+  title: Floating literal rounding
+  statement: If the scaled value is representable in the literal's type, it is the result;
+    otherwise the nearest larger or smaller representable value is chosen in an implementation-defined
+    manner.
+  subject: floating literal value
+  condition: scaled value is not exactly representable
+  requirement: is rounded in an implementation-defined manner
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.3/1
+    fingerprint: sha256:0d0ade685ad721b566043527c18aedd783f25fb2fca8ffbefd433a82b1318db9
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.3-005
+  type: constraint
+  modality: is
+  normative: true
+  title: Out-of-range floating literal
+  statement: The program is ill-formed if the scaled value is outside the representable range
+    of the literal's type.
+  subject: program
+  condition: floating literal is out of range
+  requirement: is ill-formed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.3/1
+    fingerprint: sha256:0d0ade685ad721b566043527c18aedd783f25fb2fca8ffbefd433a82b1318db9
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.4-001
+  type: grammar
+  modality: is
+  normative: true
+  title: string-literal production
+  statement: A string-literal is a possibly empty s-char-sequence in double quotes, optionally
+    prefixed by L; an s-char is a permitted source character, escape sequence, or universal-character-name.
+  subject: string-literal
+  condition: always
+  requirement: has the narrow or wide quoted form
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.4/grammar
+    fingerprint: sha256:ce3692a85d080efb035688a37a36672dd595120ab23adf7f59f6ec9721c4d9f6
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.4-002
+  type: definition
+  modality: is
+  normative: true
+  title: String literal types
+  statement: An ordinary string literal is an array of n const char with static storage duration;
+    a wide one is an array of n const wchar_t with static storage duration; both are initialized
+    from their characters.
+  subject: string literal
+  condition: always
+  requirement: has array type and static storage duration
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.4/1
+    fingerprint: sha256:30b6298172622336636e6bb8d0fe7cc94fc4bb4b5ea7b997332c8e11c6954bb2
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.4-003
+  type: behavior_implementation_defined
+  modality: implementation_defined
+  normative: true
+  title: String literal distinctness
+  statement: Whether all string literals are distinct objects is implementation-defined.
+  subject: string literals
+  condition: always
+  requirement: may or may not be distinct objects
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.4/2
+    fingerprint: sha256:6d2291e78390922fefa49e54c55d3f89e2de0710c819f7795e96498a18abedd8
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.4-004
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Modifying a string literal
+  statement: Attempting to modify a string literal has undefined behavior.
+  subject: string literal
+  condition: when modified
+  requirement: has undefined behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.4/2
+    fingerprint: sha256:6d2291e78390922fefa49e54c55d3f89e2de0710c819f7795e96498a18abedd8
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.4-005
+  type: requirement
+  modality: is
+  normative: true
+  title: String literal concatenation
+  statement: Phase 6 joins neighboring narrow literals and, separately, neighboring wide literals;
+    mixing narrow and wide neighbors is undefined.
+  subject: string literals
+  condition: phase 6
+  requirement: are concatenated only with the same kind
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.4/3
+    fingerprint: sha256:199a76fabf5b475a16e644bdc618845f9d4c10f0b567a8d27fee298d07c53a4f
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.4-006
+  type: requirement
+  modality: is
+  normative: true
+  title: Terminating null character
+  statement: After concatenation, in phase 7, a null character is appended to every string
+    literal.
+  subject: string literal
+  condition: phase 7
+  requirement: has a terminating null character appended
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.4/4
+    fingerprint: sha256:2074984e43f5efd1394026b5de52519e4888933298ba91d2e567bbfb95bc58ae
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.4-007
+  type: requirement
+  modality: shall
+  normative: true
+  title: Escapes in string literals
+  statement: In string literals, escapes and universal-character-names mean the same as in
+    character literals, except a single quote may stand alone and a double quote must be backslash-escaped.
+  subject: string literal
+  condition: always
+  requirement: shall follow the stated escape rules
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.4/5
+    fingerprint: sha256:d5221fcc9bf941bcf693110d4da79959bcee22fe9f9e16598d2ad356222b5a3f
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.4-008
+  type: definition
+  modality: is
+  normative: true
+  title: String literal size
+  statement: A wide literal's size counts escapes, universal-character-names, and other characters
+    plus the terminating L'\0'; a narrow literal also counts at least one char per universal-character-name
+    plus the terminating '\0'.
+  subject: string literal size
+  condition: always
+  requirement: counts the listed elements plus a terminator
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.4/5
+    fingerprint: sha256:d5221fcc9bf941bcf693110d4da79959bcee22fe9f9e16598d2ad356222b5a3f
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft

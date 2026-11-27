@@ -1,0 +1,2874 @@
+schema_version: 1
+edition: N1638
+clause: '3'
+title: Basic concepts
+statements:
+- id: CPP03-3-001
+  type: definition
+  modality: is
+  normative: true
+  title: entity
+  statement: Entities include values, objects, subobjects, base-class subobjects, array elements,
+    variables, functions, function instances, enumerators, types, class members, templates,
+    and namespaces.
+  subject: entity
+  condition: always
+  requirement: is one of the listed kinds
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3/3
+    fingerprint: sha256:1470cd54a1af3534ac3524be300641532fe70aa3ca4267ad987309708b57fb12
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3-002
+  type: definition
+  modality: is
+  normative: true
+  title: name and variable
+  statement: A name is an identifier use that denotes an entity or label; a variable is introduced
+    by an object declaration, and its name denotes the object.
+  subject: name
+  condition: always
+  requirement: denotes an entity or label
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3/4
+    fingerprint: sha256:189abc5af12da5a2fe6e1ac6075d2c7dd1a4fa101e3462ded9c2c12652571e51
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: Name introduction
+  statement: Every name denoting an entity shall be introduced by a declaration; every name
+    denoting a label shall be introduced by a goto statement or a labeled statement.
+  subject: name
+  condition: always
+  requirement: shall be introduced by a declaration or label construct
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3/5
+    fingerprint: sha256:9ccd7d9133fbe71a185d6a3c8ce1596e76bbb8e6dd8a55d2e73ac736188d66c8
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3-004
+  type: definition
+  modality: is
+  normative: true
+  title: name lookup
+  statement: The process that determines whether a name denotes a type, class, enumeration,
+    or template is called name lookup.
+  subject: name lookup
+  condition: always
+  requirement: determines the meaning of a name
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3/6
+    fingerprint: sha256:a25286eab811a08f189b6de956e94475c875ca52c1c55ce45478119f272cc21c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3-005
+  type: definition
+  modality: is
+  normative: true
+  title: same name
+  statement: Two names are the same when they are identical character sequences, names of
+    overloaded operator functions with the same operator, or names of conversion functions
+    with the same type.
+  subject: same name
+  condition: always
+  requirement: is defined by identifier or operator or conversion type
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3/7
+    fingerprint: sha256:4b1381313a52ef738b89c55a98d92c40698ae2358320960d2e78ae1cd3b23845
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3-006
+  type: definition
+  modality: is
+  normative: true
+  title: linkage and identity
+  statement: An identifier used in several translation units can denote the same entity depending
+    on the linkage specified in each translation unit.
+  subject: identifier
+  condition: used in several translation units
+  requirement: denotes the same entity according to linkage
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3/8
+    fingerprint: sha256:e95829831bb609aee5def32c22ebcc761cba438332533664dfccf58e5ab4e15d
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.1-001
+  type: definition
+  modality: is
+  normative: true
+  title: declaration
+  statement: A declaration introduces names into a translation unit or redeclares earlier
+    names and specifies their interpretation and attributes.
+  subject: declaration
+  condition: always
+  requirement: introduces or redeclares names
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.1/1
+    fingerprint: sha256:6bc4562a9e0ed507a2fed258eaf0a380cc0c83d59cff1231bb2af09dc8e7bb98
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.1-002
+  type: definition
+  modality: is
+  normative: true
+  title: declaration versus definition
+  statement: A declaration counts as a definition except when it declares a bodyless function,
+    uses extern or a linkage-specification without initializer/body, declares a static data
+    member, names a class, or is a typedef, using-declaration, or using-directive.
+  subject: declaration
+  condition: always
+  requirement: is a definition except in the listed cases
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.1/2
+    fingerprint: sha256:1904ac21e57d2275948f8a2ce982724a9028253611e56c1eb6c6424b5511080c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.1-003
+  type: constraint
+  modality: is
+  normative: true
+  title: Incomplete object type
+  statement: A program is ill-formed if the definition of an object gives it an incomplete
+    type.
+  subject: program
+  condition: object definition uses incomplete type
+  requirement: is ill-formed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.1/6
+    fingerprint: sha256:1e214502d01e20904354d4364d89224c3301325d0be22e9c23424b5537d148a3
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.2-001
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: One definition per translation unit
+  statement: Within one translation unit, a variable, function, class type, enumeration type,
+    or template may be defined only once.
+  subject: translation unit
+  condition: always
+  requirement: shall not define an entity more than once
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.2/1
+    fingerprint: sha256:618774de152f1492bccf4b206affa9c8cc32a4a72c2f724283ffe789ae171f2f
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.2-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Exactly one used definition
+  statement: Each used non-inline function or object needs exactly one definition in the program;
+    a used inline function needs a definition in every translation unit that uses it.
+  subject: program
+  condition: entity is used
+  requirement: shall contain exactly one definition
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.2/3
+    fingerprint: sha256:b34a2a1aee077062de63fbed79ce7a71efa58acc827a16cbad7f7461d63cf493
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.2-003
+  type: requirement
+  modality: is
+  normative: true
+  title: Complete class definition
+  statement: When a class must be complete in a translation unit, that unit needs exactly
+    one definition of the class.
+  subject: translation unit
+  condition: class must be complete
+  requirement: requires exactly one class definition
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.2/4
+    fingerprint: sha256:d218f08f8017052b214d7d0a29d923d6f56afb278c528306287f2ceb61e9180b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.2-004
+  type: constraint
+  modality: is
+  normative: true
+  title: Multiple definitions
+  statement: Multiple definitions of certain entities are allowed across translation units
+    only if they consist of the same tokens and satisfy the ODR name and operator requirements;
+    otherwise the behavior is undefined.
+  subject: program
+  condition: entity has multiple definitions
+  requirement: must satisfy the ODR requirements
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.2/5
+    fingerprint: sha256:4cc3b957ac817f629d48eaaea23c5d01c0726e2218e051a98fa21abd0e27b7d2
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3-001
+  type: definition
+  modality: is
+  normative: true
+  title: declarative region and scope
+  statement: A declarative region is the largest program portion in which a name is valid;
+    a name's scope is its potential scope minus any inner declaration of the same name.
+  subject: scope
+  condition: always
+  requirement: is the potential scope excluding inner redeclarations
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3/1
+    fingerprint: sha256:ecd4935c7d4a334dfd3112e67c0826a9d87a3320f19942963f0e8b02cb7084a5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3-002
+  type: requirement
+  modality: is
+  normative: true
+  title: Name introduction into a scope
+  statement: Declared names are introduced into the scope containing the declaration, except
+    that friend specifiers, some elaborated-type-specifiers, and using-directives alter this
+    behavior.
+  subject: declared name
+  condition: always
+  requirement: is introduced into the declaring scope
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3/3
+    fingerprint: sha256:d5a86fe60f992b6ecb742df734cb4c693a1f321c4c5fde876a211bcdb2c8d00f
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: Same unqualified name
+  statement: Declarations of the same unqualified name in one declarative region shall all
+    refer to the same entity or to functions and function templates, or one shall declare
+    a class or enumeration name with the others referring to the same object or functions.
+  subject: declarations
+  condition: same unqualified name in one region
+  requirement: shall refer to the same entity or overload set
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3/4
+    fingerprint: sha256:80026f40a0453b9f0586453b18e9d7cd9f9f72d3c65be916f45b1de158f75fb7
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.1-001
+  type: definition
+  modality: is
+  normative: true
+  title: point of declaration
+  statement: A name's point of declaration is immediately after its complete declarator and
+    before its initializer, unless a special rule applies.
+  subject: point of declaration
+  condition: always
+  requirement: follows the complete declarator
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.1/1
+    fingerprint: sha256:96db80fa1e4325f761d85abdb0be3442d0486e0f9027251f8c199ac9aa38979a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.1-002
+  type: definition
+  modality: is
+  normative: true
+  title: enumerator point of declaration
+  statement: An enumerator's point of declaration is immediately after its enumerator-definition.
+  subject: enumerator
+  condition: always
+  requirement: is declared after its definition
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.1/3
+    fingerprint: sha256:031fa1b9b73d5cfeebdf1381f5f26ac7111a223752fa43216d5869a5410b7302
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.1-003
+  type: definition
+  modality: is
+  normative: true
+  title: class member point of declaration
+  statement: After a class member's point of declaration, its name can be looked up in the
+    class scope, even if the class is incomplete.
+  subject: class member
+  condition: after its point of declaration
+  requirement: can be found in class scope
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.1/4
+    fingerprint: sha256:a65390aacbf889bbc248ad7e43f40cd21771e198a07e72107e8c4baa77fa6dd8
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.1-004
+  type: definition
+  modality: is
+  normative: true
+  title: elaborated-type-specifier point of declaration
+  statement: A class introduced by an elaborated-type-specifier is declared in the containing
+    scope, in the namespace of a namespace-scope function, or in the smallest enclosing non-class
+    non-prototype scope, as applicable.
+  subject: elaborated-type-specifier
+  condition: first declares a class
+  requirement: declares the class in the applicable scope
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.1/5
+    fingerprint: sha256:6554ad107bac94a052fb29f8824eb42e943fe25c8dfff6558d8ad4f6fffa3693
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.1-005
+  type: definition
+  modality: is
+  normative: true
+  title: injected-class-name point of declaration
+  statement: An injected-class-name is declared immediately after the opening brace of the
+    class definition.
+  subject: injected-class-name
+  condition: always
+  requirement: is declared at the class opening brace
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.1/6
+    fingerprint: sha256:574f5e3c8e5387aa02fc1fb325a946de11ef8a4f84838540e4c837e1a0e531dc
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.2-001
+  type: definition
+  modality: is
+  normative: true
+  title: local scope
+  statement: A block-declared name is local to that block; its potential scope runs from its
+    declaration point to the end of the declarative region.
+  subject: local name
+  condition: always
+  requirement: is scoped to its block
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.2/1
+    fingerprint: sha256:89dec3e8df27afe9470a543141c29f5193dc0249472e7b0e0cdb08ac66b34c04
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.2-002
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: Parameter redeclaration
+  statement: A parameter name must not be redeclared in the function's outermost block or
+    in the outermost block of an associated handler.
+  subject: parameter name
+  condition: in a function definition
+  requirement: shall not be redeclared in the outermost block
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.2/2
+    fingerprint: sha256:386214a583b8e00d02373bfee8d90fa8d9f92bdcaf83bb0a99d40e11da98de41
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.2-003
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: Catch parameter redeclaration
+  statement: A catch exception-declaration name is local to its handler and shall not be redeclared
+    in the handler's outermost block.
+  subject: catch parameter name
+  condition: always
+  requirement: shall not be redeclared in the handler block
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.2/3
+    fingerprint: sha256:b0497b6b6a8af304b48798e94b3eb022ed6fdb39bd11d9901af95f34e3885753
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.2-004
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: Control-statement names
+  statement: Names declared in a for-init-statement or in an if, while, for, or switch condition
+    are local to that statement and shall not be redeclared in a later condition or in the
+    controlled statement's outermost block.
+  subject: control-statement name
+  condition: always
+  requirement: shall not be redeclared in the controlled scope
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.2/4
+    fingerprint: sha256:1ba7146ec33b3be7e824d548cefbff48d34f35cf8a7bf087c4f7bbe52be2d26e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.3-001
+  type: definition
+  modality: is
+  normative: true
+  title: function prototype scope
+  statement: In a function declaration or non-defining function declarator, parameter names
+    have function prototype scope ending at the nearest enclosing function declarator.
+  subject: parameter name
+  condition: in a function declaration
+  requirement: has function prototype scope
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.3/1
+    fingerprint: sha256:ffc6a49ca81c6bec431d5ad028b7bc936b9e253eb207de14bf40cd57c732aaf4
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.4-001
+  type: definition
+  modality: is
+  normative: true
+  title: function scope
+  statement: Labels have function scope and may be used anywhere in their function; only labels
+    have function scope.
+  subject: label
+  condition: always
+  requirement: has function scope
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.4/1
+    fingerprint: sha256:7fb9a7c09794a8bf2b900ce859e571a6bc56ae43e16af9e210f497930bd68109
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.5-001
+  type: definition
+  modality: is
+  normative: true
+  title: namespace scope
+  statement: A namespace-definition's declarative region is its namespace-body; entities declared
+    there are namespace members with namespace scope.
+  subject: namespace member
+  condition: always
+  requirement: has namespace scope
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.5/1
+    fingerprint: sha256:882a60e64493c940361d85100d374d5124f39dfd103a703d377746c53a1e83c1
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.5-002
+  type: definition
+  modality: is
+  normative: true
+  title: global namespace
+  statement: The outermost declarative region of a translation unit is the global namespace;
+    names declared there have global namespace scope.
+  subject: global namespace
+  condition: always
+  requirement: is the outermost declarative region
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.5/3
+    fingerprint: sha256:5ccf589eba7e552a4bc3c0b565d03a52fcb860389606a294e4c7b336463902ac
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.6-001
+  type: requirement
+  modality: shall
+  normative: true
+  title: Class scope consistency
+  statement: A name used in a class must resolve to the same declaration both at its use and
+    when the class scope is complete; violating this needs no diagnostic.
+  subject: class-scope name
+  condition: always
+  requirement: shall have consistent lookup
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.6/1
+    fingerprint: sha256:0a6372a61c332310fe4c886942bf20697356616bdea91d8f8a4d6e9dee60c69b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.6-002
+  type: constraint
+  modality: is
+  normative: true
+  title: Reordering class members
+  statement: If reordering member declarations yields an alternate valid program under the
+    class-scope rules, the program is ill-formed and no diagnostic is required.
+  subject: program
+  condition: class members can be reordered to a valid alternative
+  requirement: is ill-formed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.6/1
+    fingerprint: sha256:0a6372a61c332310fe4c886942bf20697356616bdea91d8f8a4d6e9dee60c69b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.6-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: Class member access
+  statement: 'A class member name shall be used only in its class or derived class scope,
+    after . or -> on an object or pointer of that class, or after :: applied to the class
+    name.'
+  subject: class member name
+  condition: always
+  requirement: shall be used only in the listed ways
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.6/2
+    fingerprint: sha256:4095873f4e4d616b9ecd3c533968f81a163f467839dff230a3eb26c76cd20f93
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.7-001
+  type: definition
+  modality: is
+  normative: true
+  title: name hiding
+  statement: An explicit same-name declaration in a nested region or derived class can hide
+    an outer name.
+  subject: name
+  condition: nested declaration exists
+  requirement: is hidden
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.7/1
+    fingerprint: sha256:9c5774e815c655ede98ead147a49cbe3e2364cee5d33e0358e2dbfd6c30b1ed8
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.7-002
+  type: definition
+  modality: is
+  normative: true
+  title: class and enumeration hiding
+  statement: A class or enumeration name can be hidden by an object, function, or enumerator
+    name declared in the same scope.
+  subject: class or enumeration name
+  condition: same-scope non-type declaration exists
+  requirement: is hidden
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.7/2
+    fingerprint: sha256:784ed912f151660e14ad0f1535106fb0b881b74246ab974e6724cf98f59ba7a2
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.3.7-003
+  type: definition
+  modality: is
+  normative: true
+  title: visible name
+  statement: A name that is in scope and not hidden is visible.
+  subject: name
+  condition: in scope and not hidden
+  requirement: is visible
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.3.7/5
+    fingerprint: sha256:9435eead94633e14b65b0517f74ecb6ba70a8db24c43895868c4129cc686a945
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4-001
+  type: requirement
+  modality: shall
+  normative: true
+  title: Unambiguous lookup
+  statement: Name lookup shall find an unambiguous declaration; it may find several declarations
+    only for a function name, forming an overload set.
+  subject: name lookup
+  condition: always
+  requirement: shall find an unambiguous declaration or an overload set
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4/1
+    fingerprint: sha256:bcdfbaf864184468c1238ca1ef05fe0e93eda60ac4142ad6b18838d0b736cf04
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4-002
+  type: definition
+  modality: is
+  normative: true
+  title: lookup in an expression context
+  statement: A name used inside an expression is resolved as unqualified within the scope
+    containing that expression.
+  subject: name lookup
+  condition: in an expression context
+  requirement: uses the expression's scope
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4/2
+    fingerprint: sha256:09e33dcaf5cefed636df3dee2f247f4a6b018b092baf475f45cc5989f24ce95e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.1-001
+  type: requirement
+  modality: is
+  normative: true
+  title: Unqualified lookup order
+  statement: Unqualified lookup searches the listed scopes in order and stops at the first
+    declaration found; if none is found, the program is ill-formed.
+  subject: unqualified name
+  condition: lookup fails
+  requirement: makes the program ill-formed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.1/1
+    fingerprint: sha256:0271718d080218aac1ff53786f5375e171b19e7256a8868af2b5ec33d0da3b01
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.1-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Global name declared before use
+  statement: A name used in global scope outside any function, class, or user namespace shall
+    be declared before its use.
+  subject: global-scope name
+  condition: always
+  requirement: shall be declared before use
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.1/4
+    fingerprint: sha256:3254d6971748b1f45acce7199eb4ae5f4477abd9db0f9561c43c981c4c7943d5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.1-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: Namespace name declared before use
+  statement: A name used in a user namespace outside any function or class must be declared
+    before use in that namespace or an enclosing one.
+  subject: namespace-scope name
+  condition: always
+  requirement: shall be declared before use
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.1/5
+    fingerprint: sha256:554e19df2bdfc048edf72ffc1b5272ddd1bf5cf04cb14177c16a3c3e38b149aa
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.1-004
+  type: requirement
+  modality: shall
+  normative: true
+  title: Function-definition name lookup
+  statement: A name used in a function definition after its declarator-id shall be declared
+    before use in the block, in an enclosing block, in the function's namespace, or in an
+    enclosing namespace.
+  subject: name in a function definition
+  condition: always
+  requirement: shall be declared before use in the listed scopes
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.1/6
+    fingerprint: sha256:9f788e792b24b9728297756a2ab87263873ddfdb3e3d4133a5f45c7f009a39e5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.1-005
+  type: requirement
+  modality: shall
+  normative: true
+  title: Class-definition name lookup
+  statement: A name used in a class definition outside a member body or nested class shall
+    be declared before use in the class, a base class, an enclosing class, or the applicable
+    namespace.
+  subject: name in a class definition
+  condition: always
+  requirement: shall be declared before use in the listed scopes
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.1/7
+    fingerprint: sha256:859960afc1559f9fc1b0bbc863d966d4477729a50083c398ff1b34f13923f849
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.1-006
+  type: requirement
+  modality: shall
+  normative: true
+  title: Member-function name lookup
+  statement: A name used in a member function definition after its declarator-id shall be
+    declared before use in the block, in the class or a base class, in an enclosing class,
+    or in the applicable namespace.
+  subject: name in a member function definition
+  condition: always
+  requirement: shall be declared before use in the listed scopes
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.1/8
+    fingerprint: sha256:ab233cd7f32bb8181e74110a03d9668d8793b1ea0a98b068eebb2ba362e5d606
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.2-001
+  type: definition
+  modality: is
+  normative: true
+  title: argument-dependent lookup
+  statement: When an unqualified name is the postfix-expression of a function call, additional
+    namespaces associated with the argument types may be searched for namespace-scope friend
+    functions.
+  subject: function call name
+  condition: unqualified postfix-expression
+  requirement: may use argument-associated namespaces
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.2/1
+    fingerprint: sha256:2feaf1aefdb337145f647b765e270332a6b9b21b35a98195df6cd1673a31302a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.2-002
+  type: definition
+  modality: is
+  normative: true
+  title: associated namespaces and classes
+  statement: 'For each argument type, associated namespaces and classes are determined by
+    the type: fundamental types have none, class types contribute the class, its containing
+    class, and its bases, and other compound types contribute their component types.'
+  subject: argument type
+  condition: always
+  requirement: has associated namespaces and classes per the listed rules
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.2/2
+    fingerprint: sha256:62ea15426157efc0b440bc34b778ac4f16aa737f8ed6a3194ac3a92e5e08cace
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.2-003
+  type: requirement
+  modality: is
+  normative: true
+  title: ADL suppression
+  statement: If ordinary lookup finds a class member function or a non-using block-scope function,
+    argument-associated namespaces are skipped; otherwise the result combines ordinary and
+    associated lookup.
+  subject: function call name
+  condition: ordinary lookup finds a member or block function
+  requirement: does not use ADL
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.2/2
+    fingerprint: sha256:62ea15426157efc0b440bc34b778ac4f16aa737f8ed6a3194ac3a92e5e08cace
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.3-001
+  type: requirement
+  modality: is
+  normative: true
+  title: Qualified lookup
+  statement: 'In a qualified name, the name before :: is looked up ignoring objects, functions,
+    and enumerators; if it is not a class or namespace name, the program is ill-formed.'
+  subject: qualified name
+  condition: prefix is not a class or namespace
+  requirement: makes the program ill-formed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.3/1
+    fingerprint: sha256:47202f8c222831980b82cd90ddf01f635be9a783b897f7478e37df50a9720e21
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.3-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Global qualified name
+  statement: 'A name prefixed by the unary scope operator :: shall be declared in global namespace
+    scope or be visible there through a using-directive.'
+  subject: ::name
+  condition: always
+  requirement: shall be a global-scope name
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.3/4
+    fingerprint: sha256:c922073cdcab0f2e6650ea81eb531a9ecb3a455afd60caa989b29199f4dad1bd
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.3.1-001
+  type: requirement
+  modality: shall
+  normative: true
+  title: Class member qualified lookup
+  statement: When a qualified-id nominates a class, the following name is looked up in the
+    class scope and shall name a member of that class or a base class, with the listed exceptions
+    for destructors, conversion functions, template arguments, and using-declarations.
+  subject: class member qualified-id
+  condition: always
+  requirement: shall name a member of the class or a base
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.3.1/1
+    fingerprint: sha256:5a784b9719def190c09b1f02582642bd01ecd18d4408e0a6668f35c47e1ba27d
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.3.1-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Constructor name lookup
+  statement: When a constructor is an acceptable lookup result and the name after a class
+    nested-name-specifier is the injected-class-name, it names the constructor and shall be
+    used only in a constructor declarator-id.
+  subject: constructor name
+  condition: lookup accepts a constructor
+  requirement: shall name the constructor and be used only in its declarator
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.3.1/1
+    fingerprint: sha256:5a784b9719def190c09b1f02582642bd01ecd18d4408e0a6668f35c47e1ba27d
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.3.2-001
+  type: requirement
+  modality: is
+  normative: true
+  title: Namespace member lookup
+  statement: When a qualified-id nominates a namespace, the following name is looked up in
+    that namespace, except that template arguments are looked up in the context of the whole
+    postfix-expression.
+  subject: namespace member qualified-id
+  condition: always
+  requirement: is looked up in the namespace
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.3.2/1
+    fingerprint: sha256:230f1e451284e0f5c771f88c29cba03cb88c6ffe7736da60241e17097a9049ac
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.3.2-002
+  type: requirement
+  modality: is
+  normative: true
+  title: Namespace lookup set
+  statement: For X::m, set S gathers m declarations from X and from namespaces transitively
+    nominated by using-directives, except directives in namespaces that directly declare m;
+    an empty or ambiguous S makes the program ill-formed.
+  subject: X::m
+  condition: S is empty or ambiguous
+  requirement: makes the program ill-formed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.3.2/2
+    fingerprint: sha256:1c630c7be8842aaa064c7b83d1a210d91b31fdfbc8d1a53437bc594c9be2369e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.3.2-003
+  type: requirement
+  modality: is
+  normative: true
+  title: Namespace name hiding
+  statement: During qualified namespace lookup, a non-type declaration hides a class or enumeration
+    name only when both are from the same namespace; otherwise the program is ill-formed.
+  subject: qualified namespace member
+  condition: class name and non-type name from different namespaces
+  requirement: makes the program ill-formed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.3.2/5
+    fingerprint: sha256:3625a7b0fc1726157c32de0198946358636a8a6d1b5fe0fe8527083f1c75cdd7
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.3.2-004
+  type: requirement
+  modality: shall
+  normative: true
+  title: Qualified namespace member declaration
+  statement: In a qualified namespace-member declaration, the unqualified part must name a
+    member of the namespace named by the nested-name-specifier.
+  subject: qualified namespace member declaration
+  condition: always
+  requirement: shall name a member of the designated namespace
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.3.2/6
+    fingerprint: sha256:f1ecede0b35ca3aa9801c82861397c40232a8312afcd5051b6953713869df0aa
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.4-001
+  type: requirement
+  modality: is
+  normative: true
+  title: Elaborated type specifier reference
+  statement: An elaborated-type-specifier may refer to a previously declared class or enumeration
+    name even if a non-type declaration hides it.
+  subject: elaborated-type-specifier
+  condition: name is hidden
+  requirement: may still refer to the type
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.4/1
+    fingerprint: sha256:bd1449c7b5f458047a8ddd2250a882584f611cb01b3d89f7c856bed600a47537
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.4-002
+  type: requirement
+  modality: is
+  normative: true
+  title: Elaborated type specifier lookup
+  statement: An elaborated-type-specifier without a nested-name-specifier is looked up ignoring
+    non-type names; if no type is found, an enum form is ill-formed, while a class form may
+    declare the class-name.
+  subject: elaborated-type-specifier
+  condition: no type is found
+  requirement: is ill-formed for enum and declaring for class
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.4/2
+    fingerprint: sha256:82bbe15cca650ec5f013e69820ac28a8051356b444c6e4247da3a44b4c8e132b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.4-003
+  type: requirement
+  modality: is
+  normative: true
+  title: Qualified elaborated type specifier
+  statement: An elaborated-type-specifier with a nested-name-specifier uses qualified lookup
+    ignoring non-type names and is ill-formed if no type is found.
+  subject: qualified elaborated-type-specifier
+  condition: no type is found
+  requirement: is ill-formed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.4/3
+    fingerprint: sha256:492a1a01c2308ead0785e1bf4b1c180a528aaef7f1aa8a7b7ec76db143e62765
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.5-001
+  type: requirement
+  modality: shall
+  normative: true
+  title: Member access template lookup
+  statement: In a class member access where . or -> is followed by an identifier and <, the
+    identifier is looked up in the object class and then in the postfix-expression context;
+    a class template found in both contexts shall name the same entity.
+  subject: member access template-id
+  condition: class template found in both contexts
+  requirement: shall name the same entity
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.5/1
+    fingerprint: sha256:0615755e98a43757f8d6731100aa17d61eff8a936a27a3c35d2dc0cf56296f7e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.5-002
+  type: requirement
+  modality: is
+  normative: true
+  title: Unqualified member lookup
+  statement: For an unqualified-id in a class member access, if the object has class type
+    C or pointer to C, the name is looked up in C; for pointer to scalar, it is looked up
+    in the postfix-expression context.
+  subject: unqualified member name
+  condition: always
+  requirement: is looked up in the object class or expression context
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.5/2
+    fingerprint: sha256:1d390d63770083bbc8e2c6f617b6b14593030a1608c763000ec29244d2f4b908
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.5-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: Destructor name lookup
+  statement: For a destructor name in a class member access, the type-name is looked up in
+    both the postfix-expression context and class C, shall name a class, and shall denote
+    the same class in both contexts.
+  subject: destructor name
+  condition: always
+  requirement: shall name the same class in both contexts
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.5/3
+    fingerprint: sha256:f8a877d146ff073196e569465360d8bd1a1e840a41c4c3d26813ac3396203653
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.5-004
+  type: requirement
+  modality: shall
+  normative: true
+  title: Qualified member access lookup
+  statement: For a qualified-id after . or ->, the class-or-namespace name is looked up in
+    both the postfix-expression context and the object class; if found in both, it shall name
+    the same entity.
+  subject: qualified member access
+  condition: name found in both contexts
+  requirement: shall name the same entity
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.5/4
+    fingerprint: sha256:a7f5c2f4a54e48fc85bd1e768763268f38f31f0e5eae653993458bb52a8c3752
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.4.6-001
+  type: requirement
+  modality: is
+  normative: true
+  title: Using-directive namespace lookup
+  statement: A namespace-name inside a using-directive or namespace-alias-definition is resolved
+    considering namespace names only.
+  subject: namespace-name
+  condition: in a using-directive or alias
+  requirement: only namespace names are considered
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.4.6/1
+    fingerprint: sha256:5edb38545188bfcaa2ecc727bf9e27daef3a2549bb301ae47c2d8d90dc8f1c83
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.5-001
+  type: definition
+  modality: is
+  normative: true
+  title: program and translation unit
+  statement: A program is one or more linked translation units; a translation unit is a sequence
+    of declarations.
+  subject: program
+  condition: always
+  requirement: is linked translation units
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.5/1
+    fingerprint: sha256:247276b1faa6df4a65f4f75e05148f53254f9dcd037c662dd6334ad8ac304bc8
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.5-002
+  type: definition
+  modality: is
+  normative: true
+  title: linkage
+  statement: A name has external linkage if it can be referred to from other translation units
+    or scopes, internal linkage if only from other scopes in the same translation unit, and
+    no linkage if from no other scope.
+  subject: linkage
+  condition: always
+  requirement: is external, internal, or none
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.5/2
+    fingerprint: sha256:1cd4a6f02f275d09835711d3afb06a29170058f4860aabafc1b9eb01ddd93c81
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.5-003
+  type: definition
+  modality: is
+  normative: true
+  title: internal linkage
+  statement: A namespace-scope name has internal linkage if it names a static object, reference,
+    function, or function template, a const object or reference not declared extern or externally
+    linked, or an anonymous-union data member.
+  subject: namespace-scope name
+  condition: matches an internal-linkage case
+  requirement: has internal linkage
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.5/3
+    fingerprint: sha256:0142650deaffde5e2334d699aa2e5c26c06cf73caaaaee434c61bc382e7718f1
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.5-004
+  type: definition
+  modality: is
+  normative: true
+  title: external linkage
+  statement: A namespace-scope name has external linkage if it names an object or reference
+    without internal linkage, a function without internal linkage, a named class or enumeration,
+    an enumerator of an external enumeration, a template, or a namespace.
+  subject: namespace-scope name
+  condition: matches an external-linkage case
+  requirement: has external linkage
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.5/4
+    fingerprint: sha256:1a1cc1e81344387427b0ee3f495df76d91ba9e6166a97c38dd8b0dfeac07f2a7
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.5-005
+  type: requirement
+  modality: is
+  normative: true
+  title: Block-scope extern linkage
+  statement: A block-scope function declaration or extern object declaration has linkage;
+    if it matches a visible declaration, it declares the same entity, and if several match,
+    the program is ill-formed; otherwise it has external linkage.
+  subject: block-scope extern declaration
+  condition: several matching entities exist
+  requirement: makes the program ill-formed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.5/6
+    fingerprint: sha256:c1b82d11582781d00b3c085a183c3601c4acb1d453f2d3ab872ffbd81239fea7
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.5-006
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: No-linkage names
+  statement: A name lacking linkage must not be used to declare an entity that has linkage.
+  subject: no-linkage name
+  condition: always
+  requirement: shall not declare a linkage entity
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.5/8
+    fingerprint: sha256:f8d93b60dcda7042a21402d08632b71dcf76147919ce9addcc6ca93c80023e4e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.5-007
+  type: requirement
+  modality: shall
+  normative: true
+  title: Same entity across scopes
+  statement: Two same names in different scopes shall denote the same entity if both have
+    external linkage or both have internal linkage in one translation unit, both refer to
+    the same namespace or class members, and function parameter lists or template signatures
+    match.
+  subject: same names
+  condition: declared in different scopes
+  requirement: shall denote the same entity under the listed conditions
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.5/9
+    fingerprint: sha256:bdc6f48670d6f9803ce404339dfa2750cc29caf4762e4fafedac55ce12c48e99
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.5-008
+  type: requirement
+  modality: shall
+  normative: true
+  title: Type identity
+  statement: After type adjustments, all declarations of an object or function shall specify
+    identical types, except that array declarations may differ in the presence of a major
+    bound; no diagnostic is required.
+  subject: declarations
+  condition: always
+  requirement: shall specify identical types after adjustment
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.5/10
+    fingerprint: sha256:c77dadfefc0fe2056c38e5f181f7191ca03027f7f751c4e4d5f01b841602da67
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.1-001
+  type: requirement
+  modality: shall
+  normative: true
+  title: main function
+  statement: A program shall contain a global function named main, the designated start; whether
+    a freestanding program must define main is implementation-defined.
+  subject: program
+  condition: hosted environment
+  requirement: shall define a global main function
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.1/1
+    fingerprint: sha256:71973a62ba480b1cc45a6d8d4e658a0f9ae25e1e0976a76929b3c77bf96301bb
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.1-002
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: main restrictions
+  statement: An implementation shall not predefine main, and main shall not be overloaded;
+    it shall return int, and all implementations shall accept both the no-argument and the
+    argc/argv forms.
+  subject: main
+  condition: always
+  requirement: shall not be predefined or overloaded and shall return int
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.1/2
+    fingerprint: sha256:543f6df38152cd8c823e91f602091c5bb3624ec77ef97435e3541654f0a6c00c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.1-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: argc and argv
+  statement: For the argc/argv form, argc shall be the nonnegative number of arguments, argv[0]
+    through argv[argc-1] shall point to null-terminated multibyte strings, argv[0] shall name
+    the program or be empty, and argv[argc] shall be null.
+  subject: argc and argv
+  condition: main uses the argc/argv form
+  requirement: shall satisfy the listed argument rules
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.1/2
+    fingerprint: sha256:543f6df38152cd8c823e91f602091c5bb3624ec77ef97435e3541654f0a6c00c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.1-004
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: main use and linkage
+  statement: main shall not be used within a program; its linkage is implementation-defined;
+    declaring main inline or static is ill-formed, and the name main is not otherwise reserved.
+  subject: main
+  condition: always
+  requirement: shall not be used and shall not be inline or static
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.1/3
+    fingerprint: sha256:587d7798e16a62c27d5abf8d466439acfe0ce1e4ca341b3a39dea4b98cc4283a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.1-005
+  type: definition
+  modality: is
+  normative: true
+  title: std::exit and main return
+  statement: Calling std::exit terminates without destroying automatic objects and has undefined
+    behavior if called during static-object destruction; returning from main destroys automatic
+    objects and calls std::exit, and reaching the end of main returns 0.
+  subject: program termination
+  condition: main returns or std::exit is called
+  requirement: follows the stated destruction and exit behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.1/4
+    fingerprint: sha256:c7dc2327105c3ae89e716a9a97012cf0a8d906a0ef70ebecf250ab785b5db72a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.2-001
+  type: requirement
+  modality: shall
+  normative: true
+  title: Static initialization order
+  statement: Static-storage objects shall be zero-initialized before other initialization;
+    POD objects initialized with constant expressions shall be initialized before dynamic
+    initialization; ordered objects in one translation unit shall be initialized in definition
+    order.
+  subject: static-storage object
+  condition: always
+  requirement: shall follow the stated initialization order
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.2/1
+    fingerprint: sha256:2de214aa79cb40f76c188039381b739785484ef20206cf42643d725ff9663157
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.2-002
+  type: requirement
+  modality: may
+  normative: true
+  title: Static initialization permission
+  statement: An implementation may perform static initialization of a namespace-scope static
+    object even when not required, if the dynamic version changes no other static object and
+    the static version produces the same value.
+  subject: implementation
+  condition: static initialization is equivalent
+  requirement: may initialize statically
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.2/2
+    fingerprint: sha256:99c3f40545fb8e8c4ee1c47d3ed5b688cf737606f0375fca5c7e67b89ddd3172
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.2-003
+  type: behavior_implementation_defined
+  modality: implementation_defined
+  normative: true
+  title: Dynamic initialization timing
+  statement: Whether namespace-scope dynamic initialization happens before main is implementation-defined;
+    if delayed, it must precede the first use of any function or object in that translation
+    unit.
+  subject: dynamic initialization
+  condition: deferred past main's first statement
+  requirement: shall occur before first use
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.2/3
+    fingerprint: sha256:887aacc9b19f3b0f85173a5bb79c2100d9ad4ebb66f2f95dec5ecf5fe9d9d006
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.2-004
+  type: requirement
+  modality: is
+  normative: true
+  title: Exception during static construction
+  statement: An uncaught exception during construction or destruction of a non-local static
+    object triggers std::terminate.
+  subject: non-local static object
+  condition: uncaught exception during construction or destruction
+  requirement: calls std::terminate
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.2/4
+    fingerprint: sha256:5e78b9e6e26594db50a63234a6614c18069ab987a1c77ca34da23897686c6dbf
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.3-001
+  type: requirement
+  modality: is
+  normative: true
+  title: Static object destruction order
+  statement: Destructors for initialized static objects are called on return from main and
+    on std::exit, in reverse order of constructor or dynamic-initialization completion.
+  subject: static object
+  condition: program termination
+  requirement: is destroyed in reverse initialization order
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.3/1
+    fingerprint: sha256:b36fc1cc3fb84b878f8d496e57f54d2a2ae9306ce3a42734f41844dd15e8687b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.3-002
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Destroyed local static use
+  statement: If a function containing a destroyed local static object is called during static-object
+    destruction and control passes through the object's definition, the behavior is undefined.
+  subject: local static object
+  condition: used after destruction during static destruction
+  requirement: has undefined behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.3/2
+    fingerprint: sha256:f704d670acda43971d3361063eeb839d9988a06ccb009a1ebf48f07bafb31e74
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.3-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: atexit ordering
+  statement: Following std::exit, static objects initialized before an std::atexit registration
+    shall not be destroyed until the registered function completes; objects constructed after
+    registration are destroyed before the function is called.
+  subject: static object
+  condition: std::atexit function is registered
+  requirement: shall follow the stated destruction ordering
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.3/3
+    fingerprint: sha256:ccbad889460e7d06a0272add26c2ad47366f1af4c9388d86cb146c8c2ddd2efb
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.6.3-004
+  type: definition
+  modality: is
+  normative: true
+  title: std::abort
+  statement: Calling std::abort terminates the program without destroying automatic or static
+    objects and without calling std::atexit functions.
+  subject: std::abort
+  condition: always
+  requirement: terminates without destructors or atexit calls
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.6.3/4
+    fingerprint: sha256:b2f5a4fc3622d9fc54e0875ce38d57db21d547c2257e5dd0e3c06bd4c5fe56e8
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7-001
+  type: definition
+  modality: is
+  normative: true
+  title: storage duration
+  statement: Storage duration defines the minimum potential lifetime of an object's storage
+    and is static, automatic, or dynamic.
+  subject: storage duration
+  condition: always
+  requirement: is static, automatic, or dynamic
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7/1
+    fingerprint: sha256:b3ee2d64a53ce7bf5be011b4e5c8636e6bf862b94958335561b8ef8ef86ac9f8
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7-002
+  type: definition
+  modality: is
+  normative: true
+  title: storage duration association
+  statement: Static and automatic storage durations are associated with declared or implicitly
+    created objects; dynamic storage duration is associated with objects created by operator
+    new.
+  subject: storage duration
+  condition: always
+  requirement: is associated with the creating construct
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7/2
+    fingerprint: sha256:c38a65e621ef11e1f57b7433269d96a424ed664fadc8e406b016d0fbda5bdec4
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7-003
+  type: definition
+  modality: is
+  normative: true
+  title: reference lifetime
+  statement: Storage duration categories apply to references, and a reference's lifetime is
+    its storage duration.
+  subject: reference
+  condition: always
+  requirement: has the storage duration as its lifetime
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7/4
+    fingerprint: sha256:0a16cc95075d5b73b720e861e027558df5dabdb64382acc28229b6ef511aa1ee
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.1-001
+  type: definition
+  modality: is
+  normative: true
+  title: static storage duration
+  statement: Objects that are neither dynamic nor local have static storage duration, and
+    their storage shall last for the program's duration.
+  subject: static object
+  condition: always
+  requirement: has storage lasting for the program
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.1/1
+    fingerprint: sha256:4b3f77af7209a8d3a86d4a14d83a05d7a816bd32e4d66825a6bb884f7099cf52
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.1-002
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: Static object elimination
+  statement: A static object with side-effecting initialization or destruction shall not be
+    eliminated even if it appears unused, except for class-object copy elision.
+  subject: static object
+  condition: has side-effecting initialization or destruction
+  requirement: shall not be eliminated
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.1/2
+    fingerprint: sha256:1d8c3195dc959ab5d7bca0e0c56d397e055242112c4879bf1f449760c121c42b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.1-003
+  type: definition
+  modality: is
+  normative: true
+  title: static keyword
+  statement: The static keyword can declare a local variable with static storage duration
+    and can give a class data member static storage duration.
+  subject: static keyword
+  condition: applied to a local or data member
+  requirement: gives static storage duration
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.1/3
+    fingerprint: sha256:edbebe13f3fef2f25327a8fc9889d57e240a8aec59ed982848966f6473d2faeb
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.2-001
+  type: definition
+  modality: is
+  normative: true
+  title: automatic storage duration
+  statement: Local objects declared auto or register, or not declared static or extern, have
+    automatic storage duration lasting until their block exits.
+  subject: automatic object
+  condition: always
+  requirement: has storage lasting until block exit
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.2/1
+    fingerprint: sha256:4890aeecb1945caf0f00982fe94869a1ba0e848295fd7a23866009d25b7fae1b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.2-002
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: Automatic object lifetime
+  statement: A named automatic object with side-effecting initialization or destruction shall
+    not be destroyed before its block ends or eliminated as an optimization, except for class-object
+    copy elision.
+  subject: automatic object
+  condition: has side-effecting initialization or destruction
+  requirement: shall not be destroyed early or eliminated
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.2/3
+    fingerprint: sha256:1916ed1891329c736ac445859a60a8ae22012661594c4b0513e1a157dd208503
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.3-001
+  type: definition
+  modality: is
+  normative: true
+  title: dynamic storage
+  statement: Objects can be created with new-expressions and destroyed with delete-expressions;
+    dynamic storage is managed by global operator new, operator new[], operator delete, and
+    operator delete[].
+  subject: dynamic storage
+  condition: always
+  requirement: is managed by the global allocation functions
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.3/1
+    fingerprint: sha256:07de0f5c202b422257f8e431adc61a46fb6b5c2c0bafe6b8304be25cb5016785
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.3-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Replaceable allocation functions
+  statement: A program may define at most one replaceable allocation or deallocation function;
+    the four global forms are implicitly declared in each translation unit.
+  subject: program
+  condition: replaceable allocation function is defined
+  requirement: shall provide at most one definition
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.3/2
+    fingerprint: sha256:6854ada2d8037990a9c74730dd9725c0c14974be9b84a96c471445d5ccf15885
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.3-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: Allocation function semantics
+  statement: All allocation and deallocation functions, including library defaults, shall
+    conform to the semantics of 3.7.3.1 and 3.7.3.2.
+  subject: allocation or deallocation function
+  condition: always
+  requirement: shall conform to the stated semantics
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.3/3
+    fingerprint: sha256:2af9a32546b13a0097604cb6843124fd8ae7ceb2a436188a2cc85e6555c1200f
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.3.1-001
+  type: requirement
+  modality: shall
+  normative: true
+  title: Allocation function signature
+  statement: An allocation function must be a class member or global function, return void*,
+    and take std::size_t as its first parameter with no default; template forms need at least
+    two parameters.
+  subject: allocation function
+  condition: always
+  requirement: shall have the stated form
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.3.1/1
+    fingerprint: sha256:fade5fc8bd8f1280fd86ec024440fce4f37dd60c1b723776565dd33c7d7d89e7
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.3.1-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Allocation result
+  statement: A successful allocation shall return the start of a block at least as large as
+    requested and suitably aligned; a zero-size request can fail, and on success shall return
+    a non-null pointer distinct from any live earlier result.
+  subject: allocation function
+  condition: allocation succeeds
+  requirement: shall return a suitably aligned non-null block
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.3.1/2
+    fingerprint: sha256:7a06bbd852e0dd276d446c225b10e53f5805a4ae065572ee643de0462f509236
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.3.1-003
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Zero-size allocation dereference
+  statement: The effect of dereferencing a pointer returned for a zero-size allocation request
+    is undefined.
+  subject: zero-size allocation result
+  condition: dereferenced
+  requirement: has undefined behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.3.1/2
+    fingerprint: sha256:7a06bbd852e0dd276d446c225b10e53f5805a4ae065572ee643de0462f509236
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.3.1-004
+  type: requirement
+  modality: shall
+  normative: true
+  title: Allocation failure
+  statement: An allocation function with an empty exception-specification that fails shall
+    return null; any other allocation function that fails shall indicate failure only by throwing
+    std::bad_alloc or a derived class.
+  subject: allocation function
+  condition: allocation fails
+  requirement: shall return null or throw std::bad_alloc
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.3.1/3
+    fingerprint: sha256:e7c3ddeb34cc7da33a8bb223b87c043fdea5e51681b94c25f7a6693b058d4ec0
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.3.2-001
+  type: requirement
+  modality: shall
+  normative: true
+  title: Deallocation function form
+  statement: Deallocation functions shall be class members or global functions, shall return
+    void, and their first parameter shall be void*; a program is ill-formed if they are declared
+    in a non-global namespace scope or static at global scope.
+  subject: deallocation function
+  condition: always
+  requirement: shall have the stated form
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.3.2/1
+    fingerprint: sha256:584ac715dbb819a9f30534942927354f553f9ec7079b89be4341e7608faf3f72
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.3.2-002
+  type: requirement
+  modality: is
+  normative: true
+  title: Usual deallocation function
+  statement: A class member operator delete or operator delete[] with exactly one parameter,
+    or with a second std::size_t parameter when no one-parameter form exists, is a usual deallocation
+    function.
+  subject: class deallocation function
+  condition: matches the stated signatures
+  requirement: is a usual deallocation function
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.3.2/2
+    fingerprint: sha256:3ccfc8287f6663b92513ddbed30703925a49db16854ff138e7228083067b58b4
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.3.2-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: Deallocation argument
+  statement: A null pointer passed to a standard deallocation function has no effect; otherwise
+    the pointer shall be a value returned by a matching previous standard allocation.
+  subject: standard deallocation function
+  condition: non-null argument
+  requirement: shall receive a matching allocation result
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.3.2/3
+    fingerprint: sha256:143c67dc7617da74622e956e54f4193ada1c2bb59bf202826ef5d8b0328bac7a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.3.2-004
+  type: requirement
+  modality: shall
+  normative: true
+  title: Deallocation effect
+  statement: A standard deallocation function given a non-null pointer shall deallocate the
+    storage and invalidate all pointers to it; using an invalid pointer value has undefined
+    behavior.
+  subject: standard deallocation function
+  condition: non-null pointer
+  requirement: shall deallocate and invalidate pointers
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.3.2/4
+    fingerprint: sha256:3f619a5035edb44fbb4226ed225145c0ebdd7e8c1331c98fc2ac2a7e6201e6a2
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.7.4-001
+  type: definition
+  modality: is
+  normative: true
+  title: sub-object storage duration
+  statement: Member subobjects, base class subobjects, and array elements have the storage
+    duration of their complete object.
+  subject: subobject
+  condition: always
+  requirement: has the complete object's storage duration
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.7.4/1
+    fingerprint: sha256:40e7a1e4f6a4458856c7afe619b2b270f67945c183fcb137b9f41ca3224cecc3
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.8-001
+  type: definition
+  modality: is
+  normative: true
+  title: object lifetime
+  statement: An object's lifetime begins when properly aligned and sized storage is obtained
+    and, for a non-trivial class constructor, when construction completes; it ends when a
+    non-trivial destructor starts or the storage is reused or released.
+  subject: object lifetime
+  condition: always
+  requirement: begins and ends at the stated points
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.8/1
+    fingerprint: sha256:7ec65891b9d13833e15f43877b7e8dc867bd6fe35efeb451eab6eaa99bf2606c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.8-002
+  type: requirement
+  modality: is
+  normative: true
+  title: Ending object lifetime
+  statement: A program may end an object's lifetime by reusing its storage or explicitly calling
+    its non-trivial destructor; if no explicit destructor or delete-expression is used, the
+    destructor shall not be called implicitly and dependence on its side effects is undefined.
+  subject: program
+  condition: object lifetime is ended
+  requirement: must follow the stated destructor rules
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.8/4
+    fingerprint: sha256:0ec022b9ebce99c12b704a4feea2ca4ac28cf189190369ebad72b349ae22caa8
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.8-003
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Pointer use outside lifetime
+  statement: Before an object's lifetime starts or after it ends, a pointer to its storage
+    may be used only in limited ways; using it to access a non-static member, convert to a
+    base pointer, static_cast, or dynamic_cast under the stated conditions is undefined.
+  subject: pointer to storage
+  condition: used outside the object's lifetime
+  requirement: has undefined behavior in the listed ways
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.8/5
+    fingerprint: sha256:54d208d946bf6f86e93d7658bc098cc631d205e0631c871ccc58f464b9b3f319
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.8-004
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Lvalue use outside lifetime
+  statement: Before an object's lifetime starts or after it ends, an lvalue referring to it
+    may be used only in limited ways; applying lvalue-to-rvalue conversion or the listed member,
+    base, cast, or typeid uses is undefined.
+  subject: lvalue
+  condition: used outside the object's lifetime
+  requirement: has undefined behavior in the listed ways
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.8/6
+    fingerprint: sha256:c6531a3efefa7b47cae20a2291f463880a8533053b1ded72d9535b941e27e0a5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.8-005
+  type: requirement
+  modality: is
+  normative: true
+  title: New object at old storage
+  statement: A pointer, reference, or name of an original object automatically refers to a
+    new object created at the same storage if the storage exactly overlays, the new type matches,
+    the original is not const-qualified or containing const/reference members, and both are
+    most derived objects of the same type.
+  subject: pointer or reference
+  condition: new object is created at the original storage
+  requirement: refers to the new object under the listed conditions
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.8/7
+    fingerprint: sha256:011fa157b2790f1efec4de0f70f3187d8445bee45f635fa16dac264f2b7411e0
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.8-006
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Static or automatic object replacement
+  statement: If a program ends the lifetime of a static or automatic object with a non-trivial
+    destructor, it must ensure an object of the original type occupies the storage when the
+    implicit destructor call occurs; otherwise the behavior is undefined.
+  subject: static or automatic object
+  condition: lifetime ended before implicit destruction
+  requirement: has undefined behavior if storage is not restored
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.8/8
+    fingerprint: sha256:db8c315e01676703769318f3a60424934f5c63a83b580f706565634da939aec0
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.8-007
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Const object storage reuse
+  statement: Creating a new object at the storage of a const static or automatic object, or
+    at its former storage after its lifetime ended, has undefined behavior.
+  subject: const object storage
+  condition: new object is created there
+  requirement: has undefined behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.8/9
+    fingerprint: sha256:2b7098a4b782d1623c2211ab35eb2c7d24481e81eeb85f763ac8cbec7b0b29b9
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9-001
+  type: definition
+  modality: is
+  normative: true
+  title: type kinds
+  statement: Types fall into two groups, fundamental and compound, and describe objects, references,
+    or functions.
+  subject: type
+  condition: always
+  requirement: is fundamental or compound
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9/1
+    fingerprint: sha256:ec5cfe2801fc8aa2fef5c7048fdcf1258bc5c84621828c63e82dc277fdb11768
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: POD byte copying
+  statement: For a POD object other than a base-class subobject, its bytes can be copied into
+    a char or unsigned char array and back, and the object shall then hold its original value.
+  subject: POD object
+  condition: bytes are copied out and back
+  requirement: shall hold its original value
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9/2
+    fingerprint: sha256:bedd3b97a5e1098bdc8f54841d2b8c4aa6d970be6baf0ce02fd017573b0b8b49
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: POD memcpy
+  statement: For two distinct POD objects, copying one into the other with std::memcpy shall
+    make the destination hold the source's value.
+  subject: POD object
+  condition: copied with std::memcpy
+  requirement: shall hold the source value
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9/3
+    fingerprint: sha256:b5f420a021a74292cd4e3efa8fe8510b62dde382f21bf79afb620f0ebdf32573
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9-004
+  type: definition
+  modality: is
+  normative: true
+  title: object and value representation
+  statement: An object's representation is its sequence of sizeof(T) unsigned char objects;
+    its value representation is the set of bits that determine its value.
+  subject: object representation
+  condition: always
+  requirement: is the byte sequence of the object
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9/4
+    fingerprint: sha256:eb937f48a5e265731702846d1bc91e0a938a69d8bac2c772908f4708fc0ac290
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9-005
+  type: definition
+  modality: is
+  normative: true
+  title: alignment
+  statement: Object types have alignment requirements; a complete object type's alignment
+    is an implementation-defined byte count, and objects are allocated at addresses meeting
+    their alignment.
+  subject: alignment
+  condition: always
+  requirement: is an implementation-defined byte count
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9/5
+    fingerprint: sha256:769bf01f9cc7629a31cf665dca14342bdb47d7c15855ad736cba82f1ce451986
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9-006
+  type: definition
+  modality: is
+  normative: true
+  title: incomplete types
+  statement: An incompletely-defined object type is a declared-but-undefined class, an unknown-size
+    array, or an array with incomplete elements; such types and void are incomplete.
+  subject: incomplete type
+  condition: always
+  requirement: is one of the listed forms
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9/6
+    fingerprint: sha256:0d31e12c3a5e3e324b673f29f5585181e5be3be0552f3a8c940086bf486987c9
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9-007
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: Incomplete object definition
+  statement: Objects shall not be defined with an incomplete type.
+  subject: object definition
+  condition: type is incomplete
+  requirement: shall not be allowed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9/6
+    fingerprint: sha256:0d31e12c3a5e3e324b673f29f5585181e5be3be0552f3a8c940086bf486987c9
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9-008
+  type: definition
+  modality: is
+  normative: true
+  title: object type
+  statement: An object type is any possibly cv-qualified type that is neither a function,
+    a reference, nor void.
+  subject: object type
+  condition: always
+  requirement: is a non-function, non-reference, non-void type
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9/9
+    fingerprint: sha256:f0980cc8018781e9f7c0decab8ed137ff75a33c4f74c5c64fe1c716c6d3c2c0b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9-009
+  type: definition
+  modality: is
+  normative: true
+  title: scalar and POD types
+  statement: Scalar types comprise arithmetic, enumeration, pointer, and pointer-to-member
+    types plus their cv variants; POD types add POD-struct/POD-union types, their arrays,
+    and cv variants.
+  subject: scalar and POD types
+  condition: always
+  requirement: are defined by the listed type families
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9/10
+    fingerprint: sha256:2014eaa54e48f3a49fecf0dc0f462c043a572300af307cacc79539dfb8ff960e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9-010
+  type: definition
+  modality: is
+  normative: true
+  title: layout-compatible types
+  statement: Two types are layout-compatible if they are the same type.
+  subject: layout-compatible type
+  condition: types are the same
+  requirement: are layout-compatible
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9/11
+    fingerprint: sha256:c91f00d20c54e6705e1e07202f9e39ba6ef5a624e3b721d9ba9e29e42980b6bf
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.1-001
+  type: requirement
+  modality: shall
+  normative: true
+  title: char type
+  statement: A char object shall be large enough to store any basic character set member;
+    plain char, signed char, and unsigned char are distinct types with the same representation
+    and alignment, and plain char's signedness is implementation-defined.
+  subject: char type
+  condition: always
+  requirement: shall satisfy the stated size and representation rules
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.1/1
+    fingerprint: sha256:ce5762d7c26958670266b9cf079e4356422e6bd59397eab7fdd670da42d384b3
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.1-002
+  type: definition
+  modality: is
+  normative: true
+  title: signed integer types
+  statement: The signed integer family has four members, signed char, short int, int, and
+    long int, with nondecreasing storage.
+  subject: signed integer type
+  condition: always
+  requirement: is one of the four ordered types
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.1/2
+    fingerprint: sha256:1b0f45c379c8dabda4af1e17bd68a4ba48a068ec988a5ea98d78b0e1e0817495
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.1-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: corresponding unsigned types
+  statement: Each signed integer type has a corresponding unsigned type with the same storage,
+    alignment, and object representation; the signed nonnegative range is a subrange of the
+    unsigned range.
+  subject: unsigned integer type
+  condition: corresponds to a signed type
+  requirement: shall match its representation
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.1/3
+    fingerprint: sha256:2699023cded0582682fed0ac84d3c09ef68087cd50e55e92d6a78408d457f189
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.1-004
+  type: requirement
+  modality: shall
+  normative: true
+  title: unsigned arithmetic
+  statement: Unsigned arithmetic shall obey modulo 2^n arithmetic, where n is the number of
+    bits in the value representation.
+  subject: unsigned arithmetic
+  condition: always
+  requirement: shall be modulo 2^n
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.1/4
+    fingerprint: sha256:ac916c036c8759d32cab21e9f4039b4c25c125db58e8dde1b17d3fdd457a740a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.1-005
+  type: requirement
+  modality: shall
+  normative: true
+  title: wchar_t
+  statement: wchar_t is a distinct type able to represent the largest supported extended character
+    set; it shall have the same size, signedness, and alignment as one of the integral types.
+  subject: wchar_t
+  condition: always
+  requirement: shall match an underlying integral type
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.1/5
+    fingerprint: sha256:e9d06c210fc5a0c328b892f972bfe778623c0bc34efd5bf00c73b8dfd2bf1b85
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.1-006
+  type: definition
+  modality: is
+  normative: true
+  title: bool values
+  statement: A bool value is either true or false; no signed, unsigned, short, or long bool
+    variants exist, and bool undergoes integral promotion.
+  subject: bool
+  condition: always
+  requirement: has values true and false
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.1/6
+    fingerprint: sha256:89cb2c20d099023206f4623db5a070de0ec34de37d2afb91335a5bfdfc2bc1e4
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.1-007
+  type: definition
+  modality: is
+  normative: true
+  title: integral types
+  statement: Integral types are bool, char, wchar_t, and the signed/unsigned integer types;
+    their representation uses pure binary.
+  subject: integral type
+  condition: always
+  requirement: uses pure binary representation
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.1/7
+    fingerprint: sha256:756ea6162cd7d4969eb1586acc15447720cf97950427b79c13f7d5cdde76c0a5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.1-008
+  type: requirement
+  modality: shall
+  normative: true
+  title: floating types
+  statement: float, double, and long double have nondecreasing precision and nested value
+    sets; their value representation is implementation-defined, and std::numeric_limits shall
+    specify their minimum and maximum values.
+  subject: floating type
+  condition: always
+  requirement: shall satisfy the precision and numeric_limits rules
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.1/8
+    fingerprint: sha256:9db4fa1ece9c0b82580b2b45acaee1e4a02c72d6181759f438f2bdb182cb8a07
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.1-009
+  type: definition
+  modality: is
+  normative: true
+  title: void type
+  statement: The void type has an empty value set, is an incomplete type that cannot be completed,
+    and is used for functions returning no value; void expressions are limited to the listed
+    contexts.
+  subject: void type
+  condition: always
+  requirement: is an incomplete empty type
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.1/9
+    fingerprint: sha256:feb63191e4f67036cc316aa021d3fa854d9a35e39f7da246b9d6f5ef2ff16997
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.1-010
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Distinct basic types
+  statement: Even if two basic types have the same value representation, they remain different
+    types.
+  subject: basic types
+  condition: same value representation
+  requirement: remain distinct types
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.1/10
+    fingerprint: sha256:aa96b663f1e317896c4e22625d9dee2dc37f89c4b48ec28e7e52cf8b19ec5783
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.2-001
+  type: definition
+  modality: is
+  normative: true
+  title: compound types
+  statement: Compound types are constructed as arrays, functions, pointers, references, classes,
+    unions, enumerations, or pointers to non-static class members.
+  subject: compound type
+  condition: always
+  requirement: is one of the listed constructions
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.2/1
+    fingerprint: sha256:93f6faaf99e0d933eba8dc0480b089f7e870960bb0cf34e7311c780b5b338202
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.2-002
+  type: definition
+  modality: is
+  normative: true
+  title: recursive type construction
+  statement: Compound type constructions can be applied recursively, subject to the restrictions
+    in the declarator clauses.
+  subject: compound type
+  condition: always
+  requirement: can be constructed recursively
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.2/2
+    fingerprint: sha256:be8891545560dd8cec4188e34daffe1d5ee78f2dc2cd363903ce3a8f0f1762d3
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.2-003
+  type: definition
+  modality: is
+  normative: true
+  title: pointer values
+  statement: A valid object pointer value is either a byte address or a null pointer; pointers
+    to incomplete types are allowed with restrictions, and pointer value representation is
+    implementation-defined.
+  subject: pointer
+  condition: always
+  requirement: holds an address or null with implementation-defined representation
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.2/3
+    fingerprint: sha256:88ad1cf8d942d2182183f54526817a4b78280c22a77be5ba9c8ab834b41f1f15
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.2-004
+  type: requirement
+  modality: shall
+  normative: true
+  title: void pointer
+  statement: A void* must be capable of storing any object pointer and must share char*'s
+    representation and alignment.
+  subject: void*
+  condition: always
+  requirement: shall hold any object pointer with char* representation
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.2/4
+    fingerprint: sha256:d87c32774c0faf2365e58173a2ef367bdc920417df665d8d460bb0fa3336ca76
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.3-001
+  type: definition
+  modality: is
+  normative: true
+  title: cv-qualified types
+  statement: Each cv-unqualified complete or incomplete object type and void has const, volatile,
+    and const-volatile qualified versions; these are distinct types with the same representation
+    and alignment.
+  subject: cv-qualified type
+  condition: always
+  requirement: is a distinct type with the same representation
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.3/1
+    fingerprint: sha256:5e32b66a425bccdf4620f18eb0a37765a2ff508839f2a067c885b8d58862b5e1
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.3-002
+  type: definition
+  modality: is
+  normative: true
+  title: cv-qualification of compound types
+  statement: A compound type is not cv-qualified by its component types; cv-qualifiers applied
+    to an array type affect the element type.
+  subject: compound type
+  condition: cv-qualifier is applied
+  requirement: qualifies the component or element type
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.3/2
+    fingerprint: sha256:732114c01bac3779b498434071e71c1f612871472502c395a46870e6be7d37c3
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.3-003
+  type: definition
+  modality: is
+  normative: true
+  title: cv-qualified members
+  statement: Non-static, non-mutable, non-reference data members of a const-qualified class
+    object are const-qualified; the analogous rule applies to volatile and const-volatile
+    objects.
+  subject: class data member
+  condition: member of a cv-qualified object
+  requirement: inherits the cv-qualification
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.3/3
+    fingerprint: sha256:92a6677f54c13d693ea32238f77f8874c864916c795f6a38f96b84c09d2cb755
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.3-004
+  type: definition
+  modality: is
+  normative: true
+  title: cv-qualifier ordering
+  statement: 'There is a partial ordering of cv-qualifiers: no qualifier is less qualified
+    than const or volatile, and both are less qualified than const volatile.'
+  subject: cv-qualifier
+  condition: always
+  requirement: is ordered as stated
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.3/4
+    fingerprint: sha256:f0d66465b3daf1293a537f8ccdd7f8b060af1319df3626cef08642b673dd7a88
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.9.3-005
+  type: definition
+  modality: is
+  normative: true
+  title: cv notation
+  statement: 'The notation cv represents an arbitrary set of cv-qualifiers: const, volatile,
+    both, or none; cv applied to an array qualifies its elements.'
+  subject: cv notation
+  condition: always
+  requirement: denotes a set of cv-qualifiers
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.9.3/5
+    fingerprint: sha256:45c49fa3354534ab33f31f19797040aeb6e7a92d35850c0ee01726cebb3cacda
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.10-001
+  type: definition
+  modality: is
+  normative: true
+  title: lvalue and rvalue
+  statement: Every expression is either an lvalue or an rvalue.
+  subject: expression
+  condition: always
+  requirement: is an lvalue or an rvalue
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.10/1
+    fingerprint: sha256:a4d670525352e34710ef8ac96e1f6c11b4d3e89ff87cce69ea3b03b82dc1fb9e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.10-002
+  type: definition
+  modality: is
+  normative: true
+  title: lvalue referent
+  statement: An lvalue designates an object or function; certain rvalues of class or cv-qualified
+    class type also designate objects.
+  subject: lvalue
+  condition: always
+  requirement: refers to an object or function
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.10/2
+    fingerprint: sha256:db02227b4f0c012ef547066eca013739ae1fb8512e0edade500c41145faf0aae
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.10-003
+  type: definition
+  modality: is
+  normative: true
+  title: function call value category
+  statement: Calling a function that does not return a reference yields an rvalue; user-defined
+    operators follow their parameter and return types.
+  subject: function call
+  condition: return type is not a reference
+  requirement: yields an rvalue
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.10/5
+    fingerprint: sha256:2c479eb48a1ed4110a7ed5348a668811ea6182be6e41c73f2e2b3f7a449a9fdc
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.10-004
+  type: definition
+  modality: is
+  normative: true
+  title: cast value category
+  statement: An expression holding a temporary object from a cast to a non-reference type
+    is an rvalue.
+  subject: cast expression
+  condition: target type is not a reference
+  requirement: is an rvalue
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.10/6
+    fingerprint: sha256:b52a27c8c17080e9067427003a52e1d05fe2e4b41f91e0728fc0bf747f104d4e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.10-005
+  type: requirement
+  modality: is
+  normative: true
+  title: lvalue-to-rvalue conversion
+  statement: An lvalue appearing where an rvalue is required undergoes lvalue-to-rvalue conversion.
+  subject: lvalue
+  condition: used where an rvalue is expected
+  requirement: is converted to an rvalue
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.10/7
+    fingerprint: sha256:d13bcb0a291139d3198accc22f7e8599153bd4747ffaaa286a0ad297ff8ceab0
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.10-006
+  type: requirement
+  modality: shall
+  normative: true
+  title: complete rvalue types
+  statement: Rvalues shall have complete types or void; lvalues may also have incomplete types.
+  subject: rvalue
+  condition: always
+  requirement: shall have a complete or void type
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.10/9
+    fingerprint: sha256:bac946d51d1a50e3d6da7fab059c8994636a4779a2917742d45e4bc5e0ef72ea
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.10-007
+  type: requirement
+  modality: shall_not
+  normative: true
+  title: const referent modification
+  statement: A const-qualified expression must not be used to modify its referent, except
+    for a mutable class member.
+  subject: const-qualified expression
+  condition: always
+  requirement: shall not modify its referent except mutable members
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.10/13
+    fingerprint: sha256:b6ffb18e2421695864b407a716695169ecb2ed3a5385b3335bbd6606cc3e7c7e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.10-008
+  type: definition
+  modality: is
+  normative: true
+  title: modifiable expression
+  statement: An expression is modifiable when it can change the object it designates; modifying
+    through a nonmodifiable lvalue or rvalue is ill-formed.
+  subject: modifiable expression
+  condition: always
+  requirement: is one that can modify its object
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.10/14
+    fingerprint: sha256:23fd49c534f10243b8a26abe794b7f4643e13d4512604014680213ffa47a553c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-3.10-009
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Aliasing access
+  statement: Accessing an object's stored value through an lvalue of a type other than the
+    object's dynamic type, a cv-qualified or signed/unsigned counterpart, an aggregate containing
+    such a type, a base class, or char/unsigned char has undefined behavior.
+  subject: object access
+  condition: lvalue type is not in the allowed set
+  requirement: has undefined behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 3.10/15
+    fingerprint: sha256:4e4bcfea8800159c529f02b0a056e66677e2d979dc1e5abbbf3b24f7bb66acbf
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft

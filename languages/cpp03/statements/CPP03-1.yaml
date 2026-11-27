@@ -1,0 +1,1758 @@
+schema_version: 1
+edition: N1638
+clause: '1'
+title: General
+statements:
+- id: CPP03-1.1-001
+  type: requirement
+  modality: shall
+  normative: true
+  title: Implement the language
+  statement: A conforming implementation is required to implement the C++ programming language.
+  subject: conforming implementation
+  condition: always
+  requirement: implement C++
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.1/1
+    fingerprint: sha256:079bc95f549baf730a84ec9e31da30f52cb07b9aaaebdbbbcd0ac396e743afb1
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.1-002
+  type: definition
+  modality: is
+  normative: true
+  title: C++ is based on C
+  statement: C++ is a general-purpose programming language derived from the C language specified
+    by ISO/IEC 9899:1990.
+  subject: C++
+  condition: always
+  requirement: is a general-purpose language derived from C90
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.1/2
+    fingerprint: sha256:9bb3bfd0a308f4ab0b5373d77de0afc8a83426a312490861bf1b9897353d96a7
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.1-003
+  type: definition
+  modality: is
+  normative: true
+  title: Facilities added to C
+  statement: C++ adds data types, classes, templates, exceptions, namespaces, inline functions,
+    operator overloading, function-name overloading, references, free-store management operators,
+    and library facilities to the C facilities.
+  subject: C++
+  condition: always
+  requirement: provides the listed additional facilities
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.1/2
+    fingerprint: sha256:9bb3bfd0a308f4ab0b5373d77de0afc8a83426a312490861bf1b9897353d96a7
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.2-001
+  type: cross_reference
+  modality: is
+  normative: true
+  title: Normative references
+  statement: 'The standards listed in this subclause are normative references: their provisions
+    become provisions of this International Standard when referenced.'
+  subject: listed standards
+  condition: when referenced by this standard
+  requirement: are normative references
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.2/1
+    fingerprint: sha256:923677c30ba462602c605e1c2cb56077deab575b9b996f0550f59cb4f8a0e954
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.2-002
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Revision of references
+  statement: The cited editions were valid at publication; standards are subject to revision
+    and parties are encouraged to consider the most recent editions.
+  subject: cited editions
+  condition: at publication
+  requirement: were valid; later editions may apply
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.2/1
+    fingerprint: sha256:923677c30ba462602c605e1c2cb56077deab575b9b996f0550f59cb4f8a0e954
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.2-003
+  type: cross_reference
+  modality: is
+  normative: true
+  title: List of normative references
+  statement: The normative references are ISO/IEC 2382, ISO/IEC 9899:1990, ISO/IEC 9899/Amd.1:1995,
+    and ISO/IEC 10646-1:1993.
+  subject: normative references
+  condition: always
+  requirement: are the four listed standards
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.2/1
+    fingerprint: sha256:923677c30ba462602c605e1c2cb56077deab575b9b996f0550f59cb4f8a0e954
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.2-004
+  type: definition
+  modality: is
+  normative: true
+  title: Standard C Library
+  statement: The term Standard C Library denotes the library specified by clause 7 of the
+    C standard and by clause 7 of its Amendment 1.
+  subject: Standard C Library
+  condition: always
+  requirement: is the library of those C clauses
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.2/2
+    fingerprint: sha256:928e412bde67c3b14f2ae94c4401866ab5b95443ef49e3a025fbcb245f8fd8a0
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3-001
+  type: definition
+  modality: is
+  normative: true
+  title: Applicable definitions
+  statement: The definitions of ISO/IEC 2382 and the definitions of this subclause apply;
+    17.1 adds terms used only in the library clauses.
+  subject: definitions
+  condition: always
+  requirement: are those of ISO/IEC 2382 and this subclause
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3/1
+    fingerprint: sha256:2b9b917c079363c3a17cdcd28bdad9bef01b18d0308402d8592fc3d56baf6ba5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3-002
+  type: requirement
+  modality: is
+  normative: true
+  title: Local definitions
+  statement: A term used only in a small part of this International Standard is defined at
+    its point of use and is italicized there.
+  subject: locally used term
+  condition: when used in a small part
+  requirement: is defined and italicized at first use
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3/2
+    fingerprint: sha256:3935208d37c2c7aec3185ce2dd3829d81e7414db101ff6fa96c1aa525802d74e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.1-001
+  type: definition
+  modality: is
+  normative: true
+  title: argument
+  statement: 'An argument is one of: an expression in a call''s parenthesized list, a preprocessing-token
+    run in a function-like macro call, the throw operand, or an expression, type-id, or template-name
+    inside a template instantiation''s angle brackets. Synonyms are actual argument and actual
+    parameter.'
+  subject: argument
+  condition: always
+  requirement: is one of the listed syntactic roles
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.1/1
+    fingerprint: sha256:a3590993408d7f33b38476f8fef64cf8741d9b81f3942a62079a063537c0b8be
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.2-001
+  type: definition
+  modality: is
+  normative: true
+  title: diagnostic message
+  statement: A diagnostic message is a message from an implementation-defined subset of an
+    implementation's output messages.
+  subject: diagnostic message
+  condition: always
+  requirement: belongs to an implementation-defined output subset
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.2/1
+    fingerprint: sha256:a51083ccf4725dc32e114f0daf26b4d8468193f506a76351b9c0363bc705ca5c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.3-001
+  type: definition
+  modality: is
+  normative: true
+  title: dynamic type of an lvalue
+  statement: The dynamic type of an lvalue is the type of the most derived object to which
+    the lvalue refers.
+  subject: dynamic type
+  condition: for an lvalue expression
+  requirement: is the type of the most derived object
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.3/1
+    fingerprint: sha256:8cdb9d97bdc199c7e83ffde4ae9c42f1b1bd717a5df8786a2843a04ac9c3024a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.3-002
+  type: definition
+  modality: is
+  normative: true
+  title: dynamic type of an rvalue
+  statement: For an rvalue, the dynamic type coincides with the static type.
+  subject: dynamic type
+  condition: for an rvalue expression
+  requirement: equals the static type
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.3/1
+    fingerprint: sha256:8cdb9d97bdc199c7e83ffde4ae9c42f1b1bd717a5df8786a2843a04ac9c3024a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.4-001
+  type: definition
+  modality: is
+  normative: true
+  title: ill-formed program
+  statement: A program is ill-formed when it is supplied to an implementation but does not
+    qualify as well-formed.
+  subject: ill-formed program
+  condition: always
+  requirement: is input that is not well-formed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.4/1
+    fingerprint: sha256:1e2076ebf0a0b4233e89a27be93555c9ab5481cd182bdbe946777bb7eb770c4e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.5-001
+  type: definition
+  modality: is
+  normative: true
+  title: implementation-defined behavior
+  statement: Implementation-defined behavior is behavior of a well-formed construct with correct
+    data that depends on the implementation.
+  subject: implementation-defined behavior
+  condition: for a well-formed construct with correct data
+  requirement: depends on the implementation
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.5/1
+    fingerprint: sha256:7896019ae272f93cd70c2c9e99c53cf24891820a597622fa61afba726cb87e88
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.5-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Document implementation-defined behavior
+  statement: Each implementation shall document its implementation-defined behavior.
+  subject: implementation
+  condition: for implementation-defined behavior
+  requirement: shall document the behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.5/1
+    fingerprint: sha256:7896019ae272f93cd70c2c9e99c53cf24891820a597622fa61afba726cb87e88
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.6-001
+  type: definition
+  modality: is
+  normative: true
+  title: implementation limits
+  statement: Implementation limits are restrictions that an implementation imposes on programs.
+  subject: implementation limits
+  condition: always
+  requirement: are restrictions imposed on programs
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.6/1
+    fingerprint: sha256:a7143bffbadecc9df1451619470736e9a16456f83a9c7be99a289798dbb69e57
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.7-001
+  type: definition
+  modality: is
+  normative: true
+  title: locale-specific behavior
+  statement: Locale-specific behavior varies with the customs of a nation, culture, or language.
+  subject: locale-specific behavior
+  condition: always
+  requirement: depends on local conventions
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.7/1
+    fingerprint: sha256:1239afaaab500c90ff03286f3d523d06548b6ace24cbf0be7508c1f6d76e1f75
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.7-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Document locale-specific behavior
+  statement: Each implementation shall document its locale-specific behavior.
+  subject: implementation
+  condition: for locale-specific behavior
+  requirement: shall document the behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.7/1
+    fingerprint: sha256:1239afaaab500c90ff03286f3d523d06548b6ace24cbf0be7508c1f6d76e1f75
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.8-001
+  type: definition
+  modality: is
+  normative: true
+  title: multibyte character
+  statement: A multibyte character is a sequence of one or more bytes that represents a member
+    of the extended character set of the source or execution environment; that set is a superset
+    of the basic character set.
+  subject: multibyte character
+  condition: always
+  requirement: is a byte sequence for an extended character
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.8/1
+    fingerprint: sha256:6d256a6f3677f0d785ef337ea3dbcb40e377a07b312a66e9407e5790f12c43d1
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.9-001
+  type: definition
+  modality: is
+  normative: true
+  title: parameter
+  statement: A parameter is an object or reference declared in a function declaration or definition
+    or in a catch clause, an identifier in a function-like macro parameter list, or a template-parameter.
+    It is also called a formal argument or formal parameter.
+  subject: parameter
+  condition: always
+  requirement: is one of the listed declarations
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.9/1
+    fingerprint: sha256:e312da63319f903ee29080b13c27c31dd3360c26f8cfe07233a836f66ddd7817
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.10-001
+  type: definition
+  modality: is
+  normative: true
+  title: signature
+  statement: 'A function''s signature is the information used in overload resolution: its
+    parameter-type-list and, for a member function, the cv-qualifiers on the function and
+    on its class. A function template specialization''s signature also includes the types
+    of its template arguments.'
+  subject: signature
+  condition: always
+  requirement: is the overload-resolution information
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.10/1
+    fingerprint: sha256:8dd290b225559668981becca05930140d3fed0ee5e101b3181bd5101a993c0e9
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.11-001
+  type: definition
+  modality: is
+  normative: true
+  title: static type
+  statement: The static type of an expression is the type obtained by analyzing the program
+    without execution semantics; it depends only on the program form and does not change during
+    execution.
+  subject: static type
+  condition: always
+  requirement: is determined by program form only
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.11/1
+    fingerprint: sha256:123756972590b1a0865b69df6ea2339c67725e21d49c57cc63c13b0ee4324d7f
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.12-001
+  type: definition
+  modality: is
+  normative: true
+  title: undefined behavior
+  statement: Undefined behavior is behavior, possibly from an erroneous construct or data,
+    for which this International Standard imposes no requirements; it may also arise when
+    no behavior is explicitly defined.
+  subject: undefined behavior
+  condition: always
+  requirement: has no requirements imposed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.12/1
+    fingerprint: sha256:e1c8449b31f7902802252e876a3e5db14361fa033e937c187ed2ee9d7f36fc6d
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.12-002
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Range of undefined behavior
+  statement: Permissible undefined behavior ranges from ignoring the situation with unpredictable
+    results, through documented environment-specific behavior, to terminating translation
+    or execution with a diagnostic; many erroneous constructs are instead required to be diagnosed.
+  subject: undefined behavior
+  condition: in practice
+  requirement: may take any of the listed forms
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.12/1
+    fingerprint: sha256:e1c8449b31f7902802252e876a3e5db14361fa033e937c187ed2ee9d7f36fc6d
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.13-001
+  type: definition
+  modality: is
+  normative: true
+  title: unspecified behavior
+  statement: Unspecified behavior is behavior of a well-formed construct with correct data
+    that depends on the implementation; the implementation need not document which behavior
+    occurs.
+  subject: unspecified behavior
+  condition: always
+  requirement: depends on the implementation without documentation
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.13/1
+    fingerprint: sha256:ab6e0f7dfd624be142e75f76d88daca4ea882887de0d3c7802fca5d0c9db57d6
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.13-002
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Range of unspecified behavior
+  statement: Usually the range of possible unspecified behaviors is delineated by this International
+    Standard.
+  subject: unspecified behavior
+  condition: usually
+  requirement: has a bounded set of possible behaviors
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.13/1
+    fingerprint: sha256:ab6e0f7dfd624be142e75f76d88daca4ea882887de0d3c7802fca5d0c9db57d6
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.14-001
+  type: definition
+  modality: is
+  normative: true
+  title: well-formed program
+  statement: A well-formed program is a C++ program constructed according to the syntax rules,
+    the diagnosable semantic rules, and the One Definition Rule.
+  subject: well-formed program
+  condition: always
+  requirement: obeys syntax, diagnosable semantics, and the ODR
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.3.14/1
+    fingerprint: sha256:3b1331738c3997e17bf8cc6f590696e8319a55b143534cdeac162b9074f58006
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.4-001
+  type: definition
+  modality: is
+  normative: true
+  title: diagnosable rules
+  statement: The diagnosable rules are all syntactic and semantic rules of this International
+    Standard except rules marked as requiring no diagnostic and rules whose violation is undefined
+    behavior.
+  subject: diagnosable rules
+  condition: always
+  requirement: are the rules that require diagnostics
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.4/1
+    fingerprint: sha256:c62f670a55293465c233f6f7dba4151129f933e2589ad7d3cf8a55de8c83ee86
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.4-002
+  type: requirement
+  modality: shall
+  normative: true
+  title: Accept valid programs
+  statement: Within its resource limits, a conforming implementation shall accept and correctly
+    execute a program that violates no rule of this International Standard.
+  subject: conforming implementation
+  condition: program violates no rule
+  requirement: shall accept and correctly execute it
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.4/2
+    fingerprint: sha256:7a0da50018523721d05f094e05be351156c3ec1c43a6bbef3c8d9c15140287ab
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.4-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: Diagnose violations
+  statement: When a program breaks a diagnosable rule, a conforming implementation must emit
+    one or more diagnostics.
+  subject: conforming implementation
+  condition: program violates a diagnosable rule
+  requirement: shall issue at least one diagnostic
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.4/2
+    fingerprint: sha256:7a0da50018523721d05f094e05be351156c3ec1c43a6bbef3c8d9c15140287ab
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.4-004
+  type: constraint
+  modality: is
+  normative: true
+  title: No diagnostic required
+  statement: For a program that breaks a rule marked as not requiring a diagnostic, the standard
+    leaves the implementation unconstrained.
+  subject: implementation
+  condition: violation of a no-diagnostic rule
+  requirement: has no requirement imposed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.4/2
+    fingerprint: sha256:7a0da50018523721d05f094e05be351156c3ec1c43a6bbef3c8d9c15140287ab
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.4-005
+  type: requirement
+  modality: shall
+  normative: true
+  title: Complete library class definitions
+  statement: For classes and class templates, each implementation shall supply the private
+    members needed to complete the partial definitions given in the library clauses.
+  subject: implementation
+  condition: for library classes and class templates
+  requirement: shall supply private members
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.4/3
+    fingerprint: sha256:da2444b6c5bb665223964cc58ecb8645cead0753f0be124623aec855d65c23d9
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.4-006
+  type: requirement
+  modality: shall
+  normative: true
+  title: Supply library definitions
+  statement: For library functions, function templates, objects, and values, implementations
+    shall supply definitions consistent with the library declarations.
+  subject: implementation
+  condition: for library declarations
+  requirement: shall supply consistent definitions
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.4/4
+    fingerprint: sha256:1de082703bb78e725fc5cb96c0c5610e70e57589f680003e18cf103b32243a60
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.4-007
+  type: requirement
+  modality: is
+  normative: true
+  title: Library name access
+  statement: Library names have namespace scope; a translation unit obtains access to them
+    by including the appropriate standard library header.
+  subject: library names
+  condition: always
+  requirement: have namespace scope and require the appropriate header
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.4/5
+    fingerprint: sha256:1f8999fbc10f1a3b80943b269fe5ac24cb726a4a7e65a0659fd632db400e2dfa
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.4-008
+  type: requirement
+  modality: is
+  normative: true
+  title: Library linkage
+  statement: Library templates, classes, functions, and objects have external linkage; the
+    implementation provides definitions as needed when translation units are combined.
+  subject: library entities
+  condition: always
+  requirement: have external linkage
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.4/6
+    fingerprint: sha256:cbb9ba22374eedb62a01f1877b1215edece0b4db7d18ad5930263b7c1622af12
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.4-009
+  type: definition
+  modality: is
+  normative: true
+  title: Hosted and freestanding implementations
+  statement: 'There are two implementation kinds: hosted and freestanding. A hosted implementation
+    provides the full set of libraries defined by this International Standard; a freestanding
+    implementation may run without an operating system and has an implementation-defined library
+    set that includes the language-support libraries.'
+  subject: implementation kinds
+  condition: always
+  requirement: are hosted and freestanding
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.4/7
+    fingerprint: sha256:ae70cecd860711bb670993661e75504070c880bf1895cfcdce4a4d69c861c32a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.4-010
+  type: requirement
+  modality: may
+  normative: true
+  title: Extensions
+  statement: A conforming implementation may provide extensions, including additional library
+    functions, if they do not change the behavior of well-formed programs.
+  subject: conforming implementation
+  condition: extensions do not alter well-formed behavior
+  requirement: may provide extensions
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.4/8
+    fingerprint: sha256:2ab87a456d9e8ab3c2595b98f5b2b9737d2eb0dc976b67ac1a204b2b6e89d99c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.4-011
+  type: requirement
+  modality: shall
+  normative: true
+  title: Diagnose ill-formed extensions
+  statement: An implementation shall diagnose programs that use its extensions in a way that
+    is ill-formed under this International Standard.
+  subject: implementation
+  condition: program uses an extension ill-formedly
+  requirement: shall diagnose it
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.4/8
+    fingerprint: sha256:2ab87a456d9e8ab3c2595b98f5b2b9737d2eb0dc976b67ac1a204b2b6e89d99c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.5-001
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Language clauses
+  statement: Clauses 2 through 16 describe the C++ language, including syntax in the form
+    of 1.6; Annex A repeats the syntax.
+  subject: clauses 2 through 16
+  condition: always
+  requirement: describe the language
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.5/1
+    fingerprint: sha256:7ae6808ba158f828d1cce46fbf1d9267a8124750cb1fa45d76e1d25f995729b2
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.5-002
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Library clauses
+  statement: Clauses 17 through 27 and Annex D describe the Standard C++ library, covering
+    macros, values, types, templates, classes, functions, and objects.
+  subject: clauses 17 through 27 and Annex D
+  condition: always
+  requirement: describe the library
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.5/2
+    fingerprint: sha256:529784d36c850584ee24e879d77ede883e12df5b64c4de1634b542dfa335a65a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.5-003
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Implementation quantities
+  statement: Annex B recommends lower bounds for the capacity of conforming implementations.
+  subject: Annex B
+  condition: always
+  requirement: recommends capacity lower bounds
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.5/3
+    fingerprint: sha256:79465e0e82af80341d24a4b4d23fa3bb17453da2f9fa9673c450e16c402fa0e5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.5-004
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Compatibility annexes
+  statement: Annex C summarizes the evolution of C++ and its differences from C; Annex D describes
+    features that exist for compatibility.
+  subject: Annexes C and D
+  condition: always
+  requirement: cover evolution and compatibility
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.5/4
+    fingerprint: sha256:668adae0094fe190cf33da44fde7d72024691efba8873b734077303924c96f38
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.5-005
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Universal character names
+  statement: Annex E lists the characters permitted inside universal-character-names used
+    by C++ identifiers.
+  subject: Annex E
+  condition: always
+  requirement: specifies valid universal-character-name characters
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.5/5
+    fingerprint: sha256:3f8e0eb0669f337026f05dccb63c20a3710ba7114b7a8262e664c6d20bf634fe
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.5-006
+  type: requirement
+  modality: is
+  normative: true
+  title: Example and note delimiters
+  statement: 'An example begins with [Example: and ends with ]; a note begins with [Note:
+    and ends with ]. Examples and notes may be nested.'
+  subject: examples and notes
+  condition: always
+  requirement: use the specified delimiters and may nest
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.5/6
+    fingerprint: sha256:d19376fe61fd2bcbd7e799fc55179fc749be942f076dd8a39879a3e8e987524c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.6-001
+  type: definition
+  modality: is
+  normative: true
+  title: Syntax notation
+  statement: In the syntax notation, syntactic categories are italic, literal words and characters
+    are in constant-width type, alternatives appear on separate lines except when marked one
+    of, and an optional symbol carries the subscript opt.
+  subject: syntax notation
+  condition: always
+  requirement: follows the stated typographic conventions
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.6/1
+    fingerprint: sha256:eacd2a7b4ee7401e3c53c1b18d96bca12e535d62b3c29aa18473c4b8d3a74553
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.6-002
+  type: definition
+  modality: is
+  normative: true
+  title: Syntactic category names
+  statement: 'Syntactic category names follow these conventions: X-name is a context-dependent
+    identifier use, X-id is a context-free identifier, X-seq is one or more X without delimiters,
+    and X-list is one or more X separated by commas.'
+  subject: syntactic category names
+  condition: always
+  requirement: follow the X-name, X-id, X-seq, X-list conventions
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.6/2
+    fingerprint: sha256:b59bce374f649798799617becc78ed599549611d579b5022a274a41a492fe6e8
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.7-001
+  type: definition
+  modality: is
+  normative: true
+  title: Byte
+  statement: The byte is the fundamental storage unit. A byte can hold any member of the basic
+    execution character set, consists of a contiguous bit sequence, and its bit count is implementation-defined.
+  subject: byte
+  condition: always
+  requirement: is the fundamental storage unit
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.7/1
+    fingerprint: sha256:2ee9c1f60dcc625d0b9d4a6ebefd290d8c5db1aedfd62186696f8e5c2cc026a5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.7-002
+  type: definition
+  modality: is
+  normative: true
+  title: Bit order names
+  statement: The least significant bit of a byte is the low-order bit; the most significant
+    bit is the high-order bit.
+  subject: bit positions
+  condition: always
+  requirement: are named low-order and high-order
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.7/1
+    fingerprint: sha256:2ee9c1f60dcc625d0b9d4a6ebefd290d8c5db1aedfd62186696f8e5c2cc026a5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.7-003
+  type: definition
+  modality: is
+  normative: true
+  title: Memory addresses
+  statement: Program memory consists of one or more sequences of contiguous bytes, and every
+    byte has a unique address.
+  subject: program memory
+  condition: always
+  requirement: is contiguous byte sequences with unique byte addresses
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.7/1
+    fingerprint: sha256:2ee9c1f60dcc625d0b9d4a6ebefd290d8c5db1aedfd62186696f8e5c2cc026a5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.7-004
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Type representation
+  statement: The representation of types is described in 3.9.
+  subject: type representation
+  condition: always
+  requirement: is described in 3.9
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.7/2
+    fingerprint: sha256:965883857ea49585c7a566f8d0d7e1b5b4de560bb67e2532f59fdf9160b7eb12
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-001
+  type: definition
+  modality: is
+  normative: true
+  title: Object
+  statement: An object is a region of storage.
+  subject: object
+  condition: always
+  requirement: is a region of storage
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/1
+    fingerprint: sha256:fb90708d47f358db6b421285367caee7008a38c3f491f0bafabf24362863e828
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-002
+  type: definition
+  modality: is_not
+  normative: true
+  title: Functions are not objects
+  statement: A function is not an object, even if it occupies storage like an object.
+  subject: function
+  condition: always
+  requirement: is not an object
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/1
+    fingerprint: sha256:fb90708d47f358db6b421285367caee7008a38c3f491f0bafabf24362863e828
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-003
+  type: definition
+  modality: is
+  normative: true
+  title: Object creation
+  statement: An object is created by a definition, by a new-expression, or by the implementation
+    when needed.
+  subject: object
+  condition: always
+  requirement: is created by a definition, new-expression, or implementation
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/1
+    fingerprint: sha256:fb90708d47f358db6b421285367caee7008a38c3f491f0bafabf24362863e828
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-004
+  type: definition
+  modality: is
+  normative: true
+  title: Object properties
+  statement: An object's properties are fixed when the object is created.
+  subject: object properties
+  condition: at creation
+  requirement: are determined
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/1
+    fingerprint: sha256:fb90708d47f358db6b421285367caee7008a38c3f491f0bafabf24362863e828
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-005
+  type: definition
+  modality: is
+  normative: true
+  title: Object attributes
+  statement: An object can have a name, a storage duration that influences its lifetime, and
+    a type.
+  subject: object
+  condition: always
+  requirement: can have a name, storage duration, and type
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/1
+    fingerprint: sha256:fb90708d47f358db6b421285367caee7008a38c3f491f0bafabf24362863e828
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-006
+  type: definition
+  modality: is
+  normative: true
+  title: Object type
+  statement: The object type is the type with which the object is created.
+  subject: object type
+  condition: always
+  requirement: is the creation type
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/1
+    fingerprint: sha256:fb90708d47f358db6b421285367caee7008a38c3f491f0bafabf24362863e828
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-007
+  type: definition
+  modality: is
+  normative: true
+  title: Polymorphic objects
+  statement: For a polymorphic object, the implementation generates information that allows
+    the object's type to be determined during execution.
+  subject: polymorphic object
+  condition: always
+  requirement: carries implementation-generated type information
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/1
+    fingerprint: sha256:fb90708d47f358db6b421285367caee7008a38c3f491f0bafabf24362863e828
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-008
+  type: definition
+  modality: is
+  normative: true
+  title: Value interpretation
+  statement: For a non-polymorphic object, the interpretation of stored values is determined
+    by the types of the expressions used to access them.
+  subject: non-polymorphic object
+  condition: always
+  requirement: has values interpreted by accessing expression types
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/1
+    fingerprint: sha256:fb90708d47f358db6b421285367caee7008a38c3f491f0bafabf24362863e828
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-009
+  type: definition
+  modality: is
+  normative: true
+  title: Sub-objects and complete objects
+  statement: 'Objects can contain sub-objects: member sub-objects, base class sub-objects,
+    or array elements. An object that is not a sub-object of another object is a complete
+    object.'
+  subject: sub-object
+  condition: always
+  requirement: is a member, base class sub-object, or array element
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/2
+    fingerprint: sha256:aaab2808eb80dc822276324b33754c8ec01c5800b0ada7a2ef31991d79f67d19
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-010
+  type: definition
+  modality: is
+  normative: true
+  title: Complete object of an object
+  statement: If x is itself complete, then x is its own complete object; if not, follow containment
+    upward to the unique enclosing object and take that object's complete object.
+  subject: complete object of x
+  condition: always
+  requirement: is defined recursively through containment
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/3
+    fingerprint: sha256:94a1bbd015d8f9abe316f0ad6c64e357fb97abe920044a0f383a221b4bffcda5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-011
+  type: definition
+  modality: is
+  normative: true
+  title: Most derived class and object
+  statement: A class-type complete object, data member, or array element is considered to
+    have the most derived class type; an object of that type is a most derived object.
+  subject: most derived object
+  condition: for class-type storage
+  requirement: has the most derived class type
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/4
+    fingerprint: sha256:bf145a34de2ad60509a32a904515b5cbd1a6aa18d4eb8339bef7b7462089d9c6
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-012
+  type: requirement
+  modality: shall
+  normative: true
+  title: Size of a most derived object
+  statement: A most derived object that is not a bit-field must be non-empty in size and take
+    at least one byte.
+  subject: most derived object
+  condition: not a bit-field
+  requirement: shall have non-zero size and occupy bytes
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/5
+    fingerprint: sha256:0bc5f5ef2d5f18ffe26fbf7d1eca1343119c183b14a2e9b2dcd6ad35e06ca5a5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-013
+  type: requirement
+  modality: may
+  normative: true
+  title: Zero-size base sub-objects
+  statement: Base class sub-objects may have zero size.
+  subject: base class sub-object
+  condition: always
+  requirement: may have zero size
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/5
+    fingerprint: sha256:0bc5f5ef2d5f18ffe26fbf7d1eca1343119c183b14a2e9b2dcd6ad35e06ca5a5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-014
+  type: requirement
+  modality: shall
+  normative: true
+  title: POD storage
+  statement: An object of POD type shall occupy contiguous bytes of storage.
+  subject: POD object
+  condition: always
+  requirement: shall occupy contiguous bytes
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/5
+    fingerprint: sha256:0bc5f5ef2d5f18ffe26fbf7d1eca1343119c183b14a2e9b2dcd6ad35e06ca5a5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-015
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Built-in and composed types
+  statement: C++ provides built-in types and several ways to compose new types from existing
+    types.
+  subject: type system
+  condition: always
+  requirement: offers built-in and composed types
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.8/6
+    fingerprint: sha256:54d4afdff359102e1d41e2ded904a809094d45c754d32d1ead36b72efdb5239b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-001
+  type: definition
+  modality: is
+  normative: true
+  title: Abstract machine
+  statement: The semantic descriptions define a parameterized nondeterministic abstract machine.
+  subject: semantics
+  condition: always
+  requirement: define an abstract machine
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/1
+    fingerprint: sha256:ea72ba94c620267baffca51a6fd14cfdc21be2148558da74e09ae543c8e0f18b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-002
+  type: requirement
+  modality: is
+  normative: true
+  title: Implementation structure
+  statement: This International Standard imposes no requirement on the structure of conforming
+    implementations; they need not copy or emulate the abstract machine's structure.
+  subject: conforming implementation
+  condition: always
+  requirement: has no required internal structure
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/1
+    fingerprint: sha256:ea72ba94c620267baffca51a6fd14cfdc21be2148558da74e09ae543c8e0f18b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-003
+  type: requirement
+  modality: shall
+  normative: true
+  title: Emulate observable behavior
+  statement: Conforming implementations are required to emulate the observable behavior of
+    the abstract machine.
+  subject: conforming implementation
+  condition: always
+  requirement: shall emulate observable behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/1
+    fingerprint: sha256:ea72ba94c620267baffca51a6fd14cfdc21be2148558da74e09ae543c8e0f18b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-004
+  type: requirement
+  modality: shall
+  normative: true
+  title: Document implementation-defined parameters
+  statement: Each implementation shall document its implementation-defined characteristics
+    and behavior; that documentation defines the corresponding instance of the abstract machine.
+  subject: implementation
+  condition: for implementation-defined aspects
+  requirement: shall document them and define the corresponding instance
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/2
+    fingerprint: sha256:99ffd76aa628facefdaeeb4ede85252ffc5bc3ac4be6db1c3e0a54e9b4630aef
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-005
+  type: definition
+  modality: is
+  normative: true
+  title: Unspecified aspects
+  statement: Unspecified aspects define a set of allowable behaviors and thus the nondeterministic
+    aspects of the abstract machine; an instance may have more than one execution sequence
+    for a program and input.
+  subject: unspecified aspects
+  condition: always
+  requirement: define allowable behaviors
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/3
+    fingerprint: sha256:3710e8a2c27abffb242879b37109d3d1dca1bdabd8487a70cfbc9f865d233730
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-006
+  type: definition
+  modality: is
+  normative: true
+  title: Undefined operations
+  statement: For an undefined operation, the standard places no behavioral obligations on
+    programs containing it.
+  subject: undefined operation
+  condition: always
+  requirement: has no imposed behavior
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/4
+    fingerprint: sha256:f5e7618a6eca1777bd137fd7d7eec9ff34924412d7724214380519502e6c7adb
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-007
+  type: requirement
+  modality: shall
+  normative: true
+  title: Observable behavior of a well-formed program
+  statement: When running a well-formed program, a conforming implementation must exhibit
+    the observable behavior of some allowed abstract-machine run for that program and input.
+  subject: conforming implementation
+  condition: well-formed program
+  requirement: shall match one possible abstract execution sequence
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/5
+    fingerprint: sha256:b8d3c07b9f0dbdbc5b955f675ff7c2267397bf493fed01f4adfeb413f322b774
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-008
+  type: constraint
+  modality: is
+  normative: true
+  title: Undefined operation in the sequence
+  statement: If an execution sequence contains an undefined operation, this International
+    Standard imposes no requirement on the implementation for that program and input, including
+    operations before the first undefined operation.
+  subject: implementation
+  condition: execution sequence contains undefined operation
+  requirement: has no requirement imposed
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/5
+    fingerprint: sha256:b8d3c07b9f0dbdbc5b955f675ff7c2267397bf493fed01f4adfeb413f322b774
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-009
+  type: definition
+  modality: is
+  normative: true
+  title: Observable behavior
+  statement: Observable behavior consists of volatile-data reads and writes plus calls into
+    library I/O.
+  subject: observable behavior
+  condition: always
+  requirement: is volatile access and library I/O calls
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/6
+    fingerprint: sha256:14c099ef1cf948f57e94bca449825510acef65e7ed52cfa825bf8f5650596a5a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-010
+  type: definition
+  modality: is
+  normative: true
+  title: Side effects
+  statement: A side effect is a change to the execution environment caused by volatile access,
+    object modification, a library I/O call, or a call that performs any of these.
+  subject: side effect
+  condition: always
+  requirement: is a change to the execution environment state
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/7
+    fingerprint: sha256:c5a8e5606e4f8d845a0a43ef6bd327ce87e1f36ec5897a52f90a497f90363e3b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-011
+  type: requirement
+  modality: shall
+  normative: true
+  title: Sequence-point side effects
+  statement: Between sequence points, earlier evaluations must have finished their side effects
+    and later ones must not have begun.
+  subject: side effects
+  condition: at a sequence point
+  requirement: shall be complete for previous and not started for subsequent evaluations
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/7
+    fingerprint: sha256:c5a8e5606e4f8d845a0a43ef6bd327ce87e1f36ec5897a52f90a497f90363e3b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-012
+  type: requirement
+  modality: shall
+  normative: true
+  title: Function execution ordering
+  statement: After a function's execution begins, no expression of the calling function is
+    evaluated until the called function's execution completes.
+  subject: function call
+  condition: after callee execution begins
+  requirement: shall not evaluate caller expressions until completion
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/8
+    fingerprint: sha256:131d41dacd0aa4f7a017799389da9e92420bbbac823100965bb5f6870c2c2e75
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-013
+  type: behavior_unspecified
+  modality: unspecified
+  normative: true
+  title: Signal interruption values
+  statement: If a signal interrupts execution, non-volatile std::sig_atomic_t objects have
+    unspecified values.
+  subject: object values
+  condition: on signal interruption
+  requirement: are unspecified for non-volatile sig_atomic_t objects
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/9
+    fingerprint: sha256:4f690e4a7a91699b6b41075f5734cfab4ae69ba8a2bbaf2d4d8d87d3602e353c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-014
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Signal-modified objects
+  statement: The value of an object that is not volatile std::sig_atomic_t and is modified
+    by a signal handler becomes undefined.
+  subject: object value
+  condition: modified by a signal handler and not volatile sig_atomic_t
+  requirement: is undefined
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/9
+    fingerprint: sha256:4f690e4a7a91699b6b41075f5734cfab4ae69ba8a2bbaf2d4d8d87d3602e353c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-015
+  type: definition
+  modality: is
+  normative: true
+  title: Automatic storage duration
+  statement: An instance of an automatic-storage-duration object is associated with each entry
+    into its block and retains its last-stored value during block execution and suspension.
+  subject: automatic object
+  condition: each block entry
+  requirement: exists and retains its last-stored value
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/10
+    fingerprint: sha256:bd8d14a3bf023b65ea7f093414bf2bef33b89acbe41c6ae7b34e55be96d410e5
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-016
+  type: requirement
+  modality: shall
+  normative: true
+  title: Volatile stability at sequence points
+  statement: 'At a sequence point, volatile objects are stable: earlier evaluations are done
+    and later ones have not started.'
+  subject: volatile object
+  condition: at a sequence point
+  requirement: shall be stable
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/11
+    fingerprint: sha256:34663f76d8b7cc8272bf67c4f0906ad61d1285e83750b6de3dc190de5c4cefda
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-017
+  type: requirement
+  modality: shall
+  normative: true
+  title: File contents at termination
+  statement: At program termination, all data written to files shall equal one possible result
+    of executing the program under the abstract semantics.
+  subject: file data
+  condition: at program termination
+  requirement: shall equal one possible abstract result
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/11
+    fingerprint: sha256:34663f76d8b7cc8272bf67c4f0906ad61d1285e83750b6de3dc190de5c4cefda
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-018
+  type: requirement
+  modality: shall
+  normative: true
+  title: Interactive device prompting
+  statement: Interactive device input and output shall be ordered so that prompting messages
+    appear before the program waits for input; what counts as an interactive device is implementation-defined.
+  subject: interactive device I/O
+  condition: always
+  requirement: shall show prompts before waiting for input
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/11
+    fingerprint: sha256:34663f76d8b7cc8272bf67c4f0906ad61d1285e83750b6de3dc190de5c4cefda
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-019
+  type: definition
+  modality: is
+  normative: true
+  title: full-expression
+  statement: A full-expression is a maximal expression, one not nested inside another; a construct
+    that implicitly calls a function counts as an expression, and conversions applied to the
+    result belong to the same full-expression.
+  subject: full-expression
+  condition: always
+  requirement: is a maximal expression including applied conversions
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/12
+    fingerprint: sha256:1fae14158cba0de0f33012b5c7ccf612b61014ee05ca9b404d621b9bd6ee487c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-020
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Non-lexical subexpressions
+  statement: Evaluating a full-expression can include subexpressions that are not lexically
+    part of it, such as default-argument expressions created in the calling expression.
+  subject: full-expression evaluation
+  condition: sometimes
+  requirement: can include non-lexical subexpressions
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/13
+    fingerprint: sha256:49a8c29b31fbfd1d6a60c6e2818793aa381b27bd775ea78fb775e3ccc829bd20
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-021
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Operator regrouping
+  statement: Operators may be regrouped by the usual mathematical rules only where they are
+    associative or commutative; overloaded operators are never assumed to be either.
+  subject: operator evaluation
+  condition: when regrouping
+  requirement: is allowed only for associative or commutative operators
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/14
+    fingerprint: sha256:bbf897f998030669d40dd19b50de6b0b311426e09608b9d0ae7a793d1b915d64
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-022
+  type: requirement
+  modality: is
+  normative: true
+  title: Sequence point after a full-expression
+  statement: Each full-expression has a sequence point when its evaluation finishes.
+  subject: full-expression
+  condition: at completion
+  requirement: has a sequence point
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/15
+    fingerprint: sha256:7edd97265560f203418ce98325c2ff872e6c37c81c5f8224c9d7fec186038a7a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-023
+  type: requirement
+  modality: is
+  normative: true
+  title: Sequence point at function entry
+  statement: When a function is called, there is a sequence point after evaluation of all
+    arguments and before any expression or statement in the function body.
+  subject: function call
+  condition: at entry
+  requirement: has a sequence point after argument evaluation
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/16
+    fingerprint: sha256:61595eee97f42ac0f78278aa285ab99b935c2fe13bfb29a709880585b9bef60e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-024
+  type: requirement
+  modality: is
+  normative: true
+  title: Sequence point at function exit
+  statement: There is a sequence point after copying a returned value and before executing
+    expressions outside the function.
+  subject: function call
+  condition: at exit
+  requirement: has a sequence point after the return-value copy
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/16
+    fingerprint: sha256:61595eee97f42ac0f78278aa285ab99b935c2fe13bfb29a709880585b9bef60e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-025
+  type: requirement
+  modality: is
+  normative: true
+  title: Sequence points in logical and comma operators
+  statement: For the built-in &&, ||, conditional, and comma operators, there is a sequence
+    point after evaluation of the first expression.
+  subject: built-in logical and comma operators
+  condition: always
+  requirement: have a sequence point after the first operand
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.9/17
+    fingerprint: sha256:9d91a9b12dd5a8ed4e9830db540b488f71c6baa3148ddeb9eeede388ac850b1d
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.10-001
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Acknowledgments
+  statement: The language description derives from Stroustrup's reference manual and, through
+    it, from Kernighan and Ritchie's C book; portions of the library clauses derive from P.J.
+    Plauger's draft library, and rights in those originals are reserved.
+  subject: acknowledgments
+  condition: always
+  requirement: record the listed sources
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 1.10/1
+    fingerprint: sha256:7b954092045d6fe49c92e534747722414fa533f560df634374f2c8815250d06e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
