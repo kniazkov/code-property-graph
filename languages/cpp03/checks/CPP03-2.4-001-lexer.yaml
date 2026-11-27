@@ -1,0 +1,27 @@
+schema_version: 1
+check_id: CPP03-2.4-001-lexer
+statement_id: CPP03-2.4-001
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: x
+  - source: '42'
+  - source: '''a'''
+  - source: '"a"'
+  - source: +
+expected:
+  tokens:
+  - x
+  - '42'
+  - '''a'''
+  - '"a"'
+  - +
+negative_control:
+  mutate: classify 42 as an identifier
+  expected: fail
+evidence:
+- lexer_version
+- token_dump
+status: active

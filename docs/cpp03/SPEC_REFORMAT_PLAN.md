@@ -135,8 +135,8 @@ review pass.
 - [x] Never waive a normative statement: every one must end with a check.
 - [x] Verify that no statement is checked only by a compiler.
 
-Progress: batch A has 349 checks for 349 normative statements (149 active,
-200 pending). Pending checks are activated as the parser and analysis layers
+Progress: batch A has 349 checks for 349 normative statements (160 active,
+189 pending). Pending checks are activated as the parser and analysis layers
 grow.
 
 ### Phase 5 — Tests

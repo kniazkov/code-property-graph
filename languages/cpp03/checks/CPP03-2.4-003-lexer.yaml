@@ -1,0 +1,23 @@
+schema_version: 1
+check_id: CPP03-2.4-003-lexer
+statement_id: CPP03-2.4-003
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: x 42 'a' "a" +
+expected:
+  tokens:
+  - x
+  - '42'
+  - '''a'''
+  - '"a"'
+  - +
+negative_control:
+  mutate: drop the string literal token
+  expected: fail
+evidence:
+- lexer_version
+- token_dump
+status: active

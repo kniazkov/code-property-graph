@@ -1,0 +1,19 @@
+schema_version: 1
+check_id: CPP03-2.10-002-lexer
+statement_id: CPP03-2.10-002
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: x_
+expected:
+  tokens:
+  - x_
+negative_control:
+  mutate: stop the identifier before the underscore
+  expected: fail
+evidence:
+- lexer_version
+- token_dump
+status: active

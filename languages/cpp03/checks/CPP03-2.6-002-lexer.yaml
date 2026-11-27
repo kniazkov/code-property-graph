@@ -1,0 +1,20 @@
+schema_version: 1
+check_id: CPP03-2.6-002-lexer
+statement_id: CPP03-2.6-002
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: int  x
+expected:
+  tokens:
+  - int
+  - x
+negative_control:
+  mutate: merge adjacent identifiers
+  expected: fail
+evidence:
+- lexer_version
+- token_dump
+status: active

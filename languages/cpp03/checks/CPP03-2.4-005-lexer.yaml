@@ -1,0 +1,20 @@
+schema_version: 1
+check_id: CPP03-2.4-005-lexer
+statement_id: CPP03-2.4-005
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: x   y
+expected:
+  tokens:
+  - x
+  - y
+negative_control:
+  mutate: emit white space as a token
+  expected: fail
+evidence:
+- lexer_version
+- token_dump
+status: active

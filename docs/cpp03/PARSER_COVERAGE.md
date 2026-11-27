@@ -74,6 +74,26 @@ The grammar productions 001–010 are exercised by the same parsing tests.
 | 003 | boolean literals have type `bool` | `statement_003_booleanLiteralsHaveTypeBool` |
 | 004 | boolean literals are not lvalues | `statement_004_booleanLiteralsAreNotLvalues` |
 
+## Preprocessing tokens (CPP03-2.4, 2.6, 2.7, 2.9, 2.10, 2.12)
+
+`com.kniazkov.cpg.parser.cpp.Lexer` tokenizes a source string and skips white
+space and comments.
+
+| Statement | Requirement | Test |
+| --- | --- | --- |
+| 2.4-001 | preprocessing-token categories | `LexerTest.tokenizesCharacterAndStringLiterals` |
+| 2.4-003 | minimal lexical element categories | `LexerTest.tokenizesPreprocessingNumbers` |
+| 2.4-005 | white space separates tokens | `LexerTest.skipsLineComments` |
+| 2.4-006 | maximal munch | `LexerTest.tokenizesMultiCharacterOperators` |
+| 2.6-001 | token production | `LexerTest.distinguishesKeywordsAndIdentifiers` |
+| 2.6-002 | token kinds and white space | `LexerTest.distinguishesKeywordsAndIdentifiers` |
+| 2.7-001 | comment forms | `LexerTest.skipsLineComments`, `skipsBlockComments` |
+| 2.9-001 | pp-number production | `LexerTest.tokenizesPreprocessingNumbers` |
+| 2.9-002 | pp-number covers numeric literals | `LexerTest.tokenizesPreprocessingNumbers` |
+| 2.10-001 | identifier production | `LexerTest.distinguishesKeywordsAndIdentifiers` |
+| 2.10-002 | identifier characters | `LexerTest.distinguishesKeywordsAndIdentifiers` |
+| 2.12-001 | operator and punctuator tokens | `LexerTest.tokenizesMultiCharacterOperators` |
+
 ## Not implemented yet
 
 - 2.13.2-014 and 2.13.2-018: implementation-defined multicharacter values. The
