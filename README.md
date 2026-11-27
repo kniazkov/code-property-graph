@@ -29,10 +29,11 @@ and its own `statements/`, `grammar/`, `tables/`, `checks/`, `tests/`,
 
 ## Parser
 
-`com.kniazkov.cpg.parser.cpp.Lexer` tokenizes C++03 preprocessing tokens, and
-`com.kniazkov.cpg.parser.cpp.LiteralParser` parses integer, floating, character,
-string, and boolean literals. The statement-to-test map is in
-`docs/cpp03/PARSER_COVERAGE.md`.
+`com.kniazkov.cpg.parser.cpp.Preprocessor` handles trigraph replacement and
+line splicing, `com.kniazkov.cpg.parser.cpp.Lexer` tokenizes C++03
+preprocessing tokens, and `com.kniazkov.cpg.parser.cpp.LiteralParser` parses
+integer, floating, character, string, and boolean literals. The
+statement-to-test map is in `docs/cpp03/PARSER_COVERAGE.md`.
 
 ## Build
 

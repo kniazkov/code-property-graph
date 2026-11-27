@@ -7,8 +7,8 @@ import java.util.Set;
 /**
  * A small C++03 preprocessing-token lexer.
  *
- * <p>The lexer implements the token categories of 2.4, 2.6, 2.7, 2.9, 2.10,
- * and 2.12 for a single source string. It skips white space and comments and
+ * <p>The lexer implements the preprocessing-token categories of clause 2.4 and
+ * related sections for a single source string. It skips white space and comments and
  * returns immutable tokens with their source offsets.</p>
  */
 public final class Lexer {

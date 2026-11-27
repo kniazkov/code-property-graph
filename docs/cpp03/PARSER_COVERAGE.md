@@ -74,7 +74,18 @@ The grammar productions 001–010 are exercised by the same parsing tests.
 | 003 | boolean literals have type `bool` | `statement_003_booleanLiteralsHaveTypeBool` |
 | 004 | boolean literals are not lvalues | `statement_004_booleanLiteralsAreNotLvalues` |
 
-## Preprocessing tokens (CPP03-2.4, 2.6, 2.7, 2.9, 2.10, 2.12)
+## Translation phases (CPP03-2.1, 2.3)
+
+`com.kniazkov.cpg.parser.cpp.Preprocessor` replaces trigraphs and splices
+backslash-new-line sequences before tokenization.
+
+| Statement | Requirement | Test |
+| --- | --- | --- |
+| 2.1-003 | backslash-new-line splicing | `PreprocessorTest.splicesBackslashNewline` |
+| 2.3-001 | trigraph replacement | `PreprocessorTest.replacesEveryTrigraph` |
+| 2.3-002 | unlisted question-mark sequences unchanged | `PreprocessorTest.leavesOtherQuestionMarksAlone` |
+
+## Preprocessing tokens (clause 2.4 and related sections)
 
 `com.kniazkov.cpg.parser.cpp.Lexer` tokenizes a source string and skips white
 space and comments.

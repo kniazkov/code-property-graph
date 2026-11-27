@@ -8,8 +8,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * Proves the preprocessing-token lexer rules of 2.4, 2.6, 2.7, 2.9, 2.10,
- * and 2.12.
+ * Proves the preprocessing-token lexer rules of clause 2.4 and related
+ * sections.
  */
 class LexerTest {
 

@@ -1,0 +1,23 @@
+schema_version: 1
+check_id: CPP03-2.1-003-parser
+statement_id: CPP03-2.1-003
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: "a\\\nb"
+  - source: "a\\\r\nb"
+  - source: "a\\\rb"
+expected:
+  normalized:
+  - ab
+  - ab
+  - ab
+negative_control:
+  mutate: keep the backslash-new-line sequence instead of deleting it
+  expected: fail
+evidence:
+- preprocessor_version
+- normalized_dump
+status: active

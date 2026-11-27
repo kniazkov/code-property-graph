@@ -6,10 +6,10 @@ oracle: manual
 trust: low
 inputs:
   reviewer: ivan.kniazkov
-  reason: requires a preprocessing pipeline
+  reason: character mapping and universal-character-name conversion are not implemented; trigraph replacement is covered by CPP03-2.3-001
   locator: 2.1/1
 expected:
-  pending_reason: requires a preprocessing pipeline
+  pending_reason: character mapping and universal-character-name conversion are not implemented; trigraph replacement is covered by CPP03-2.3-001
 negative_control:
   mutate: remove the requirement
   expected: fail

@@ -3,8 +3,8 @@
   "statements": 489,
   "normative": 349,
   "covered": 349,
-  "active": 160,
-  "pending": 189,
+  "active": 161,
+  "pending": 188,
   "uncovered": 0,
   "uncovered_ids": [],
   "pending_ids": [
@@ -36,7 +36,6 @@
     "CPP03-2.13.2-030",
     "CPP03-2.1-001",
     "CPP03-2.1-002",
-    "CPP03-2.1-003",
     "CPP03-2.1-004",
     "CPP03-2.1-005",
     "CPP03-2.1-006",
