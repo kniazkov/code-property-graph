@@ -1,557 +1,593 @@
 schema_version: 1
 edition: N1638
-clause: "2.13.1"
-title: "Integer literals"
+clause: 2.13.1
+title: Integer literals
 statements:
-  - id: CPP03-2.13.1-001
-    type: grammar
-    modality: is
-    normative: true
-    title: "integer-literal production"
-    statement: >
-      integer-literal has three alternatives: decimal-literal with an optional
-      integer-suffix, octal-literal with an optional integer-suffix, and
-      hexadecimal-literal with an optional integer-suffix.
-    subject: "integer-literal"
-    condition: "any integer-literal"
-    requirement: "decimal-literal integer-suffix? | octal-literal integer-suffix? | hexadecimal-literal integer-suffix?"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-002, CPP03-2.13.1-003, CPP03-2.13.1-004, CPP03-2.13.1-008]
-    related: []
-    provenance:
-      private_locator: "2.13.1/grammar"
-      fingerprint: "sha256:8ce14ec4e9be39d83a16de6a14402bab3550ed96dbcfee2fd071bf67f9ec14f3"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+- id: CPP03-2.13.1-001
+  type: grammar
+  modality: is
+  normative: true
+  title: integer-literal production
+  statement: 'integer-literal has three alternatives: decimal-literal with an optional integer-suffix,
+    octal-literal with an optional integer-suffix, and hexadecimal-literal with an optional
+    integer-suffix.
 
-  - id: CPP03-2.13.1-002
-    type: grammar
-    modality: is
-    normative: true
-    title: "decimal-literal production"
-    statement: >
-      decimal-literal is either a single nonzero-digit or a decimal-literal
-      followed by a digit.
-    subject: "decimal-literal"
-    condition: "any decimal-literal"
-    requirement: "nonzero-digit | decimal-literal digit"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-005]
-    related: []
-    provenance:
-      private_locator: "2.13.1/grammar"
-      fingerprint: "sha256:8ce14ec4e9be39d83a16de6a14402bab3550ed96dbcfee2fd071bf67f9ec14f3"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: integer-literal
+  condition: any integer-literal
+  requirement: decimal-literal integer-suffix? | octal-literal integer-suffix? | hexadecimal-literal
+    integer-suffix?
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-002
+  - CPP03-2.13.1-003
+  - CPP03-2.13.1-004
+  - CPP03-2.13.1-008
+  related: []
+  provenance:
+    private_locator: 2.13.1/grammar
+    fingerprint: sha256:0b984c5839b61902849345e787ec4bfc7a93f159ee7e9bffd11711701ff8eb1a
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-002
+  type: grammar
+  modality: is
+  normative: true
+  title: decimal-literal production
+  statement: 'decimal-literal is either a single nonzero-digit or a decimal-literal followed
+    by a digit.
 
-  - id: CPP03-2.13.1-003
-    type: grammar
-    modality: is
-    normative: true
-    title: "octal-literal production"
-    statement: >
-      octal-literal is either a single 0 or an octal-literal followed by an
-      octal-digit.
-    subject: "octal-literal"
-    condition: "any octal-literal"
-    requirement: "0 | octal-literal octal-digit"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-006]
-    related: []
-    provenance:
-      private_locator: "2.13.1/grammar"
-      fingerprint: "sha256:8ce14ec4e9be39d83a16de6a14402bab3550ed96dbcfee2fd071bf67f9ec14f3"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: decimal-literal
+  condition: any decimal-literal
+  requirement: nonzero-digit | decimal-literal digit
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-005
+  related: []
+  provenance:
+    private_locator: 2.13.1/grammar
+    fingerprint: sha256:0b984c5839b61902849345e787ec4bfc7a93f159ee7e9bffd11711701ff8eb1a
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-003
+  type: grammar
+  modality: is
+  normative: true
+  title: octal-literal production
+  statement: 'octal-literal is either a single 0 or an octal-literal followed by an octal-digit.
 
-  - id: CPP03-2.13.1-004
-    type: grammar
-    modality: is
-    normative: true
-    title: "hexadecimal-literal production"
-    statement: >
-      hexadecimal-literal begins with 0x or 0X followed by at least one
-      hexadecimal-digit; further hexadecimal-digits continue the literal.
-    subject: "hexadecimal-literal"
-    condition: "any hexadecimal-literal"
-    requirement: "0x hexadecimal-digit | 0X hexadecimal-digit | hexadecimal-literal hexadecimal-digit"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-007]
-    related: []
-    provenance:
-      private_locator: "2.13.1/grammar"
-      fingerprint: "sha256:8ce14ec4e9be39d83a16de6a14402bab3550ed96dbcfee2fd071bf67f9ec14f3"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: octal-literal
+  condition: any octal-literal
+  requirement: 0 | octal-literal octal-digit
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-006
+  related: []
+  provenance:
+    private_locator: 2.13.1/grammar
+    fingerprint: sha256:0b984c5839b61902849345e787ec4bfc7a93f159ee7e9bffd11711701ff8eb1a
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-004
+  type: grammar
+  modality: is
+  normative: true
+  title: hexadecimal-literal production
+  statement: 'hexadecimal-literal begins with 0x or 0X followed by at least one hexadecimal-digit;
+    further hexadecimal-digits continue the literal.
 
-  - id: CPP03-2.13.1-005
-    type: grammar
-    modality: is
-    normative: true
-    title: "nonzero-digit set"
-    statement: "nonzero-digit is one of the decimal digits 1 through 9."
-    subject: "nonzero-digit"
-    condition: "any nonzero-digit"
-    requirement: "one of 1 2 3 4 5 6 7 8 9"
-    exceptions: []
-    depends_on: []
-    related: []
-    provenance:
-      private_locator: "2.13.1/grammar"
-      fingerprint: "sha256:8ce14ec4e9be39d83a16de6a14402bab3550ed96dbcfee2fd071bf67f9ec14f3"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: hexadecimal-literal
+  condition: any hexadecimal-literal
+  requirement: 0x hexadecimal-digit | 0X hexadecimal-digit | hexadecimal-literal hexadecimal-digit
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-007
+  related: []
+  provenance:
+    private_locator: 2.13.1/grammar
+    fingerprint: sha256:0b984c5839b61902849345e787ec4bfc7a93f159ee7e9bffd11711701ff8eb1a
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-005
+  type: grammar
+  modality: is
+  normative: true
+  title: nonzero-digit set
+  statement: nonzero-digit is one of the decimal digits 1 through 9.
+  subject: nonzero-digit
+  condition: any nonzero-digit
+  requirement: one of 1 2 3 4 5 6 7 8 9
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.1/grammar
+    fingerprint: sha256:0b984c5839b61902849345e787ec4bfc7a93f159ee7e9bffd11711701ff8eb1a
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-006
+  type: grammar
+  modality: is
+  normative: true
+  title: octal-digit set
+  statement: octal-digit is one of the octal digits 0 through 7.
+  subject: octal-digit
+  condition: any octal-digit
+  requirement: one of 0 1 2 3 4 5 6 7
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.1/grammar
+    fingerprint: sha256:0b984c5839b61902849345e787ec4bfc7a93f159ee7e9bffd11711701ff8eb1a
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-007
+  type: grammar
+  modality: is
+  normative: true
+  title: hexadecimal-digit set
+  statement: 'hexadecimal-digit is a decimal digit or a Latin letter a through f or A through
+    F.
 
-  - id: CPP03-2.13.1-006
-    type: grammar
-    modality: is
-    normative: true
-    title: "octal-digit set"
-    statement: "octal-digit is one of the octal digits 0 through 7."
-    subject: "octal-digit"
-    condition: "any octal-digit"
-    requirement: "one of 0 1 2 3 4 5 6 7"
-    exceptions: []
-    depends_on: []
-    related: []
-    provenance:
-      private_locator: "2.13.1/grammar"
-      fingerprint: "sha256:8ce14ec4e9be39d83a16de6a14402bab3550ed96dbcfee2fd071bf67f9ec14f3"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: hexadecimal-digit
+  condition: any hexadecimal-digit
+  requirement: one of 0-9 a-f A-F
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.1/grammar
+    fingerprint: sha256:0b984c5839b61902849345e787ec4bfc7a93f159ee7e9bffd11711701ff8eb1a
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-008
+  type: grammar
+  modality: is
+  normative: true
+  title: integer-suffix production
+  statement: 'integer-suffix is either an unsigned-suffix with an optional long-suffix or
+    a long-suffix with an optional unsigned-suffix.
 
-  - id: CPP03-2.13.1-007
-    type: grammar
-    modality: is
-    normative: true
-    title: "hexadecimal-digit set"
-    statement: >
-      hexadecimal-digit is a decimal digit or a Latin letter a through f or
-      A through F.
-    subject: "hexadecimal-digit"
-    condition: "any hexadecimal-digit"
-    requirement: "one of 0-9 a-f A-F"
-    exceptions: []
-    depends_on: []
-    related: []
-    provenance:
-      private_locator: "2.13.1/grammar"
-      fingerprint: "sha256:8ce14ec4e9be39d83a16de6a14402bab3550ed96dbcfee2fd071bf67f9ec14f3"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: integer-suffix
+  condition: any integer-suffix
+  requirement: unsigned-suffix long-suffix? | long-suffix unsigned-suffix?
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-009
+  - CPP03-2.13.1-010
+  related: []
+  provenance:
+    private_locator: 2.13.1/grammar
+    fingerprint: sha256:0b984c5839b61902849345e787ec4bfc7a93f159ee7e9bffd11711701ff8eb1a
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-009
+  type: grammar
+  modality: is
+  normative: true
+  title: unsigned-suffix set
+  statement: unsigned-suffix is u or U.
+  subject: unsigned-suffix
+  condition: any unsigned-suffix
+  requirement: one of u U
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.1/grammar
+    fingerprint: sha256:0b984c5839b61902849345e787ec4bfc7a93f159ee7e9bffd11711701ff8eb1a
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-010
+  type: grammar
+  modality: is
+  normative: true
+  title: long-suffix set
+  statement: long-suffix is l or L.
+  subject: long-suffix
+  condition: any long-suffix
+  requirement: one of l L
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.1/grammar
+    fingerprint: sha256:0b984c5839b61902849345e787ec4bfc7a93f159ee7e9bffd11711701ff8eb1a
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-011
+  type: definition
+  modality: is
+  normative: true
+  title: Form of an integer literal
+  statement: 'An integer literal is a sequence of digits with no period and no exponent part.
 
-  - id: CPP03-2.13.1-008
-    type: grammar
-    modality: is
-    normative: true
-    title: "integer-suffix production"
-    statement: >
-      integer-suffix is either an unsigned-suffix with an optional long-suffix
-      or a long-suffix with an optional unsigned-suffix.
-    subject: "integer-suffix"
-    condition: "any integer-suffix"
-    requirement: "unsigned-suffix long-suffix? | long-suffix unsigned-suffix?"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-009, CPP03-2.13.1-010]
-    related: []
-    provenance:
-      private_locator: "2.13.1/grammar"
-      fingerprint: "sha256:8ce14ec4e9be39d83a16de6a14402bab3550ed96dbcfee2fd071bf67f9ec14f3"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: integer literal
+  condition: any integer literal
+  requirement: consists of digits; contains no period and no exponent
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-001
+  related: []
+  provenance:
+    private_locator: 2.13.1/1
+    fingerprint: sha256:9af3a51cc43c2b75ff463cb5f5559c660db435585ff1792b23ff93a572fd67bc
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-012
+  type: requirement
+  modality: may
+  normative: true
+  title: Base prefix
+  statement: A base prefix is optional on an integer literal and selects the radix.
+  subject: integer literal
+  condition: integer literal with a prefix
+  requirement: the prefix selects the radix
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.13.1-015
+  - CPP03-2.13.1-016
+  - CPP03-2.13.1-017
+  provenance:
+    private_locator: 2.13.1/1
+    fingerprint: sha256:9af3a51cc43c2b75ff463cb5f5559c660db435585ff1792b23ff93a572fd67bc
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-013
+  type: requirement
+  modality: may
+  normative: true
+  title: Type suffix
+  statement: An integer literal may have a suffix that specifies its type.
+  subject: integer literal
+  condition: integer literal with a suffix
+  requirement: the suffix specifies the type
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-008
+  related:
+  - CPP03-2.13.1-024
+  - CPP03-2.13.1-025
+  - CPP03-2.13.1-026
+  provenance:
+    private_locator: 2.13.1/1
+    fingerprint: sha256:9af3a51cc43c2b75ff463cb5f5559c660db435585ff1792b23ff93a572fd67bc
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-014
+  type: requirement
+  modality: is
+  normative: true
+  title: Digit significance
+  statement: The lexically first digit of the sequence is the most significant.
+  subject: integer literal
+  condition: any integer literal
+  requirement: the first digit is the most significant
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.1/1
+    fingerprint: sha256:9af3a51cc43c2b75ff463cb5f5559c660db435585ff1792b23ff93a572fd67bc
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-015
+  type: definition
+  modality: is
+  normative: true
+  title: Decimal integer literal
+  statement: 'A base-ten literal starts with a non-zero digit; every following character is
+    a decimal digit.
 
-  - id: CPP03-2.13.1-009
-    type: grammar
-    modality: is
-    normative: true
-    title: "unsigned-suffix set"
-    statement: "unsigned-suffix is u or U."
-    subject: "unsigned-suffix"
-    condition: "any unsigned-suffix"
-    requirement: "one of u U"
-    exceptions: []
-    depends_on: []
-    related: []
-    provenance:
-      private_locator: "2.13.1/grammar"
-      fingerprint: "sha256:8ce14ec4e9be39d83a16de6a14402bab3550ed96dbcfee2fd071bf67f9ec14f3"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: decimal integer literal
+  condition: any decimal integer literal
+  requirement: first digit is not 0; the rest are decimal digits
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-002
+  - CPP03-2.13.1-005
+  related: []
+  provenance:
+    private_locator: 2.13.1/1
+    fingerprint: sha256:9af3a51cc43c2b75ff463cb5f5559c660db435585ff1792b23ff93a572fd67bc
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-016
+  type: definition
+  modality: is
+  normative: true
+  title: Octal integer literal
+  statement: 'A base-eight literal starts with 0; every following character is an octal digit.
 
-  - id: CPP03-2.13.1-010
-    type: grammar
-    modality: is
-    normative: true
-    title: "long-suffix set"
-    statement: "long-suffix is l or L."
-    subject: "long-suffix"
-    condition: "any long-suffix"
-    requirement: "one of l L"
-    exceptions: []
-    depends_on: []
-    related: []
-    provenance:
-      private_locator: "2.13.1/grammar"
-      fingerprint: "sha256:8ce14ec4e9be39d83a16de6a14402bab3550ed96dbcfee2fd071bf67f9ec14f3"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: octal integer literal
+  condition: any octal integer literal
+  requirement: first digit is 0; the rest are octal digits
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-003
+  - CPP03-2.13.1-006
+  related: []
+  provenance:
+    private_locator: 2.13.1/1
+    fingerprint: sha256:9af3a51cc43c2b75ff463cb5f5559c660db435585ff1792b23ff93a572fd67bc
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-017
+  type: definition
+  modality: is
+  normative: true
+  title: Hexadecimal integer literal
+  statement: 'A base-sixteen literal starts with 0x or 0X; every following character is a
+    hexadecimal digit.
 
-  - id: CPP03-2.13.1-011
-    type: definition
-    modality: is
-    normative: true
-    title: "Form of an integer literal"
-    statement: >
-      An integer literal is a sequence of digits with no period and no exponent
-      part.
-    subject: "integer literal"
-    condition: "any integer literal"
-    requirement: "consists of digits; contains no period and no exponent"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-001]
-    related: []
-    provenance:
-      private_locator: "2.13.1/1"
-      fingerprint: "sha256:6a98180089ab1016eac6e6962a53312c6b8ef2ed4794ab98cb2beb8552ae5b9d"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: hexadecimal integer literal
+  condition: any hexadecimal integer literal
+  requirement: prefix 0x or 0X; the rest are hexadecimal digits
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-004
+  - CPP03-2.13.1-007
+  related: []
+  provenance:
+    private_locator: 2.13.1/1
+    fingerprint: sha256:9af3a51cc43c2b75ff463cb5f5559c660db435585ff1792b23ff93a572fd67bc
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-018
+  type: definition
+  modality: is
+  normative: true
+  title: Values of hexadecimal digits
+  statement: 'Hexadecimal digits include the decimal digits and the Latin letters a through
+    f and A through F, which have decimal values ten through fifteen.
 
-  - id: CPP03-2.13.1-012
-    type: requirement
-    modality: may
-    normative: true
-    title: "Base prefix"
-    statement: "A base prefix is optional on an integer literal and selects the radix."
-    subject: "integer literal"
-    condition: "integer literal with a prefix"
-    requirement: "the prefix selects the radix"
-    exceptions: []
-    depends_on: []
-    related: [CPP03-2.13.1-015, CPP03-2.13.1-016, CPP03-2.13.1-017]
-    provenance:
-      private_locator: "2.13.1/1"
-      fingerprint: "sha256:6a98180089ab1016eac6e6962a53312c6b8ef2ed4794ab98cb2beb8552ae5b9d"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: hexadecimal-digit
+  condition: a letter hexadecimal-digit
+  requirement: a/A=10, b/B=11, c/C=12, d/D=13, e/E=14, f/F=15
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-007
+  related: []
+  provenance:
+    private_locator: 2.13.1/1
+    fingerprint: sha256:9af3a51cc43c2b75ff463cb5f5559c660db435585ff1792b23ff93a572fd67bc
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-019
+  type: informative_example
+  modality: informative
+  normative: false
+  title: 'Example: writing the number twelve'
+  statement: The number twelve can be written as 12, 014, or 0XC.
+  subject: integer literal
+  condition: the number twelve
+  requirement: 12, 014, and 0XC denote the same value
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.13.1-015
+  - CPP03-2.13.1-016
+  - CPP03-2.13.1-017
+  provenance:
+    private_locator: 2.13.1/1
+    fingerprint: sha256:9af3a51cc43c2b75ff463cb5f5559c660db435585ff1792b23ff93a572fd67bc
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-020
+  type: requirement
+  modality: is
+  normative: true
+  title: Type depends on form
+  statement: 'Type resolution for an integer literal uses three inputs: its spelling form,
+    its numeric value, and its suffix.
 
-  - id: CPP03-2.13.1-013
-    type: requirement
-    modality: may
-    normative: true
-    title: "Type suffix"
-    statement: "An integer literal may have a suffix that specifies its type."
-    subject: "integer literal"
-    condition: "integer literal with a suffix"
-    requirement: "the suffix specifies the type"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-008]
-    related: [CPP03-2.13.1-024, CPP03-2.13.1-025, CPP03-2.13.1-026]
-    provenance:
-      private_locator: "2.13.1/1"
-      fingerprint: "sha256:6a98180089ab1016eac6e6962a53312c6b8ef2ed4794ab98cb2beb8552ae5b9d"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: integer literal
+  condition: determining the type of an integer literal
+  requirement: form, value, and suffix are taken into account
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-021
+  - CPP03-2.13.1-023
+  - CPP03-2.13.1-024
+  - CPP03-2.13.1-025
+  - CPP03-2.13.1-026
+  related: []
+  provenance:
+    private_locator: 2.13.1/2
+    fingerprint: sha256:0dfb9d0bb9cc5e5252dbd95e4f021d9f55b742b222a27a6c105396b82bcd8da2
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-021
+  type: requirement
+  modality: is
+  normative: true
+  title: Type of an unsuffixed decimal literal
+  statement: 'An unsuffixed decimal integer literal has the first of the types int, long int
+    in which its value can be represented.
 
-  - id: CPP03-2.13.1-014
-    type: requirement
-    modality: is
-    normative: true
-    title: "Digit significance"
-    statement: "The lexically first digit of the sequence is the most significant."
-    subject: "integer literal"
-    condition: "any integer literal"
-    requirement: "the first digit is the most significant"
-    exceptions: []
-    depends_on: []
-    related: []
-    provenance:
-      private_locator: "2.13.1/1"
-      fingerprint: "sha256:6a98180089ab1016eac6e6962a53312c6b8ef2ed4794ab98cb2beb8552ae5b9d"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: decimal integer literal without suffix
+  condition: decimal, no suffix
+  requirement: the first representable type of int, long int
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-020
+  related:
+  - CPP03-2.13.1-022
+  provenance:
+    private_locator: 2.13.1/2
+    fingerprint: sha256:0dfb9d0bb9cc5e5252dbd95e4f021d9f55b742b222a27a6c105396b82bcd8da2
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-022
+  type: behavior_undefined
+  modality: undefined
+  normative: true
+  title: Overflow of an unsuffixed decimal literal
+  statement: 'If the value of an unsuffixed decimal integer literal cannot be represented
+    as long int, the behavior is undefined.
 
-  - id: CPP03-2.13.1-015
-    type: definition
-    modality: is
-    normative: true
-    title: "Decimal integer literal"
-    statement: >
-      A base-ten literal starts with a non-zero digit; every following
-      character is a decimal digit.
-    subject: "decimal integer literal"
-    condition: "any decimal integer literal"
-    requirement: "first digit is not 0; the rest are decimal digits"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-002, CPP03-2.13.1-005]
-    related: []
-    provenance:
-      private_locator: "2.13.1/1"
-      fingerprint: "sha256:6a98180089ab1016eac6e6962a53312c6b8ef2ed4794ab98cb2beb8552ae5b9d"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: decimal integer literal without suffix
+  condition: the value cannot be represented as long int
+  requirement: behavior is undefined
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-021
+  related:
+  - CPP03-2.13.1-027
+  provenance:
+    private_locator: 2.13.1/2
+    fingerprint: sha256:0dfb9d0bb9cc5e5252dbd95e4f021d9f55b742b222a27a6c105396b82bcd8da2
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-023
+  type: requirement
+  modality: is
+  normative: true
+  title: Type of an unsuffixed octal/hexadecimal literal
+  statement: 'An unsuffixed octal or hexadecimal integer literal has the first of the types
+    int, unsigned int, long int, unsigned long int in which its value can be represented.
 
-  - id: CPP03-2.13.1-016
-    type: definition
-    modality: is
-    normative: true
-    title: "Octal integer literal"
-    statement: >
-      A base-eight literal starts with 0; every following character is an
-      octal digit.
-    subject: "octal integer literal"
-    condition: "any octal integer literal"
-    requirement: "first digit is 0; the rest are octal digits"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-003, CPP03-2.13.1-006]
-    related: []
-    provenance:
-      private_locator: "2.13.1/1"
-      fingerprint: "sha256:6a98180089ab1016eac6e6962a53312c6b8ef2ed4794ab98cb2beb8552ae5b9d"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: octal or hexadecimal integer literal without suffix
+  condition: octal or hexadecimal, no suffix
+  requirement: the first representable type of int, unsigned int, long int, unsigned long
+    int
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-020
+  related: []
+  provenance:
+    private_locator: 2.13.1/2
+    fingerprint: sha256:0dfb9d0bb9cc5e5252dbd95e4f021d9f55b742b222a27a6c105396b82bcd8da2
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-024
+  type: requirement
+  modality: is
+  normative: true
+  title: Type of a literal with a u/U suffix
+  statement: 'An integer literal with a u or U suffix has the first of the types unsigned
+    int, unsigned long int in which its value can be represented.
 
-  - id: CPP03-2.13.1-017
-    type: definition
-    modality: is
-    normative: true
-    title: "Hexadecimal integer literal"
-    statement: >
-      A base-sixteen literal starts with 0x or 0X; every following character is
-      a hexadecimal digit.
-    subject: "hexadecimal integer literal"
-    condition: "any hexadecimal integer literal"
-    requirement: "prefix 0x or 0X; the rest are hexadecimal digits"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-004, CPP03-2.13.1-007]
-    related: []
-    provenance:
-      private_locator: "2.13.1/1"
-      fingerprint: "sha256:6a98180089ab1016eac6e6962a53312c6b8ef2ed4794ab98cb2beb8552ae5b9d"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: integer literal with u/U suffix
+  condition: suffix u or U
+  requirement: the first representable type of unsigned int, unsigned long int
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-020
+  related: []
+  provenance:
+    private_locator: 2.13.1/2
+    fingerprint: sha256:0dfb9d0bb9cc5e5252dbd95e4f021d9f55b742b222a27a6c105396b82bcd8da2
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-025
+  type: requirement
+  modality: is
+  normative: true
+  title: Type of a literal with an l/L suffix
+  statement: 'An integer literal with an l or L suffix has the first of the types long int,
+    unsigned long int in which its value can be represented.
 
-  - id: CPP03-2.13.1-018
-    type: definition
-    modality: is
-    normative: true
-    title: "Values of hexadecimal digits"
-    statement: >
-      Hexadecimal digits include the decimal digits and the Latin letters a
-      through f and A through F, which have decimal values ten through fifteen.
-    subject: "hexadecimal-digit"
-    condition: "a letter hexadecimal-digit"
-    requirement: "a/A=10, b/B=11, c/C=12, d/D=13, e/E=14, f/F=15"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-007]
-    related: []
-    provenance:
-      private_locator: "2.13.1/1"
-      fingerprint: "sha256:6a98180089ab1016eac6e6962a53312c6b8ef2ed4794ab98cb2beb8552ae5b9d"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: integer literal with l/L suffix
+  condition: suffix l or L
+  requirement: the first representable type of long int, unsigned long int
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-020
+  related: []
+  provenance:
+    private_locator: 2.13.1/2
+    fingerprint: sha256:0dfb9d0bb9cc5e5252dbd95e4f021d9f55b742b222a27a6c105396b82bcd8da2
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-026
+  type: requirement
+  modality: is
+  normative: true
+  title: Type of a literal with a combined suffix
+  statement: 'An integer literal with the suffix ul, lu, uL, Lu, Ul, lU, UL, or LU has type
+    unsigned long int.
 
-  - id: CPP03-2.13.1-019
-    type: informative_example
-    modality: informative
-    normative: false
-    title: "Example: writing the number twelve"
-    statement: "The number twelve can be written as 12, 014, or 0XC."
-    subject: "integer literal"
-    condition: "the number twelve"
-    requirement: "12, 014, and 0XC denote the same value"
-    exceptions: []
-    depends_on: []
-    related: [CPP03-2.13.1-015, CPP03-2.13.1-016, CPP03-2.13.1-017]
-    provenance:
-      private_locator: "2.13.1/1"
-      fingerprint: "sha256:6a98180089ab1016eac6e6962a53312c6b8ef2ed4794ab98cb2beb8552ae5b9d"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: integer literal with combined suffix
+  condition: suffix from the set ul, lu, uL, Lu, Ul, lU, UL, LU
+  requirement: type unsigned long int
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-020
+  related: []
+  provenance:
+    private_locator: 2.13.1/2
+    fingerprint: sha256:0dfb9d0bb9cc5e5252dbd95e4f021d9f55b742b222a27a6c105396b82bcd8da2
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-027
+  type: constraint
+  modality: shall_not
+  normative: true
+  title: An unrepresentable integer literal makes the program ill-formed
+  statement: 'A translation unit must not contain an integer literal whose value exceeds every
+    permitted type; otherwise the program is ill-formed.
 
-  - id: CPP03-2.13.1-020
-    type: requirement
-    modality: is
-    normative: true
-    title: "Type depends on form"
-    statement: >
-      Type resolution for an integer literal uses three inputs: its spelling
-      form, its numeric value, and its suffix.
-    subject: "integer literal"
-    condition: "determining the type of an integer literal"
-    requirement: "form, value, and suffix are taken into account"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-021, CPP03-2.13.1-023, CPP03-2.13.1-024, CPP03-2.13.1-025, CPP03-2.13.1-026]
-    related: []
-    provenance:
-      private_locator: "2.13.1/2"
-      fingerprint: "sha256:ed8c91c90bb4c99a274b14a1611f44f769541bf31267190973044d0b748ad4ce"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
-
-  - id: CPP03-2.13.1-021
-    type: requirement
-    modality: is
-    normative: true
-    title: "Type of an unsuffixed decimal literal"
-    statement: >
-      An unsuffixed decimal integer literal has the first of the types int,
-      long int in which its value can be represented.
-    subject: "decimal integer literal without suffix"
-    condition: "decimal, no suffix"
-    requirement: "the first representable type of int, long int"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-020]
-    related: [CPP03-2.13.1-022]
-    provenance:
-      private_locator: "2.13.1/2"
-      fingerprint: "sha256:ed8c91c90bb4c99a274b14a1611f44f769541bf31267190973044d0b748ad4ce"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
-
-  - id: CPP03-2.13.1-022
-    type: behavior_undefined
-    modality: undefined
-    normative: true
-    title: "Overflow of an unsuffixed decimal literal"
-    statement: >
-      If the value of an unsuffixed decimal integer literal cannot be
-      represented as long int, the behavior is undefined.
-    subject: "decimal integer literal without suffix"
-    condition: "the value cannot be represented as long int"
-    requirement: "behavior is undefined"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-021]
-    related: [CPP03-2.13.1-027]
-    provenance:
-      private_locator: "2.13.1/2"
-      fingerprint: "sha256:ed8c91c90bb4c99a274b14a1611f44f769541bf31267190973044d0b748ad4ce"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
-
-  - id: CPP03-2.13.1-023
-    type: requirement
-    modality: is
-    normative: true
-    title: "Type of an unsuffixed octal/hexadecimal literal"
-    statement: >
-      An unsuffixed octal or hexadecimal integer literal has the first of the
-      types int, unsigned int, long int, unsigned long int in which its value
-      can be represented.
-    subject: "octal or hexadecimal integer literal without suffix"
-    condition: "octal or hexadecimal, no suffix"
-    requirement: "the first representable type of int, unsigned int, long int, unsigned long int"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-020]
-    related: []
-    provenance:
-      private_locator: "2.13.1/2"
-      fingerprint: "sha256:ed8c91c90bb4c99a274b14a1611f44f769541bf31267190973044d0b748ad4ce"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
-
-  - id: CPP03-2.13.1-024
-    type: requirement
-    modality: is
-    normative: true
-    title: "Type of a literal with a u/U suffix"
-    statement: >
-      An integer literal with a u or U suffix has the first of the types
-      unsigned int, unsigned long int in which its value can be represented.
-    subject: "integer literal with u/U suffix"
-    condition: "suffix u or U"
-    requirement: "the first representable type of unsigned int, unsigned long int"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-020]
-    related: []
-    provenance:
-      private_locator: "2.13.1/2"
-      fingerprint: "sha256:ed8c91c90bb4c99a274b14a1611f44f769541bf31267190973044d0b748ad4ce"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
-
-  - id: CPP03-2.13.1-025
-    type: requirement
-    modality: is
-    normative: true
-    title: "Type of a literal with an l/L suffix"
-    statement: >
-      An integer literal with an l or L suffix has the first of the types
-      long int, unsigned long int in which its value can be represented.
-    subject: "integer literal with l/L suffix"
-    condition: "suffix l or L"
-    requirement: "the first representable type of long int, unsigned long int"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-020]
-    related: []
-    provenance:
-      private_locator: "2.13.1/2"
-      fingerprint: "sha256:ed8c91c90bb4c99a274b14a1611f44f769541bf31267190973044d0b748ad4ce"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
-
-  - id: CPP03-2.13.1-026
-    type: requirement
-    modality: is
-    normative: true
-    title: "Type of a literal with a combined suffix"
-    statement: >
-      An integer literal with the suffix ul, lu, uL, Lu, Ul, lU, UL, or LU has
-      type unsigned long int.
-    subject: "integer literal with combined suffix"
-    condition: "suffix from the set ul, lu, uL, Lu, Ul, lU, UL, LU"
-    requirement: "type unsigned long int"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-020]
-    related: []
-    provenance:
-      private_locator: "2.13.1/2"
-      fingerprint: "sha256:ed8c91c90bb4c99a274b14a1611f44f769541bf31267190973044d0b748ad4ce"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
-
-  - id: CPP03-2.13.1-027
-    type: constraint
-    modality: shall_not
-    normative: true
-    title: "An unrepresentable integer literal makes the program ill-formed"
-    statement: >
-      A translation unit must not contain an integer literal whose value
-      exceeds every permitted type; otherwise the program is ill-formed.
-    subject: "translation unit"
-    condition: "an integer literal cannot be represented by any allowed type"
-    requirement: "the program is ill-formed"
-    exceptions: []
-    depends_on: [CPP03-2.13.1-021, CPP03-2.13.1-023, CPP03-2.13.1-024, CPP03-2.13.1-025, CPP03-2.13.1-026]
-    related: []
-    provenance:
-      private_locator: "2.13.1/3"
-      fingerprint: "sha256:41e918c9e4c386f7bf25831fb4bca20b973b78778f08a38b00086dbbdc0e9679"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+    '
+  subject: translation unit
+  condition: an integer literal cannot be represented by any allowed type
+  requirement: the program is ill-formed
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.1-021
+  - CPP03-2.13.1-023
+  - CPP03-2.13.1-024
+  - CPP03-2.13.1-025
+  - CPP03-2.13.1-026
+  related: []
+  provenance:
+    private_locator: 2.13.1/3
+    fingerprint: sha256:41e918c9e4c386f7bf25831fb4bca20b973b78778f08a38b00086dbbdc0e9679
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft

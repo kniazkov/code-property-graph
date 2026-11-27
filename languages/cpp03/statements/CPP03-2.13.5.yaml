@@ -1,80 +1,83 @@
 schema_version: 1
 edition: N1638
-clause: "2.13.5"
-title: "Boolean literals"
+clause: 2.13.5
+title: Boolean literals
 statements:
-  - id: CPP03-2.13.5-001
-    type: grammar
-    modality: is
-    normative: true
-    title: "boolean-literal production"
-    statement: "boolean-literal is false or true."
-    subject: "boolean-literal"
-    condition: "any boolean-literal"
-    requirement: "false | true"
-    exceptions: []
-    depends_on: []
-    related: []
-    provenance:
-      private_locator: "2.13.5/grammar"
-      fingerprint: "sha256:28eddbc16d907b9fd589a6a189c61863fbbb465513d21acb7f5522ad2438f9cf"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
-
-  - id: CPP03-2.13.5-002
-    type: definition
-    modality: is
-    normative: true
-    title: "Boolean literals are keywords"
-    statement: "The Boolean literals are the keywords false and true."
-    subject: "boolean literal"
-    condition: "any boolean literal"
-    requirement: "false and true are keywords"
-    exceptions: []
-    depends_on: [CPP03-2.13.5-001]
-    related: [CPP03-2.13.5-003, CPP03-2.13.5-004]
-    provenance:
-      private_locator: "2.13.5/1"
-      fingerprint: "sha256:4e59b97361027031f2fea617cd7e2aa3aefc1a645801e01e0a6219fe8b1ce720"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
-
-  - id: CPP03-2.13.5-003
-    type: requirement
-    modality: is
-    normative: true
-    title: "Type of a boolean literal"
-    statement: "Boolean literals have type bool."
-    subject: "boolean literal"
-    condition: "any boolean literal"
-    requirement: "type bool"
-    exceptions: []
-    depends_on: [CPP03-2.13.5-002]
-    related: []
-    provenance:
-      private_locator: "2.13.5/1"
-      fingerprint: "sha256:4e59b97361027031f2fea617cd7e2aa3aefc1a645801e01e0a6219fe8b1ce720"
-      extracted_at: "2026-11-25"
-    verification: ["check:CPP03-2.13.5-003-ast-type"]
-    status: draft
-
-  - id: CPP03-2.13.5-004
-    type: requirement
-    modality: is_not
-    normative: true
-    title: "Boolean literals are not lvalues"
-    statement: "Boolean literals are not lvalues."
-    subject: "boolean literal"
-    condition: "any boolean literal"
-    requirement: "not an lvalue"
-    exceptions: []
-    depends_on: [CPP03-2.13.5-002]
-    related: []
-    provenance:
-      private_locator: "2.13.5/1"
-      fingerprint: "sha256:4e59b97361027031f2fea617cd7e2aa3aefc1a645801e01e0a6219fe8b1ce720"
-      extracted_at: "2026-11-25"
-    verification: []
-    status: draft
+- id: CPP03-2.13.5-001
+  type: grammar
+  modality: is
+  normative: true
+  title: boolean-literal production
+  statement: boolean-literal is false or true.
+  subject: boolean-literal
+  condition: any boolean-literal
+  requirement: false | true
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.5/grammar
+    fingerprint: sha256:1fd20e9b3d9257154a6f2af8f48d4763904a0bd63d98197c74ec775f58d0050c
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.5-002
+  type: definition
+  modality: is
+  normative: true
+  title: Boolean literals are keywords
+  statement: The Boolean literals are the keywords false and true.
+  subject: boolean literal
+  condition: any boolean literal
+  requirement: false and true are keywords
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.5-001
+  related:
+  - CPP03-2.13.5-003
+  - CPP03-2.13.5-004
+  provenance:
+    private_locator: 2.13.5/1
+    fingerprint: sha256:4e59b97361027031f2fea617cd7e2aa3aefc1a645801e01e0a6219fe8b1ce720
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft
+- id: CPP03-2.13.5-003
+  type: requirement
+  modality: is
+  normative: true
+  title: Type of a boolean literal
+  statement: Boolean literals have type bool.
+  subject: boolean literal
+  condition: any boolean literal
+  requirement: type bool
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.5-002
+  related: []
+  provenance:
+    private_locator: 2.13.5/1
+    fingerprint: sha256:4e59b97361027031f2fea617cd7e2aa3aefc1a645801e01e0a6219fe8b1ce720
+    extracted_at: '2026-11-25'
+  verification:
+  - check:CPP03-2.13.5-003-ast-type
+  status: draft
+- id: CPP03-2.13.5-004
+  type: requirement
+  modality: is_not
+  normative: true
+  title: Boolean literals are not lvalues
+  statement: Boolean literals are not lvalues.
+  subject: boolean literal
+  condition: any boolean literal
+  requirement: not an lvalue
+  exceptions: []
+  depends_on:
+  - CPP03-2.13.5-002
+  related: []
+  provenance:
+    private_locator: 2.13.5/1
+    fingerprint: sha256:4e59b97361027031f2fea617cd7e2aa3aefc1a645801e01e0a6219fe8b1ce720
+    extracted_at: '2026-11-25'
+  verification: []
+  status: draft

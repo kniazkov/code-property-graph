@@ -46,6 +46,7 @@ The build runs unit tests, Checkstyle, and the JaCoCo coverage gate.
 ```text
 python -m pip install -r tools/requirements.txt
 python tools/validate.py
+python tools/provenance_check.py
 python tools/coverage.py
 python tools/verify.py
 ```
@@ -67,4 +68,5 @@ C++03:
 - `docs/cpp03/PHASE1_REPORT.md` — clause inventory, partitioning, and coverage
   baseline.
 - `docs/cpp03/PHASE2_REPORT.md` — batch A statement extraction report.
+- `docs/cpp03/PHASE3_REPORT.md` — provenance verification report.
 - `docs/cpp03/PARSER_COVERAGE.md` — statement-to-test map for the literal parser.

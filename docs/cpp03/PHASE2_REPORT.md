@@ -29,11 +29,13 @@ statement of its subclause through `related`.
 
 Tables are stored as structured files under `languages/cpp03/tables/`:
 
-- `trigraph-sequences.yaml`
-- `alternative-tokens.yaml`
-- `keywords.yaml`
-- `alternative-representations.yaml`
-- `const-volatile-relations.yaml`
+| Table file | Content |
+| --- | --- |
+| `trigraph-sequences.yaml` | Trigraph replacements |
+| `alternative-tokens.yaml` | Alternative token spellings |
+| `keywords.yaml` | Reserved keyword identifiers |
+| `alternative-representations.yaml` | Reserved alternative spellings |
+| `const-volatile-relations.yaml` | Ordering of cv-qualifiers |
 
 Each table records its `source_statement`.
 

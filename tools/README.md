@@ -27,6 +27,14 @@ Validates every statement, check, and test against the JSON schemas, checks
 identifier uniqueness, and verifies `depends_on` and `related` references.
 
 ```text
+python tools/provenance_check.py [--private-map path]
+```
+
+Checks that every statement has a valid locator, SHA-256 fingerprint, and
+extraction date. With `--private-map` it also compares each statement against
+the private statement-to-source map.
+
+```text
 python tools/coverage.py [--strict]
 ```
 

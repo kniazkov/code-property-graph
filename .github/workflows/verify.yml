@@ -24,6 +24,7 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install -r tools/requirements.txt
       - run: python tools/validate.py
+      - run: python tools/provenance_check.py
       - run: python tools/coverage.py
       - run: python tools/verify.py
       - run: python tools/license_check.py --strict

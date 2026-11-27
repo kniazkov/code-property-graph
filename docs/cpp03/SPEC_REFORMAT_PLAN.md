@@ -116,13 +116,13 @@ review pass.
 
 ### Phase 3 — Provenance
 
-- [ ] Every statement has `private_locator`.
-- [ ] Every statement has `fingerprint`.
-- [ ] Every statement has `extracted_at`.
-- [ ] Locators use the agreed `<clause>/<paragraph>` or `<clause>/grammar` form.
-- [ ] Fingerprints are recomputed after any extraction fix.
-- [ ] The private statement-to-source map is updated.
-- [ ] No source text is present in the public files.
+- [x] Every statement has `private_locator`.
+- [x] Every statement has `fingerprint`.
+- [x] Every statement has `extracted_at`.
+- [x] Locators use the agreed `<clause>/<paragraph>` or `<clause>/grammar` form.
+- [x] Fingerprints are recomputed after any extraction fix.
+- [x] The private statement-to-source map is updated.
+- [x] No source text is present in the public files.
 
 ### Phase 4 — Checks and oracles
 

@@ -1,36 +1,36 @@
 schema_version: 1
 language: CPP03
 edition: N1638
-frozen_at: "2026-11-26"
-purpose: "Format reference for the 2.13.1, 2.13.2, and 2.13.5 pilot"
+frozen_at: '2026-11-26'
+purpose: Format reference for the 2.13.1, 2.13.2, and 2.13.5 pilot
 files:
-  - path: "languages/cpp03/language.yaml"
-    sha256: "a13139868c5ca40c0453abbd342e5148dda0f992f9fd43dc351a04cc64c7f70f"
-  - path: "languages/cpp03/statements/CPP03-2.13.1.yaml"
-    sha256: "d4e3eaf5523d885ed9ea81c08937ce8e826c8b95167fa000f5826978dfbc86bc"
-  - path: "languages/cpp03/statements/CPP03-2.13.2.yaml"
-    sha256: "760aa16a9cde18068d5b0e9efcdf8acbeae60dbcf33b52e1e037c079384627ff"
-  - path: "languages/cpp03/statements/CPP03-2.13.5.yaml"
-    sha256: "69416d72fe13dd73287d4d27cb570cc5e9cbbb817c031bfbfaf539a49032a10d"
-  - path: "languages/cpp03/grammar/cpp03-literals.ebnf"
-    sha256: "57a37a62e18451e500f592848a6fb27c56df0585c182e12cd57dd1a00f280e5e"
-  - path: "languages/cpp03/tables/escape-sequences.yaml"
-    sha256: "f068fd338dd477c379845e5573a8c95aa3f6747cd54a54d75dbf1b2f939d2636"
-  - path: "languages/cpp03/tables/execution-charset.yaml"
-    sha256: "22cde434461d87679009903e4a5300a678e132836b07dbf1dc756eca4ea2b520"
-  - path: "languages/cpp03/checks/CPP03-2.13.2-010-ast-type.yaml"
-    sha256: "8693cefd8a023d1f49e73b93b9474a487a91ffbaa03f91b2745a2c605c82ec72"
-  - path: "languages/cpp03/checks/CPP03-2.13.2-011-value-table.yaml"
-    sha256: "6fa9259af620657e0359de25e687f09beddf3a56e185dc584656ec884478c4df"
-  - path: "languages/cpp03/checks/CPP03-2.13.2-019-table.yaml"
-    sha256: "990caacc2765b83023ea673a8edfff46458d2238094bf41264be3e5e56e95188"
-  - path: "languages/cpp03/checks/CPP03-2.13.5-003-ast-type.yaml"
-    sha256: "8fc7ab022617e768ee414277d375481299dd083de3890b6b0ca4b896bc9e543f"
-  - path: "languages/cpp03/tests/lex/boolean-literal-type.yaml"
-    sha256: "54b14e3c61c3d4c9f0ead030502fedc51224f42283dd67012e9e46c8ba32496e"
-  - path: "languages/cpp03/tests/lex/char-literal-type.yaml"
-    sha256: "ba9e529785070bd7863bab800d46beec191c4725ac0f69bde41df4183b965449"
-  - path: "languages/cpp03/tests/lex/char-literal-value.yaml"
-    sha256: "8740a42ed0fdb67b5240a3049d02a3582c2f30f3e6994d4eb5dc8c088250848a"
-  - path: "languages/cpp03/tests/lex/integer-literal-type.yaml"
-    sha256: "bfb8721162fe58eac94e619ee5e82d3bb7440009d776b95423e611691d0d0fec"
+- path: languages/cpp03/language.yaml
+  sha256: a13139868c5ca40c0453abbd342e5148dda0f992f9fd43dc351a04cc64c7f70f
+- path: languages/cpp03/statements/CPP03-2.13.1.yaml
+  sha256: 98b2944ef372fd642ae9b025312738bbc052dae8b660356b78e4ad3f8b9d01a0
+- path: languages/cpp03/statements/CPP03-2.13.2.yaml
+  sha256: 5aeab331001fba95ba58d35fca3c638a3be9c25ee43d8597fda9012d1517c7ae
+- path: languages/cpp03/statements/CPP03-2.13.5.yaml
+  sha256: 2be338ae8111d9d53f5db211b5a347b46566fa1e84d0e17a2c54fe2809c2674e
+- path: languages/cpp03/grammar/cpp03-literals.ebnf
+  sha256: 57a37a62e18451e500f592848a6fb27c56df0585c182e12cd57dd1a00f280e5e
+- path: languages/cpp03/tables/escape-sequences.yaml
+  sha256: f068fd338dd477c379845e5573a8c95aa3f6747cd54a54d75dbf1b2f939d2636
+- path: languages/cpp03/tables/execution-charset.yaml
+  sha256: 22cde434461d87679009903e4a5300a678e132836b07dbf1dc756eca4ea2b520
+- path: languages/cpp03/checks/CPP03-2.13.2-010-ast-type.yaml
+  sha256: 8693cefd8a023d1f49e73b93b9474a487a91ffbaa03f91b2745a2c605c82ec72
+- path: languages/cpp03/checks/CPP03-2.13.2-011-value-table.yaml
+  sha256: 6fa9259af620657e0359de25e687f09beddf3a56e185dc584656ec884478c4df
+- path: languages/cpp03/checks/CPP03-2.13.2-019-table.yaml
+  sha256: 990caacc2765b83023ea673a8edfff46458d2238094bf41264be3e5e56e95188
+- path: languages/cpp03/checks/CPP03-2.13.5-003-ast-type.yaml
+  sha256: 8fc7ab022617e768ee414277d375481299dd083de3890b6b0ca4b896bc9e543f
+- path: languages/cpp03/tests/lex/boolean-literal-type.yaml
+  sha256: 54b14e3c61c3d4c9f0ead030502fedc51224f42283dd67012e9e46c8ba32496e
+- path: languages/cpp03/tests/lex/char-literal-type.yaml
+  sha256: ba9e529785070bd7863bab800d46beec191c4725ac0f69bde41df4183b965449
+- path: languages/cpp03/tests/lex/char-literal-value.yaml
+  sha256: 8740a42ed0fdb67b5240a3049d02a3582c2f30f3e6994d4eb5dc8c088250848a
+- path: languages/cpp03/tests/lex/integer-literal-type.yaml
+  sha256: bfb8721162fe58eac94e619ee5e82d3bb7440009d776b95423e611691d0d0fec
