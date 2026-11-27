@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-2.1-015-pending
+statement_id: CPP03-2.1-015
+kind: manual
+oracle: manual
+trust: low
+inputs:
+  reviewer: ivan.kniazkov
+  reason: requires a preprocessing pipeline
+  locator: 2.1/1
+expected:
+  pending_reason: requires a preprocessing pipeline
+negative_control:
+  mutate: remove the requirement
+  expected: fail
+evidence:
+- private_source_locator
+status: pending

@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-2.13.4-007-pending
+statement_id: CPP03-2.13.4-007
+kind: manual
+oracle: manual
+trust: low
+inputs:
+  reviewer: ivan.kniazkov
+  reason: requires a string-literal parser
+  locator: 2.13.4/5
+expected:
+  pending_reason: requires a string-literal parser
+negative_control:
+  mutate: remove the requirement
+  expected: fail
+evidence:
+- private_source_locator
+status: pending

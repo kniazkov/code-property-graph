@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-2.5-002-table
+statement_id: CPP03-2.5-002
+kind: table_driven
+oracle: spec_table
+trust: high
+inputs:
+  table: languages/cpp03/tables/alternative-tokens.yaml
+  locator: 2.5/2
+expected:
+  property: each alternative token matches its primary token
+negative_control:
+  mutate: map the alternative token and to ||
+  expected: fail
+evidence:
+- table_file
+- spec_table
+status: active

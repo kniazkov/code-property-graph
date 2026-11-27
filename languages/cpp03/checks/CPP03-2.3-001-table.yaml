@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-2.3-001-table
+statement_id: CPP03-2.3-001
+kind: table_driven
+oracle: spec_table
+trust: high
+inputs:
+  table: languages/cpp03/tables/trigraph-sequences.yaml
+  locator: 2.3/1
+expected:
+  property: each trigraph maps to its replacement
+negative_control:
+  mutate: change the replacement of ??= to !
+  expected: fail
+evidence:
+- table_file
+- spec_table
+status: active
