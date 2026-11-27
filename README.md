@@ -69,4 +69,5 @@ C++03:
   baseline.
 - `docs/cpp03/PHASE2_REPORT.md` — batch A statement extraction report.
 - `docs/cpp03/PHASE3_REPORT.md` — provenance verification report.
+- `docs/cpp03/PHASE4_REPORT.md` — clause 1 checks and oracles report.
 - `docs/cpp03/PARSER_COVERAGE.md` — statement-to-test map for the literal parser.

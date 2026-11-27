@@ -1,0 +1,20 @@
+schema_version: 1
+check_id: CPP03-1.9-002-pending
+statement_id: CPP03-1.9-002
+kind: manual
+oracle: manual
+trust: low
+inputs:
+  reviewer: ivan.kniazkov
+  scope: conformance
+  locator: 1.9/1
+  reason: requires a runtime execution model
+expected:
+  pending_reason: requires a runtime execution model
+negative_control:
+  mutate: remove the requirement
+  expected: fail
+evidence:
+- private_source_locator
+- reviewer_sign_off
+status: pending

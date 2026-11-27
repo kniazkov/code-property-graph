@@ -135,6 +135,9 @@ review pass.
 - [ ] Never waive a normative statement: every one must end with a check.
 - [ ] Verify that no statement is checked only by a compiler.
 
+Progress: clause 1 has 79 checks (60 active manual, 19 pending). Clauses 2-3
+and later batches remain.
+
 ### Phase 5 — Tests
 
 - [ ] Create a test manifest per check.

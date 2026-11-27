@@ -25,11 +25,26 @@ def main() -> int:
             check.get("statement_id")
             for _, check in load_checks(language)
         }
+        active = {
+            check.get("statement_id")
+            for _, check in load_checks(language)
+            if check.get("status", "active") == "active"
+        }
         normative = [statement for statement in statements if statement.get("normative") is True]
         covered = [
             statement
             for statement in normative
             if statement["id"] in checked or statement.get("verification")
+        ]
+        active_covered = [
+            statement
+            for statement in normative
+            if statement["id"] in active or statement.get("verification")
+        ]
+        pending = [
+            statement
+            for statement in covered
+            if statement["id"] not in active and not statement.get("verification")
         ]
         uncovered = [
             statement
@@ -42,8 +57,11 @@ def main() -> int:
             "statements": len(statements),
             "normative": len(normative),
             "covered": len(covered),
+            "active": len(active_covered),
+            "pending": len(pending),
             "uncovered": len(uncovered),
             "uncovered_ids": [statement["id"] for statement in uncovered],
+            "pending_ids": [statement["id"] for statement in pending],
         }
         target = REPORTS_DIR / language.name / "coverage.json"
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -51,7 +69,8 @@ def main() -> int:
 
         print(
             f"{language.name}: {report['covered']}/{report['normative']} normative "
-            f"statements covered, {report['uncovered']} uncovered"
+            f"statements covered ({report['active']} active, {report['pending']} pending), "
+            f"{report['uncovered']} uncovered"
         )
         print(f"  report: {relative(target)}")
 

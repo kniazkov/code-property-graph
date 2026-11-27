@@ -1,0 +1,19 @@
+schema_version: 1
+check_id: CPP03-1.8-007-manual
+statement_id: CPP03-1.8-007
+kind: manual
+oracle: manual
+trust: medium
+inputs:
+  reviewer: ivan.kniazkov
+  scope: definition
+  locator: 1.8/1
+expected:
+  meaning_matches_source: true
+negative_control:
+  mutate: replace the defined term with a contradictory definition
+  expected: fail
+evidence:
+- private_source_locator
+- reviewer_sign_off
+status: active
