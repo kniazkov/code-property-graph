@@ -1,0 +1,21 @@
+schema_version: 1
+check_id: CPP03-2.13.2-013-ast
+statement_id: CPP03-2.13.2-013
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '''ab'''
+  locator: 2.13.2/1
+expected:
+  ast:
+    kind: CharacterLiteral
+    type: int
+negative_control:
+  mutate: choose char for 'ab'
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

@@ -1,0 +1,23 @@
+schema_version: 1
+check_id: CPP03-2.13.2-027-ast
+statement_id: CPP03-2.13.2-027
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '''\101a'''
+  locator: 2.13.2/4
+expected:
+  ast:
+    kind: CharacterLiteral
+    cchars:
+    - \101
+    - a
+negative_control:
+  mutate: consume a as an octal digit
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

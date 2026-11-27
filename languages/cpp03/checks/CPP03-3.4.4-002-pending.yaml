@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-3.4.4-002-pending
+statement_id: CPP03-3.4.4-002
+kind: manual
+oracle: manual
+trust: low
+inputs:
+  reviewer: ivan.kniazkov
+  reason: requires name-lookup analysis
+  locator: 3.4.4/2
+expected:
+  pending_reason: requires name-lookup analysis
+negative_control:
+  mutate: remove the requirement
+  expected: fail
+evidence:
+- private_source_locator
+status: pending

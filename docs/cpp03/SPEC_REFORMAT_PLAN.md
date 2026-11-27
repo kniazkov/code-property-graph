@@ -126,17 +126,18 @@ review pass.
 
 ### Phase 4 — Checks and oracles
 
-- [ ] Map each statement type to a check kind.
-- [ ] Prefer `spec_table`, `independent_grammar`, and `independent_evaluator`.
-- [ ] Use `compiler` only as a secondary oracle.
-- [ ] Add a negative control for every check.
-- [ ] Record trust level.
-- [ ] Mark checks that need parser support as `pending` with a reason.
-- [ ] Never waive a normative statement: every one must end with a check.
-- [ ] Verify that no statement is checked only by a compiler.
+- [x] Map each statement type to a check kind.
+- [x] Prefer `spec_table`, `independent_grammar`, and `independent_evaluator`.
+- [x] Use `compiler` only as a secondary oracle.
+- [x] Add a negative control for every check.
+- [x] Record trust level.
+- [x] Mark checks that need parser support as `pending` with a reason.
+- [x] Never waive a normative statement: every one must end with a check.
+- [x] Verify that no statement is checked only by a compiler.
 
-Progress: clauses 1-2 have 142 checks (73 active, 69 pending). Clause 3 and
-later batches remain.
+Progress: batch A has 349 checks for 349 normative statements (140 active,
+209 pending). Pending checks are activated as the parser and analysis layers
+grow.
 
 ### Phase 5 — Tests
 

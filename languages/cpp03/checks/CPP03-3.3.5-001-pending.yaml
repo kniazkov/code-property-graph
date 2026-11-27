@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-3.3.5-001-pending
+statement_id: CPP03-3.3.5-001
+kind: manual
+oracle: manual
+trust: low
+inputs:
+  reviewer: ivan.kniazkov
+  reason: requires scope and name-hiding analysis
+  locator: 3.3.5/1
+expected:
+  pending_reason: requires scope and name-hiding analysis
+negative_control:
+  mutate: remove the requirement
+  expected: fail
+evidence:
+- private_source_locator
+status: pending

@@ -1,0 +1,22 @@
+schema_version: 1
+check_id: CPP03-2.13.2-007-ast
+statement_id: CPP03-2.13.2-007
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '''\x41'''
+  - source: '''\x000041'''
+  locator: 2.13.2/grammar
+expected:
+  ast:
+    kind: CharacterLiteral
+    value: '65'
+negative_control:
+  mutate: reject \x41
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

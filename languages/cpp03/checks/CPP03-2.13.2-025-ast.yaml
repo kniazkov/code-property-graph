@@ -1,0 +1,21 @@
+schema_version: 1
+check_id: CPP03-2.13.2-025-ast
+statement_id: CPP03-2.13.2-025
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '''\x41'''
+  locator: 2.13.2/4
+expected:
+  ast:
+    kind: CharacterLiteral
+    value: '65'
+negative_control:
+  mutate: read \x41 as decimal 41
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

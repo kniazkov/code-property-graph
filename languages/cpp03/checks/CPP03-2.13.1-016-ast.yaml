@@ -1,0 +1,22 @@
+schema_version: 1
+check_id: CPP03-2.13.1-016-ast
+statement_id: CPP03-2.13.1-016
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '052'
+  locator: 2.13.1/1
+expected:
+  ast:
+    kind: IntegerLiteral
+    radix: 8
+    value: '42'
+negative_control:
+  mutate: treat 052 as decimal
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

@@ -1,0 +1,21 @@
+schema_version: 1
+check_id: CPP03-2.13.2-016-ast
+statement_id: CPP03-2.13.2-016
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: L'a'
+  locator: 2.13.2/2
+expected:
+  ast:
+    kind: CharacterLiteral
+    type: wchar_t
+negative_control:
+  mutate: choose char for L'a'
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

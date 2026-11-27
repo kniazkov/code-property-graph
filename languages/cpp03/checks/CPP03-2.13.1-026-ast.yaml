@@ -1,0 +1,23 @@
+schema_version: 1
+check_id: CPP03-2.13.1-026-ast
+statement_id: CPP03-2.13.1-026
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: 42ul
+  - source: 42lu
+  - source: 42UL
+  locator: 2.13.1/2
+expected:
+  ast:
+    kind: IntegerLiteral
+    type: unsigned long int
+negative_control:
+  mutate: choose long int for 42ul
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

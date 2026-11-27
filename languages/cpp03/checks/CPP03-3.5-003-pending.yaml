@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-3.5-003-pending
+statement_id: CPP03-3.5-003
+kind: manual
+oracle: manual
+trust: low
+inputs:
+  reviewer: ivan.kniazkov
+  reason: requires linkage analysis
+  locator: 3.5/3
+expected:
+  pending_reason: requires linkage analysis
+negative_control:
+  mutate: remove the requirement
+  expected: fail
+evidence:
+- private_source_locator
+status: pending

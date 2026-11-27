@@ -1,0 +1,22 @@
+schema_version: 1
+check_id: CPP03-2.13.1-008-ast
+statement_id: CPP03-2.13.1-008
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: 42u
+  - source: 42L
+  - source: 42ul
+  locator: 2.13.1/grammar
+expected:
+  ast:
+    kind: IntegerLiteral
+negative_control:
+  mutate: reject 42ul
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

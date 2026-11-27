@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-3.10-007-pending
+statement_id: CPP03-3.10-007
+kind: manual
+oracle: manual
+trust: low
+inputs:
+  reviewer: ivan.kniazkov
+  reason: requires value-category analysis
+  locator: 3.10/13
+expected:
+  pending_reason: requires value-category analysis
+negative_control:
+  mutate: remove the requirement
+  expected: fail
+evidence:
+- private_source_locator
+status: pending

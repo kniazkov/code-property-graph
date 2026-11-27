@@ -1,0 +1,21 @@
+schema_version: 1
+check_id: CPP03-2.13.2-021-ast
+statement_id: CPP03-2.13.2-021
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '''\'''''
+  - source: '''\\'''
+  locator: 2.13.2/3
+expected:
+  ast:
+    kind: CharacterLiteral
+negative_control:
+  mutate: accept an unescaped single quote
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

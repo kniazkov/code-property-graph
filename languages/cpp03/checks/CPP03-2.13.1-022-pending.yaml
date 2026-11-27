@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-2.13.1-022-pending
+statement_id: CPP03-2.13.1-022
+kind: manual
+oracle: manual
+trust: low
+inputs:
+  reviewer: ivan.kniazkov
+  reason: requires an implementation-defined overflow model
+  locator: 2.13.1/2
+expected:
+  pending_reason: requires an implementation-defined overflow model
+negative_control:
+  mutate: remove the requirement
+  expected: fail
+evidence:
+- private_source_locator
+status: pending

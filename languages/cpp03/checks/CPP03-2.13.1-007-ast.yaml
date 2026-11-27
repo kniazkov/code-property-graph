@@ -1,0 +1,23 @@
+schema_version: 1
+check_id: CPP03-2.13.1-007-ast
+statement_id: CPP03-2.13.1-007
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '0x0'
+  - source: '0xF'
+  - source: '0xa'
+  locator: 2.13.1/grammar
+expected:
+  ast:
+    kind: IntegerLiteral
+    radix: 16
+negative_control:
+  mutate: reject 0xF
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

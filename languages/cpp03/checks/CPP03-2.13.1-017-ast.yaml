@@ -1,0 +1,22 @@
+schema_version: 1
+check_id: CPP03-2.13.1-017-ast
+statement_id: CPP03-2.13.1-017
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '0x2A'
+  locator: 2.13.1/1
+expected:
+  ast:
+    kind: IntegerLiteral
+    radix: 16
+    value: '42'
+negative_control:
+  mutate: treat 0x2A as decimal
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

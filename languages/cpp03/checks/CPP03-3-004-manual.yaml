@@ -1,0 +1,19 @@
+schema_version: 1
+check_id: CPP03-3-004-manual
+statement_id: CPP03-3-004
+kind: manual
+oracle: manual
+trust: medium
+inputs:
+  reviewer: ivan.kniazkov
+  scope: definition
+  locator: 3/6
+expected:
+  meaning_matches_source: true
+negative_control:
+  mutate: replace the statement with a contradictory one
+  expected: fail
+evidence:
+- private_source_locator
+- reviewer_sign_off
+status: active

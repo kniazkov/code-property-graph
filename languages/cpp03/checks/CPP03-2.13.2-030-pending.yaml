@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-2.13.2-030-pending
+statement_id: CPP03-2.13.2-030
+kind: manual
+oracle: manual
+trust: low
+inputs:
+  reviewer: ivan.kniazkov
+  reason: missing universal-character-name encodings are implementation-defined
+  locator: 2.13.2/5
+expected:
+  pending_reason: missing universal-character-name encodings are implementation-defined
+negative_control:
+  mutate: remove the requirement
+  expected: fail
+evidence:
+- private_source_locator
+status: pending

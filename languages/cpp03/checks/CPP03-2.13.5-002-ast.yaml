@@ -1,0 +1,21 @@
+schema_version: 1
+check_id: CPP03-2.13.5-002-ast
+statement_id: CPP03-2.13.5-002
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: 'true'
+  - source: 'false'
+  locator: 2.13.5/1
+expected:
+  ast:
+    kind: BooleanLiteral
+negative_control:
+  mutate: treat true as an identifier
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

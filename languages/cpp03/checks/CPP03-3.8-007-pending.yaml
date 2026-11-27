@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-3.8-007-pending
+statement_id: CPP03-3.8-007
+kind: manual
+oracle: manual
+trust: low
+inputs:
+  reviewer: ivan.kniazkov
+  reason: requires a runtime or implementation model
+  locator: 3.8/9
+expected:
+  pending_reason: requires a runtime or implementation model
+negative_control:
+  mutate: remove the requirement
+  expected: fail
+evidence:
+- private_source_locator
+status: pending

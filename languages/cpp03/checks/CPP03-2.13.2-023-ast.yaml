@@ -1,0 +1,22 @@
+schema_version: 1
+check_id: CPP03-2.13.2-023-ast
+statement_id: CPP03-2.13.2-023
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '''\n'''
+  - source: '''\101'''
+  - source: '''\x41'''
+  locator: 2.13.2/3
+expected:
+  ast:
+    kind: CharacterLiteral
+negative_control:
+  mutate: let one escape produce two characters
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

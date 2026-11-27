@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-2.13.2-014-pending
+statement_id: CPP03-2.13.2-014
+kind: manual
+oracle: manual
+trust: low
+inputs:
+  reviewer: ivan.kniazkov
+  reason: value of a multicharacter literal is implementation-defined
+  locator: 2.13.2/1
+expected:
+  pending_reason: value of a multicharacter literal is implementation-defined
+negative_control:
+  mutate: remove the requirement
+  expected: fail
+evidence:
+- private_source_locator
+status: pending

@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-3.9.1-006-pending
+statement_id: CPP03-3.9.1-006
+kind: manual
+oracle: manual
+trust: low
+inputs:
+  reviewer: ivan.kniazkov
+  reason: requires type-system analysis
+  locator: 3.9.1/6
+expected:
+  pending_reason: requires type-system analysis
+negative_control:
+  mutate: remove the requirement
+  expected: fail
+evidence:
+- private_source_locator
+status: pending
