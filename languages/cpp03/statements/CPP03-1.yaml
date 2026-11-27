@@ -764,7 +764,8 @@ statements:
   requirement: describe the language
   exceptions: []
   depends_on: []
-  related: []
+  related:
+  - CPP03-1.6-001
   provenance:
     private_locator: 1.5/1
     fingerprint: sha256:7ae6808ba158f828d1cce46fbf1d9267a8124750cb1fa45d76e1d25f995729b2
@@ -973,7 +974,8 @@ statements:
   requirement: is described in 3.9
   exceptions: []
   depends_on: []
-  related: []
+  related:
+  - CPP03-3.9-001
   provenance:
     private_locator: 1.7/2
     fingerprint: sha256:965883857ea49585c7a566f8d0d7e1b5b4de560bb67e2532f59fdf9160b7eb12
@@ -1753,6 +1755,266 @@ statements:
   provenance:
     private_locator: 1.10/1
     fingerprint: sha256:7b954092045d6fe49c92e534747722414fa533f560df634374f2c8815250d06e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.12-801
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 1 in 1.3.12
+  statement: An informative note in 1.3.12 (undefined behavior) clarifies the rules stated
+    in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 1.3.12
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.3.12-001
+  provenance:
+    private_locator: 1.3.12/note:1
+    fingerprint: sha256:4b79bfd417a157ab1dce317fdb66ed74a5362a325bc72f905fa36c3f2948158b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.3.13-801
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 1 in 1.3.13
+  statement: An informative note in 1.3.13 (unspecified behavior) clarifies the rules stated
+    in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 1.3.13
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.3.13-001
+  provenance:
+    private_locator: 1.3.13/note:1
+    fingerprint: sha256:b588c78a797b688269de10b954e96e5f24909212f607d3f4a577c6615d77fbae
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.5-901
+  type: informative_example
+  modality: informative
+  normative: false
+  title: Example 1 in 1.5
+  statement: An informative example in 1.5 (Structure of this International Standard) illustrates
+    the rules stated in that subclause.
+  subject: example
+  condition: always
+  requirement: illustrates 1.5
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.5-006
+  provenance:
+    private_locator: 1.5/example:1
+    fingerprint: sha256:d19376fe61fd2bcbd7e799fc55179fc749be942f076dd8a39879a3e8e987524c
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.5-801
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 1 in 1.5
+  statement: An informative note in 1.5 (Structure of this International Standard) clarifies
+    the rules stated in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 1.5
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.5-006
+  provenance:
+    private_locator: 1.5/note:1
+    fingerprint: sha256:a56c6b7beb37d798af653c48fa3edadac06508f7777c1597a59759e941ff9813
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.7-801
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 1 in 1.7
+  statement: An informative note in 1.7 (The C++ memory model) clarifies the rules stated
+    in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 1.7
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.7-001
+  provenance:
+    private_locator: 1.7/note:1
+    fingerprint: sha256:965883857ea49585c7a566f8d0d7e1b5b4de560bb67e2532f59fdf9160b7eb12
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-801
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 1 in 1.8
+  statement: An informative note in 1.8 (The C++ object model) clarifies the rules stated
+    in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 1.8
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.8-001
+  provenance:
+    private_locator: 1.8/note:1
+    fingerprint: sha256:ecf8b4fb8366e5a8fe0a5531fdd1df962abc4bc776f1afa0d203056c2bde088d
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.8-802
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 2 in 1.8
+  statement: An informative note in 1.8 (The C++ object model) clarifies the rules stated
+    in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 1.8
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.8-001
+  provenance:
+    private_locator: 1.8/note:2
+    fingerprint: sha256:54d4afdff359102e1d41e2ded904a809094d45c754d32d1ead36b72efdb5239b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-801
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 1 in 1.9
+  statement: An informative note in 1.9 (Program execution) clarifies the rules stated in
+    that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 1.9
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.9-001
+  provenance:
+    private_locator: 1.9/note:1
+    fingerprint: sha256:aa1c0a4e7bd6c22f37b623f5e76518ff8f506f6de504aa9c893880e33eea620f
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-802
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 2 in 1.9
+  statement: An informative note in 1.9 (Program execution) clarifies the rules stated in
+    that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 1.9
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.9-001
+  provenance:
+    private_locator: 1.9/note:2
+    fingerprint: sha256:a20bc242a1809b3d9ddbfce9882ac2cd9e8d31f1ea479ef3c8d8e3e264b58ec7
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-901
+  type: informative_example
+  modality: informative
+  normative: false
+  title: Example 1 in 1.9
+  statement: An informative example in 1.9 (Program execution) illustrates the rules stated
+    in that subclause.
+  subject: example
+  condition: always
+  requirement: illustrates 1.9
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.9-001
+  provenance:
+    private_locator: 1.9/example:1
+    fingerprint: sha256:00dd4506c7b4733dd0b80ec2503ae162ffcd2a90ffd1bc70af0e0b931c1e82da
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-803
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 3 in 1.9
+  statement: An informative note in 1.9 (Program execution) clarifies the rules stated in
+    that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 1.9
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.9-001
+  provenance:
+    private_locator: 1.9/note:3
+    fingerprint: sha256:49a8c29b31fbfd1d6a60c6e2818793aa381b27bd775ea78fb775e3ccc829bd20
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-804
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 4 in 1.9
+  statement: An informative note in 1.9 (Program execution) clarifies the rules stated in
+    that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 1.9
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.9-001
+  provenance:
+    private_locator: 1.9/note:4
+    fingerprint: sha256:bbf897f998030669d40dd19b50de6b0b311426e09608b9d0ae7a793d1b915d64
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-1.9-902
+  type: informative_example
+  modality: informative
+  normative: false
+  title: Example 2 in 1.9
+  statement: An informative example in 1.9 (Program execution) illustrates the rules stated
+    in that subclause.
+  subject: example
+  condition: always
+  requirement: illustrates 1.9
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-1.9-001
+  provenance:
+    private_locator: 1.9/example:2
+    fingerprint: sha256:581931d43e72aeebd3b09760d9acc7a01787049d69de44d9bfaca84e9c504692
     extracted_at: '2026-11-27'
   verification: []
   status: draft

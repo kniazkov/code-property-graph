@@ -1,0 +1,39 @@
+schema_version: 1
+table: alternative-tokens
+edition: N1638
+source_statement: CPP03-2.5-002
+entries:
+  - alternative: "<%"
+    primary: "{"
+  - alternative: "%>"
+    primary: "}"
+  - alternative: "<:"
+    primary: "["
+  - alternative: ":>"
+    primary: "]"
+  - alternative: "%:"
+    primary: "#"
+  - alternative: "%:%:"
+    primary: "##"
+  - alternative: and
+    primary: "&&"
+  - alternative: bitor
+    primary: "|"
+  - alternative: or
+    primary: "||"
+  - alternative: xor
+    primary: "^"
+  - alternative: compl
+    primary: "~"
+  - alternative: bitand
+    primary: "&"
+  - alternative: and_eq
+    primary: "&="
+  - alternative: or_eq
+    primary: "|="
+  - alternative: xor_eq
+    primary: "^="
+  - alternative: not
+    primary: "!"
+  - alternative: not_eq
+    primary: "!="

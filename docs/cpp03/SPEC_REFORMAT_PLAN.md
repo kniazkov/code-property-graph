@@ -99,17 +99,20 @@ For each subclause:
 - [x] Extract requirements with `shall`, `shall not`, and `may`.
 - [x] Extract constraints and diagnosable rules.
 - [x] Extract undefined, implementation-defined, and unspecified behavior.
-- [ ] Extract table rows as `table_row` statements or table files.
-- [ ] Extract examples as `informative_example`.
-- [ ] Extract notes as `informative_note`.
-- [ ] Extract cross-references into `depends_on` and `related`.
+- [x] Extract table rows as `table_row` statements or table files.
+- [x] Extract examples as `informative_example`.
+- [x] Extract notes as `informative_note`.
+- [x] Extract cross-references into `depends_on` and `related`.
 - [x] Atomize compound sentences.
 - [x] Assign IDs.
 - [x] Add provenance.
 - [x] Set `status: draft`.
 
-Batch A (clauses 1-3) is extracted: 308 new statements. Table rows,
-examples, notes, and cross-reference links remain for a follow-up pass.
+Batch A (clauses 1-3) is extracted: 308 normative statements plus 119
+informative example/note statements. Tables are stored as table files under
+`languages/cpp03/tables/`. Explicit numeric references populate `related`;
+broader candidate clause references remain in `clause-map.yaml` for a semantic
+review pass.
 
 ### Phase 3 — Provenance
 

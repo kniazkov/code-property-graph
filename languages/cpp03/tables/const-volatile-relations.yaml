@@ -1,0 +1,15 @@
+schema_version: 1
+table: const-volatile-relations
+edition: N1638
+source_statement: CPP03-3.9.3-004
+entries:
+  - less: no-cv-qualifier
+    greater: const
+  - less: no-cv-qualifier
+    greater: volatile
+  - less: no-cv-qualifier
+    greater: const-volatile
+  - less: const
+    greater: const-volatile
+  - less: volatile
+    greater: const-volatile

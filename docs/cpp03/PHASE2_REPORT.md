@@ -1,23 +1,41 @@
 # Phase 2 report — extraction (batch A)
 
 Date: 2026-11-27  
-Status: batch A normative extraction complete; examples, notes, table rows, and
-cross-reference links remain for a follow-up pass.  
+Status: batch A extraction complete.  
 Plan: `docs/cpp03/SPEC_REFORMAT_PLAN.md`, Phase 2
 
 ## Completed work
 
 Batch A covers clauses 1, 2, and 3. Extraction produced three statement files:
 
-| File | Clause | Statements | Normative |
-| --- | --- | ---: | ---: |
-| `languages/cpp03/statements/CPP03-1.yaml` | 1 General | 92 | 79 |
-| `languages/cpp03/statements/CPP03-2.yaml` | 2 Lexical conventions | 68 | 63 |
-| `languages/cpp03/statements/CPP03-3.yaml` | 3 Basic concepts | 148 | 147 |
-| **Total new** | | **308** | **289** |
+| File | Clause | Statements | Normative | Informative |
+| --- | --- | ---: | ---: | ---: |
+| `languages/cpp03/statements/CPP03-1.yaml` | 1 General | 105 | 79 | 26 |
+| `languages/cpp03/statements/CPP03-2.yaml` | 2 Lexical conventions | 84 | 63 | 21 |
+| `languages/cpp03/statements/CPP03-3.yaml` | 3 Basic concepts | 238 | 147 | 91 |
+| **Total new** | | **427** | **289** | **138** |
 
 With the 62 pilot statements from 2.13.1, 2.13.2, and 2.13.5, the repository now
-contains 370 statements, of which 349 are normative.
+contains 489 statements, of which 349 are normative.
+
+### Informative statements
+
+Examples and notes are represented as `informative_example` and
+`informative_note` statements with their own private locators and fingerprints.
+Batch A adds 119 such statements. Each one links to the first normative
+statement of its subclause through `related`.
+
+### Tables
+
+Tables are stored as structured files under `languages/cpp03/tables/`:
+
+- `trigraph-sequences.yaml`
+- `alternative-tokens.yaml`
+- `keywords.yaml`
+- `alternative-representations.yaml`
+- `const-volatile-relations.yaml`
+
+Each table records its `source_statement`.
 
 ### Statement kinds
 
@@ -64,18 +82,15 @@ statements are recorded honestly.
 
 ## Verification results
 
-- `tools/validate.py`: passed; 370 statements, 4 checks, 4 tests.
+- `tools/validate.py`: passed; 489 statements, 4 checks, 4 tests.
 - `tools/coverage.py`: 4/349 normative statements covered.
 - `tools/verify.py`: 4 checks, 4 tests, 1 check without a test.
 - `tools/license_check.py --strict`: no verbatim matches.
 
 ## Remaining for batch A
 
-- [ ] Extract table rows as `table_row` statements or table files.
-- [ ] Extract every example as an `informative_example` statement.
-- [ ] Extract every note as an `informative_note` statement.
-- [ ] Populate `depends_on` and `related` from the candidate references in
-      `clause-map.yaml`.
+- [ ] Review the candidate clause references in `clause-map.yaml` and promote
+      the genuine dependencies into `depends_on`.
 - [ ] Add checks and tests in Phases 4 and 5.
 
 ## Notes on granularity
@@ -84,5 +99,5 @@ statements are recorded honestly.
 - Clause 3 was extracted at subclause granularity for closely related
   paragraphs, while keeping distinct requirements and behaviors separate.
 - Grammar productions in clause 2 are one statement per production group.
-- Examples and notes were captured selectively where they clarify a rule; an
-  exhaustive pass remains.
+- Example and note statements are inventory-level summaries that point to the
+  private source; they do not reproduce the example or note text.

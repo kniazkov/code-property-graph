@@ -1,0 +1,16 @@
+schema_version: 1
+table: alternative-representations
+edition: N1638
+source_statement: CPP03-2.11-002
+entries:
+  - name: and
+  - name: and_eq
+  - name: bitand
+  - name: bitor
+  - name: compl
+  - name: not
+  - name: not_eq
+  - name: or
+  - name: or_eq
+  - name: xor
+  - name: xor_eq

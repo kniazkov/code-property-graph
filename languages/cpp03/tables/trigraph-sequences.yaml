@@ -1,0 +1,23 @@
+schema_version: 1
+table: trigraph-sequences
+edition: N1638
+source_statement: CPP03-2.3-001
+entries:
+  - trigraph: "??="
+    replacement: "#"
+  - trigraph: "??/"
+    replacement: "\\"
+  - trigraph: "??'"
+    replacement: "^"
+  - trigraph: "??("
+    replacement: "["
+  - trigraph: "??)"
+    replacement: "]"
+  - trigraph: "??!"
+    replacement: "|"
+  - trigraph: "??<"
+    replacement: "{"
+  - trigraph: "??>"
+    replacement: "}"
+  - trigraph: "??-"
+    replacement: "~"

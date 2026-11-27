@@ -1303,3 +1303,319 @@ statements:
     extracted_at: '2026-11-27'
   verification: []
   status: draft
+- id: CPP03-2-801
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 1 in 2
+  statement: An informative note in 2 (Lexical conventions) clarifies the rules stated in
+    that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 2
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2-001
+  provenance:
+    private_locator: 2/note:1
+    fingerprint: sha256:8b46f0bd15f7a14564060ab0c9e6fba29990e6fab779e1a98482c9b48b11ca87
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2-802
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 2 in 2
+  statement: An informative note in 2 (Lexical conventions) clarifies the rules stated in
+    that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 2
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2-001
+  provenance:
+    private_locator: 2/note:2
+    fingerprint: sha256:e3555e0bde1eba46b2ad5102d39961f789daa4e1c0cc1c0f3f473916f790c083
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-901
+  type: informative_example
+  modality: informative
+  normative: false
+  title: Example 1 in 2.1
+  statement: An informative example in 2.1 (Phases of translation) illustrates the rules stated
+    in that subclause.
+  subject: example
+  condition: always
+  requirement: illustrates 2.1
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.1-001
+  provenance:
+    private_locator: 2.1/example:1
+    fingerprint: sha256:c5da3292f5fa1760767157a0ca96462605dd16689d74fa823012d88bb45dce87
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-801
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 1 in 2.1
+  statement: An informative note in 2.1 (Phases of translation) clarifies the rules stated
+    in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 2.1
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.1-001
+  provenance:
+    private_locator: 2.1/note:1
+    fingerprint: sha256:03dc297abc12be1cfe9afcd23f6d4669cb9d44be9eecd19a921240ec5862828d
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-802
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 2 in 2.1
+  statement: An informative note in 2.1 (Phases of translation) clarifies the rules stated
+    in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 2.1
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.1-001
+  provenance:
+    private_locator: 2.1/note:2
+    fingerprint: sha256:4c2f248c2ffddfa4621caf2e88c56cc9025d8d4d3dd2e1bd9e4701ac0cc55f0a
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-803
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 3 in 2.1
+  statement: An informative note in 2.1 (Phases of translation) clarifies the rules stated
+    in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 2.1
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.1-001
+  provenance:
+    private_locator: 2.1/note:3
+    fingerprint: sha256:5066d1a502bc26888666c711a6c58a89c192e61ddd386256dbe6b725f6a92ed9
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-804
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 4 in 2.1
+  statement: An informative note in 2.1 (Phases of translation) clarifies the rules stated
+    in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 2.1
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.1-001
+  provenance:
+    private_locator: 2.1/note:4
+    fingerprint: sha256:91e7380678ab997b5f69920bbf0250656051b51f4c132a0049174559de1dbe9b
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.1-805
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 5 in 2.1
+  statement: An informative note in 2.1 (Phases of translation) clarifies the rules stated
+    in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 2.1
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.1-001
+  provenance:
+    private_locator: 2.1/note:5
+    fingerprint: sha256:2da5bf2d190fbc06ad345618f9ce8c226389fcf68d5e72209e2cfec2fd67c002
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.3-901
+  type: informative_example
+  modality: informative
+  normative: false
+  title: Example 1 in 2.3
+  statement: An informative example in 2.3 (Trigraph sequences) illustrates the rules stated
+    in that subclause.
+  subject: example
+  condition: always
+  requirement: illustrates 2.3
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.3-001
+  provenance:
+    private_locator: 2.3/example:1
+    fingerprint: sha256:f7cbc5c2b69a67bd0acad67df28e794681e6ac4740d9e8caac7a8b852f209d13
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.4-901
+  type: informative_example
+  modality: informative
+  normative: false
+  title: Example 1 in 2.4
+  statement: An informative example in 2.4 (Preprocessing tokens) illustrates the rules stated
+    in that subclause.
+  subject: example
+  condition: always
+  requirement: illustrates 2.4
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.4-001
+  provenance:
+    private_locator: 2.4/example:1
+    fingerprint: sha256:8727a1f9addbe9e22e68203c70f01e598cdb760a0491d0177637c17bf936921e
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.4-902
+  type: informative_example
+  modality: informative
+  normative: false
+  title: Example 2 in 2.4
+  statement: An informative example in 2.4 (Preprocessing tokens) illustrates the rules stated
+    in that subclause.
+  subject: example
+  condition: always
+  requirement: illustrates 2.4
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.4-001
+  provenance:
+    private_locator: 2.4/example:2
+    fingerprint: sha256:e0392dd130918faab463c00d15a427d2c79ea3c6f2c23889aa3e7724748bda81
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.6-801
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 1 in 2.6
+  statement: An informative note in 2.6 (Tokens) clarifies the rules stated in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 2.6
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.6-001
+  provenance:
+    private_locator: 2.6/note:1
+    fingerprint: sha256:117a1b92a337d3eb0880c3c1fb18cc8883480cae5f0f01ec8a3582b965a02b87
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.7-801
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 1 in 2.7
+  statement: An informative note in 2.7 (Comments) clarifies the rules stated in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 2.7
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.7-001
+  provenance:
+    private_locator: 2.7/note:1
+    fingerprint: sha256:6c28000461a8680d7e0bfa24effb145ffdbad258d1b3f08c7fb6fcfedd80abe0
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.1-901
+  type: informative_example
+  modality: informative
+  normative: false
+  title: Example 1 in 2.13.1
+  statement: An informative example in 2.13.1 (Integer literals) illustrates the rules stated
+    in that subclause.
+  subject: example
+  condition: always
+  requirement: illustrates 2.13.1
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.1/example:1
+    fingerprint: sha256:6c54bf513e4a28bf3e46fb50c4f609108fab06951f56db6240c63545295f1ba8
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.2-801
+  type: informative_note
+  modality: informative
+  normative: false
+  title: Note 1 in 2.13.2
+  statement: An informative note in 2.13.2 (Character literals) clarifies the rules stated
+    in that subclause.
+  subject: note
+  condition: always
+  requirement: illustrates 2.13.2
+  exceptions: []
+  depends_on: []
+  related: []
+  provenance:
+    private_locator: 2.13.2/note:1
+    fingerprint: sha256:054a379300e14a74319a0713c80aa95c0ef28ed54b4694f7861237ddc558a6cb
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
+- id: CPP03-2.13.4-901
+  type: informative_example
+  modality: informative
+  normative: false
+  title: Example 1 in 2.13.4
+  statement: An informative example in 2.13.4 (String literals) illustrates the rules stated
+    in that subclause.
+  subject: example
+  condition: always
+  requirement: illustrates 2.13.4
+  exceptions: []
+  depends_on: []
+  related:
+  - CPP03-2.13.4-001
+  provenance:
+    private_locator: 2.13.4/example:1
+    fingerprint: sha256:418ba9900390c3383deeae11895461b3ce6e2ba182b45d16ded2acc4940e3881
+    extracted_at: '2026-11-27'
+  verification: []
+  status: draft
