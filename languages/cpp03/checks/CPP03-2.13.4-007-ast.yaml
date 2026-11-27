@@ -1,0 +1,25 @@
+schema_version: 1
+check_id: CPP03-2.13.4-007-ast
+statement_id: CPP03-2.13.4-007
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '"\n\t\\\""'
+expected:
+  ast:
+    kind: StringLiteral
+    chars:
+    - 10
+    - 9
+    - 92
+    - 34
+    - 0
+negative_control:
+  mutate: leave the escape sequences unexpanded
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

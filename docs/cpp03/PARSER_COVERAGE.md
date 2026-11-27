@@ -47,6 +47,25 @@ The grammar productions 001–010 are exercised by the same parsing tests.
 | 027 | an octal/hex sequence stops at the first non-digit | `statement_025_hexadecimalEscapesUseOneOrMoreDigits` |
 | 029 | universal-character-name is translated | `statement_029_universalCharacterNamesAreTranslated` |
 
+## Floating literals (CPP03-2.13.3)
+
+| Statement | Requirement | Test |
+| --- | --- | --- |
+| 001 | floating-literal grammar | `FloatingLiteralParserTest.parsesDecimalPoint` |
+| 002 | integer part, point, fraction, exponent | `parsesLeadingAndTrailingDot` |
+| 003 | type is `double`, `float`, or `long double` | `parsesFloatSuffix`, `parsesLongDoubleSuffix` |
+| 005 | an out-of-range literal is rejected | `rejectsOutOfRangeValues` |
+
+## String literals (CPP03-2.13.4)
+
+| Statement | Requirement | Test |
+| --- | --- | --- |
+| 001 | string-literal grammar | `StringLiteralParserTest.parsesNarrowString` |
+| 002 | array type and static storage duration | `parsesNarrowString`, `parsesWideString` |
+| 006 | a terminating null is appended | `parsesNarrowString` |
+| 007 | escapes and universal-character-names | `parsesSimpleEscapes`, `parsesOctalHexAndUniversalEscapes` |
+| 008 | string literal size | `parsesNarrowString` |
+
 ## Boolean literals (CPP03-2.13.5)
 
 | Statement | Requirement | Test |
@@ -64,3 +83,9 @@ The grammar productions 001–010 are exercised by the same parsing tests.
 - 2.13.2-030: universal-character-names without an execution encoding.
 - 2.13.1-022: the parser rejects an unrepresentable decimal literal instead of
   modelling undefined behavior.
+- 2.13.3-004: floating-literal rounding is implementation-defined.
+- 2.13.4-003: whether string literals are distinct objects is
+  implementation-defined.
+- 2.13.4-004: modifying a string literal has undefined behavior.
+- 2.13.4-005: adjacent string literal concatenation is a phase 6 rule and is
+  not part of single-literal parsing.

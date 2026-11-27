@@ -3,7 +3,9 @@ package com.kniazkov.cpg.parser.cpp;
 import com.kniazkov.cpg.tree.Expression;
 import com.kniazkov.cpg.tree.cpp.CppBooleanLiteral;
 import com.kniazkov.cpg.tree.cpp.CppCharacterLiteral;
+import com.kniazkov.cpg.tree.cpp.CppFloatingLiteral;
 import com.kniazkov.cpg.tree.cpp.CppIntegerLiteral;
+import com.kniazkov.cpg.tree.cpp.CppStringLiteral;
 import com.kniazkov.cpg.tree.cpp.CppType;
 import org.junit.jupiter.api.Test;
 
@@ -53,6 +55,18 @@ class LiteralParserTest {
     void dispatchesIntegerLiterals() {
         assertInstanceOf(CppIntegerLiteral.class, new LiteralParser().parse("42"));
         assertInstanceOf(CppIntegerLiteral.class, new LiteralParser().parse("1"));
+    }
+
+    @Test
+    void dispatchesFloatingLiterals() {
+        assertInstanceOf(CppFloatingLiteral.class, new LiteralParser().parse("1.0"));
+        assertInstanceOf(CppFloatingLiteral.class, new LiteralParser().parse("1e3"));
+    }
+
+    @Test
+    void dispatchesStringLiterals() {
+        assertInstanceOf(CppStringLiteral.class, new LiteralParser().parse("\"a\""));
+        assertInstanceOf(CppStringLiteral.class, new LiteralParser().parse("L\"a\""));
     }
 
     @Test

@@ -13,24 +13,25 @@ now have a check.
 | Group | Normative | Checks | Active | Pending |
 | --- | ---: | ---: | ---: | ---: |
 | 1 General | 79 | 79 | 60 | 19 |
-| 2 Lexical conventions | 63 | 63 | 13 | 50 |
+| 2 Lexical conventions | 63 | 63 | 22 | 41 |
 | 3 Basic concepts | 147 | 147 | 14 | 133 |
 | Literal pilot (`2.13.x`) | 60 | 60 | 53 | 7 |
-| **Total** | **349** | **349** | **140** | **209** |
+| **Total** | **349** | **349** | **149** | **200** |
 
 ## Check kinds
 
 | Kind | Oracle | Trust | Status | Count |
 | --- | --- | --- | --- | ---: |
 | manual | manual | medium | active | 82 |
-| manual | manual | low | pending | 209 |
-| parser_ast | spec_rule | high | active | 50 |
+| manual | manual | low | pending | 200 |
+| parser_ast | spec_rule | high | active | 58 |
+| parser_diagnostic | spec_rule | high | active | 1 |
 | table_driven | spec_table | high | active | 8 |
 
 The eight table checks cover trigraph replacement, the absence of other
 trigraphs, alternative-token equivalence, keywords, alternative
-representations, and the cv-qualifier ordering. The 50 parser checks cover
-integer, character, and boolean literals.
+representations, and the cv-qualifier ordering. The 59 parser checks cover
+integer, floating, character, string, and boolean literals.
 
 ## Check design
 
@@ -45,7 +46,7 @@ integer, character, and boolean literals.
 ## Coverage
 
 ```text
-cpp03: 349/349 normative statements covered (140 active, 209 pending), 0 uncovered
+cpp03: 349/349 normative statements covered (149 active, 200 pending), 0 uncovered
 ```
 
 ## Files
@@ -60,13 +61,13 @@ cpp03: 349/349 normative statements covered (140 active, 209 pending), 0 uncover
 ## Verification results
 
 - `tools/validate.py`: passed; 489 statements, 349 checks, 4 tests.
-- `tools/coverage.py`: 349/349 covered (140 active, 209 pending).
+- `tools/coverage.py`: 349/349 covered (149 active, 200 pending).
 - `tools/verify.py`: 349 checks, 4 tests, 345 checks without tests.
 - `tools/license_check.py --strict`: no verbatim matches.
 
 ## Remaining
 
-- [ ] Implement the preprocessing pipeline, lexer, semantic analysis, and
-      runtime model to activate the 209 pending checks.
+- [ ] Implement the preprocessing pipeline, lexer, and semantic analysis to
+      activate the 200 pending checks.
 - [ ] Add test manifests in Phase 5.
 - [ ] Review check quality in Phase 6.

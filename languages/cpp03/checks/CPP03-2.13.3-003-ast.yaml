@@ -1,0 +1,23 @@
+schema_version: 1
+check_id: CPP03-2.13.3-003-ast
+statement_id: CPP03-2.13.3-003
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '3.14'
+  - source: 3.14f
+  - source: 3.14l
+expected:
+  types:
+  - double
+  - float
+  - long double
+negative_control:
+  mutate: give 3.14f the type double
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

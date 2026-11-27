@@ -11,7 +11,12 @@ public enum CppType {
     UNSIGNED_INT("unsigned int"),
     LONG_INT("long int"),
     UNSIGNED_LONG_INT("unsigned long int"),
-    BOOL("bool");
+    BOOL("bool"),
+    FLOAT("float"),
+    DOUBLE("double"),
+    LONG_DOUBLE("long double"),
+    CHAR_ARRAY("array of const char"),
+    WCHAR_T_ARRAY("array of const wchar_t");
 
     private final String displayName;
 

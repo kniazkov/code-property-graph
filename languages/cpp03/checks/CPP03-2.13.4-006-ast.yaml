@@ -1,0 +1,24 @@
+schema_version: 1
+check_id: CPP03-2.13.4-006-ast
+statement_id: CPP03-2.13.4-006
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '"abc"'
+expected:
+  ast:
+    kind: StringLiteral
+    chars:
+    - 97
+    - 98
+    - 99
+    - 0
+negative_control:
+  mutate: omit the terminating null
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

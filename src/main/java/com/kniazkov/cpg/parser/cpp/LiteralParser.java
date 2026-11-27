@@ -6,7 +6,9 @@ import com.kniazkov.cpg.tree.Position;
 import com.kniazkov.cpg.tree.Source;
 import com.kniazkov.cpg.tree.cpp.CppBooleanLiteral;
 import com.kniazkov.cpg.tree.cpp.CppCharacterLiteral;
+import com.kniazkov.cpg.tree.cpp.CppFloatingLiteral;
 import com.kniazkov.cpg.tree.cpp.CppIntegerLiteral;
+import com.kniazkov.cpg.tree.cpp.CppStringLiteral;
 import com.kniazkov.cpg.tree.cpp.CppType;
 
 import java.math.BigInteger;
@@ -16,17 +18,23 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
- * Parses a single C++03 literal: integer, character, or boolean.
+ * Parses a single C++03 literal: integer, floating, character, string, or
+ * boolean.
  *
  * <p>The parser implements the literal subset described by statements
- * CPP03-2.13.1, CPP03-2.13.2, and CPP03-2.13.5. It accepts one literal with
- * optional surrounding whitespace and returns an immutable expression node.</p>
+ * CPP03-2.13.1, CPP03-2.13.2, CPP03-2.13.3, CPP03-2.13.4, and CPP03-2.13.5.
+ * It accepts one literal with optional surrounding whitespace and returns an
+ * immutable expression node.</p>
  */
 public final class LiteralParser {
 
     private static final Set<String> INTEGER_SUFFIXES = Set.of("", "u", "l", "ul", "lu");
+
+    private static final Pattern FLOATING_BODY = Pattern.compile(
+            "^(?:\\d+\\.\\d*|\\.\\d+|\\d+)(?:[eE][+-]?\\d+)?$");
 
     private static final Map<Character, Integer> SIMPLE_ESCAPES = Map.ofEntries(
             Map.entry('\'', 39),
@@ -73,6 +81,9 @@ public final class LiteralParser {
         if (trimmed.isEmpty()) {
             throw new ParseException("empty literal", 0);
         }
+        if (trimmed.charAt(0) == '"' || isWideStringLiteral(trimmed)) {
+            return parseString(trimmed);
+        }
         if (trimmed.charAt(0) == '\'' || isWideCharacterLiteral(trimmed)) {
             return parseCharacter(trimmed);
         }
@@ -82,7 +93,32 @@ public final class LiteralParser {
         if (trimmed.equals("false")) {
             return new CppBooleanLiteral(fragment(trimmed), false);
         }
+        if (isFloating(trimmed)) {
+            return parseFloating(trimmed);
+        }
         return parseInteger(trimmed);
+    }
+
+    private static boolean isWideStringLiteral(String text) {
+        return text.length() >= 2 && text.charAt(0) == 'L' && text.charAt(1) == '"';
+    }
+
+    private static boolean isFloating(String text) {
+        if (text.startsWith("0x") || text.startsWith("0X")) {
+            return false;
+        }
+        int end = text.length();
+        char last = text.charAt(end - 1);
+        if (last == 'f' || last == 'F' || last == 'l' || last == 'L') {
+            end--;
+        }
+        for (int index = 0; index < end; index++) {
+            char ch = text.charAt(index);
+            if (ch == '.' || ch == 'e' || ch == 'E') {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isWideCharacterLiteral(String text) {
@@ -95,6 +131,69 @@ public final class LiteralParser {
                 source,
                 new Position(0, 1, 1),
                 new Position(text.length(), 1, text.length() + 1));
+    }
+
+    private Expression parseFloating(String text) {
+        char first = text.charAt(0);
+        if (first == '+' || first == '-') {
+            throw new ParseException("floating literal must not have a sign", 0);
+        }
+        int suffixStart = text.length();
+        char last = text.charAt(suffixStart - 1);
+        if (last == 'f' || last == 'F' || last == 'l' || last == 'L') {
+            suffixStart--;
+        }
+        String suffix = text.substring(suffixStart).toLowerCase(Locale.ROOT);
+        String body = text.substring(0, suffixStart);
+        if (!FLOATING_BODY.matcher(body).matches()) {
+            throw new ParseException("invalid floating literal", 0);
+        }
+        double value = Double.parseDouble(body);
+        if (Double.isInfinite(value)) {
+            throw new ParseException("floating literal out of range", 0);
+        }
+        CppType type;
+        if (suffix.equals("f")) {
+            type = CppType.FLOAT;
+        } else if (suffix.equals("l")) {
+            type = CppType.LONG_DOUBLE;
+        } else {
+            type = CppType.DOUBLE;
+        }
+        return new CppFloatingLiteral(fragment(text), text, value, suffix, type);
+    }
+
+    private Expression parseString(String text) {
+        boolean wide = text.charAt(0) == 'L';
+        int quote = wide ? 1 : 0;
+        if (text.length() < quote + 2 || text.charAt(text.length() - 1) != '"') {
+            throw new ParseException("malformed string literal", 0);
+        }
+        String body = text.substring(quote + 1, text.length() - 1);
+        List<Integer> chars = parseSChars(body);
+        chars.add(0);
+        CppType type = wide ? CppType.WCHAR_T_ARRAY : CppType.CHAR_ARRAY;
+        return new CppStringLiteral(fragment(text), text, wide, chars, type);
+    }
+
+    private static List<Integer> parseSChars(String body) {
+        List<Integer> codes = new ArrayList<>();
+        int index = 0;
+        while (index < body.length()) {
+            char ch = body.charAt(index);
+            if (ch == '\\') {
+                Escape escape = parseEscape(body, index + 1);
+                codes.add(escape.code());
+                index = escape.next();
+            } else {
+                if (ch == '"' || ch == '\n' || ch == '\r') {
+                    throw new ParseException("invalid character in string literal", index);
+                }
+                codes.add((int) ch);
+                index++;
+            }
+        }
+        return codes;
     }
 
     private Expression parseInteger(String text) {

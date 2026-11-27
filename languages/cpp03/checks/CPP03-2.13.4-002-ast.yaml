@@ -1,0 +1,21 @@
+schema_version: 1
+check_id: CPP03-2.13.4-002-ast
+statement_id: CPP03-2.13.4-002
+kind: parser_ast
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: '"abc"'
+  - source: L"abc"
+expected:
+  types:
+  - array of const char
+  - array of const wchar_t
+negative_control:
+  mutate: give L"abc" the type array of const char
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active

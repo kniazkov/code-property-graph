@@ -1,0 +1,18 @@
+schema_version: 1
+check_id: CPP03-2.13.3-005-ast
+statement_id: CPP03-2.13.3-005
+kind: parser_diagnostic
+oracle: spec_rule
+trust: high
+inputs:
+  cases:
+  - source: 1e999
+expected:
+  diagnostic: floating literal out of range
+negative_control:
+  mutate: accept 1e999
+  expected: fail
+evidence:
+- parser_version
+- ast_dump
+status: active
